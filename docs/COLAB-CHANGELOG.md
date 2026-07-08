@@ -1,0 +1,1021 @@
+# WLO/TSKR — Changelog de colaboración en vivo
+
+Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
+(pizarra, tareas, chat, notas, scrum). Orden cronológico inverso.
+
+> Sin guiones largos por regla del proyecto. Cada entrada: fecha, ticket, qué
+> cambió, archivos, deploy.
+
+---
+
+## 2026-07-05: Planeación del equipo (renombre + puente de contexto)
+
+Auditoría: el equipo tiene un tablero (Scrum/Kanban) y cada proyecto tiene otro
+tablero (vista Tablero/Kanban). Ambos se llamaban "Tablero", lo que se leía
+redundante. El modelo de datos es coherente (estilo Linear: metodología y
+sprints viven a nivel EQUIPO, agregando tareas de todos sus proyectos), pero la
+UI reflejaba dos altitudes con el mismo nombre y el mismo lenguaje visual. Se
+arregla como problema de PRESENTACIÓN, sin tocar datos ni migración.
+
+### Opción 1: "Tablero" del equipo pasa a "Planeación"
+Para que "Tablero" deje de significar dos cosas, los puntos de entrada al
+tablero del equipo (`/scrum`) se renombran; la vista Tablero del proyecto queda
+igual.
+- `sidebar/NavSection.tsx`: enlace del equipo "Tablero" -> "Planeación".
+- `t/[teamSlug]/page.tsx`: botón primario "Ir al Tablero" -> "Ir a Planeación".
+- `p/[projectSlug]/page.tsx`: botón "Tablero del equipo" -> "Planeación del
+  equipo" (label + `title`).
+
+### Opción 2: puente de contexto cuando el equipo tiene 1 solo proyecto
+Con un único proyecto, Planeación y el tablero del proyecto se ven casi iguales.
+No se oculta la Planeación (los sprints/flujo siguen aportando valor), pero se
+añade una nota que aclara la diferencia y enlaza al proyecto.
+- `t/[teamSlug]/scrum/page.tsx`: la consulta de proyectos ahora trae `slug`;
+  arma `soloProject = { name, href }` cuando hay exactamente 1 proyecto y lo pasa
+  a `ScrumWorkspace`.
+- `ScrumWorkspace.tsx`: nueva prop opcional `soloProject`, propagada a
+  `BoardView`. Bajo el banner de modo, si `!multiProject && soloProject`, muestra
+  una línea: "Planeación del equipo: organiza el trabajo en sprints (o gestiona
+  el flujo continuo). El detalle por estados vive en el tablero del proyecto." +
+  enlace al proyecto (icono `ArrowUpRight`).
+
+### Deploy
+`wlo-l8x6eo2co` (Ready). tsc limpio, `next build` OK.
+
+---
+
+## 2026-07-05: Iconos de proyecto sin emojis (lucide)
+
+El selector "Icono" al crear proyecto usaba emojis (rechazados por regla del
+proyecto). Migrado a iconos lucide con un registro compartido para que TODAS las
+superficies rendericen igual y los proyectos viejos con emoji guardado caigan a
+un icono limpio (`Hash`).
+
+### Nuevo `src/lib/project-icons.tsx`
+- `PROJECT_ICONS`: 12 iconos lucide con clave estable + etiqueta en español
+  (clipboard, rocket, lightbulb, target, wrench, chart, palette, flask, phone,
+  globe, zap, building).
+- `DEFAULT_PROJECT_ICON = 'clipboard'`.
+- `<ProjectIcon icon={clave} size className />`: render por clave, cae a `Hash`
+  para claves desconocidas o emojis heredados (así los proyectos viejos ya no
+  muestran emoji).
+
+### Cambios
+- `NewProjectForm.tsx`: el picker ahora pinta iconos lucide y guarda la CLAVE;
+  default `clipboard`; `title`/`aria-label`/`aria-pressed` por accesibilidad.
+- `api/projects/route.ts` y `api/projects/[projectId]/route.ts`: `icon` zod
+  `max(4)` -> `max(24)` (las claves son mas largas que un emoji); default de
+  creacion `'clipboard'` en vez de emoji. Columna `icon` es `text`, sin cambio
+  de esquema.
+- Render migrado a `<ProjectIcon />` en: `sidebar/NavSection.tsx`,
+  `t/[teamSlug]/page.tsx`, `t/[teamSlug]/p/[projectSlug]/page.tsx`,
+  `command-palette/CommandPalette.tsx` (se quito el `sublabel` que mostraba el
+  emoji). Imports `Hash` sueltos removidos donde ya no se usan.
+- Marketplace/ManageProject/CV cargan `icon` en data pero no lo renderizan: sin
+  cambios ahi. Los iconos de NOTAS son otra feature, fuera de alcance.
+
+Aditivo, sin migracion. `npx tsc --noEmit` EXIT 0, `npx next build` EXIT 0.
+
+---
+
+## 2026-07-04 (P0): Visibilidad de proyecto en el Tablero del equipo
+
+El Tablero (Scrum/Kanban) es de EQUIPO y junta tareas de TODOS los proyectos del
+equipo, pero no se veía a qué proyecto pertenecía cada tarjeta. P0 lo resuelve
+100% en el cliente: el server ya envía `project_id` y `project_name` por tarea,
+así que cero migración, cero API nueva, todo ADITIVO. Sin emojis (iconos lucide),
+sin guiones largos, ñ/tildes correctas. `npx tsc --noEmit` EXIT 0 y
+`npx next build` EXIT 0 (gate ESLint).
+
+### Cambios (`src/components/scrum/ScrumWorkspace.tsx`, único archivo)
+- Chip de proyecto en cada tarjeta: cuadrito de color + nombre del proyecto.
+  Solo aparece si el equipo tiene mas de un proyecto (`multiProject`) y cuando no
+  se está agrupando ya por proyecto (evita ruido redundante).
+- Paleta estable `PROJECT_COLORS` (10 colores) asignada por índice al set de
+  proyectos ordenado por nombre, vía memo `projectColor` (mismo color siempre
+  para el mismo proyecto en toda la vista: chip, carril, pill de filtro).
+- Nuevo agrupar en carriles por Proyecto (`groupBy === 'project'`): botón en el
+  segmento de agrupación (icono `Layers`), solo visible con `multiProject`. El
+  encabezado del carril muestra el cuadrito de color del proyecto.
+- Filtro por proyecto: pills con color, multi-selección (`pickProject` Set),
+  junto a los filtros de persona/Vencidas/Sin asignar. "Limpiar" ahora también
+  resetea `pickProject`.
+- El filtro por proyecto entra en el memo `visible` y en el booleano
+  `filtering`; se respeta drag-and-drop, presencia, orden y demás estado cliente.
+
+Deploy: pendiente en esta entrada (se despliega junto con este commit).
+
+---
+
+## 2026-07-04 (R2): Conv C - Jerarquía proyectos/equipos + tableros visibles
+
+Sin deploy (avisa al deployer). Todo ADITIVO, sin migraciones. Solo mis 5
+archivos dueños; no toqué Sidebar, ScrumWorkspace, MiDia (de B) ni ProjectsBoard
+(cliente no propiedad: se envolvió, no se editó). Sin emojis (iconos lucide),
+sin guiones largos, ñ/tildes correctas. `npx tsc --noEmit` EXIT 0 (árbol
+completo, ya sin el error `Timer` que reportó Conv B).
+
+### C1 - Team page lidera con el Tablero (`t/[teamSlug]/page.tsx`)
+- Botón PRIMARIO "Ir al Tablero" (`LayoutDashboard`) a `/t/[teamSlug]/scrum` en
+  el header; "Nuevo proyecto" degradado a secundario (borde) con `Plus`.
+- Breadcrumb claro Workspace / Equipo.
+- Arreglado el emoji fallback (antes `{project.icon ?? '📋'}`): ahora icono
+  lucide `Hash` cuando el proyecto no tiene icono.
+- Tarjetas de proyecto muestran el "trabajo real": conteo de tareas activas por
+  proyecto (`ListChecks` + `n tareas`), query barata `tasks` filtrada por
+  `project_id in (...)` y `is_archived=false`, reducida a un Map en el server.
+
+### C2 - Marketplace vs workspace claros
+- `projects/page.tsx`: banner "Oportunidades internas: postúlate a proyectos
+  abiertos" (`Compass`) que diferencia el marketplace del trabajo diario. Se
+  añadió envolviendo `<ProjectsBoard/>` (no se editó el componente cliente).
+- `projects/[projectId]/page.tsx`: back-link renombrado a "Oportunidades"
+  (alineado con Conv A) + CTA "Ir al espacio del proyecto" (`LayoutDashboard`)
+  a `/w/{ws}/t/{team}/p/{proj}`, solo visible si el proyecto ya tiene equipo y
+  slug (select extendido con `slug, team:teams(slug)`).
+
+### C3 - Project workspace enlaza al Tablero del equipo
+- `t/[teamSlug]/p/[projectSlug]/page.tsx`: link "Tablero del equipo"
+  (`LayoutDashboard`) a `/t/[teamSlug]/scrum` en el header, junto al switcher de
+  vistas. Además, mismo fix de icono `Hash` en el título cuando no hay `icon`.
+
+### C4 - Home: acceso directo a tableros de equipos
+- `w/[workspaceSlug]/page.tsx`: cada tarjeta de equipo pasó de `<Link>` único a
+  `<div>` con dos enlaces hermanos (evita anidar Links): título -> página del
+  equipo, y botón "Tablero" (`LayoutDashboard`) -> `/t/[slug]/scrum`. MiDia se
+  renderiza igual (archivo de B, no modificado).
+
+---
+
+## 2026-07-04 (R2): Conv B - Calendario sin ruido + actividades WLO
+
+Sin deploy (regla de oro: avisa al deployer). Todo ADITIVO, sin migraciones.
+Seguridad estándar en la API: `applyRateLimit`, `createClient` auth (401),
+`createAdminClient`, zod `.strict()`. Archivos dueños de Conv B; no se tocaron
+archivos de A ni C.
+
+Estado `npx tsc --noEmit`: mis 4 archivos compilan limpios. El único error del
+árbol está en `t/[teamSlug]/page.tsx` (Conv C): usa `Timer` (línea 125) sin
+importarlo de `lucide-react`; fuera de mi propiedad, no lo toco. Ver aviso al
+deployer.
+
+### B1 - Nuevo endpoint `GET /api/activities?from=&to=`
+- `src/app/api/activities/route.ts`: devuelve actividades WLO del usuario en el
+  rango, normalizadas. Fuentes: (1) tareas asignadas (`assignee_id = user.id`,
+  `is_archived=false`, `due_date` en rango) y (2) fin de sprints de sus equipos
+  (`sprints.end_date` en rango). Salida `{ id, type:'task'|'sprint', title, date,
+  priority, project_name, href }`.
+- Anti-IDOR: re-check de membresía vía `team_members` -> equipos del usuario;
+  las tareas se filtran además a proyectos de esos equipos (nunca se exponen
+  datos de equipos donde el user no es miembro). `href` a la página del proyecto
+  (`/w/{ws}/t/{team}/p/{proj}`) o del equipo (sprints).
+- zod `.strict()` para `from`/`to` (datetime opcional; default hoy -1d a +60d).
+  Los sprints (columna `date`) se comparan por fecha calendario.
+
+### B2 - MiDia: WLO primero, Google atenuado (`MiDia.tsx`)
+- Dos fuentes independientes: `/api/activities` (HOY) arriba como "Tareas de hoy"
+  con acento primario e iconos lucide (`CheckSquare` tareas, `Timer` fin de
+  sprint, punto de color por prioridad); Google debajo como "Agenda externa" en
+  tono atenuado.
+- Ya no queda vacío/CTA-only sin Google: si no hay conexión, MiDia sigue útil con
+  las actividades WLO y ofrece un CTA discreto para conectar Google.
+
+### B3 - CalendarView: fusión de fuentes + filtros de ruido (`CalendarView.tsx`)
+- Merge de eventos Google + actividades WLO diferenciados por color/badge (WLO
+  tarea = primario, WLO sprint = violeta, Google = muted). La vista ya NO se
+  bloquea si Google no está conectado: muestra WLO + CTA discreto.
+- Filtros de cliente (toggles): "Actividades WLO", "Eventos Google", "Ocultar
+  todo el día" y buscador por título. Persistidos en localStorage
+  `wlo-calendar-filters`. Default: WLO ON, Google ON, ocultar todo el día OFF.
+
+### B4 - `api/calendar/events`: filtro server-side opcional (aditivo)
+- `route.ts` acepta `q` (búsqueda por summary) y `hideAllDay` (`'true'|'false'`)
+  además de `from`/`to`, en el mismo zod `.strict()`. Retrocompatible (sin params
+  = comportamiento actual). El filtrado fuerte vive en el cliente (B3); esto es
+  refuerzo.
+
+## 2026-07-04 (R2): Conv A - Navegacion jerarquica + tablero visible
+
+Sin deploy (lo hace el deployer al final de la ronda 2). Todo ADITIVO, solo UI.
+`npx tsc --noEmit` EXIT=0. Sin migraciones. Dueno exclusivo: `Sidebar.tsx`,
+`NavSection.tsx`, `WorkspaceSwitcher.tsx`.
+
+- A1: item de sidebar `Proyectos abiertos` renombrado a `Oportunidades` (deja claro
+  que es el marketplace de postulaciones, no el workspace de trabajo). Ruta
+  `/w/[slug]/projects` e icono `Compass` intactos.
+- A2: en cada equipo (NavSection) el link `Scrum` se renombra a `Tablero` (neutral,
+  cubre Scrum y Kanban); mismo `BoardIcon` y ruta `/t/[slug]/scrum`. Cuando el
+  equipo esta en foco pero ningun hijo activo, `Tablero` se resalta como accion
+  sugerida (`ring-primary/40 bg-primary/5`) para que no quede escondido.
+- A3: contenedor de hijos del equipo con linea guia izquierda (`border-l pl-1.5`)
+  para leer Tablero/Chat/proyectos como jerarquia del equipo (estilo Linear).
+- A4: verificado sin emojis en los 3 archivos (iconos lucide/SVG).
+
+---
+
+## 2026-07-04: Conv C — Time tracking + Scores/CV premium + Purga de emojis
+
+Sin deploy (regla de oro: avisa al deployer). Todo ADITIVO. `npx tsc --noEmit`
+EXIT=0. Seguridad en cada API: auth 401, admin client con rechequeo de membresía en
+el handler (anti-IDOR), zod `.strict()`, `applyRateLimit`. Tablas nuevas vía
+`(admin as any)`; no se editó `src/lib/supabase/types.ts` a mano.
+
+### T1 — Time tracking (cronómetro por tarea + timesheet)
+- Migración `create_time_entries` aplicada por Supabase MCP (proyecto
+  `cmskiyypeujcgikbvyoz`): tabla `time_entries` (`task_id`→tasks CASCADE,
+  `project_id`/`workspace_id`/`profile_id` NOT NULL, `started_at`, `ended_at` null =
+  corriendo, `duration_sec`, `note`). RLS: SELECT dueño o manager del proyecto;
+  INSERT/UPDATE/DELETE solo dueño (`profile_id = auth.uid()`). Índice único parcial
+  `te_one_running (profile_id) WHERE ended_at IS NULL` garantiza un solo timer activo
+  por persona (su violación devuelve 409).
+- APIs `src/app/api/time-entries/**`: `_access.ts` (helper `resolveTaskAccess`
+  resuelve project_id/workspace_id desde la tarea server-side, nunca del body, y
+  valida `project_members`); `start` (POST `{task_id}`, 409 si ya hay uno);
+  `stop` (POST cierra el corriendo, calcula `duration_sec`); `route.ts` (GET
+  `?from=&to=&project_id=` con joins task+project, y POST manual
+  `{task_id, started_at, ended_at, note?}` validando ended>started);
+  `[entryId]` (PATCH/DELETE solo del dueño, recalcula duración).
+- `src/components/tracking/TaskTimer.tsx`: botón Play/Square (lucide) + cronómetro
+  vivo (`formatClock`), montado en cada fila de `my-tasks`.
+- `src/app/(app)/w/[slug]/tracking/**` (`page.tsx` + `TrackingClient.tsx`): timesheet
+  Hoy/Semana, totales por proyecto y por día, gráfico `recharts` de horas por día,
+  entradas editables inline (PATCH/DELETE), alta manual. Bucketing en hora local del
+  navegador (semana desde lunes) para no depender de la tz del server.
+
+### T2 — Scores/CV premium (`cv/[profileId]/page.tsx`)
+- Reescrito `ReputationPanel`: tarjeta de score global (promedio de los 4 ejes,
+  número 4xl + 5 estrellas + badge de nivel con icono `Award`), barras por eje
+  (`AxisBar`), conteo de reviews. Helper `levelFor` (Excepcional/Sólido/En
+  desarrollo/Necesita apoyo). **k-anonimato intacto**: promedios solo con >=3 reviews;
+  debajo del umbral, mensaje con conteo "{n} de 3". No se tocó el contrato de
+  `project_reviews` ni de `profile_reputation()`. Iconos lucide, sin emojis. Acentos
+  corregidos en CvProjects.tsx (Líder, calificación, anónima, Colaboración, etc.).
+
+### T3 — Purga de emojis (decorativos → lucide)
+- `inbox/InboxList.tsx` (✓ → `Check`), `t/[teamSlug]/page.tsx` (🏃 → `Timer`,
+  📋 vacío → `FolderKanban`), `notes/[noteId]/NoteEditor.tsx` (etiquetas de
+  visibilidad 🌐👥📁🔒 → `Globe/Users/Folder/Lock`, chevron), `components/notes/
+  NotesTreeSidebar.tsx` (menú contextual ✏️➕📑⭐☆🗑️ → `Pencil/Plus/Copy/Star/Trash2`,
+  `ContextItem.icon` ahora `ReactNode`).
+- **Se dejó a propósito** el emoji de los selectores de icono de nota/proyecto
+  (`ICON_OPTIONS`, `QUICK_ICONS` y los fallbacks `icon ?? '📄'`/`'📋'`): son DATO de
+  contenido guardado en BD (`note.icon`/`project.icon`), sistema compartido con el
+  render de proyectos (fuera del carril de Conv C). Convertir solo el picker crearía
+  inconsistencia. `TimerWidget` opcional NO se creó: su montaje global exige
+  `w/[slug]/layout.tsx` (prohibido, de Conv A); código muerto sin montar sería peor.
+
+---
+
+## 2026-07-04: Conv B — Chat por proyecto + Modal de tarea (adjuntos + menciones)
+
+Sin deploy (regla de oro: avisa al deployer). Todo ADITIVO. `npx tsc --noEmit`
+EXIT=0. Seguridad en cada API: auth 401, admin client, rechequeo de membresía en
+el handler (anti-IDOR), zod `.strict()`, `applyRateLimit`. Se usa `(admin as any)`
+para las tablas nuevas; no se editó `src/lib/supabase/types.ts` a mano.
+
+### T1 — Chat por proyecto (realtime)
+- Migración `conv_b_project_messages` aplicada por Supabase MCP: tabla
+  `project_messages` (`project_id`, `workspace_id`, `author_id`, `body`, `created_at`).
+  RLS con policy SELECT para miembros del proyecto o de su workspace; tabla añadida a
+  la publicación `supabase_realtime` para que los clientes autenticados reciban los
+  INSERT en vivo. Escritura solo por service_role (server).
+- `src/components/chat/ProjectChat.tsx`: clon de TeamChat. Canal
+  `project-chat-${projectId}` filtrado por `project_id`; upsert optimista con dedupe
+  por id; estado vacío con icono lucide `MessagesSquare` (sin emoji); `formatTime` es-MX.
+- `api/projects/[projectId]/messages` (GET últimos 100 + POST enviar). Helper
+  `canAccessProject` (project_members, luego workspace_members). `workspace_id` se
+  resuelve del proyecto, nunca del body. zod `{body: string.min(1).max(4000).trim()}`.
+- Montado en 2 superficies: pestaña "Chat" en la página de proyecto
+  (`w/[slug]/t/[teamSlug]/p/[projectSlug]/page.tsx`, tercer `ViewToggle` con icono) y
+  una sección de chat en `w/[slug]/projects/[projectId]/page.tsx` (ManageProject).
+
+### T2 — Modal de tarea rediseñado (`TaskDetailPanel.tsx`)
+- Panel más ancho (`max-w-3xl`), cuerpo en dos columnas (contenido + `aside` de
+  metadatos). Prioridades con iconos lucide (Zap/ChevronsUp/ChevronUp/ChevronDown/
+  Minus), sin emojis ni flechas de texto. Header con pill de estado, chip de
+  prioridad, indicador Guardando (Loader2) y botones Trash2/X.
+
+### T3 — Adjuntos
+- Migración `conv_b_task_attachments` + bucket privado `task-files`
+  (`conv_b_task_files_bucket`, public=false). Acceso 100% server-side via
+  service_role; se sirve con signed URL temporal (TTL 1h).
+- `api/tasks/[taskId]/attachments` (GET lista con signed URL + POST multipart,
+  campo `file`). Validación server: tamaño <= 25MB, allowlist de mime, path scoped
+  `task/{taskId}/{uuid}-{safeName}`. La columna `url` guarda el PATH del objeto.
+  Rollback del objeto si el insert falla.
+- `api/tasks/[taskId]/attachments/[attachmentId]` (DELETE): solo quien lo subió o
+  un manager (rol manager / lead del proyecto / org owner-admin). Anti-IDOR: el
+  adjunto debe pertenecer al `taskId` de la ruta.
+- `AttachmentsSection` en el modal: zona drag-drop + input oculto, previsualización
+  de imágenes (signed URL), enlace de descarga, borrar (visible al autor).
+
+### T4 — Menciones (@)
+- Migración `conv_b_task_mentions`: tabla `task_mentions` (`task_id`,
+  `mentioned_id`, `mentioned_by`, `source`).
+- `api/tasks/[taskId]/mentions` (GET miembros mencionables + POST registrar).
+  zod `{mentioned_ids: uuid[].min(1).max(20), source: 'comment'|'description'}`. Se
+  filtra a miembros REALES del proyecto (nunca se confía en el cliente) y se excluye
+  la auto-mención. Cada mención crea una notificación `TASK_MENTIONED` al mencionado
+  (Bandeja) + registra actividad.
+- `CommentComposer` con autocompletado @ (dropdown de miembros); las menciones se
+  revalidan server-side tras publicar comentario y tras guardar descripción.
+
+### Tipos nuevos en `src/lib/activity.ts` (soy dueño único)
+- `ActivityVerbs.TASK_MENTIONED = 'task.mentioned'`.
+- `NotificationTypes.TASK_MENTIONED = 'task_mentioned'`.
+
+## 2026-07-04: Conv A — Shell + Navegación + Google Calendar
+
+Sin deploy (regla de oro: avisa al deployer). Todo ADITIVO. Archivos dueños de
+Conv A (`src/components/sidebar/**`, `w/[slug]/page.tsx`, nuevos `w/[slug]/calendar/**`,
+`api/calendar/**`, `api/google/connect|callback/**`); no se tocaron archivos de B ni C.
+`npx tsc --noEmit` reporta 0 errores en archivos de Conv A; los 2 únicos errores
+del árbol están en `my-tasks/page.tsx` (Conv C, `FilterLink label` recibe JSX
+donde el tipo pide `string`), fuera de mi propiedad.
+
+### T1 — Sidebar jerarquizado (patrón Linear/Height)
+- Reescrito `src/components/sidebar/Sidebar.tsx`: nav plano agrupado en 3 secciones
+  colapsables ("Principal", "Espacio", "Equipos") con encabezados tenues. Estado de
+  grupos persistido en `localStorage` (`wlo-sidebar-groups`) vía `toggleGroup`.
+- Migrado a iconos `lucide-react` (Home, CheckSquare, Inbox, CalendarDays, Timer,
+  FileText, PenTool, Compass, IdCard, Search, ChevronLeft, ChevronDown, Plus); se
+  eliminaron los SVG inline. Nuevo subcomponente `NavGroup`.
+- Modo colapsado `w-14` con tooltips intacto. Enlaces nuevos: Calendario
+  (`${base}/calendar`) y Tracking (`${base}/tracking`).
+- `src/components/sidebar/NavSection.tsx`: reemplazado el emoji de fallback por
+  icono `Hash` de lucide (respeta el `project.icon` que ya haya puesto el usuario).
+
+### T2 — Home más claro (`w/[slug]/page.tsx`)
+- Fila de acciones rápidas (Mis tareas, Calendario, Proyectos, Notas) con iconos
+  lucide. Prioridad de tareas ahora es un punto de color (sin emojis).
+- Nuevo bloque "Mi día" (`MiDia.tsx`): agenda de HOY desde Google Calendar si hay
+  conexión, si no un CTA "Conectar Google Calendar". No duplica lógica de my-tasks.
+
+### T3 — Google Calendar (OAuth incremental, server-only)
+- Migración `conv_a_google_connections` aplicada por Supabase MCP: tabla
+  `google_connections` (tokens nunca al cliente), RLS `gc_own` (`profile_id = auth.uid()`).
+- `src/lib/google/client.ts`: helper OAuth (scope `calendar.readonly`, redirect uri).
+- `api/google/connect` (CSRF state en cookie httpOnly, `access_type:offline`,
+  `prompt:consent`) + `api/google/callback` (intercambia code, preserva refresh_token,
+  upsert por `profile_id`).
+- `GET /api/calendar/events?from=&to=` (zod strict, refresca token si expiró,
+  `events.list` de `primary`, normaliza `{id,title,start,end,allDay,htmlLink}`; 409
+  `not_connected`/`reconnect` para que el front muestre CTA).
+- Página `/w/[slug]/calendar` + `CalendarView.tsx`: cuadrícula mensual propia
+  (date-fns, locale es) con estado vacío/CTA de conexión.
+
+### Config pendiente para el deployer
+- En Google Cloud Console: registrar redirect URI
+  `${NEXT_PUBLIC_APP_URL}/api/google/callback` y añadir el scope `calendar.readonly`
+  a la pantalla de consentimiento OAuth. Variables: `GOOGLE_CLIENT_ID`,
+  `GOOGLE_CLIENT_SECRET`, `NEXT_PUBLIC_APP_URL`.
+
+## 2026-07-04: Conv C — Galería de avatares (8 nuevos + scroll con barra lateral)
+
+Sin deploy (regla de oro: avisa al deployer). `npx tsc --noEmit` EXIT=0. Todo
+ADITIVO. Archivos dueños de Conv C (`settings/profile/**`, `src/lib/avatars.ts`,
+`public/avatars/**`); no se tocaron archivos de A ni B.
+
+### T-avatares — 8 avatares nuevos cargados
+- Nuevos: `public/avatars/a15.png` … `a22.png` (copiados de "avatares WLO" del
+  usuario). Se compararon por hash MD5 contra los 15 existentes: 15 del folder
+  eran byte-idénticos (husky + a01..a14, omitidos) y 8 realmente nuevos.
+- Registrados en `src/lib/avatars.ts`: 8 entradas nuevas en `AVATARS` (a15..a22,
+  labels "Avatar 15".."Avatar 22"). `AVATAR_PATHS` y `ADMIN_ONLY_AVATARS` se
+  derivan solos; husky sigue siendo el único adminOnly. Galería total: husky + 22.
+
+### T-scroll — barra lateral en la galería de perfil
+- Editado: `src/app/(app)/settings/profile/ProfileForm.tsx`.
+- La cuadrícula de avatares se envolvió en un contenedor `max-h-72 overflow-y-auto`
+  con borde suave y `pr-3`, para explorar todos los avatares con scroll sin empujar
+  el botón "Guardar". La barra usa el estilo global (webkit 6px). Se agregó un
+  contador discreto "{N} avatares" junto al título "Elige tu avatar".
+- Sin cambios de lógica: selección, husky adminOnly, PATCH /api/profile intactos.
+
+---
+
+## 2026-07-04: Marketplace v2 (tablero interactivo + ciclo de vida + aprobación admin)
+
+Deploy de producción: `dpl_H5wrGwsX9DL5TnYw7zodeMnePnMz` (alias `wlo.vercel.app`).
+Typecheck limpio (`tsc --noEmit` EXIT=0) y `next build` EXIT=0 antes de desplegar.
+Ruta `/w/[slug]/projects` renderiza HTTP 200 (gate de auth) sin 500. Todo ADITIVO.
+Conv A del trabajo de 3 conversaciones en paralelo (esta conv es dueña de:
+marketplace de proyectos, migraciones `projects.*`, APIs de ciclo de vida, UI del
+tablero). Conv B: modal de tareas + adjuntos + menciones. Conv C: purga de emojis
+global + pulido. Partición para no pisarse.
+
+### Contexto de producto (lo que pidió Ali)
+
+Sobre el marketplace base se agrega:
+1. Tablero interactivo con tres vistas en un segmento: Abiertos (postularse),
+   Mis proyectos (progreso + completar + calificar), Pendientes (solo admin).
+2. Proyectos al 100% se pueden marcar COMPLETADOS; al completar se habilita que
+   TODOS los participantes se califiquen entre si (antes solo el CV propio).
+3. Todos pueden CREAR proyectos, pero solo los administradores (org owner/admin)
+   los AUTORIZAN. Propuesto por admin = aprobado y abierto de una; propuesto por
+   cualquiera = pendiente hasta que un admin lo apruebe.
+4. Cero emojis: iconos lucide en todas las superficies del marketplace/CV.
+
+### Base de datos (verificada por MCP `execute_sql`, ya aplicada)
+
+Proyecto Supabase `cmskiyypeujcgikbvyoz`. La tabla `projects` YA tiene las columnas
+del ciclo de vida (no requirió migración nueva en esta sesión): `approval_status`
+(text), `approved_by` (uuid), `approved_at` (timestamptz), `completed_at`
+(timestamptz), `completed_by` (uuid), ademas de las previas `lead_id`, `scope`,
+`rules`, `deliverables`, `open_for_applications`, `application_deadline`,
+`max_members`, `status`. Confirmado por `information_schema.columns`.
+
+### APIs (nuevas y editadas por Conv A)
+
+- `POST /api/marketplace/propose` (NUEVA): cualquier miembro del workspace propone.
+  Admin -> `approval_status='approved'` + `open_for_applications=true`. No admin ->
+  `'pending'` + cerrado; notifica a los admins (`PROJECT_PENDING_APPROVAL`). El
+  proponente queda como lider + manager. Corre `create_default_statuses`. Devuelve
+  `{ id, slug, approval_status, open_for_applications, pending }`.
+- `PATCH /api/projects/[projectId]/approval` (NUEVA): org owner/admin aprueba o
+  rechaza pendientes. Zod `{ decision: 'approve' | 'reject' }`. 409 si el proyecto
+  ya no esta `pending`. Setea `approval_status`, `approved_by/at`,
+  `open_for_applications=(aprobado)`. Notifica al lider (`PROJECT_APPROVED/REJECTED`).
+- `PATCH /api/projects/[projectId]/complete` (NUEVA): lider/manager/org-admin marca
+  completado. Guardia dura via `computeProjectProgress`: 422 si `total===0`, 422 si
+  `pct<100`. Setea `status='completed'`, `completed_at/by`, cierra postulaciones.
+  Notifica a TODOS los miembros (`REVIEW_REQUESTED`).
+- `POST|GET /api/projects/[projectId]/reviews` (EDITADA): ahora exige que el
+  proyecto este `completed`. POST devuelve 409 si no lo esta; GET agrega
+  `can_review` al payload segun `status==='completed'`.
+
+### Archivos frontend
+
+- `src/app/(app)/w/[slug]/projects/page.tsx` (REESCRITO): server component arma 3
+  datasets. Abiertos filtra `approval_status='approved'`. Mis proyectos calcula
+  progreso por proyecto con `computeProjectProgress` y `can_complete = (lider ||
+  manager || admin) && status!='completed' && pct===100 && total>0`. Pendientes solo
+  si `isAdmin`. Delega a `<ProjectsBoard/>`.
+- `src/app/(app)/w/[slug]/projects/ProjectsBoard.tsx` (NUEVO): segmento de 3 tabs
+  (lucide Compass/FolderKanban/ShieldCheck + contadores), header con "Mi CV" +
+  "Crear proyecto". Paneles: MyProjectsPanel/MyProjectCard (barra de progreso,
+  StatusBadge, "Marcar completado" cuando `can_complete`, "Calificar equipo" cuando
+  `completed`), PendingPanel/PendingCard (Aprobar/Rechazar), CreateProjectModal (sin
+  campo de icono, evita emojis), ReviewModal + RatingForm (4 ejes) + StarRow.
+- `src/app/(app)/w/[slug]/projects/MarketplaceBoard.tsx` (EDITADO): purga emoji
+  `📋` -> icono `FolderKanban` en tarjeta y en header del modal de postulacion.
+- `src/app/(app)/w/[slug]/projects/[projectId]/ManageProject.tsx` (EDITADO): emoji
+  del header -> `ScrollText`.
+- `src/app/(app)/w/[slug]/cv/[profileId]/CvProjects.tsx` (EDITADO): emoji -> icono
+  `FolderKanban` en tarjeta y header del modal.
+- `src/lib/activity.ts` (EDITADO previamente): verbos `PROJECT_PROPOSED/APPROVED/
+  REJECTED/COMPLETED` + tipos de notificacion `PROJECT_APPROVED/REJECTED/
+  PENDING_APPROVAL`.
+
+### Landmines resueltas
+
+- `w-4.5 h-4.5` NO son clases Tailwind validas (no hay entrada "4.5" en la config).
+  Estaban en 4 lugares (CvProjects, MarketplaceBoard, ProjectsBoard x2). Cambiadas a
+  `w-5 h-5`. Regla: no inventar escalas de spacing, verificar contra la config.
+- Anti-patron de fetch en fase de render en el ReviewModal: reemplazado por
+  `useEffect` con bandera `alive` para cancelar.
+
+### Pendiente (no de Conv A)
+
+- Conv B: rediseño estetico del modal de tareas + adjuntos (`task_attachments` +
+  Storage) + menciones (`task_mentions`).
+- Conv C: purga de emojis en el resto (notas, teams, NewProjectForm) + pulido.
+
+---
+
+## 2026-07-04: Marketplace de Proyectos Internos (postulación + CV + reputación anónima)
+
+Deploy de producción: `dpl_7Jz796izqy8xFBhzXXoejj6oJnFw` (alias `wlo.vercel.app`).
+Typecheck limpio (`tsc --noEmit` EXIT=0) y `next build` EXIT=0 antes de desplegar.
+Para el equipo de We Love Paving. Todo ADITIVO: cero cambios destructivos a la BD
+ni a features vivas (scrum, pizarra, tareas, chat, notas siguen intactas).
+
+### Contexto de producto (la nueva lógica)
+
+Se pasa del modelo "a la gente se le asigna a dedo" a un MARKETPLACE interno:
+1. Postulación: los miembros exploran proyectos ABIERTOS y se postulan con un pitch.
+2. Líderes por proyecto (no organizacionales): cada proyecto tiene su líder que
+   define charter (alcance, reglas, entregables, cupo, deadline) y acepta/rechaza.
+3. Calificación anónima entre compañeros del mismo proyecto: 4 ejes
+   (colaboración, calidad, confiabilidad, comunicación 1-5) + comentario.
+4. CV interno por perfil: historial de proyectos + reputación agregada.
+Objetivo: unificar para que no haya tantos grupos ni tantas juntas.
+
+### Base de datos (ya aplicada, verificada por MCP `execute_sql`)
+
+Proyecto Supabase `cmskiyypeujcgikbvyoz`. Confirmado que YA existen (no requirió
+migración nueva en esta sesión):
+- `projects`: columnas `open_for_applications`, `application_deadline`,
+  `max_members`, `lead_id`, `scope`, `rules`, `deliverables`, `is_archived`, `status`.
+- Tablas `project_applications` y `project_reviews`.
+- RPC `profile_reputation(p_profile_id uuid)` (SECURITY DEFINER, devuelve 1 fila
+  en array; k-anonimato: `avg_*` en NULL hasta `review_count >= 3`).
+- FKs nombrados que usan los selects embebidos de PostgREST:
+  `project_applications_applicant_id_fkey`, `project_members_project_id_fkey`,
+  `project_members_profile_id_fkey`, `projects_lead_id_fkey`,
+  `project_reviews_reviewer_id_fkey`, `project_reviews_reviewee_id_fkey`.
+
+### API (6 endpoints, admin client + verificación de autoridad en handler = anti-IDOR)
+
+- `GET /api/marketplace`: proyectos abiertos de los workspaces del solicitante,
+  con estado por proyecto (`is_member`, `my_application_status`) y `member_count`.
+- `POST /api/projects/[projectId]/applications`: postularse (pitch 10-2000 chars +
+  rol deseado). Valida apertura, deadline vigente, membresía de workspace, no ser
+  ya miembro, y no duplicar (unique 23505). Notifica al líder o creador.
+- `GET /api/projects/[projectId]/applications`: solo líder/manager/org admin listan.
+- `PATCH /api/applications/[applicationId]`: `accepted`/`rejected` (líder/manager/
+  admin) o `withdrawn` (el propio postulante). Al aceptar: respeta `max_members`,
+  da de alta como miembro (`upsert onConflict project_id,profile_id`, título =
+  rol deseado), notifica al postulante, y registra actividad.
+- `POST /api/projects/[projectId]/reviews`: calificación anónima (4 ejes + comment,
+  unique por par 23505). El log de actividad apunta al PROYECTO, nunca al evaluado,
+  para preservar anonimato. `GET`: compañeros del proyecto (member-only, excluye a
+  uno mismo, marca a quién ya calificaste).
+- `PATCH /api/projects/[projectId]/charter`: edita alcance/reglas/entregables/
+  cupo/deadline/apertura y reasigna líder (debe ser miembro). Registra abierto/cerrado.
+
+### Pantallas / UI (todas en `src/app/(app)/w/[workspaceSlug]/`)
+
+- `projects/page.tsx` + `MarketplaceBoard.tsx`: grilla de proyectos abiertos con
+  modal de postulación (pitch + rol).
+- `projects/[projectId]/page.tsx` + `ManageProject.tsx`: hub del líder (editor de
+  charter + panel de postulaciones aceptar/rechazar + equipo actual).
+- `cv/[profileId]/page.tsx` + `CvProjects.tsx`: CV interno (stats, panel de
+  reputación con gate de k-anonimato, historial de proyectos) + modal de
+  calificación anónima por proyecto (visible solo en el CV propio, `isOwn`).
+- `src/components/sidebar/Sidebar.tsx`: dos entradas nuevas ("Proyectos abiertos"
+  y "Mi CV") con iconos SVG propios (`MarketplaceIcon`, `CvIcon`).
+
+### Fix de build
+
+Lint `@typescript-eslint/no-unused-vars`: prop `projectId` muerta en
+`ApplicationsPanel` (la decisión usa el id de la postulación, no del proyecto).
+Removida de la firma y del call site. `next build` EXIT=0 después.
+
+### Pendiente (depende de contenido de la conversación paralela)
+
+Especialización WLP: taxonomía de áreas, proyectos semilla con charter real, copy
+deck ES definitivo, rúbrica de calificación y plan de rollout. Se integran cuando
+lleguen esos `.md`. Smoke test funcional end-to-end pendiente (requiere sesión
+autenticada de un usuario WLP).
+
+---
+
+## 2026-07-01: Tablero Scrum arreglado (taxonomía de categorías) + activar sprint
+
+Deploy de producción: `dpl_8sEAoYZMFfxpZW842mgZXWDePGx5` (alias `wlo.vercel.app`).
+Typecheck limpio (`tsc --noEmit` EXIT=0) antes de desplegar.
+
+### T40: Bug raíz del tablero Scrum (categorías desalineadas)
+
+Síntoma: "el tablero de Scrum no sirve bien". Las tarjetas no aparecían en las
+columnas. Causa: el tablero filtraba por categorías `not_started` / `active` /
+`done`, pero la taxonomía real de la BD (función `create_default_statuses`) es
+`todo` / `in_progress` / `done` / `cancelled`. Toda tarea con categoría `todo` o
+`in_progress` (la mayoría) no hacía match con ninguna columna: invisible aunque
+estuviera en el sprint.
+
+Corrección (solo frontend, la BD ya era correcta):
+- `src/components/scrum/types.ts`: `SCRUM_COLUMNS` ahora `todo` / `in_progress` / `done`.
+- `src/components/scrum/ScrumWorkspace.tsx`: renombradas las llaves de `COLUMN_META`
+  (`not_started`->`todo`, `active`->`in_progress`) y corregidos ~10 puntos con
+  comparaciones/defaults de categoría (salud del tablero, drag-and-drop
+  `canDropHere`/`handleDrop`, render de columnas, WIP Kanban, `KanbanDashboard`,
+  `CategoryDot`). Los `'active'` del ciclo de vida del SPRINT (planning/active/
+  completed) se dejaron intactos: son un enum distinto.
+- `src/lib/utils.ts`: `STATUS_CATEGORY_COLORS` re-llavado a `todo`/`in_progress`.
+- `src/lib/supabase/types.ts`: union de categorías corregida a la real.
+
+### T41: "Activalo" + estado vacío útil del sprint
+
+- Estado vacío del tablero: cuando el sprint seleccionado tiene 0 tareas, en vez
+  de tres columnas muertas (que se leen como "roto") se muestra `SprintBoardEmpty`
+  con el siguiente paso claro: botón "Iniciar sprint" si sigue en plan (llama
+  `patchSprint status=active`) y "Ver Backlog" si hay tareas para enviar. Icono
+  `Play`/`ClipboardList`/`Inbox` (lucide).
+- Dato del equipo Marketing / Paid Media: su sprint "NEW TEST" estaba en
+  `planning` con 0 tareas y sus 2 tareas de prueba en el backlog. Se activó el
+  sprint y se enviaron ambas tareas al sprint (SQL, workspace propio, reversible
+  desde la UI) para que el tablero se vea funcionando de inmediato.
+
+### Qué funciones siguen (Scrum, propuestas para Ali)
+
+Burndown real del sprint (ya hay Dashboard, falta la curva ideal vs real),
+capacidad por persona (SP asignados vs límite), arrastrar del backlog al tablero
+sin abrir tarea, cierre de sprint con "carry over" al siguiente, y meta del sprint
+editable inline.
+
+## 2026-07-01: Auditoría multiagente (seguridad P0 + accesibilidad + pulido)
+
+Deploy de producción: `dpl_dC1hdoBHZ4j8RiU3uTTxis5QAFjc` (alias `wlo.vercel.app`).
+Typecheck limpio (`tsc --noEmit` EXIT=0) antes de desplegar.
+
+Contexto: Ali pidió "audita y lanza varios agentes para revisar y mejorar todos los
+elementos existentes". Se lanzaron 4 agentes de auditoría de solo lectura (dotados de
+las guías Web Interface Guidelines de Vercel), cada uno con su lista priorizada. Yo
+verifiqué cada hallazgo leyendo el código real (los agentes pueden alucinar) e
+implementé las correcciones de mayor valor de forma centralizada para no chocar entre
+escrituras paralelas sobre un typecheck de proyecto completo.
+
+### T38: Seguridad backend (P0/P1 verificadas)
+- IDOR en los 4 handlers de checklist-items (`/api/tasks/[taskId]/checklist-items`
+  GET+POST y `.../[itemId]` PATCH+DELETE): usaban `createAdminClient()` (bypass RLS)
+  sin verificar pertenencia al proyecto, así cualquier usuario autenticado podía
+  leer/alterar checklists de tareas ajenas por ID. Se creó el helper compartido
+  `src/lib/task-access.ts` (`checkTaskAccess`): carga la tarea, saca `project_id`,
+  valida `project_members` del usuario, devuelve 404/403. Cableado en los 4 handlers.
+- Open redirect en `/api/auth/callback`: el parámetro `next` solo se validaba con
+  `startsWith('/')`, que deja pasar `//host` y `/\host` (redirect protocolo-relativo
+  a dominio externo). Ahora exige `/` y rechaza `//` y `/\`.
+- KERN (`/api/kern`): topes anti-abuso al payload (máx 40 mensajes, 24k caracteres
+  totales) para evitar prompts gigantes contra el modelo. Devuelve 413.
+- `/api/tasks` POST: se quitó un `console.log` que volcaba datos de la tarea (PII) al
+  log del servidor.
+
+### T39: Accesibilidad y pulido de UI
+- `TaskDetailPanel`: se añadió semántica de diálogo (`role="dialog"`,
+  `aria-modal="true"`, `aria-label`), `aria-hidden` en el overlay y `aria-label` en
+  los botones de icono (eliminar, cerrar). Ya tenía Escape y click-fuera para cerrar.
+- `NavSection` (sidebar): la ruta activa usaba `bg-accent`, idéntico al hover, así el
+  ítem seleccionado se volvía indistinguible al pasar el cursor. Se añadió una barra
+  de acento amarilla de marca (`before:bg-primary`) en Scrum, Chat y proyectos, y
+  `ring-primary/50` al icono de equipo colapsado.
+- `WelcomeSplash`: `motion-reduce:transition-none` y `motion-reduce:transform-none`
+  para respetar `prefers-reduced-motion`.
+- `CreateTaskInline`: el `onBlur` creaba la tarea automáticamente al hacer click
+  fuera con texto, generando tareas accidentales. Ahora la creación es explícita
+  (Enter crea, Escape descarta); el blur solo cierra si el campo está vacío.
+- `TaskListView`: estado vacío rediseñado (panel punteado + icono `ListTodo` +
+  jerarquía) en vez de dos párrafos sueltos.
+- Se reemplazó un guion largo residual (icono "Sin prioridad" en `PRIORITIES`) por un
+  guion normal, por la regla del proyecto.
+
+Pendiente (backlog de auditoría, no bloqueante, a priorizar con Ali): trampas de foco
+en modales (TaskDetailPanel, CommandPalette), `aria-label` en botones de icono del
+resto de componentes, Escape/click-fuera en menús, envío optimista + scroll en
+TeamChat, reemplazo de `confirm()/prompt()` nativos. Decisión de producto abierta: en
+notas y pizarras el PATCH permite editar a cualquier miembro (incluido viewer); es
+política de roles, no vulnerabilidad, se dejó sin cambiar.
+
+## 2026-07-01 — Abrir tareas desde el Scrum + Backlog rediseñado
+
+Deploy de producción: `dpl_GDY64z2D7yE4K5EXo3gShgpiWLqi` (alias `wlo.vercel.app`).
+Typecheck limpio (`tsc --noEmit` EXIT=0) antes de desplegar.
+
+Contexto: Ali mostró el Backlog en modo Scrum y dijo "no puedo abrir tareas, mejora
+este menú, se ve muy simple". Antes ninguna tarjeta del scrum abría el detalle de la
+tarea. Solo UI en `ScrumWorkspace.tsx` (reusa componentes existentes), sin API ni
+migración.
+
+### T37 — Abrir el detalle de tarea desde el scrum
+- Se reusa el `TaskDetailPanel` (mismo panel deslizante del tablero clásico) dentro
+  de `ScrumWorkspace`: nuevo estado `openTaskId`, se filtran los `statuses` al
+  proyecto de la tarea abierta y se reconcilia el estado optimista `localTasks` con
+  `onUpdated`/`onDeleted` (así la tarjeta refleja el cambio sin esperar al realtime).
+- Ahora abren tarea: el título de las tarjetas del Tablero (Scrum y Kanban), las
+  filas del Daily/Por persona, y las tarjetas del Backlog. El título es un botón con
+  hover a color primario; los controles internos (puntos, mover, enviar a sprint) no
+  disparan la apertura.
+
+### T38 — Backlog rediseñado (menos simple)
+- Banda de contexto con icono `Inbox`, título, subtítulo y chips de resumen
+  (total tareas `Layers`, story points `Gauge`, salud de estimación en ámbar/esmeralda).
+- Buscador cliente (`Search`) para filtrar el backlog por texto.
+- Grupos por área con punto de acento de `AREA_COLORS`, contador y story points por área.
+- Tarjetas con borde-izquierdo de color de área, chevron de prioridad, proyecto,
+  `DueBadge`, marca de vencida (`Flame`), avatar, selector de puntos y "Enviar a…"
+  con hover lift, consistentes con el estilo premium de los dashboards.
+- Estados vacíos propios (backlog vacío / sin coincidencias de búsqueda).
+
+---
+
+## 2026-07-01 — Rediseño del Dashboard (Scrum y Kanban) más moderno
+
+Deploy de producción: `wlo-ci1lftng0` (alias `wlo.vercel.app`).
+Typecheck limpio (`tsc --noEmit` EXIT=0) antes de desplegar.
+
+Contexto: Ali pidió que el panel de métricas se viera "más estético y moderno" y
+que "lo de Scrum no lo veía". Solo UI en `ScrumWorkspace.tsx`, sin API ni migración.
+
+### T34 — Tarjetas de métrica premium
+- Nuevo `Score` con chip de icono `lucide-react` de color de acento (blue, green,
+  amber, violet, rose, slate), número grande tabular y micro-interacción en hover
+  (elevación + escala del icono). En alerta (`tone warn`) la tarjeta se tiñe de
+  naranja. Cada KPI recibió su icono y color: WIP=Loader2 azul, Completadas=
+  CheckCircle2 verde, Vencidas=AlertTriangle rojo, etc.
+
+### T35 — Gráficas pulidas y consistentes
+- Nuevo contenedor `ChartCard` (encabezado con icono + título) y estilo de tooltip
+  compartido `TOOLTIP_STYLE` acorde al tema. Barras con esquinas redondeadas
+  (`radius 6`), `CartesianGrid` sutil, ejes sin línea, `Legend` de puntos. El pie
+  de "Mix por área" pasó a dona (`innerRadius`) con separación entre gajos. Empty
+  state de gráfica con icono y fondo punteado.
+
+### T36 — Scrum visible y diferenciado en el dashboard
+- Cada panel abre con una banda de contexto: azul "Panel de flujo" (Kanban, la
+  métrica reina es el WIP) vs primaria "Panel de sprint" (Scrum, nombra el sprint
+  y habla de velocity/avance/precisión). Así el dashboard de Scrum ya no se
+  confunde con el de Kanban.
+
+---
+
+## 2026-06-30 — Splash más estético + Scrum y Kanban diferenciados
+
+Deploy de producción: `dpl_AjgqSraXqqyn6PxsEpRdTwTng2Eq` (alias `wlo.vercel.app`).
+Typecheck limpio (`tsc --noEmit` EXIT=0) antes de desplegar.
+
+Contexto: feedback de Ali sobre el splash recién lanzado ("más minimalista y
+estético, un círculo, el saludo en cursiva") y sobre que los tableros de Scrum y
+Kanban se veían idénticos.
+
+### T32 — Splash de bienvenida más minimalista
+- En `WelcomeSplash.tsx` el avatar pasó de rectángulo redondeado a círculo puro
+  (`rounded-full`) con anillo suave y sombra tenue. El saludo "Hola, {nombre}" es
+  ahora tipografía ligera en cursiva (`font-light italic tracking-tight`), más
+  aire arriba (`mt-7`). Sigue mostrándose una vez por sesión.
+
+### T33 — Scrum y Kanban visualmente diferenciados
+- En `ScrumWorkspace.tsx` (solo UI, sin API ni migración) el mismo `BoardView`
+  ahora se lee distinto según el modo:
+  - Banner de modo arriba del tablero: azul "Flujo continuo (Kanban)" con nota de
+    límite WIP, vs primario "Sprint activo (Scrum)" con nota de story points.
+  - Métrica de encabezado de columna: Kanban muestra `{n} / {wipLimit} WIP`
+    (naranja si rebasa) y barra activa azul; Scrum mantiene `{n} · {pts} SP`.
+  - Chip de salud: Kanban muestra `WIP {enCurso}/{wipLimit}`; Scrum mantiene
+    "sin estimar". Los datos y las tareas son los mismos: solo cambia la lente.
+
+---
+
+## 2026-06-30 — Ajustes de perfil + avatar en el saludo + splash de bienvenida (Netflix)
+
+Deploy de producción: `dpl_59Qs4dgopKTH1G5n8VSA4etsuWFg` (alias `wlo.vercel.app`).
+Typecheck limpio (`tsc --noEmit` EXIT=0) antes de desplegar.
+
+Contexto: feedback de Ali sobre la página Mi perfil recién lanzada y la home.
+
+### T27 — Botón Guardar siempre visible + Regresar al Menú
+- En `ProfileForm.tsx` la barra de acciones ahora es `sticky bottom-0` con
+  `backdrop-blur` y borde superior: el botón "Guardar cambios" ya no se pierde bajo
+  el fold. En móvil los botones se apilan (`flex-col-reverse`), en desktop van a los
+  lados. El botón sigue deshabilitado si no hay cambios (`!dirty`) pero con `title`
+  que explica por qué. Nuevo link "Regresar al Menú" (icono `Home`) que va a `/`.
+
+### T28 — Husky asignado directo a Alí Espejel
+- Además de reservarlo a admins, se asignó el husky al perfil de Alí por SQL
+  (Supabase MCP): `UPDATE profiles SET avatar_url='/avatars/husky.png'` donde
+  `id=5a78b212-...` (email `ali.eg@pavific.com`, `org_role owner`).
+
+### T29 — Avatar en el saludo "Hola, {nombre}"
+- La home (`w/[workspaceSlug]/page.tsx`) ahora carga `avatar_url` y muestra el
+  avatar del usuario junto al saludo, como link a `/settings/profile`. Header
+  responsivo (`gap-3 sm:gap-4`, título `text-2xl sm:text-3xl truncate`).
+
+### T30 — Splash de bienvenida estilo Netflix
+- Nuevo `src/components/WelcomeSplash.tsx` (cliente): al entrar a la app lo primero
+  que ve el usuario es su avatar grande + "Hola, {nombre}" con fade/scale, y luego
+  se desvanece (~2.3s). Se muestra UNA vez por sesión del navegador
+  (`sessionStorage` key `wlo-welcome-seen`). Montado en el layout `(app)`, que ahora
+  carga `display_name`+`avatar_url` del perfil server-side.
+
+### T31 — Responsividad
+- Revisadas y ajustadas home (header) y Mi perfil (padding `p-4 sm:p-6`, barra de
+  acciones apilable). El grid de la galería ya era responsivo (`grid-cols-4 sm:grid-cols-6`).
+
+---
+
+## 2026-06-30 — Galería de avatares WLO + página Mi perfil (husky reservado al Admin)
+
+Deploy de producción: `dpl_6BRtEb2axHoDAraN15y173nuo5kz` (alias `wlo.vercel.app`).
+Typecheck limpio (`tsc --noEmit` EXIT=0) antes de desplegar.
+
+Contexto: Ali entregó 15 avatares mascota (branding WLP, acentos amarillos) en
+`C:\Users\GRIZZLY\Desktop\avatares WLO`. Hasta ahora `avatar_url` solo se seteaba
+una vez en el onboarding desde OAuth y NO había forma de cambiarlo en la app; peor
+aún, el link "Mi perfil" del UserMenu apuntaba a `/settings/profile`, una página
+inexistente (404). Regla explícita de Ali: el avatar del husky es SOLO para el Admin.
+
+### T23 — Avatares como estáticos
+- Los 15 PNG se copiaron a `public/avatars/` con nombres limpios: `husky.png` +
+  `a01.png`..`a14.png`. Se sirven same-origin (CSP `img-src 'self'` ya los permite,
+  sin tocar `next.config`). Sin bucket de storage, sin subida, sin migración
+  (`profiles.avatar_url` ya existe).
+
+### T24 — Manifest + gating del husky
+- Nuevo `src/lib/avatars.ts`: `AVATARS` (ruta+label+adminOnly), `AVATAR_PATHS`,
+  `ADMIN_ONLY_AVATARS` (husky) y `ADMIN_ROLES` (`admin`/`owner`). El husky es
+  `adminOnly`. La regla se valida en DOS capas: UI (candado, no seleccionable) y
+  servidor.
+
+### T25 — API PATCH /api/profile
+- Nuevo `src/app/api/profile/route.ts`: el usuario edita SOLO su propio perfil
+  (`display_name` 2..80, `avatar_url`). Valida que el avatar sea de la galería;
+  si es reservado (husky), exige `profiles.org_role` en (`admin`,`owner`) o
+  devuelve 403. Rate-limit + zod `.strict()`, patrón calcado de `/api/teams/[teamId]`.
+
+### T26 — Página Mi perfil
+- Nuevas `src/app/(app)/settings/profile/page.tsx` (server, carga perfil + calcula
+  `isAdmin`) y `ProfileForm.tsx` (cliente): preview de avatar + nombre, galería en
+  grid con opción "Sin avatar" (iniciales), check de selección, y el husky con
+  candado + gris para no-admins (toast si lo intentan). Guarda vía PATCH y
+  `router.refresh()` para que el sidebar y el tablero reflejen el cambio. Esto
+  ARREGLA el link muerto del UserMenu.
+
+---
+
+## 2026-06-30 — Migración a iconos + funciones de tablero (Nivel D: lucide, buscar, swimlanes, orden, salud)
+
+Deploy de producción: `dpl_3jbxrUc9VLeeF1mZifhdj3uzzDi5` (alias `wlo.vercel.app`).
+Typecheck limpio (`tsc --noEmit` EXIT=0) antes de desplegar.
+
+Contexto: el usuario rechazó los emojis del Nivel C ("no me gustan los emojis,
+quiero que sean iconos") y pidió planear y agregar nuevas y mejores funciones.
+Solo UI en `ScrumWorkspace.tsx`, sin API ni migración. Se usa `lucide-react`
+(ya era dependencia, antes sin usar).
+
+### T17 — Cero emojis: todo con iconos lucide
+- `COLUMN_META` ahora lleva componente `Icon` (Inbox 📋→lucide, Loader2 girando
+  para la columna activa, CheckCircle2 hecho) en vez de emoji; `PRIORITY_META`
+  usa escala de chevrons estilo Linear (ChevronsUp urgente, ChevronUp alta, Equal
+  media, ChevronDown baja, Minus sin prioridad) con color por nivel.
+- SprintBar (título, toggle admin Scrum/Kanban, badge no-admin, línea de meta),
+  chips de mover columna, warning de WIP y EmptyState migrados a iconos
+  (Timer/Columns3/Target/AlertTriangle/Rocket). No queda ningún emoji en el panel.
+
+### T18 — Buscar tarjetas
+- Input de búsqueda en la barra de control: filtra en cliente por título, área y
+  proyecto. Aplica a ambos modos (Scrum y Kanban).
+
+### T19 — Swimlanes (agrupar el tablero)
+- Nuevo control de agrupación: Ninguno / Persona / Prioridad (`groupBy`). Cada
+  carril renderiza la misma grilla de 3 columnas con su encabezado (avatar o
+  bandera de prioridad). El resalte de drop se acota por clave compuesta
+  `${laneId}:${category}` para no iluminar la misma categoría en todos los carriles.
+
+### T20 — Ordenar dentro de columna
+- Selector de orden: Natural / Prioridad / Fecha límite / Story points
+  (`sortBy` + helper `sortTasks`). El drag-and-drop nativo sigue igual.
+
+### T21 — Resumen de salud del tablero
+- Fila de KPIs en cliente: visibles, en curso, en riesgo (vencidas sin cerrar),
+  sin estimar. Da lectura rápida del estado sin abrir el Dashboard.
+
+### T22 — Persistencia de preferencias por equipo
+- `groupBy`, `sortBy` y filtros de vencidas/sin asignar se guardan en
+  `localStorage` bajo `wlo-scrum-board-${teamId}`. El efecto de carga corre al
+  montar y gana sobre el default. Filtros efímeros (búsqueda, selección de
+  personas) no se persisten.
+
+---
+
+## 2026-06-30 — Rediseño estético del Scrum (Nivel C: emojis, identidad, control)
+
+Deploy de producción: `dpl_CyY8xDwSBDPAcKevRM8MNd65JRXd` (alias `wlo.vercel.app`).
+Typecheck limpio (`tsc --noEmit` EXIT=0) antes de desplegar.
+
+Contexto: el tablero funcionaba pero se sentía plano y usaba flechas de texto
+("→ En progreso") para mover tarjetas. Se pidió hacerlo más estético, dinámico e
+intuitivo, cero flechas (todo con emojis) y que la metodología quede más
+gobernable. Solo UI en `ScrumWorkspace.tsx`, sin API ni migración.
+
+### T11 — Identidad visual por columna (emojis + acento)
+- Nuevas consts a nivel de módulo: `COLUMN_META` (📋 Por hacer, 🚧 En progreso,
+  ✅ Hecho) con color de header, barra de acento y estilos de "soltar aquí" por
+  categoría; `COLUMN_FALLBACK` para categorías desconocidas; `colMeta()`.
+  `PRIORITY_EMOJI` + `priorityEmoji()` como semáforo (🔴 urgent, 🟠 high, 🟡
+  medium, 🔵 low, ⚪ none).
+- Cada columna ahora lleva su emoji, título en color de acento, contador
+  "n · SP" y una barra fina de color. El resalte de drop usa el color de la
+  columna destino (antes todo primary).
+
+### T12 — Cero flechas: chips de emoji para mover
+- Los botones "→ {columna}" se reemplazan por chips con el emoji de la columna
+  DESTINO (📋 / 🚧 / ✅). Deshabilitados si el proyecto no tiene estado
+  equivalente. El drag-and-drop nativo sigue igual como gesto principal.
+
+### T13 — Tarjetas más vivas
+- Emoji de prioridad como indicador líder, hover con elevación (shadow +
+  translate) y borde de realce, badge de fecha (`DueBadge`, naranja si vencida)
+  ahora también en la tarjeta del tablero, área truncada.
+
+### T14 — Barra de control del tablero (más gobernable)
+- Nueva barra de filtros en cliente (sin tocar BD): avatares por persona (toggle
+  con ring primary), "🔥 Vencidas", "🙋 Sin asignar" y "✖ Limpiar". Aplica a
+  ambos modos (Scrum y Kanban). Los avatares solo listan a quien tiene tareas.
+- `BoardView` ahora recibe `members` (ambos call sites). Alerta ⚠️ de WIP en la
+  columna "en curso" de Kanban cuando rebasa el límite sano (2 por persona).
+
+### T15 — Toggle de metodología tipo segmento
+- El `<select>` de metodología se vuelve un toggle segmentado "🏃 Scrum" /
+  "📋 Kanban" para admin (un clic, más intuitivo); los demás ven etiqueta fija
+  con emoji. Mensajes de tablero vacío ahora con emoji.
+
+### T16 — Build + deploy
+- `tsc --noEmit` limpio, deploy a Vercel producción OK.
+
+---
+
+## 2026-06-30 — Selector de metodología (Nivel B: Scrum ↔ Kanban)
+
+Deploy de producción: `dpl_FxP9dz67kzWxBkwTNxFPhN1qzkuA` (alias `wlo.vercel.app`).
+Typecheck limpio (`tsc --noEmit` EXIT=0) antes de desplegar.
+
+Contexto: el panel ágil solo hablaba Scrum (sprints obligatorios). Se agregó un
+selector por equipo para trabajar en Kanban (flujo continuo) sin sprints. Cambio
+ADITIVO: los equipos existentes quedan en `scrum` por default, el comportamiento
+actual no cambia hasta que un admin decida.
+
+### T6 — Migración aditiva `methodology` en teams
+- Nuevo: `supabase/migrations/20260701000000_team_methodology.sql`.
+- `ALTER TABLE teams ADD COLUMN IF NOT EXISTS methodology text NOT NULL DEFAULT
+  'scrum' CHECK (methodology IN ('scrum','kanban'))`. Aplicada al proyecto vivo
+  (`cmskiyypeujcgikbvyoz`) por Supabase MCP `apply_migration`, no por deploy.
+  Sin backfill destructivo, sin borrado de datos.
+
+### T7 — API: PATCH /api/teams/[teamId] acepta methodology
+- Editado: `src/app/api/teams/[teamId]/route.ts`.
+- Se añadió `methodology: z.enum(['scrum','kanban']).optional()` al zod `.strict()`.
+  Sigue admin-only (rol admin del equipo o 403). El update ya era genérico
+  (`...parsed.data`), así que no hubo que tocar la query.
+
+### T8 — Loader del panel pasa la metodología
+- Editado: `src/app/(app)/w/[workspaceSlug]/t/[teamSlug]/scrum/page.tsx`.
+- La query del equipo ahora selecciona `methodology`; se pasa como prop a
+  ScrumWorkspace (normalizada a 'scrum' | 'kanban').
+
+### T9 — ScrumWorkspace bimodal (Scrum/Kanban)
+- Editado: `src/components/scrum/ScrumWorkspace.tsx`.
+- Prop `methodology` + estado optimista (`switchMethodology`: cambia la lente al
+  instante, PATCH en segundo plano, revierte si falla). Selector en la barra
+  superior visible solo para admin (los demás ven una etiqueta de solo lectura).
+- Kanban reusa las MISMAS tareas (cero duplicación): el Tablero muestra TODO el
+  flujo (sin filtro de sprint), y desaparecen el selector de sprint, el estado de
+  sprint, el botón "+ Sprint" y la pestaña Backlog. La pestaña "Daily" se renombra
+  "Por persona" (agrupa por dueño sin depender de un sprint).
+- Nuevo Dashboard Kanban (`KanbanDashboard`): métricas de FLUJO en vez de velocity
+  de sprint. WIP en curso vs límite sano (2 por persona), completadas, por hacer,
+  total, vencidas sin cerrar (cuellos de botella), sin asignar, capacidad, ratio de
+  cierre. Gráficas: distribución por columna, carga por persona (en curso/hechas),
+  mix por área.
+- El drag-and-drop, la presencia en vivo y el estado optimista del Nivel A siguen
+  funcionando igual en ambos modos (el tablero es el mismo componente BoardView).
+
+### T10 — Build + deploy
+- `tsc --noEmit` limpio, deploy a Vercel producción OK.
+
+---
+
+## 2026-06-30 — SCRUM dinámico (Nivel A: drag-and-drop + optimista + presencia)
+
+Deploy de producción: `dpl_5nFjd6PD8rFvfqUGFzrqKvfKL9Ey` (alias `wlo.vercel.app`).
+Typecheck limpio (`tsc --noEmit` EXIT=0) antes de desplegar.
+
+Contexto: el panel Scrum ya tenía las vistas completas (Tablero por columnas,
+Backlog, Daily/standup, Dashboard con KPIs, sprints con fases
+planning/active/completed). Faltaba la dinámica. Se agregó sin migración de BD,
+reusando la API existente (PATCH /api/tasks/[id] y /api/sprints).
+
+### T1 — Hook reutilizable `usePresence`
+- Nuevo: `src/hooks/usePresence.ts`.
+- Extrae el patrón de presencia en vivo que ya usaba la pizarra (Supabase
+  Realtime Presence) a un hook reusable. Devuelve los OTROS usuarios viendo la
+  misma superficie; auto-track al suscribirse, limpia canal al desmontar.
+
+### T2 — BoardView con drag-and-drop nativo
+- Editado: `src/components/scrum/ScrumWorkspace.tsx` (BoardView).
+- Drag-and-drop HTML5 nativo (draggable / onDragStart / onDragOver / onDrop),
+  sin dependencia extra. Arrastrar una tarjeta entre columnas
+  Por hacer / En progreso / Hecho la mueve de estado.
+- Validación: solo permite soltar si el proyecto de la tarea tiene un estado
+  equivalente a esa columna. Resalte visual de la columna destino (ring primary)
+  y "Suelta aquí" en columnas vacías mientras se arrastra. La tarjeta arrastrada
+  baja a opacity-40. Los botones "→ columna" siguen ahí como respaldo táctil/a11y.
+
+### T3 — Estado optimista de tareas (sin parpadeo)
+- Editado: `src/components/scrum/ScrumWorkspace.tsx`.
+- `localTasks` (useState sincronizado desde props por useEffect). Mover, estimar
+  (story points) y enviar a sprint pintan el cambio al instante; el PATCH corre
+  en segundo plano (`patchTaskRequest`, sin router.refresh). Si el servidor
+  rechaza, se revierte a `tasks`. El realtime (useRealtimeRefresh) reconcilia con
+  la verdad del servidor cuando llegan props nuevas. Dashboard lee de `localTasks`
+  para no desincronizarse del tablero.
+
+### T4 — Tira de presencia en SprintBar
+- Editado: `src/components/scrum/ScrumWorkspace.tsx` (SprintBar + átomo PresenceStrip).
+- Junto al título "Scrum · equipo": avatares de quién está viendo el scrum ahora
+  (máx 4 + contador "+N") con punto verde pulsante = señal "en vivo". Canal de
+  presencia `scrum-presence-<teamId>`. El nombre del usuario se deriva de
+  `members` (la page ya pasa `currentUserId`).
+
+### T5 — Build + deploy
+- `tsc --noEmit` limpio, deploy a Vercel producción OK.
+
+---
+
+## Antes de 2026-06-30 (sesiones previas, resumen)
+
+- Pizarra colaborativa (Excalidraw) con presencia en vivo: funcionando.
+- Bug de ancho de la pizarra RESUELTO: el div raíz del layout del workspace
+  (`src/app/(app)/w/[workspaceSlug]/layout.tsx`) no tenía `flex-1`; el
+  posicionamiento `absolute` de Excalidraw colapsaba la fila flex a ~135px. Fix:
+  `flex-1 min-w-0 w-full` en el contenedor. Desplegado (pendiente que el usuario
+  haga hard-refresh Ctrl+Shift+R para verificar).

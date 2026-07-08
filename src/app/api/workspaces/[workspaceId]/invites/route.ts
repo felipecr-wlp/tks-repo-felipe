@@ -1,0 +1,218 @@
+/**
+ * GET  /api/workspaces/[workspaceId]/invites — lista invites activos (admin)
+ * POST /api/workspaces/[workspaceId]/invites — crea un invite (admin)
+ *
+ * Body POST:
+ *   {
+ *     password?: string,        // opcional
+ *     role?: 'member'|'manager'|'viewer',  // default 'member'
+ *     max_uses?: number,        // null = ilimitado
+ *     expires_in_days?: number  // null = no expira
+ *   }
+ */
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { applyRateLimit } from '@/lib/rate-limit'
+import { hashPassword } from '@/lib/password'
+import { generateInviteCode } from '@/lib/invite-code'
+import { logActivity, ActivityVerbs } from '@/lib/activity'
+
+interface RouteParams {
+  params: { workspaceId: string }
+}
+
+const createSchema = z.object({
+  password:        z.string().min(4).max(100).optional().nullable(),
+  role:            z.enum(['admin', 'manager', 'member', 'viewer']).default('member'),
+  max_uses:        z.number().int().min(1).max(10_000).optional().nullable(),
+  expires_in_days: z.number().int().min(1).max(365).optional().nullable(),
+})
+
+// ── Helper: verifica admin del workspace o de la org ─────────────────────────
+async function isAdmin(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  workspaceId: string
+): Promise<boolean> {
+  // Admin de la org
+  type ProfileRow = { org_role: string | null }
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('org_role')
+    .eq('id', userId)
+    .single() as { data: ProfileRow | null; error: unknown }
+
+  if (profile?.org_role === 'owner' || profile?.org_role === 'admin') {
+    return true
+  }
+
+  // Admin del workspace
+  type MembershipRow = { role: string }
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('profile_id', userId)
+    .single() as { data: MembershipRow | null; error: unknown }
+
+  return membership?.role === 'admin'
+}
+
+// ── GET ──────────────────────────────────────────────────────────────────────
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  const limited = await applyRateLimit(request, 'api')
+  if (limited) return limited
+
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+  if (!(await isAdmin(supabase, user.id, params.workspaceId))) {
+    return NextResponse.json({ error: 'Solo admins pueden ver invites' }, { status: 403 })
+  }
+
+  type InviteRow = {
+    id: string
+    code: string
+    role: string
+    max_uses: number | null
+    uses_count: number
+    expires_at: string | null
+    revoked_at: string | null
+    created_at: string
+    has_password: boolean
+  }
+
+  const { data: invites, error } = await supabase
+    .from('workspace_invites')
+    .select('id, code, role, max_uses, uses_count, expires_at, revoked_at, created_at, password_hash')
+    .eq('workspace_id', params.workspaceId)
+    .order('created_at', { ascending: false })
+    .limit(50) as {
+      data: Array<InviteRow & { password_hash: string | null }> | null
+      error: unknown
+    }
+
+  if (error) {
+    console.error('[invites GET] error:', error)
+    return NextResponse.json({ error: 'Error al listar invites' }, { status: 500 })
+  }
+
+  // No exponer hash
+  const mapped: InviteRow[] = (invites ?? []).map(({ password_hash, ...rest }) => ({
+    ...rest,
+    has_password: password_hash != null,
+  }))
+
+  return NextResponse.json({ invites: mapped })
+}
+
+// ── POST ─────────────────────────────────────────────────────────────────────
+export async function POST(request: NextRequest, { params }: RouteParams) {
+  const limited = await applyRateLimit(request, 'auth')
+  if (limited) return limited
+
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+  if (!(await isAdmin(supabase, user.id, params.workspaceId))) {
+    return NextResponse.json({ error: 'Solo admins pueden crear invites' }, { status: 403 })
+  }
+
+  let body: unknown
+  try { body = await request.json() }
+  catch { return NextResponse.json({ error: 'JSON inválido' }, { status: 400 }) }
+
+  const parsed = createSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Datos inválidos', details: parsed.error.flatten() },
+      { status: 422 }
+    )
+  }
+
+  const { password, role, max_uses, expires_in_days } = parsed.data
+
+  const code = generateInviteCode(16)
+  const expires_at = expires_in_days
+    ? new Date(Date.now() + expires_in_days * 86_400_000).toISOString()
+    : null
+
+  type InviteInsert = {
+    id: string
+    code: string
+    role: string
+    max_uses: number | null
+    uses_count: number
+    expires_at: string | null
+    created_at: string
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: invite, error } = await (supabase as any)
+    .from('workspace_invites')
+    .insert({
+      workspace_id:  params.workspaceId,
+      code,
+      password_hash: password ? hashPassword(password) : null,
+      role,
+      max_uses:      max_uses ?? null,
+      expires_at,
+      created_by:    user.id,
+    })
+    .select('id, code, role, max_uses, uses_count, expires_at, created_at')
+    .single() as { data: InviteInsert | null; error: unknown }
+
+  if (error || !invite) {
+    console.error('[invites POST] insert error:', error)
+    // Re-intentar una vez con código nuevo si fue colisión
+    const admin = createAdminClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: retry } = await (admin as any)
+      .from('workspace_invites')
+      .insert({
+        workspace_id:  params.workspaceId,
+        code:          generateInviteCode(20),
+        password_hash: password ? hashPassword(password) : null,
+        role,
+        max_uses:      max_uses ?? null,
+        expires_at,
+        created_by:    user.id,
+      })
+      .select('id, code, role, max_uses, uses_count, expires_at, created_at')
+      .single() as { data: InviteInsert | null; error: unknown }
+
+    if (!retry) {
+      return NextResponse.json({ error: 'Error al crear invite' }, { status: 500 })
+    }
+
+    return await respondWithInvite(retry, user.id, params.workspaceId, password != null)
+  }
+
+  return await respondWithInvite(invite, user.id, params.workspaceId, password != null)
+}
+
+async function respondWithInvite(
+  invite: {
+    id: string; code: string; role: string; max_uses: number | null
+    uses_count: number; expires_at: string | null; created_at: string
+  },
+  userId: string,
+  workspaceId: string,
+  hasPassword: boolean
+): Promise<NextResponse> {
+  await logActivity({
+    verb: ActivityVerbs.WORKSPACE_INVITE_CREATED,
+    subject_id: userId,
+    object_type: 'workspace_invite',
+    object_id: invite.id,
+    workspace_id: workspaceId,
+  })
+
+  return NextResponse.json(
+    { ...invite, has_password: hasPassword },
+    { status: 201 }
+  )
+}

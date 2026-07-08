@@ -1,0 +1,57 @@
+/**
+ * Crear nuevo equipo en el workspace.
+ */
+import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { NewTeamForm } from './NewTeamForm'
+
+interface NewTeamPageProps {
+  params: { workspaceSlug: string }
+}
+
+export const metadata = { title: 'Nuevo equipo · WLO' }
+
+export default async function NewTeamPage({ params }: NewTeamPageProps) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/auth/login')
+
+  const admin = createAdminClient()
+
+  // Workspace + membership desde la membership del user (anti-RLS)
+  type WsFromMember = {
+    role: string
+    workspaces: { id: string; name: string } | null
+  }
+  const { data: row } = await admin
+    .from('workspace_members')
+    .select(`
+      role,
+      workspaces!inner ( id, name )
+    `)
+    .eq('profile_id', user.id)
+    .eq('workspaces.slug', params.workspaceSlug)
+    .limit(1)
+    .maybeSingle() as { data: WsFromMember | null; error: unknown }
+
+  const workspace = row?.workspaces
+  if (!workspace) redirect('/')
+
+  return (
+    <div className="min-h-screen bg-background flex items-start justify-center p-6 pt-16">
+      <div className="w-full max-w-lg">
+        <div className="mb-6">
+          <p className="text-xs text-muted-foreground mb-1">{workspace.name}</p>
+          <h1 className="text-2xl font-semibold text-foreground">Nuevo equipo</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Los equipos agrupan proyectos y miembros con objetivos comunes.
+          </p>
+        </div>
+        <NewTeamForm
+          workspaceId={workspace.id}
+          workspaceSlug={params.workspaceSlug}
+        />
+      </div>
+    </div>
+  )
+}

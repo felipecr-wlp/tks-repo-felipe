@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(data[0][''text'']\\)\")",
+      "Bash(python3 -c \":*)",
+      "Bash(python -c \":*)",
+      "Bash(node -e \":*)",
+      "Bash(xargs ls -la)",
+      "Bash(npx create-next-app@14 . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git --no-turbopack)",
+      "Bash(npx create-next-app@14 . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git --no-turbopack --name \"work-os\")",
+      "Bash(node -e \"console.log\\(process.version\\)\")",
+      "Bash(npm install)",
+      "Bash(npm show next versions --json)",
+      "Bash(node -e \"const d=require\\(''fs''\\).readFileSync\\(''/dev/stdin'',''utf8''\\); const versions=JSON.parse\\(d\\); const v14=versions.filter\\(v=>v.startsWith\\(''14.''\\)\\); console.log\\(''Latest 14.x:'', v14[v14.length-1]\\)\")",
+      "Bash(npm show next dist-tags)",
+      "Bash(npm install next@14.2.35 @upstash/redis@latest --save)",
+      "Bash(npm audit --json)",
+      "Bash(node -e \"const d=require\\(''fs''\\).readFileSync\\(''/dev/stdin'',''utf8''\\); try{const a=JSON.parse\\(d\\); const hi=Object.values\\(a.vulnerabilities||{}\\).filter\\(v=>[''high'',''critical''].includes\\(v.severity\\)\\); console.log\\(''High/Critical:'', hi.map\\(v=>v.name+'' \\(''+v.severity+''\\)''\\)\\)}catch\\(e\\){console.log\\(d.slice\\(0,500\\)\\)}\")",
+      "Bash(npm audit)",
+      "Bash(npm install -D supabase@latest)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx next build)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(find \"C:\\\\Users\\\\GRIZZLY\\\\Desktop\\\\TSKR\\\\src\\\\app\\\\\\(app\\)\" -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\))",
+      "Bash(ls -la \"C:\\\\Users\\\\GRIZZLY\\\\Desktop\\\\TSKR\\\\src\\\\app\\\\\\(app\\)\\\\w\\\\[workspaceSlug]\\\\t\\\\[teamSlug]\\\\projects\")",
+      "Bash(ls -la \"C:\\\\Users\\\\GRIZZLY\\\\Desktop\\\\TSKR\\\\src\\\\app\\\\\\(app\\)\\\\settings\")",
+      "Bash(npm run build)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :3000)",
+      "Bash(taskkill //PID 36176 //F)",
+      "Bash(findstr :3050)",
+      "Bash(findstr :300)",
+      "Bash(taskkill //PID 74072 //F)",
+      "Bash(findstr :305)",
+      "Bash(npm install @excalidraw/excalidraw)"
+    ]
+  }
+}
