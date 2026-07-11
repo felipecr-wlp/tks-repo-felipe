@@ -8,6 +8,44 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Conversación A, Circuito A4 (historial de versiones de notas)
+
+Cuarto circuito de la Conversación A: cada guardado de contenido crea un snapshot
+del estado de la nota, con posibilidad de ver el historial y restaurar una versión
+anterior (tipo Notion/Google Docs). Aditivo, no toca tareas ni los circuitos A2/A3.
+Deja `tsc --noEmit` y `next build` en EXIT 0. Deploy prod PENDIENTE en esta entrada
+(ver commit).
+
+### Capa de datos (migración aditiva, ya aplicada a la DB en vivo)
+- `supabase/migrations/20260711020000_note_versions.sql`: tabla nueva `note_versions`
+  (id, note_id, workspace_id, title, content, edited_by, created_at, updated_at) con
+  índices por note/created_at y workspace, y RLS de SELECT anclada en
+  `workspace_members`. La escritura (snapshot/coalesce/restore) la hace solo el
+  service_role desde el API.
+
+### API
+- `src/lib/note-versions.ts`: `snapshotNoteVersion()` crea o coalesce una versión.
+  Para no explotar el historial con el autosave (~1.2s), funde ediciones seguidas del
+  MISMO autor dentro de una ventana de 3 min en una sola versión (update en sitio);
+  fuera de la ventana o al cambiar de autor, inserta una versión nueva. Dedupe: si el
+  content es idéntico a la última versión, no versiona.
+- `src/app/api/notes/[noteId]/route.ts`: en PATCH, si cambió `content`, además de
+  recalcular backlinks (A3) dispara `snapshotNoteVersion()` (best-effort).
+- `src/app/api/notes/[noteId]/versions/route.ts`: GET lista (máx 50, más reciente
+  primero) con metadatos y el editor (join a profiles).
+- `src/app/api/notes/[noteId]/versions/[versionId]/restore/route.ts`: POST restaura.
+  Antes de sobrescribir snapshotea el estado actual (restauración reversible), aplica
+  el content/title de la versión a la nota, y recalcula backlinks + historial.
+
+### UI
+- `src/app/(app)/w/[workspaceSlug]/notes/[noteId]/NoteVersions.tsx`: botón "Historial"
+  en la barra de la nota que abre un panel con los snapshots; cada uno (salvo el
+  actual) con acción de restaurar. Al restaurar, recarga la página para que el editor
+  tome el contenido restaurado.
+- `NoteEditor.tsx`: monta el botón `<NoteVersions>` junto a la acción de sub-página.
+
+---
+
 ## 2026-07-11: Conversación A, Circuito A3 (backlinks entre notas)
 
 Tercer circuito de la Conversación A: grafo de documentación tipo Notion/Obsidian.

@@ -15,6 +15,7 @@ import { NoteIcon, NOTE_ICONS, normalizeNoteIconKey } from '@/lib/note-icons'
 import { NotesActionsBar } from '../NotesActionsBar'
 import { NoteComments } from './NoteComments'
 import { NoteBacklinks } from './NoteBacklinks'
+import { NoteVersions } from './NoteVersions'
 
 const RichTextEditor = dynamic(
   () => import('@/components/editor/RichTextEditor').then(m => m.RichTextEditor),
@@ -263,6 +264,9 @@ export function NoteEditor({
               </div>
             )}
           </div>
+
+          {/* Historial de versiones (A4) */}
+          <NoteVersions noteId={initial.id} />
 
           {/* Sub-página */}
           <NotesActionsBar

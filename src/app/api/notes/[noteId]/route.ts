@@ -9,6 +9,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
 import { recomputeNoteLinks } from '@/lib/note-links'
+import { snapshotNoteVersion } from '@/lib/note-versions'
 
 interface RouteParams {
   params: { noteId: string }
@@ -140,13 +141,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     workspace_id: updated.workspace_id,
   }).catch(console.error)
 
-  // Backlinks (A3): si cambió el contenido, recalcular el grafo de enlaces
-  // salientes de esta nota. Best-effort: no bloquea ni rompe el guardado.
+  // Al cambiar el contenido: recalcular backlinks (A3) y snapshot de versión
+  // (A4). Ambos best-effort: no bloquean ni rompen el guardado.
   if (parsed.data.content !== undefined) {
     recomputeNoteLinks(admin, {
       sourceNoteId: updated.id,
       workspaceId:  updated.workspace_id,
       content:      parsed.data.content,
+    }).catch(console.error)
+
+    snapshotNoteVersion(admin, {
+      noteId:      updated.id,
+      workspaceId: updated.workspace_id,
+      title:       updated.title,
+      content:     parsed.data.content,
+      editedBy:    user.id,
     }).catch(console.error)
   }
 
