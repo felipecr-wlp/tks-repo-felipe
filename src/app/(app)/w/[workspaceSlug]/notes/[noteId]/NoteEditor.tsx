@@ -16,6 +16,7 @@ import { NotesActionsBar } from '../NotesActionsBar'
 import { NoteComments } from './NoteComments'
 import { NoteBacklinks } from './NoteBacklinks'
 import { NoteVersions } from './NoteVersions'
+import { NotePresence } from './NotePresence'
 
 const RichTextEditor = dynamic(
   () => import('@/components/editor/RichTextEditor').then(m => m.RichTextEditor),
@@ -45,6 +46,8 @@ interface ChildNote { id: string; title: string; icon: string | null }
 interface NoteEditorProps {
   initial: NoteData
   currentUserId: string
+  currentUserName: string
+  currentUserAvatar: string | null
   workspaceSlug: string
   workspaceId: string
   breadcrumbs: Breadcrumb[]
@@ -60,7 +63,8 @@ const VISIBILITY_OPTIONS = [
 
 
 export function NoteEditor({
-  initial, currentUserId, workspaceSlug, workspaceId, breadcrumbs, childNotes,
+  initial, currentUserId, currentUserName, currentUserAvatar,
+  workspaceSlug, workspaceId, breadcrumbs, childNotes,
 }: NoteEditorProps) {
   const router = useRouter()
   const [title, setTitle] = useState(initial.title)
@@ -264,6 +268,14 @@ export function NoteEditor({
               </div>
             )}
           </div>
+
+          {/* Presencia en vivo (A5): quién más está viendo la nota ahora */}
+          <NotePresence
+            noteId={initial.id}
+            currentUserId={currentUserId}
+            currentUserName={currentUserName}
+            currentUserAvatar={currentUserAvatar}
+          />
 
           {/* Historial de versiones (A4) */}
           <NoteVersions noteId={initial.id} />

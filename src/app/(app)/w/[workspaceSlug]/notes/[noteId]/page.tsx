@@ -91,11 +91,21 @@ export default async function NotePage({ params }: NotePageProps) {
     .eq('parent_note_id', note.id)
     .order('updated_at', { ascending: false }) as { data: ChildNote[] | null; error: unknown }
 
+  // Identidad del usuario actual para presencia en vivo (A5).
+  type SelfProfile = { display_name: string | null; avatar_url: string | null }
+  const { data: self } = await admin
+    .from('profiles')
+    .select('display_name, avatar_url')
+    .eq('id', user.id)
+    .maybeSingle() as { data: SelfProfile | null; error: unknown }
+
   return (
     <div className="h-full overflow-y-auto">
       <NoteEditor
         initial={note}
         currentUserId={user.id}
+        currentUserName={self?.display_name ?? 'Usuario'}
+        currentUserAvatar={self?.avatar_url ?? null}
         workspaceSlug={params.workspaceSlug}
         workspaceId={workspace.id}
         breadcrumbs={breadcrumbs}

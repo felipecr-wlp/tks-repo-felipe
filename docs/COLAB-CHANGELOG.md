@@ -8,6 +8,31 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Conversación A, Circuito A5 (presencia en vivo en la nota)
+
+Quinto y último circuito de notas de la Conversación A: mientras varias personas
+abren la misma nota, cada una ve un stack de avatares de quién más la está viendo
+ahora mismo, con Supabase Realtime Presence. Silencioso si estás solo. Aditivo, no
+toca tareas ni los circuitos A2/A3/A4. Deja `tsc --noEmit` y `next build` en EXIT 0.
+
+### UI (cliente, sin capa de datos nueva)
+- `src/app/(app)/w/[workspaceSlug]/notes/[noteId]/NotePresence.tsx`: componente
+  nuevo. Se suscribe al canal `note-presence-${noteId}` con `presence.key` = id del
+  usuario, hace `track()` de su identidad al conectar y en cada `sync` pinta un stack
+  de avatares de los OTROS presentes (dedupe por id, excluyendo al usuario actual,
+  máx 4 + chip de overflow). Devuelve null si no hay nadie más.
+- `src/app/(app)/w/[workspaceSlug]/notes/[noteId]/page.tsx`: carga el perfil propio
+  (display_name, avatar_url) y lo pasa a `NoteEditor` como `currentUserName` /
+  `currentUserAvatar`.
+- `src/app/(app)/w/[workspaceSlug]/notes/[noteId]/NoteEditor.tsx`: acepta las dos
+  props nuevas y monta `<NotePresence>` en la barra de acciones, junto al historial.
+
+### Verificación
+- `npx tsc --noEmit`: EXIT 0. `npx next build`: EXIT 0.
+- Deploy prod y commit: ver abajo.
+
+---
+
 ## 2026-07-11: Conversación A, Circuito A4 (historial de versiones de notas)
 
 Cuarto circuito de la Conversación A: cada guardado de contenido crea un snapshot
