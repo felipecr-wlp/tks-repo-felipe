@@ -8,6 +8,31 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B7 (Vista de Carga de Trabajo / Workload)
+
+Primer circuito del loop de mejora premium: el proyecto gana una quinta vista, "Carga",
+que agrupa las tareas activas por su asignado principal y muestra, por persona, la carga
+estimada en horas (a partir de `estimate_minutes` del circuito B5), el número de tareas
+abiertas, las vencidas, y una barra apilada por categoría de estado. Da al líder una
+lectura inmediata de quién está saturado y quién tiene holgura. Incluye tres tarjetas de
+resumen global (abiertas, carga estimada, vencidas) y filas expandibles que revelan las
+tareas de cada persona (clic abre el TaskDetailPanel). Vista de solo lectura, aditiva: no
+toca Scrum, Marketplace, Chat, Notas ni Pizarra, y las vistas Lista/Tablero/Calendario/Chat
+siguen igual. Sin migración (reusa datos ya cargados). Deja `tsc --noEmit` y `next build`
+en EXIT 0.
+
+### Archivos
+- `src/components/tasks/TaskWorkloadView.tsx` (nuevo): componente cliente. Construye buckets
+  por asignado (incluye bucket "Sin asignar"), calcula minutos estimados de tareas no
+  terminadas, cuenta vencidas comparando `due_date` contra hoy en hora local, y ordena por
+  mayor carga. Barra apilada por categoría (todo/in_progress/done/cancelled) + indicador
+  relativo de carga en horas (rojo si hay vencidas). Realtime vía `useRealtimeRefresh`.
+- `src/app/(app)/w/[workspaceSlug]/t/[teamSlug]/p/[projectSlug]/page.tsx`: se añade
+  `estimate_minutes` al tipo `TaskRow` y al `.select` de tareas; nuevo `ViewToggle` para
+  `?view=workload` con `LoadIcon`; rama de render que monta `TaskWorkloadView`.
+
+---
+
 ## 2026-07-11: Conversación B, Circuito B6 (vistas guardadas + calendario)
 
 Sexto y último circuito de la Conversación B: el proyecto gana una barra de filtros

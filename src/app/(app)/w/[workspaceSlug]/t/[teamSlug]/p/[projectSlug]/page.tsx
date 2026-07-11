@@ -9,6 +9,7 @@ import { LayoutDashboard } from 'lucide-react'
 import { ProjectIcon } from '@/lib/project-icons'
 import { TaskListView } from '@/components/tasks/TaskListView'
 import { TaskCalendarView } from '@/components/tasks/TaskCalendarView'
+import { TaskWorkloadView } from '@/components/tasks/TaskWorkloadView'
 import { TaskFilterBar } from '@/components/tasks/TaskFilterBar'
 import { ProjectChat } from '@/components/chat/ProjectChat'
 
@@ -62,6 +63,7 @@ type TaskRow = {
   priority: string
   due_date: string | null
   start_date: string | null
+  estimate_minutes: number | null
   sort_order: string
   status: { id: string; name: string; color: string | null; category: string } | null
   assignee: { id: string; display_name: string; avatar_url: string | null } | null
@@ -133,6 +135,7 @@ export default async function ProjectPage({
       priority,
       due_date,
       start_date,
+      estimate_minutes,
       sort_order,
       status:task_statuses ( id, name, color, category ),
       assignee:profiles ( id, display_name, avatar_url ),
@@ -264,6 +267,12 @@ export default async function ProjectPage({
               icon={<CalIcon />}
             />
             <ViewToggle
+              href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/p/${params.projectSlug}?view=workload`}
+              active={currentView === 'workload'}
+              label="Carga"
+              icon={<LoadIcon />}
+            />
+            <ViewToggle
               href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/p/${params.projectSlug}?view=chat`}
               active={currentView === 'chat'}
               label="Chat"
@@ -309,6 +318,14 @@ export default async function ProjectPage({
           />
         ) : currentView === 'calendar' ? (
           <TaskCalendarView
+            projectId={project.id}
+            tasks={tasks ?? []}
+            statuses={statuses ?? []}
+            members={memberProfiles}
+            currentUserId={user.id}
+          />
+        ) : currentView === 'workload' ? (
+          <TaskWorkloadView
             projectId={project.id}
             tasks={tasks ?? []}
             statuses={statuses ?? []}
@@ -390,6 +407,14 @@ function CalIcon() {
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
       <rect x="1.5" y="2.5" width="10" height="8.5" rx="1.2" stroke="currentColor" strokeWidth="1.3" />
       <path d="M1.5 5h10M4 1.5v2M9 1.5v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function LoadIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <path d="M2 11V6M6.5 11V2M11 11V8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
 }
