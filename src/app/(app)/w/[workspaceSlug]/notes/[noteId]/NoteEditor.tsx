@@ -13,6 +13,7 @@ import { Globe, Users, Folder, Lock, ChevronDown, Check, AlertTriangle, RotateCw
 import { cn, timeAgo } from '@/lib/utils'
 import { NoteIcon, NOTE_ICONS, normalizeNoteIconKey } from '@/lib/note-icons'
 import { NotesActionsBar } from '../NotesActionsBar'
+import { NoteComments } from './NoteComments'
 
 const RichTextEditor = dynamic(
   () => import('@/components/editor/RichTextEditor').then(m => m.RichTextEditor),
@@ -368,6 +369,9 @@ export function NoteEditor({
           </div>
         </div>
       )}
+
+      {/* Comentarios (hilo lateral) */}
+      <NoteComments noteId={initial.id} currentUserId={currentUserId} />
     </div>
   )
 }

@@ -8,6 +8,48 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Conversación A, Circuito A2 (comentarios dentro de la nota + menciones al inbox)
+
+Segundo circuito de la Conversación A: hilo lateral de comentarios en cada nota,
+reutilizando el patrón de comentarios de tareas, con @menciones que notifican al
+inbox del mencionado y llegada en vivo por Realtime. Aditivo, no toca tareas ni
+ninguna tabla existente. Deja `tsc --noEmit` y `next build` en EXIT 0. Deploy prod
+`dpl_G1PaRLMRF2da2JoRCN7koVBbNzYQ` (READY).
+
+### Capa de datos (migración aditiva, ya aplicada a la DB en vivo)
+- `supabase/migrations/20260711000000_note_comments.sql`: tablas nuevas
+  `note_comments` (id, note_id, workspace_id, author_id, content, timestamps) y
+  `note_mentions` (id, note_id, mentioned_id, mentioned_by, source, created_at),
+  ambas con RLS ancladas en `workspace_members` + org owner/admin (las notas son
+  de alcance workspace, no de proyecto). Índices por note/workspace/mencionado,
+  trigger `updated_at`, y alta best-effort de `note_comments` a la publicación
+  `supabase_realtime`.
+
+### API (espejo del patrón de tareas, acceso por workspace + visibilidad)
+- `src/app/api/notes/[noteId]/comments/route.ts`: GET lista + POST agrega. Acceso
+  vía nota + `workspace_members` + visibilidad (private = solo su creador). Mapea
+  `content` a `body` para la UI. POST rate-limited, zod `.strict()`, registra
+  `logActivity(NOTE_COMMENTED)`.
+- `src/app/api/notes/[noteId]/mentions/route.ts`: GET mencionables (miembros del
+  workspace) / POST filtra a miembros reales server-side (nunca confía en el
+  cliente), inserta `note_mentions`, crea `createNotification(NOTE_MENTIONED,
+  object_type:'note')` por destinatario y `logActivity(NOTE_MENTIONED)`.
+- `src/lib/activity.ts`: verbos `NOTE_COMMENTED`, `NOTE_MENTIONED` y tipo de
+  notificación `NOTE_MENTIONED = 'note_mentioned'`.
+
+### UI
+- `src/app/(app)/w/[workspaceSlug]/notes/[noteId]/NoteComments.tsx`: componente
+  nuevo con lista de comentarios, composer con autocompletar de @menciones
+  (iconos lucide, español con ñ/tildes, sin guiones largos) y suscripción
+  Realtime a `note_comments` (resuelve el autor con la lista de miembros ya
+  cargada, ya que el payload trae la fila cruda). Se monta al final de
+  `NoteEditor.tsx`.
+- `src/app/(app)/w/[workspaceSlug]/inbox/InboxList.tsx`: etiquetas para
+  `note_mentioned`/`task_mentioned` y navegación al hacer click en una
+  notificación de nota (`/w/{slug}/notes/{object_id}`).
+
+---
+
 ## 2026-07-11: Conversación A, Circuito A1 (guardado robusto de Notas, antipérdida)
 
 Inicio de la Conversación A del roadmap a paridad ClickUp (`docs/ROADMAP-CLICKUP-PARITY.md`):

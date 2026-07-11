@@ -126,6 +126,8 @@ export const ActivityVerbs = {
   // Notes
   NOTE_CREATED:        'note.created',
   NOTE_UPDATED:        'note.updated',
+  NOTE_COMMENTED:      'note.commented',
+  NOTE_MENTIONED:      'note.mentioned',
   // Whiteboards
   WHITEBOARD_CREATED:  'whiteboard.created',
   WHITEBOARD_UPDATED:  'whiteboard.updated',
@@ -147,4 +149,5 @@ export const NotificationTypes = {
   PROJECT_REJECTED:      'project_rejected',      // al proponente: su proyecto fue rechazado
   PROJECT_PENDING_APPROVAL: 'project_pending_approval', // a admins: hay un proyecto por aprobar
   TASK_MENTIONED:        'task_mentioned',        // al mencionado: te nombraron en una tarea
+  NOTE_MENTIONED:        'note_mentioned',        // al mencionado: te nombraron en un comentario de nota
 } as const

@@ -36,6 +36,8 @@ const VERB_LABELS: Record<string, string> = {
   'task.priority_set':    'cambió la prioridad de',
   'comment.added':        'comentó en',
   'comment.mention':      'te mencionó en',
+  'task_mentioned':       'te mencionó en',
+  'note_mentioned':       'te mencionó en la nota',
   'project.member_added': 'te agregó al proyecto',
   'workspace.member_joined': 'se unió al workspace',
 }
@@ -89,7 +91,11 @@ export function InboxList({ initial, workspaceSlug }: InboxListProps) {
 
   function handleClick(notif: Notification) {
     if (!notif.is_read) markRead(notif.id)
-    // Navegar al objeto si aplica (futuro: deep link a tarea / proyecto)
+    // Navegar al objeto si aplica.
+    if (notif.object_type === 'note' && notif.object_id) {
+      router.push(`/w/${workspaceSlug}/notes/${notif.object_id}`)
+      return
+    }
     if (notif.object_type === 'task' && notif.object_id) {
       // TODO: abrir TaskDetailPanel desde inbox cuando esté contextual
       router.refresh()
