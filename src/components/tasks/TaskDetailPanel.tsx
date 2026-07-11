@@ -21,13 +21,14 @@ import {
   X, Trash2, Loader2, Paperclip, UploadCloud, Download, AtSign,
   Zap, ChevronsUp, ChevronUp, ChevronDown, Minus, ImageIcon, FileText,
   CircleDot, User as UserIcon, Calendar as CalendarIcon, MessageSquare,
-  CornerLeftUp,
+  CornerLeftUp, PlayCircle, Clock,
 } from 'lucide-react'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 import { ChecklistSection } from './ChecklistSection'
 import { SubtasksSection } from './SubtasksSection'
 import { DependenciesSection } from './DependenciesSection'
 import { AssigneesSection } from './AssigneesSection'
+import { TimeTrackingSection } from './TimeTrackingSection'
 import { TaskLabels } from './TaskLabels'
 
 // Tiptap pesa ~80KB, lazy-load para no inflar bundle inicial
@@ -53,6 +54,8 @@ interface TaskDetail {
   description: string | null
   priority: string
   due_date: string | null
+  start_date: string | null
+  estimate_minutes: number | null
   sort_order: string
   project_id: string
   status: Status | null
@@ -419,6 +422,9 @@ export function TaskDetailPanel({
                   onBlockersChange={setOpenBlockers}
                 />
 
+                {/* Tiempo registrado */}
+                <TimeTrackingSection taskId={taskId} />
+
                 {/* Checklist ligero */}
                 <ChecklistSection taskId={taskId} />
 
@@ -474,12 +480,28 @@ export function TaskDetailPanel({
                   <AssigneesSection taskId={taskId} members={members} />
                 </MetaRow>
 
+                <MetaRow icon={<PlayCircle className="w-3.5 h-3.5" />} label="Inicia el">
+                  <input
+                    type="date"
+                    defaultValue={task.start_date ? task.start_date.slice(0, 10) : ''}
+                    onChange={e => updateField({ start_date: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                    className="text-sm bg-transparent text-foreground cursor-pointer hover:text-primary transition-colors outline-none w-full"
+                  />
+                </MetaRow>
+
                 <MetaRow icon={<CalendarIcon className="w-3.5 h-3.5" />} label="Vence el">
                   <input
                     type="date"
                     defaultValue={task.due_date ? task.due_date.slice(0, 10) : ''}
                     onChange={e => updateField({ due_date: e.target.value ? new Date(e.target.value).toISOString() : null })}
                     className="text-sm bg-transparent text-foreground cursor-pointer hover:text-primary transition-colors outline-none w-full"
+                  />
+                </MetaRow>
+
+                <MetaRow icon={<Clock className="w-3.5 h-3.5" />} label="Estimacion">
+                  <EstimateField
+                    minutes={task.estimate_minutes}
+                    onSave={mins => updateField({ estimate_minutes: mins })}
                   />
                 </MetaRow>
 
@@ -516,6 +538,49 @@ function MetaRow({ icon, label, children }: { icon: React.ReactNode; label: stri
       </p>
       {children}
     </div>
+  )
+}
+
+// ── Estimacion ────────────────────────────────────────────────────────────────
+// Acepta "2h", "90m", "1h30m" o un numero suelto (minutos). Guarda minutos.
+function parseEstimate(raw: string): number | null {
+  const s = raw.trim().toLowerCase()
+  if (!s) return null
+  const hm = s.match(/^(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?$/)
+  if (hm && (hm[1] || hm[2])) {
+    return (parseInt(hm[1] ?? '0', 10) * 60) + parseInt(hm[2] ?? '0', 10)
+  }
+  const n = parseInt(s.replace(/[^0-9]/g, ''), 10)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+function fmtEstimate(mins: number | null): string {
+  if (!mins || mins <= 0) return ''
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`
+  return `${m}m`
+}
+
+function EstimateField({ minutes, onSave }: { minutes: number | null; onSave: (mins: number | null) => void }) {
+  const [value, setValue] = useState(fmtEstimate(minutes))
+  useEffect(() => { setValue(fmtEstimate(minutes)) }, [minutes])
+
+  const commit = () => {
+    const parsed = parseEstimate(value)
+    if (parsed === minutes) { setValue(fmtEstimate(minutes)); return }
+    onSave(parsed)
+  }
+
+  return (
+    <input
+      value={value}
+      onChange={e => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+      placeholder="ej. 2h 30m"
+      className="text-sm bg-transparent text-foreground hover:text-primary focus:text-foreground transition-colors outline-none w-full placeholder:text-muted-foreground/60"
+    />
   )
 }
 

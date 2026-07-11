@@ -8,6 +8,38 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Conversación B, Circuito B5 (estimación, fecha inicio y tiempo)
+
+Quinto circuito de la Conversación B: cada tarea gana una estimación de esfuerzo, una
+fecha de inicio y una sección de tiempo registrado (timer arranca/detiene, alta manual en
+minutos y total acumulado por el equipo). El backend de time tracking ya existía
+(`/api/time-entries/*` + tabla `time_entries` del módulo `/tracking`); aquí solo se agrega
+un resumen por tarea y se reutilizan sus endpoints de escritura. Aditivo, no toca Scrum,
+Marketplace, Chat, Notas ni Pizarra. Deja `tsc --noEmit` y `next build` en EXIT 0.
+
+### Capa de datos (migración aditiva)
+- Migración `add_task_estimate_and_start_date`: agrega a `tasks` las columnas
+  `estimate_minutes` (integer) y `start_date` (timestamptz). Ambas nullable, sin default
+  destructivo. Se reutiliza la tabla existente `time_entries` para el tiempo real.
+
+### API (patrón anti-IDOR)
+- `src/app/api/tasks/[taskId]/time/route.ts`: ruta nueva GET. Devuelve el total de segundos
+  del equipo en la tarea, la lista de entradas (con autor) y el id del timer propio en curso.
+  `applyRateLimit` -> auth 401 -> admin -> `checkTaskAccess`. Solo lectura; la escritura
+  sigue en `/api/time-entries/{start,stop}` y POST `/api/time-entries` (ya existentes).
+- `src/app/api/tasks/[taskId]/route.ts`: GET y PATCH ahora incluyen `start_date` y
+  `estimate_minutes` en el select y el schema zod (`estimate_minutes` int 0..1e6 nullable,
+  `start_date` datetime nullable), para que el estado del panel no los pierda al guardar.
+
+### UI (iconos lucide, texto en español)
+- `src/components/tasks/TimeTrackingSection.tsx`: componente nuevo. Total formateado (2h 15m),
+  botón Iniciar/Detener el timer, alta manual en minutos y últimas entradas con avatar.
+- `src/components/tasks/TaskDetailPanel.tsx`: filas nuevas "Inicia el" (date) y "Estimacion"
+  (`EstimateField`, acepta "2h", "90m", "1h30m" o minutos sueltos) en la columna de metadatos;
+  se monta `<TimeTrackingSection>` en el cuerpo, antes del Checklist.
+
+---
+
 ## 2026-07-11: Conversación B, Circuito B4 (múltiples asignados)
 
 Cuarto circuito de la Conversación B: una tarea puede tener VARIOS asignados, con

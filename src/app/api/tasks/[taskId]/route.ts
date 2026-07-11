@@ -22,7 +22,8 @@ export async function GET(
 
   type TaskFull = {
     id: string; title: string; description: string | null; priority: string
-    due_date: string | null; sort_order: string; created_at: string; updated_at: string
+    due_date: string | null; start_date: string | null; estimate_minutes: number | null
+    sort_order: string; created_at: string; updated_at: string
     project_id: string
     status: { id: string; name: string; color: string | null; category: string } | null
     assignee: { id: string; display_name: string; avatar_url: string | null } | null
@@ -32,7 +33,7 @@ export async function GET(
   const { data: task } = await admin
     .from('tasks')
     .select(`
-      id, title, description, priority, due_date, sort_order, created_at, updated_at, project_id,
+      id, title, description, priority, due_date, start_date, estimate_minutes, sort_order, created_at, updated_at, project_id,
       status:task_statuses ( id, name, color, category ),
       assignee:profiles!tasks_assignee_id_fkey ( id, display_name, avatar_url ),
       created_by_profile:profiles!tasks_created_by_fkey ( id, display_name, avatar_url ),
@@ -65,6 +66,8 @@ const patchSchema = z.object({
   priority:    z.enum(['urgent', 'high', 'medium', 'low', 'none']).optional(),
   assignee_id: z.string().uuid().nullable().optional(),
   due_date:    z.string().datetime().nullable().optional(),
+  start_date:  z.string().datetime().nullable().optional(),
+  estimate_minutes: z.number().int().min(0).max(1000000).nullable().optional(),
   sort_order:  z.string().optional(),
   // ── Capa SCRUM ──────────────────────────────────────────────
   sprint_id:         z.string().uuid().nullable().optional(),
@@ -119,6 +122,8 @@ export async function PATCH(
     description: string | null
     priority: string
     due_date: string | null
+    start_date: string | null
+    estimate_minutes: number | null
     sort_order: string
     created_at: string
     updated_at: string
@@ -133,7 +138,7 @@ export async function PATCH(
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.taskId)
     .select(`
-      id, title, description, priority, due_date, sort_order, created_at, updated_at,
+      id, title, description, priority, due_date, start_date, estimate_minutes, sort_order, created_at, updated_at,
       status:task_statuses ( id, name, color, category ),
       assignee:profiles!tasks_assignee_id_fkey ( id, display_name, avatar_url ),
       created_by_profile:profiles!tasks_created_by_fkey ( id, display_name, avatar_url )
