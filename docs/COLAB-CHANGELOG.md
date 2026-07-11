@@ -8,6 +8,31 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B13 (notificar a seguidores en comentarios)
+
+Séptimo circuito del loop premium: cerrar el hueco de notificaciones. Hasta B12, los
+seguidores (B10/B11) solo recibían aviso cuando cambiaba un CAMPO de la tarea (PATCH), no
+cuando alguien COMENTABA, que suele ser el evento colaborativo más importante. Ahora un
+comentario nuevo notifica a todos los seguidores (menos al autor) con su propia frase en la
+bandeja. Aditivo: no toca tasks, asignados, Scrum, Marketplace, Chat, Notas ni Pizarra. Deja
+`tsc --noEmit` y `next build` en EXIT 0.
+
+### Lib (parametrizar el notificador)
+- `src/lib/activity.ts`: `notifyTaskWatchers` acepta un `notifType` opcional (por defecto
+  `TASK_UPDATED`). Se agregó `NotificationTypes.TASK_COMMENTED = 'task_commented'` para que la
+  bandeja distinga "comentó" de "actualizó".
+
+### API
+- `src/app/api/tasks/[taskId]/comments/route.ts` (POST): tras insertar el comentario, llama a
+  `notifyTaskWatchers({ ..., notifType: TASK_COMMENTED })` (best effort, no bloquea). El autor
+  se excluye solo (la función filtra al actor), así que quien comenta no se auto-notifica.
+
+### UI
+- `src/app/(app)/w/[workspaceSlug]/inbox/InboxList.tsx`: nueva etiqueta
+  `'task_commented': 'comentó en la tarea que sigues'` en `VERB_LABELS`.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B12 (historial de actividad en el panel)
 
 Sexto circuito del loop premium: un feed de actividad por tarea en el panel de detalle.

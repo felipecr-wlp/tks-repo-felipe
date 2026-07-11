@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { autoWatch } from '@/lib/watchers'
-import { logActivity, ActivityVerbs } from '@/lib/activity'
+import { logActivity, ActivityVerbs, NotificationTypes, notifyTaskWatchers } from '@/lib/activity'
 
 export async function GET(
   _request: NextRequest,
@@ -141,6 +141,15 @@ export async function POST(
     object_title: task.title,
     workspace_id: task.workspace_id,
     project_id: task.project_id,
+  }).catch(console.error)
+
+  // Notificar a los seguidores (menos al autor) que hay un comentario nuevo.
+  notifyTaskWatchers({
+    taskId: params.taskId,
+    actorId: user.id,
+    taskTitle: task.title,
+    workspaceId: task.workspace_id,
+    notifType: NotificationTypes.TASK_COMMENTED,
   }).catch(console.error)
 
   return NextResponse.json({

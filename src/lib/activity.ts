@@ -97,6 +97,10 @@ export async function notifyTaskWatchers(params: {
   actorId: string
   taskTitle: string
   workspaceId: string
+  /** Tipo de notificacion. Por defecto TASK_UPDATED (cambio de campo). Para un
+   *  comentario nuevo se pasa TASK_COMMENTED, asi la bandeja muestra la frase
+   *  correcta. */
+  notifType?: string
 }): Promise<void> {
   try {
     const supabase = getLogClient()
@@ -116,7 +120,7 @@ export async function notifyTaskWatchers(params: {
       workspace_id: params.workspaceId,
       recipient_id,
       subject_id:   params.actorId,
-      type:         NotificationTypes.TASK_UPDATED,
+      type:         params.notifType ?? NotificationTypes.TASK_UPDATED,
       object_type:  'task',
       object_id:    params.taskId,
       object_title: params.taskTitle,
@@ -192,4 +196,5 @@ export const NotificationTypes = {
   TASK_MENTIONED:        'task_mentioned',        // al mencionado: te nombraron en una tarea
   NOTE_MENTIONED:        'note_mentioned',        // al mencionado: te nombraron en un comentario de nota
   TASK_UPDATED:          'task_updated',          // al seguidor: se actualizo una tarea que sigues
+  TASK_COMMENTED:        'task_commented',        // al seguidor: alguien comento en una tarea que sigues
 } as const
