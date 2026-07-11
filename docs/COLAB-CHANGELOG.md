@@ -8,6 +8,46 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B10 (seguidores/watchers de tarea)
+
+Cuarto circuito del loop premium: una tarea puede tener SEGUIDORES (watchers), como en
+ClickUp/Notion. En el panel de detalle aparece un botón "Seguir / Siguiendo" y los avatares
+apilados de todos los que la siguen. Al seguir una tarea, la persona recibe una notificación
+en su bandeja cada vez que la tarea se actualiza (cualquier PATCH), aunque no sea el asignado.
+Así te enteras de los cambios de una tarea que te importa sin tener que estar asignado a ella.
+Aditivo: no toca tasks, asignados, Scrum, Marketplace, Chat, Notas ni Pizarra. Deja
+`tsc --noEmit` y `next build` en EXIT 0.
+
+### Base de datos (migración aditiva)
+- `supabase/migrations/20260711040000_task_watchers.sql` (nueva): tabla `task_watchers`
+  (id, task_id -> tasks cascade, project_id -> projects cascade, profile_id -> profiles
+  cascade, created_at) con UNIQUE (task_id, profile_id). RLS anclada en el proyecto
+  (mismo patrón que message_reactions): select para miembro del proyecto/workspace o
+  admin/owner; insert y delete solo para la propia persona. `REPLICA IDENTITY FULL` y alta
+  en la publicación `supabase_realtime` para futuros usos en vivo.
+
+### API (patrón anti-IDOR en capas)
+- `src/app/api/tasks/[taskId]/watchers/route.ts` (nuevo): GET lista los seguidores + si YO
+  sigo; POST alterna MI propio seguimiento. `applyRateLimit` -> auth 401 -> `checkTaskAccess`
+  (403/404). `profile_id` sale del usuario autenticado y `project_id` se deriva de la tarea,
+  nunca del body.
+- `src/app/api/tasks/[taskId]/route.ts`: el PATCH ahora llama `notifyTaskWatchers` (best
+  effort) tras actualizar, para avisar a los seguidores (menos al actor).
+
+### Lib
+- `src/lib/activity.ts`: nueva función `notifyTaskWatchers` (inserta filas en `notifications`
+  para cada watcher salvo el actor) y nuevo tipo `NotificationTypes.TASK_UPDATED = 'task_updated'`.
+
+### UI
+- `src/components/tasks/WatchersSection.tsx` (nuevo): botón Seguir/Siguiendo (íconos lucide
+  Eye/EyeOff) + avatares apilados de seguidores, autocontenido por taskId.
+- `src/components/tasks/TaskDetailPanel.tsx`: nueva MetaRow "Seguidores" en la columna de
+  metadatos, debajo de Asignados.
+- `src/app/(app)/w/[workspaceSlug]/inbox/InboxList.tsx`: etiqueta para el tipo `task_updated`
+  ("actualizó la tarea que sigues").
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B9 (reacciones con emoji en el chat)
 
 Tercer circuito del loop premium: el chat del proyecto gana reacciones con emoji al

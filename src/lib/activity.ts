@@ -88,6 +88,47 @@ export async function createNotification(params: NotifyParams): Promise<void> {
 }
 
 /**
+ * Notifica a los SEGUIDORES (watchers) de una tarea que se actualizo, excepto al
+ * actor que hizo el cambio. Best effort: no rompe el flujo principal si falla.
+ * Circuito B10. Reusa la tabla notifications ya existente.
+ */
+export async function notifyTaskWatchers(params: {
+  taskId: string
+  actorId: string
+  taskTitle: string
+  workspaceId: string
+}): Promise<void> {
+  try {
+    const supabase = getLogClient()
+
+    const { data: watchers } = await supabase
+      .from('task_watchers')
+      .select('profile_id')
+      .eq('task_id', params.taskId)
+
+    const recipients: string[] = (watchers ?? [])
+      .map((w: { profile_id: string }) => w.profile_id)
+      .filter((id: string) => id !== params.actorId)
+
+    if (recipients.length === 0) return
+
+    const rows = recipients.map(recipient_id => ({
+      workspace_id: params.workspaceId,
+      recipient_id,
+      subject_id:   params.actorId,
+      type:         NotificationTypes.TASK_UPDATED,
+      object_type:  'task',
+      object_id:    params.taskId,
+      object_title: params.taskTitle,
+    }))
+
+    await supabase.from('notifications').insert(rows)
+  } catch (error) {
+    console.error('[notifyTaskWatchers] Error:', error)
+  }
+}
+
+/**
  * Verbs estándar, usar siempre estos para consistencia
  */
 export const ActivityVerbs = {
@@ -150,4 +191,5 @@ export const NotificationTypes = {
   PROJECT_PENDING_APPROVAL: 'project_pending_approval', // a admins: hay un proyecto por aprobar
   TASK_MENTIONED:        'task_mentioned',        // al mencionado: te nombraron en una tarea
   NOTE_MENTIONED:        'note_mentioned',        // al mencionado: te nombraron en un comentario de nota
+  TASK_UPDATED:          'task_updated',          // al seguidor: se actualizo una tarea que sigues
 } as const

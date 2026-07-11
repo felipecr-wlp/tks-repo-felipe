@@ -21,13 +21,14 @@ import {
   X, Trash2, Loader2, Paperclip, UploadCloud, Download, AtSign,
   Zap, ChevronsUp, ChevronUp, ChevronDown, Minus, ImageIcon, FileText,
   CircleDot, User as UserIcon, Calendar as CalendarIcon, MessageSquare,
-  CornerLeftUp, PlayCircle, Clock,
+  CornerLeftUp, PlayCircle, Clock, Eye,
 } from 'lucide-react'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 import { ChecklistSection } from './ChecklistSection'
 import { SubtasksSection } from './SubtasksSection'
 import { DependenciesSection } from './DependenciesSection'
 import { AssigneesSection } from './AssigneesSection'
+import { WatchersSection } from './WatchersSection'
 import { TimeTrackingSection } from './TimeTrackingSection'
 import { TaskLabels } from './TaskLabels'
 
@@ -478,6 +479,10 @@ export function TaskDetailPanel({
 
                 <MetaRow icon={<UserIcon className="w-3.5 h-3.5" />} label="Asignados">
                   <AssigneesSection taskId={taskId} members={members} />
+                </MetaRow>
+
+                <MetaRow icon={<Eye className="w-3.5 h-3.5" />} label="Seguidores">
+                  <WatchersSection taskId={taskId} currentUserId={currentUserId} />
                 </MetaRow>
 
                 <MetaRow icon={<PlayCircle className="w-3.5 h-3.5" />} label="Inicia el">

@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
-import { logActivity, ActivityVerbs } from '@/lib/activity'
+import { logActivity, ActivityVerbs, notifyTaskWatchers } from '@/lib/activity'
 
 // ── GET: detalle completo ─────────────────────────────────────────────────────
 export async function GET(
@@ -159,6 +159,14 @@ export async function PATCH(
     workspace_id: existing.workspace_id,
     project_id: existing.project_id,
     metadata: parsed.data,
+  }).catch(console.error)
+
+  // Notificar a los seguidores de la tarea (menos al actor). Best effort.
+  notifyTaskWatchers({
+    taskId: updated.id,
+    actorId: user.id,
+    taskTitle: updated.title,
+    workspaceId: existing.workspace_id,
   }).catch(console.error)
 
   return NextResponse.json(updated)
