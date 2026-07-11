@@ -13,6 +13,7 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { TaskRow as TaskItem } from './TaskRow'
 import { CreateTaskInline } from './CreateTaskInline'
 import { TaskDetailPanel } from './TaskDetailPanel'
+import { BulkActionBar } from './BulkActionBar'
 
 interface Status {
   id: string
@@ -61,10 +62,47 @@ export function TaskListView({
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null)
 
   // Colaboración en vivo: sincroniza la lista cuando otro usuario cambia tareas.
   useRealtimeRefresh({ channel: `proj-list-${projectId}`, tables: ['tasks', 'task_statuses'] })
   useEffect(() => { setTasks(initialTasks) }, [initialTasks])
+
+  // Orden visual plano de las tareas (grupos por estado, luego sin estado) para
+  // resolver la seleccion por rango con Shift.
+  const orderedIds = [
+    ...statuses.flatMap(s => tasks.filter(t => t.status?.id === s.id).map(t => t.id)),
+    ...tasks.filter(t => !t.status).map(t => t.id),
+  ]
+
+  const toggleSelect = (taskId: string, shiftKey: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (shiftKey && lastSelectedId && lastSelectedId !== taskId) {
+        // Seleccion por rango: marca todo entre la ultima y la actual.
+        const a = orderedIds.indexOf(lastSelectedId)
+        const b = orderedIds.indexOf(taskId)
+        if (a !== -1 && b !== -1) {
+          const [lo, hi] = a < b ? [a, b] : [b, a]
+          for (let i = lo; i <= hi; i++) next.add(orderedIds[i])
+        }
+      } else if (next.has(taskId)) {
+        next.delete(taskId)
+      } else {
+        next.add(taskId)
+      }
+      return next
+    })
+    setLastSelectedId(taskId)
+  }
+
+  const clearSelection = () => { setSelectedIds(new Set()); setLastSelectedId(null) }
+
+  const handleBulkApplied = () => {
+    clearSelection()
+    router.refresh()
+  }
 
   // Agrupar tareas por estado
   const tasksByStatus = statuses.reduce<Record<string, Task[]>>((acc, status) => {
@@ -162,6 +200,9 @@ export function TaskListView({
                     onUpdated={handleTaskUpdated}
                     onDeleted={handleTaskDeleted}
                     onOpen={() => setSelectedTaskId(task.id)}
+                    selected={selectedIds.has(task.id)}
+                    selectionActive={selectedIds.size > 0}
+                    onToggleSelect={toggleSelect}
                   />
                 ))}
 
@@ -197,6 +238,10 @@ export function TaskListView({
                 currentUserId={currentUserId}
                 onUpdated={handleTaskUpdated}
                 onDeleted={handleTaskDeleted}
+                onOpen={() => setSelectedTaskId(task.id)}
+                selected={selectedIds.has(task.id)}
+                selectionActive={selectedIds.size > 0}
+                onToggleSelect={toggleSelect}
               />
             ))}
           </div>
@@ -218,6 +263,18 @@ export function TaskListView({
             </p>
           </div>
         </div>
+      )}
+
+      {/* Barra flotante de acciones masivas */}
+      {selectedIds.size > 0 && (
+        <BulkActionBar
+          projectId={projectId}
+          selectedIds={Array.from(selectedIds)}
+          statuses={statuses}
+          members={members}
+          onClear={clearSelection}
+          onApplied={handleBulkApplied}
+        />
       )}
     </div>
   )

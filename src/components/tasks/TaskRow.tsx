@@ -43,6 +43,10 @@ interface TaskRowProps {
   onUpdated: (task: Task) => void
   onDeleted: (taskId: string) => void
   onOpen?: () => void
+  // Multi-seleccion para acciones masivas (opcional).
+  selected?: boolean
+  selectionActive?: boolean
+  onToggleSelect?: (taskId: string, shiftKey: boolean) => void
 }
 
 const PRIORITY_ICONS: Record<string, { Icon: LucideIcon; label: string; color: string }> = {
@@ -60,6 +64,9 @@ export function TaskRow({
   onUpdated,
   onDeleted,
   onOpen,
+  selected = false,
+  selectionActive = false,
+  onToggleSelect,
 }: TaskRowProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [title, setTitle] = useState(task.title)
@@ -120,8 +127,28 @@ export function TaskRow({
   return (
     <div className={cn(
       'flex items-center gap-2 px-2 py-1.5 rounded-md group hover:bg-muted/40 transition-colors',
+      selected && 'bg-primary/5 hover:bg-primary/10',
       isLoading && 'opacity-60 pointer-events-none'
     )}>
+      {/* ── Checkbox de seleccion (aparece al hover o si hay seleccion activa) ── */}
+      {onToggleSelect && (
+        <button
+          onClick={(e) => onToggleSelect(task.id, e.shiftKey)}
+          title={selected ? 'Quitar de la seleccion' : 'Seleccionar'}
+          className={cn(
+            'flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all',
+            selected
+              ? 'bg-primary border-primary text-primary-foreground'
+              : 'border-border text-transparent hover:border-primary',
+            !selected && !selectionActive && 'opacity-0 group-hover:opacity-100',
+          )}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M1.5 5l2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
+
       {/* ── Status dot ─────────────────────────────────────── */}
       <div className="relative flex-shrink-0">
         <button

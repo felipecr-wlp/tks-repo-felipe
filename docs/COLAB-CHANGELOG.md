@@ -8,6 +8,36 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B8 (acciones masivas / multi-seleccion)
+
+Segundo circuito del loop premium: la vista de lista gana selección múltiple con
+checkbox por fila (aparece al hover o cuando ya hay selección) y una barra flotante
+anclada al fondo que aplica un mismo cambio a todas las tareas marcadas: estado,
+prioridad, asignado, o eliminar (archivar) en lote. Soporta selección por rango con
+Shift (marca todo lo que hay entre la última tarea y la actual en el orden visual).
+Feature de poder estilo ClickUp. Aditivo: no toca Scrum, Marketplace, Chat, Notas ni
+Pizarra; las filas siguen abriendo el detalle y editándose inline igual que antes.
+Deja `tsc --noEmit` y `next build` en EXIT 0.
+
+### API (patrón anti-IDOR en dos capas)
+- `src/app/api/projects/[projectId]/tasks/bulk/route.ts` (nuevo): POST. `applyRateLimit`
+  -> auth 401 -> membresía del proyecto 403 -> zod (`discriminatedUnion` sobre el tipo de
+  acción: status/priority/assignee/delete, hasta 100 taskIds). Capa 2: filtra los taskIds a
+  los que realmente pertenecen al proyecto (`eq project_id` + `in ids`) antes de mutar, así
+  ningún id externo se toca aunque se cuele. Valida además que la statusId sea del proyecto y
+  que el nuevo asignado sea miembro. Delete = soft archive (`is_archived = true`), coherente
+  con el borrado individual.
+
+### UI
+- `src/components/tasks/BulkActionBar.tsx` (nuevo): barra flotante con contador, menús de
+  estado/prioridad/asignado y botón eliminar (con confirmación). Íconos lucide.
+- `src/components/tasks/TaskRow.tsx`: props opcionales `selected`, `selectionActive`,
+  `onToggleSelect`; checkbox a la izquierda que respeta Shift (pasa `e.shiftKey`).
+- `src/components/tasks/TaskListView.tsx`: estado `selectedIds` + `lastSelectedId`, lógica de
+  selección por rango sobre el orden visual plano, y montaje de la barra cuando hay selección.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B7 (Vista de Carga de Trabajo / Workload)
 
 Primer circuito del loop de mejora premium: el proyecto gana una quinta vista, "Carga",
