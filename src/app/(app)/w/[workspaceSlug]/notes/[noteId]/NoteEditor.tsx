@@ -14,6 +14,7 @@ import { cn, timeAgo } from '@/lib/utils'
 import { NoteIcon, NOTE_ICONS, normalizeNoteIconKey } from '@/lib/note-icons'
 import { NotesActionsBar } from '../NotesActionsBar'
 import { NoteComments } from './NoteComments'
+import { NoteBacklinks } from './NoteBacklinks'
 
 const RichTextEditor = dynamic(
   () => import('@/components/editor/RichTextEditor').then(m => m.RichTextEditor),
@@ -369,6 +370,9 @@ export function NoteEditor({
           </div>
         </div>
       )}
+
+      {/* Backlinks (A3): notas que enlazan a esta */}
+      <NoteBacklinks noteId={initial.id} workspaceSlug={workspaceSlug} />
 
       {/* Comentarios (hilo lateral) */}
       <NoteComments noteId={initial.id} currentUserId={currentUserId} />

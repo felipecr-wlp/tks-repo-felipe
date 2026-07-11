@@ -8,6 +8,41 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Conversación A, Circuito A3 (backlinks entre notas)
+
+Tercer circuito de la Conversación A: grafo de documentación tipo Notion/Obsidian.
+Cada vez que se guarda el contenido de una nota, se extraen los enlaces internos
+a otras notas y se recalcula la tabla de aristas `note_links`. La página de la nota
+muestra un panel "Enlazada desde" con las notas que apuntan a ella. Aditivo, no toca
+tareas ni el circuito A2. Deja `tsc --noEmit` y `next build` en EXIT 0. Deploy prod
+`dpl_5NRL4mynAs75AjPaQtLewXatgds8` (READY).
+
+### Capa de datos (migración aditiva, ya aplicada a la DB en vivo)
+- `supabase/migrations/20260711010000_note_links.sql`: tabla nueva `note_links`
+  (id, workspace_id, source_note_id, target_note_id, created_at) con unique
+  (source, target), check `no_self` (una nota no se enlaza a sí misma), índices por
+  target/source/workspace y RLS de SELECT anclada en `workspace_members`. La escritura
+  la hace solo el service_role desde el API (recompute-on-save), sin policies de
+  insert/delete para usuarios normales.
+
+### API
+- `src/lib/note-links.ts`: `extractNoteLinkIds()` parsea los UUID de `/notes/<uuid>`
+  del HTML del contenido; `recomputeNoteLinks()` valida que los targets sean notas
+  reales del mismo workspace y reescribe las aristas del source (borrar + upsert).
+  Best-effort: si falla, no rompe el guardado del contenido.
+- `src/app/api/notes/[noteId]/route.ts`: en PATCH, si cambió `content`, dispara
+  `recomputeNoteLinks()` (sin bloquear la respuesta).
+- `src/app/api/notes/[noteId]/backlinks/route.ts`: GET nuevo. Aristas entrantes
+  (target = noteId), con acceso por `workspace_members` + visibilidad y respetando la
+  visibilidad de cada nota origen (una privada solo la ve su creador).
+
+### UI
+- `src/app/(app)/w/[workspaceSlug]/notes/[noteId]/NoteBacklinks.tsx`: panel
+  "Enlazada desde" que consulta el endpoint al montar; silencioso si no hay enlaces.
+- `NoteEditor.tsx`: monta `<NoteBacklinks>` antes del hilo de comentarios.
+
+---
+
 ## 2026-07-11: Conversación A, Circuito A2 (comentarios dentro de la nota + menciones al inbox)
 
 Segundo circuito de la Conversación A: hilo lateral de comentarios en cada nota,

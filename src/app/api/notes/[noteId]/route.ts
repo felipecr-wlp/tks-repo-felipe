@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
+import { recomputeNoteLinks } from '@/lib/note-links'
 
 interface RouteParams {
   params: { noteId: string }
@@ -138,6 +139,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     object_title: updated.title,
     workspace_id: updated.workspace_id,
   }).catch(console.error)
+
+  // Backlinks (A3): si cambió el contenido, recalcular el grafo de enlaces
+  // salientes de esta nota. Best-effort: no bloquea ni rompe el guardado.
+  if (parsed.data.content !== undefined) {
+    recomputeNoteLinks(admin, {
+      sourceNoteId: updated.id,
+      workspaceId:  updated.workspace_id,
+      content:      parsed.data.content,
+    }).catch(console.error)
+  }
 
   return NextResponse.json(updated)
 }
