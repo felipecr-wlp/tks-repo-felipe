@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import { autoWatch } from '@/lib/watchers'
 
 export async function GET(
   _request: NextRequest,
@@ -126,6 +127,9 @@ export async function POST(
       details: (insertError as { message?: string })?.message,
     }, { status: 500 })
   }
+
+  // Auto-seguimiento: quien comenta pasa a seguir la tarea (best effort).
+  autoWatch(admin, params.taskId, task.project_id, user.id).catch(console.error)
 
   return NextResponse.json({
     id: raw.id,

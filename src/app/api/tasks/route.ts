@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
+import { autoWatch } from '@/lib/watchers'
 
 const createSchema = z.object({
   project_id: z.string().uuid(),
@@ -167,6 +168,13 @@ export async function POST(request: NextRequest) {
     workspace_id: project.workspace_id,
     project_id,
   }).catch(console.error)
+
+  // Auto-seguimiento: el creador (y el asignado inicial, si lo hay) siguen la
+  // tarea para recibir notificaciones de cambios futuros (best effort).
+  autoWatch(admin, newTask.id, project_id, user.id).catch(console.error)
+  if (assignee_id && assignee_id !== user.id) {
+    autoWatch(admin, newTask.id, project_id, assignee_id).catch(console.error)
+  }
 
   return NextResponse.json(newTask, { status: 201 })
 }

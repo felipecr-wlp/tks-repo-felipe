@@ -8,6 +8,35 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B11 (auto-seguimiento en interacciones)
+
+Quinto circuito del loop premium: el auto-seguimiento (auto-watch) que hace útil a B10.
+En ClickUp/Linear, interactuar con una tarea te vuelve seguidor automáticamente, para que
+recibas notificaciones de cambios futuros sin tener que dar "Seguir" a mano. Ahora en WLO,
+tres acciones te suscriben a la tarea de forma idempotente: comentarla, ser asignado a ella,
+y crearla (además del asignado inicial si se define al crear). Con esto los seguidores de B10
+se pueblan solos y las notificaciones de `notifyTaskWatchers` (que dispara cada PATCH) llegan
+a la gente correcta sin fricción. Aditivo: no toca tasks, comentarios, asignados, Scrum,
+Marketplace, Chat, Notas ni Pizarra. Deja `tsc --noEmit` y `next build` en EXIT 0.
+
+### Lib (helper best effort)
+- `src/lib/watchers.ts` (nuevo): `autoWatch(admin, taskId, projectId, profileId)` hace upsert
+  en `task_watchers` con `onConflict: 'task_id,profile_id', ignoreDuplicates: true`, así que es
+  idempotente (segura de llamar en cada interacción, sin duplicar). Captura sus propios errores
+  y no lanza: jamás debe romper el flujo principal (comentar, asignar, crear). Reutiliza el
+  admin client del handler; la autorización ya se verificó por membresía de proyecto antes.
+
+### API (enganches en 3 rutas, best effort, no bloqueantes)
+- `src/app/api/tasks/[taskId]/comments/route.ts` (POST): quien comenta pasa a seguir la tarea,
+  usando el `task.project_id` ya obtenido para la verificación de acceso.
+- `src/app/api/tasks/[taskId]/assignees/route.ts` (POST): el nuevo asignado sigue la tarea,
+  usando `access.projectId` de `checkTaskAccess`.
+- `src/app/api/tasks/route.ts` (POST): el creador sigue la tarea recién creada; si se define un
+  `assignee_id` inicial distinto del creador, ese asignado también la sigue.
+  Todas las llamadas son `autoWatch(...).catch(console.error)` para no bloquear la respuesta.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B10 (seguidores/watchers de tarea)
 
 Cuarto circuito del loop premium: una tarea puede tener SEGUIDORES (watchers), como en

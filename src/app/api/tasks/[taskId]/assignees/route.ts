@@ -17,6 +17,7 @@ import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { checkTaskAccess } from '@/lib/task-access'
+import { autoWatch } from '@/lib/watchers'
 
 interface RouteParams {
   params: { taskId: string }
@@ -139,6 +140,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   if (current && !current.assignee_id) {
     await db.from('tasks').update({ assignee_id: profileId }).eq('id', params.taskId)
   }
+
+  // Auto-seguimiento: el asignado pasa a seguir la tarea (best effort).
+  autoWatch(admin, params.taskId, access.projectId as string, profileId).catch(console.error)
 
   return NextResponse.json({ assignees: await listAssignees(admin, params.taskId) }, { status: 201 })
 }
