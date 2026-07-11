@@ -8,6 +8,41 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B9 (reacciones con emoji en el chat)
+
+Tercer circuito del loop premium: el chat del proyecto gana reacciones con emoji al
+estilo Slack/ClickUp. Al pasar el cursor sobre un mensaje aparece un disparador que
+abre un picker con 8 emojis; al elegir uno se agrega o se quita (toggle) y aparece un
+pill con el conteo debajo del mensaje. Todo en tiempo real: las reacciones de los demás
+llegan sin recargar por el mismo canal de realtime del chat. Update optimista con
+reversión si el POST falla. Aditivo: no toca el envío de mensajes, Scrum, Marketplace,
+Notas ni Pizarra. Deja `tsc --noEmit` y `next build` en EXIT 0.
+
+### Base de datos (migración aditiva)
+- `supabase/migrations/20260711030000_message_reactions.sql` (nueva): tabla
+  `message_reactions` (id, message_id -> project_messages cascade, project_id -> projects
+  cascade, profile_id -> profiles cascade, emoji, created_at) con UNIQUE
+  (message_id, profile_id, emoji) para un toggle idempotente. RLS anclada en el proyecto
+  (miembro del proyecto o de su workspace, o admin/owner). `REPLICA IDENTITY FULL` para
+  que los DELETE de realtime traigan project_id/message_id en el payload y el cliente
+  pueda filtrar y quitar el pill correcto. Se añade a la publicación `supabase_realtime`.
+
+### API (patrón anti-IDOR en capas)
+- `src/app/api/projects/[projectId]/messages/[messageId]/reactions/route.ts` (nuevo): POST
+  toggle. `applyRateLimit` -> auth 401 -> acceso al proyecto 403 -> el mensaje debe ser de
+  ESTE proyecto (404 si no) -> emoji validado contra whitelist (zod enum). `profile_id` sale
+  del usuario autenticado, nunca del body. Si ya existe la reacción se borra; si no, se inserta.
+
+### UI
+- `src/components/chat/ProjectChat.tsx`: nuevo prop `initialReactions`, estado `reactions`,
+  agrupación por mensaje/emoji (conteo + si es mía + quiénes), dos subscripciones realtime más
+  (INSERT y DELETE de `message_reactions`), `toggleReaction` optimista, picker al hover y pills
+  con conteo. Íconos lucide (`SmilePlus`).
+- `src/app/(app)/w/[workspaceSlug]/t/[teamSlug]/p/[projectSlug]/page.tsx`: carga inicial de
+  reacciones (una consulta acotada por proyecto) y las pasa al `ProjectChat`.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B8 (acciones masivas / multi-seleccion)
 
 Segundo circuito del loop premium: la vista de lista gana selección múltiple con

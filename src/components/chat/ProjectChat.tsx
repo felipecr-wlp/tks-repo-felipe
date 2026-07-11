@@ -11,10 +11,14 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
-import { MessagesSquare } from 'lucide-react'
+import { MessagesSquare, SmilePlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+
+// Set de emojis del picker. Debe coincidir con el whitelist del endpoint
+// /messages/[messageId]/reactions para que el toggle sea consistente.
+const EMOJIS = ['👍', '❤️', '😄', '🎉', '🙌', '👀', '🔥', '✅'] as const
 
 interface Member {
   id: string
@@ -29,18 +33,48 @@ interface Message {
   created_at: string
 }
 
+interface Reaction {
+  id: string
+  message_id: string
+  profile_id: string
+  emoji: string
+}
+
 interface ProjectChatProps {
   projectId: string
   currentUserId: string
   members: Member[]
   initialMessages: Message[]
+  initialReactions?: Reaction[]
 }
 
-export function ProjectChat({ projectId, currentUserId, members, initialMessages }: ProjectChatProps) {
+export function ProjectChat({ projectId, currentUserId, members, initialMessages, initialReactions = [] }: ProjectChatProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages)
+  const [reactions, setReactions] = useState<Reaction[]>(initialReactions)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  const [pickerFor, setPickerFor] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // Reacciones agrupadas por mensaje, y dentro por emoji (para pintar pills con
+  // conteo y saber si la persona actual ya reacciono).
+  const reactionsByMessage = useMemo(() => {
+    const map = new Map<string, { emoji: string; count: number; mine: boolean; who: string[] }[]>()
+    const nested = new Map<string, Map<string, { count: number; mine: boolean; who: string[] }>>()
+    for (const r of reactions) {
+      if (!nested.has(r.message_id)) nested.set(r.message_id, new Map())
+      const byEmoji = nested.get(r.message_id)!
+      const cur = byEmoji.get(r.emoji) ?? { count: 0, mine: false, who: [] }
+      cur.count += 1
+      if (r.profile_id === currentUserId) cur.mine = true
+      cur.who.push(r.profile_id)
+      byEmoji.set(r.emoji, cur)
+    }
+    for (const [msgId, byEmoji] of nested) {
+      map.set(msgId, [...byEmoji.entries()].map(([emoji, v]) => ({ emoji, ...v })))
+    }
+    return map
+  }, [reactions, currentUserId])
 
   const memberById = useMemo(() => {
     const m = new Map<string, Member>()
@@ -56,7 +90,15 @@ export function ProjectChat({ projectId, currentUserId, members, initialMessages
     })
   }
 
-  // Realtime: nuevos mensajes del proyecto
+  // Dedupe de reacciones por id (INSERT propio + realtime pueden coincidir).
+  function upsertReaction(r: Reaction) {
+    setReactions(prev => (prev.some(x => x.id === r.id) ? prev : [...prev, r]))
+  }
+  function removeReaction(id: string) {
+    setReactions(prev => prev.filter(x => x.id !== id))
+  }
+
+  // Realtime: nuevos mensajes + reacciones del proyecto (mismo canal).
   useEffect(() => {
     const supabase = createClient()
     const ch = supabase
@@ -71,10 +113,54 @@ export function ProjectChat({ projectId, currentUserId, members, initialMessages
           upsertMessage(row)
         }
       )
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'INSERT', schema: 'public', table: 'message_reactions', filter: `project_id=eq.${projectId}` },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (payload: any) => { upsertReaction(payload.new as Reaction) }
+      )
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'DELETE', schema: 'public', table: 'message_reactions', filter: `project_id=eq.${projectId}` },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (payload: any) => { if (payload.old?.id) removeReaction(payload.old.id as string) }
+      )
       .subscribe()
 
     return () => { supabase.removeChannel(ch) }
   }, [projectId])
+
+  // Alterna una reaccion con update optimista; el realtime confirma o corrige.
+  async function toggleReaction(messageId: string, emoji: string) {
+    setPickerFor(null)
+    const existing = reactions.find(
+      r => r.message_id === messageId && r.profile_id === currentUserId && r.emoji === emoji
+    )
+    // Optimista: quitar o agregar con un id temporal (se reemplaza por el real).
+    const tempId = `temp-${messageId}-${emoji}`
+    if (existing) {
+      removeReaction(existing.id)
+    } else {
+      upsertReaction({ id: tempId, message_id: messageId, profile_id: currentUserId, emoji })
+    }
+    try {
+      const res = await fetch(`/api/projects/${projectId}/messages/${messageId}/reactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji }),
+      })
+      if (!res.ok) throw new Error('reaction failed')
+      // Quitar el placeholder; el registro real llega por realtime.
+      removeReaction(tempId)
+    } catch {
+      // Revertir el update optimista.
+      removeReaction(tempId)
+      if (existing) upsertReaction(existing)
+      toast.error('No se pudo actualizar la reacción')
+    }
+  }
 
   // Auto-scroll al fondo cuando llega o se envia un mensaje.
   useEffect(() => {
@@ -158,16 +244,77 @@ export function ProjectChat({ projectId, currentUserId, members, initialMessages
                     </span>
                   </div>
                 )}
-                <div
-                  className={cn(
-                    'px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words',
-                    mine
-                      ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                      : 'bg-muted text-foreground rounded-tl-sm'
-                  )}
-                >
-                  {msg.body}
+                <div className={cn('group/msg relative flex items-center gap-1', mine && 'flex-row-reverse')}>
+                  <div
+                    className={cn(
+                      'px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words',
+                      mine
+                        ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                        : 'bg-muted text-foreground rounded-tl-sm'
+                    )}
+                  >
+                    {msg.body}
+                  </div>
+
+                  {/* Disparador del picker (aparece al hover del mensaje). */}
+                  <div className="relative flex-shrink-0">
+                    <button
+                      onClick={() => setPickerFor(pickerFor === msg.id ? null : msg.id)}
+                      title="Reaccionar"
+                      className={cn(
+                        'p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-all',
+                        pickerFor === msg.id ? 'opacity-100' : 'opacity-0 group-hover/msg:opacity-100'
+                      )}
+                    >
+                      <SmilePlus className="w-3.5 h-3.5" />
+                    </button>
+                    {pickerFor === msg.id && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setPickerFor(null)} />
+                        <div className={cn(
+                          'absolute z-50 bottom-full mb-1 flex items-center gap-0.5 p-1 rounded-full border border-border bg-popover shadow-lg',
+                          mine ? 'right-0' : 'left-0'
+                        )}>
+                          {EMOJIS.map(e => (
+                            <button
+                              key={e}
+                              onClick={() => toggleReaction(msg.id, e)}
+                              className="w-7 h-7 flex items-center justify-center rounded-full text-base hover:bg-muted transition-colors"
+                            >
+                              {e}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
+
+                {/* Pills de reacciones agregadas. */}
+                {(() => {
+                  const pills = reactionsByMessage.get(msg.id)
+                  if (!pills || pills.length === 0) return null
+                  return (
+                    <div className={cn('flex flex-wrap gap-1 mt-1', mine && 'justify-end')}>
+                      {pills.map(p => (
+                        <button
+                          key={p.emoji}
+                          onClick={() => toggleReaction(msg.id, p.emoji)}
+                          title={p.who.map(id => memberById.get(id)?.display_name ?? 'Miembro').join(', ')}
+                          className={cn(
+                            'flex items-center gap-1 px-1.5 h-6 rounded-full border text-xs transition-colors',
+                            p.mine
+                              ? 'border-primary/40 bg-primary/10 text-foreground'
+                              : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted'
+                          )}
+                        >
+                          <span className="text-sm leading-none">{p.emoji}</span>
+                          <span className="tabular-nums">{p.count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           )

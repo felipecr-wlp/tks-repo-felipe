@@ -201,7 +201,9 @@ export default async function ProjectPage({
 
   // Chat del proyecto: historial (ultimos 100) solo si la pestana esta activa.
   type ProjectMessageRow = { id: string; author_id: string; body: string; created_at: string }
+  type ReactionRow = { id: string; message_id: string; profile_id: string; emoji: string }
   let chatMessages: ProjectMessageRow[] = []
+  let chatReactions: ReactionRow[] = []
   if (currentView === 'chat') {
     const { data: msgs } = await admin
       .from('project_messages')
@@ -210,6 +212,13 @@ export default async function ProjectPage({
       .order('created_at', { ascending: false })
       .limit(100) as { data: ProjectMessageRow[] | null; error: unknown }
     chatMessages = (msgs ?? []).reverse()
+
+    // Reacciones de los mensajes cargados (una sola consulta acotada por proyecto).
+    const { data: reacts } = await admin
+      .from('message_reactions')
+      .select('id, message_id, profile_id, emoji')
+      .eq('project_id', project.id) as { data: ReactionRow[] | null; error: unknown }
+    chatReactions = reacts ?? []
   }
 
   return (
@@ -307,6 +316,7 @@ export default async function ProjectPage({
             currentUserId={user.id}
             members={memberProfiles}
             initialMessages={chatMessages}
+            initialReactions={chatReactions}
           />
         ) : currentView === 'board' ? (
           <KanbanBoard
