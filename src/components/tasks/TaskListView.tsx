@@ -112,6 +112,7 @@ export function TaskListView({
           onClose={() => setSelectedTaskId(null)}
           onUpdated={handleTaskUpdated}
           onDeleted={(id) => { handleTaskDeleted(id); setSelectedTaskId(null) }}
+          onOpenTask={setSelectedTaskId}
         />
       )}
       {/* Grupos de tareas por estado */}

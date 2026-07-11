@@ -16,6 +16,7 @@ const createSchema = z.object({
   priority: z.enum(['urgent', 'high', 'medium', 'low', 'none']).optional().default('none'),
   assignee_id: z.string().uuid().nullable().optional(),
   due_date: z.string().datetime().nullable().optional(),
+  parent_task_id: z.string().uuid().nullable().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 422 })
   }
 
-  const { project_id, title, status_id, priority, assignee_id, due_date } = parsed.data
+  const { project_id, title, status_id, priority, assignee_id, due_date, parent_task_id } = parsed.data
 
   const admin = createAdminClient()
 
@@ -61,6 +62,23 @@ export async function POST(request: NextRequest) {
     .maybeSingle() as { data: ProjRow | null; error: unknown }
 
   if (!project) return NextResponse.json({ error: 'Proyecto no encontrado' }, { status: 404 })
+
+  // Si es subtarea, verificar que el padre exista y pertenezca al mismo proyecto
+  // (anti cross-proyecto). Solo un nivel de anidación: el padre no puede ser subtarea.
+  if (parent_task_id) {
+    type ParentRow = { id: string; parent_task_id: string | null }
+    const { data: parent } = await admin
+      .from('tasks')
+      .select('id, parent_task_id')
+      .eq('id', parent_task_id)
+      .eq('project_id', project_id)
+      .maybeSingle() as { data: ParentRow | null; error: unknown }
+
+    if (!parent) return NextResponse.json({ error: 'Tarea padre no encontrada' }, { status: 404 })
+    if (parent.parent_task_id) {
+      return NextResponse.json({ error: 'No se permite anidar subtareas' }, { status: 422 })
+    }
+  }
 
   // Si no se especifica status, tomar el primero del proyecto (posición 0)
   let resolvedStatusId = status_id
@@ -120,6 +138,7 @@ export async function POST(request: NextRequest) {
       priority,
       assignee_id: assignee_id ?? null,
       due_date: due_date ?? null,
+      parent_task_id: parent_task_id ?? null,
       sort_order: sortOrder,
       created_by: user.id,
     })

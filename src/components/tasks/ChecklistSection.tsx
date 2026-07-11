@@ -112,7 +112,7 @@ export function ChecklistSection({ taskId }: ChecklistSectionProps) {
     <div>
       <div className="flex items-center justify-between mb-2.5">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Subtareas {total > 0 && <span className="ml-1 normal-case tracking-normal text-muted-foreground/70">({completed}/{total})</span>}
+          Lista de verificación {total > 0 && <span className="ml-1 normal-case tracking-normal text-muted-foreground/70">({completed}/{total})</span>}
         </p>
         {total > 0 && (
           <div className="flex items-center gap-2">
@@ -148,7 +148,7 @@ export function ChecklistSection({ taskId }: ChecklistSectionProps) {
             <input
               value={newTitle}
               onChange={e => setNewTitle(e.target.value)}
-              placeholder="+ Agregar subtarea"
+              placeholder="+ Agregar elemento"
               disabled={adding}
               className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground/60 disabled:opacity-50"
             />

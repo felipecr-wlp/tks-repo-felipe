@@ -21,9 +21,11 @@ import {
   X, Trash2, Loader2, Paperclip, UploadCloud, Download, AtSign,
   Zap, ChevronsUp, ChevronUp, ChevronDown, Minus, ImageIcon, FileText,
   CircleDot, User as UserIcon, Calendar as CalendarIcon, MessageSquare,
+  CornerLeftUp,
 } from 'lucide-react'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 import { ChecklistSection } from './ChecklistSection'
+import { SubtasksSection } from './SubtasksSection'
 import { TaskLabels } from './TaskLabels'
 
 // Tiptap pesa ~80KB, lazy-load para no inflar bundle inicial
@@ -50,9 +52,11 @@ interface TaskDetail {
   priority: string
   due_date: string | null
   sort_order: string
+  project_id: string
   status: Status | null
   assignee: Member | null
   created_by_profile: Member | null
+  parent: { id: string; title: string } | null
   created_at: string
   updated_at: string
 }
@@ -82,6 +86,7 @@ interface TaskDetailPanelProps {
   onClose: () => void
   onUpdated?: (task: TaskDetail) => void
   onDeleted?: (taskId: string) => void
+  onOpenTask?: (taskId: string) => void
 }
 
 const PRIORITIES: { value: string; label: string; color: string; Icon: typeof Zap }[] = [
@@ -124,6 +129,7 @@ export function TaskDetailPanel({
   onClose,
   onUpdated,
   onDeleted,
+  onOpenTask,
 }: TaskDetailPanelProps) {
   const [task, setTask] = useState<TaskDetail | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
@@ -344,6 +350,20 @@ export function TaskDetailPanel({
               <div className="flex-1 min-w-0 p-5 lg:p-6 space-y-6 lg:border-r lg:border-border">
                 {/* Titulo */}
                 <div>
+                  {task.parent && (
+                    <button
+                      onClick={() => onOpenTask?.(task.parent!.id)}
+                      disabled={!onOpenTask}
+                      className={cn(
+                        'flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5 max-w-full',
+                        onOpenTask ? 'hover:text-primary transition-colors cursor-pointer' : 'cursor-default'
+                      )}
+                      title={onOpenTask ? 'Abrir tarea padre' : undefined}
+                    >
+                      <CornerLeftUp className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">{task.parent.title}</span>
+                    </button>
+                  )}
                   {editingTitle ? (
                     <input
                       ref={titleRef}
@@ -380,7 +400,15 @@ export function TaskDetailPanel({
                 {/* Etiquetas */}
                 <TaskLabels taskId={taskId} />
 
-                {/* Subtareas */}
+                {/* Subtareas reales (tareas hijas) */}
+                <SubtasksSection
+                  taskId={taskId}
+                  projectId={task.project_id}
+                  statuses={statuses}
+                  onOpenTask={onOpenTask}
+                />
+
+                {/* Checklist ligero */}
                 <ChecklistSection taskId={taskId} />
 
                 {/* Adjuntos */}

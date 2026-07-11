@@ -274,6 +274,7 @@ export function KanbanBoard({
           onClose={() => setSelectedTaskId(null)}
           onUpdated={handleTaskUpdated}
           onDeleted={(id) => { setTasks(prev => prev.filter(t => t.id !== id)); setSelectedTaskId(null) }}
+          onOpenTask={setSelectedTaskId}
         />
       )}
 

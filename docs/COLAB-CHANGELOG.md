@@ -8,6 +8,53 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Conversación B, Circuito B2 (subtareas reales con parent_task_id)
+
+Segundo circuito de la Conversación B: subtareas REALES estilo ClickUp/Linear. A
+diferencia del checklist ligero (que se renombró a "Lista de verificación"), cada
+subtarea es una tarea completa (estado, prioridad, asignado) enlazada al padre por
+`parent_task_id`. Se ven anidadas dentro del panel del padre, con barra de avance
+(hechas/total), y se pueden abrir en el mismo panel; el padre muestra una miga de pan
+para volver hacia arriba. Aditivo, no toca Scrum, Marketplace, Chat, Notas ni Pizarra.
+Deja `tsc --noEmit` y `next build` en EXIT 0.
+
+### Capa de datos (migración aditiva)
+- Migración `b2_20260711030000_add_parent_task_id_to_tasks`: agrega
+  `tasks.parent_task_id uuid references tasks(id) on delete cascade` (nullable, default
+  null) + índice parcial `idx_tasks_parent_task_id`. Segura: todas las filas existentes
+  quedan con parent null, así que el comportamiento actual no cambia.
+
+### API (in-lane, patrón anti-IDOR)
+- `src/app/api/tasks/route.ts` (POST): acepta `parent_task_id` opcional. Valida que el
+  padre exista y sea del mismo proyecto, y bloquea anidar (una subtarea no puede tener
+  hijos): un solo nivel.
+- `src/app/api/tasks/[taskId]/subtasks/route.ts`: ruta nueva GET, lista los hijos
+  directos (no archivados) con estado y asignado. `applyRateLimit` -> auth 401 -> admin
+  -> `checkTaskAccess`. La creación reutiliza POST /api/tasks; el toggle de "hecha"
+  reutiliza PATCH /api/tasks/[subtaskId].
+- `src/app/api/tasks/[taskId]/route.ts` (GET): ahora trae
+  `parent:tasks!tasks_parent_task_id_fkey ( id, title )` para la miga de pan.
+
+### UI (iconos lucide, texto en español)
+- `src/components/tasks/SubtasksSection.tsx`: componente nuevo autocontenido por taskId.
+  Lista subtareas, crea inline, hace toggle de hecha moviendo el estado a categoría
+  done/no-done, borra y navega (`onOpenTask`). Barra de avance por porcentaje.
+- `src/components/tasks/TaskDetailPanel.tsx`: monta `<SubtasksSection>` entre Etiquetas y
+  la Lista de verificación, agrega miga de pan al padre y el prop opcional `onOpenTask`.
+- `src/components/tasks/ChecklistSection.tsx`: encabezado renombrado a "Lista de
+  verificación" para no chocar con las subtareas reales.
+- `src/components/tasks/KanbanBoard.tsx` y `TaskListView.tsx`: pasan
+  `onOpenTask={setSelectedTaskId}` al panel para navegar entre padre e hijas.
+- `src/app/(app)/w/[workspaceSlug]/t/[teamSlug]/p/[projectSlug]/page.tsx`: la query de
+  nivel superior filtra `.is('parent_task_id', null)` para que las subtareas solo
+  aparezcan anidadas y no dupliquen en lista/tablero.
+
+### Verificación
+- `npx tsc --noEmit`: EXIT 0. `npx next build`: EXIT 0.
+- Deploy prod y commit: ver abajo.
+
+---
+
 ## 2026-07-11: Conversación B, Circuito B1 (etiquetas con color en tareas)
 
 Primer circuito de la Conversación B (paridad tipo ClickUp en tareas): etiquetas

@@ -27,6 +27,7 @@ export async function GET(
     status: { id: string; name: string; color: string | null; category: string } | null
     assignee: { id: string; display_name: string; avatar_url: string | null } | null
     created_by_profile: { id: string; display_name: string; avatar_url: string | null } | null
+    parent: { id: string; title: string } | null
   }
   const { data: task } = await admin
     .from('tasks')
@@ -34,7 +35,8 @@ export async function GET(
       id, title, description, priority, due_date, sort_order, created_at, updated_at, project_id,
       status:task_statuses ( id, name, color, category ),
       assignee:profiles!tasks_assignee_id_fkey ( id, display_name, avatar_url ),
-      created_by_profile:profiles!tasks_created_by_fkey ( id, display_name, avatar_url )
+      created_by_profile:profiles!tasks_created_by_fkey ( id, display_name, avatar_url ),
+      parent:tasks!tasks_parent_task_id_fkey ( id, title )
     `)
     .eq('id', params.taskId)
     .eq('is_archived', false)

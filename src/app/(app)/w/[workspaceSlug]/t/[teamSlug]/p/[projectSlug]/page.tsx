@@ -136,6 +136,7 @@ export default async function ProjectPage({
     `)
     .eq('project_id', project.id)
     .eq('is_archived', false)
+    .is('parent_task_id', null)
     .order('sort_order', { ascending: true })
     .limit(50)
 
