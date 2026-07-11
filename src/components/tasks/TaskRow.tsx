@@ -9,6 +9,7 @@ import Image from 'next/image'
 import { toast } from 'sonner'
 import { ChevronsUp, ChevronUp, Equal, ChevronDown, Minus, type LucideIcon } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
+import { LabelChips } from './TaskLabels'
 
 interface Status {
   id: string
@@ -25,6 +26,7 @@ interface Task {
   sort_order: string
   status: { id: string; name: string; color: string | null; category: string } | null
   assignee: { id: string; display_name: string; avatar_url: string | null } | null
+  labels?: { id: string; name: string; color: string }[]
 }
 
 interface Member {
@@ -187,6 +189,11 @@ export function TaskRow({
           />
         )}
       </div>
+
+      {/* ── Etiquetas ──────────────────────────────────────── */}
+      {task.labels && task.labels.length > 0 && (
+        <LabelChips labels={task.labels} className="flex-shrink-0 max-w-[40%]" />
+      )}
 
       {/* ── Fecha de vencimiento ───────────────────────────── */}
       {task.due_date && (

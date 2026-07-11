@@ -8,6 +8,48 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Conversación B, Circuito B1 (etiquetas con color en tareas)
+
+Primer circuito de la Conversación B (paridad tipo ClickUp en tareas): etiquetas
+(tags) con color por proyecto, adjuntables a cada tarea, con chips visibles en la
+lista, el tablero Kanban y el panel de detalle. Cero migración: reutiliza las tablas
+`labels` y `task_labels` que ya existían en la DB en vivo pero estaban dormidas (sin
+API ni UI). Aditivo, no toca Scrum, Marketplace, Chat, Notas ni Pizarra. Deja
+`tsc --noEmit` y `next build` en EXIT 0.
+
+### Capa de datos (sin cambios de esquema)
+- Tablas existentes reutilizadas: `labels` (id, project_id, workspace_id, name, color
+  default '#6b7280', created_at) y `task_labels` (task_id, label_id, created_at). No se
+  aplicó migración porque ya estaban presentes.
+
+### API (in-lane, patrón de checklist-items)
+- `src/app/api/tasks/[taskId]/labels/route.ts`: ruta nueva. GET devuelve
+  `{ attached, available }` (etiquetas de la tarea + todas las del proyecto). POST
+  adjunta: acepta `{ labelId }` (etiqueta existente del proyecto) o `{ name, color }`
+  (crea etiqueta nueva del proyecto y la adjunta en un paso), con upsert idempotente en
+  `task_labels`. DELETE `?labelId=` la quita. Todo con `applyRateLimit` -> auth 401 ->
+  admin client -> `checkTaskAccess` (anti-IDOR, deriva project/workspace en el servidor)
+  -> zod. El cliente solo envía el taskId.
+
+### UI (iconos lucide, texto en español)
+- `src/components/tasks/TaskLabels.tsx`: componente nuevo. Exporta `LabelChips`
+  (presentacional, solo lectura, para filas y tarjetas, con texto legible calculado por
+  luminancia) y `TaskLabels` (sección editable en el detalle: adjuntar, quitar y crear
+  con paleta de 12 colores). Autocontenido: carga sus datos con el taskId.
+- `src/components/tasks/TaskDetailPanel.tsx`: monta `<TaskLabels>` como sección nueva
+  arriba de Subtareas.
+- `src/components/tasks/TaskRow.tsx` y `KanbanBoard.tsx`: renderizan `LabelChips` en la
+  fila (lista) y en la tarjeta (tablero), con el tipo `labels?` aditivo.
+- `src/app/(app)/w/[workspaceSlug]/t/[teamSlug]/p/[projectSlug]/page.tsx`: la query de
+  tareas ahora trae `labels:task_labels ( label:labels ( id, name, color ) )` y aplana
+  la forma anidada antes de pasarla a las vistas.
+
+### Verificación
+- `npx tsc --noEmit`: EXIT 0. `npx next build`: EXIT 0.
+- Deploy prod y commit: ver abajo.
+
+---
+
 ## 2026-07-11: Conversación A, Circuito A5 (presencia en vivo en la nota)
 
 Quinto y último circuito de notas de la Conversación A: mientras varias personas

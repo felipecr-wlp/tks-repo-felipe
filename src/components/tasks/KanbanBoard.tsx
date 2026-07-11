@@ -26,6 +26,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { CreateTaskInline } from './CreateTaskInline'
+import { LabelChips } from './TaskLabels'
 
 interface Status {
   id: string
@@ -43,6 +44,7 @@ interface Task {
   sort_order: string
   status: { id: string; name: string; color: string | null; category: string } | null
   assignee: { id: string; display_name: string; avatar_url: string | null } | null
+  labels?: { id: string; name: string; color: string }[]
 }
 
 interface Member {
@@ -100,6 +102,10 @@ function KanbanCard({
       )}>
         {task.title}
       </p>
+
+      {task.labels && task.labels.length > 0 && (
+        <LabelChips labels={task.labels} className="mt-1.5" />
+      )}
 
       <div className="flex items-center justify-between mt-2">
         {/* Fecha */}

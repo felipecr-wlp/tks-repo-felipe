@@ -52,6 +52,8 @@ type StatusRow = {
   position: number
 }
 
+type TaskLabel = { id: string; name: string; color: string }
+
 type TaskRow = {
   id: string
   title: string
@@ -60,6 +62,12 @@ type TaskRow = {
   sort_order: string
   status: { id: string; name: string; color: string | null; category: string } | null
   assignee: { id: string; display_name: string; avatar_url: string | null } | null
+  labels: TaskLabel[]
+}
+
+// Forma cruda de Supabase antes de aplanar las etiquetas.
+type TaskRowRaw = Omit<TaskRow, 'labels'> & {
+  labels: { label: TaskLabel | null }[] | null
 }
 
 export default async function ProjectPage({
@@ -123,7 +131,8 @@ export default async function ProjectPage({
       due_date,
       sort_order,
       status:task_statuses ( id, name, color, category ),
-      assignee:profiles ( id, display_name, avatar_url )
+      assignee:profiles ( id, display_name, avatar_url ),
+      labels:task_labels ( label:labels ( id, name, color ) )
     `)
     .eq('project_id', project.id)
     .eq('is_archived', false)
@@ -134,7 +143,18 @@ export default async function ProjectPage({
     query = query.eq('status_id', searchParams.status)
   }
 
-  const { data: tasks } = await query as { data: TaskRow[] | null; error: unknown }
+  const { data: tasksRaw } = await query as { data: TaskRowRaw[] | null; error: unknown }
+
+  // Aplanar etiquetas: task_labels -> label -> { id, name, color }
+  const tasks: TaskRow[] = (tasksRaw ?? []).map(t => {
+    const { labels: rawLabels, ...rest } = t
+    return {
+      ...rest,
+      labels: (rawLabels ?? [])
+        .map(r => r.label)
+        .filter((l): l is { id: string; name: string; color: string } => l != null),
+    }
+  })
 
   // ── Miembros del proyecto (para asignar tareas) ───────────────────────────
   type MemberRow = {

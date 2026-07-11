@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 import { ChecklistSection } from './ChecklistSection'
+import { TaskLabels } from './TaskLabels'
 
 // Tiptap pesa ~80KB, lazy-load para no inflar bundle inicial
 const RichTextEditor = dynamic(
@@ -375,6 +376,9 @@ export function TaskDetailPanel({
                   />
                   <MentionHint members={members} />
                 </section>
+
+                {/* Etiquetas */}
+                <TaskLabels taskId={taskId} />
 
                 {/* Subtareas */}
                 <ChecklistSection taskId={taskId} />
