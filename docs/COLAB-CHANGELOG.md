@@ -8,6 +8,43 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Conversación B, Circuito B3 (dependencias entre tareas)
+
+Tercer circuito de la Conversación B: dependencias estilo ClickUp/Linear. Una tarea
+puede quedar "bloqueada por" otras (que deben cerrarse antes) y a la vez "bloquear a"
+otras. Se ven como dos listas dentro del panel de la tarea, con un badge ámbar
+"bloqueada por N" cuando hay bloqueadores sin cerrar, y al mover la tarea a un estado
+de categoría `done` con bloqueadores abiertos aparece un aviso (no bloquea, solo
+advierte). Aditivo, no toca Scrum, Marketplace, Chat, Notas ni Pizarra. Deja
+`tsc --noEmit` y `next build` en EXIT 0.
+
+### Capa de datos (sin migración)
+- Reutiliza la tabla ya presente `task_dependencies` (`task_id` depende de `depends_on`,
+  ambos FK a `tasks(id) on delete cascade`, `UNIQUE (task_id, depends_on)`,
+  `CHECK (task_id <> depends_on)`). Estaba dormida sin API/UI; ahora se activa. Mismo
+  patrón que B1 reusando `labels`/`task_labels`.
+
+### API (patrón anti-IDOR)
+- `src/app/api/tasks/[taskId]/dependencies/route.ts`: ruta nueva.
+  - GET: devuelve `{ blockers, blocking }` con estado de cada tarea enlazada.
+  - POST `{ dependsOnId }`: registra que la tarea depende de otra. Valida mismo proyecto,
+    bloquea auto-dependencia y ciclo directo A<->B, upsert idempotente sobre el UNIQUE.
+  - DELETE `?dependsOnId=`: quita la dependencia.
+  - `applyRateLimit` -> auth 401 -> admin -> `checkTaskAccess`.
+- `src/app/api/projects/[projectId]/tasks/search/route.ts`: ruta nueva GET, busca tareas
+  del proyecto por título (ILIKE, máx 10) para el picker de dependencias. Authz por
+  membresía de proyecto o workspace; escapa `%`/`_`.
+
+### UI (iconos lucide, texto en español)
+- `src/components/tasks/DependenciesSection.tsx`: componente nuevo autocontenido por
+  taskId. Lista "Bloqueada por" (con quitar) y "Bloquea a", picker con búsqueda por
+  título con debounce, badge de bloqueadores abiertos. Reporta el conteo abierto al panel
+  vía `onBlockersChange`.
+- `src/components/tasks/TaskDetailPanel.tsx`: monta `<DependenciesSection>` bajo Subtareas;
+  el selector de estado avisa al mover a `done` con bloqueadores sin cerrar.
+
+---
+
 ## 2026-07-11: Conversación B, Circuito B2 (subtareas reales con parent_task_id)
 
 Segundo circuito de la Conversación B: subtareas REALES estilo ClickUp/Linear. A

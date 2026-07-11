@@ -26,6 +26,7 @@ import {
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 import { ChecklistSection } from './ChecklistSection'
 import { SubtasksSection } from './SubtasksSection'
+import { DependenciesSection } from './DependenciesSection'
 import { TaskLabels } from './TaskLabels'
 
 // Tiptap pesa ~80KB, lazy-load para no inflar bundle inicial
@@ -139,6 +140,7 @@ export function TaskDetailPanel({
   const [titleValue, setTitleValue] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [openBlockers, setOpenBlockers] = useState(0)
   const titleRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -408,6 +410,14 @@ export function TaskDetailPanel({
                   onOpenTask={onOpenTask}
                 />
 
+                {/* Dependencias entre tareas */}
+                <DependenciesSection
+                  taskId={taskId}
+                  projectId={task.project_id}
+                  onOpenTask={onOpenTask}
+                  onBlockersChange={setOpenBlockers}
+                />
+
                 {/* Checklist ligero */}
                 <ChecklistSection taskId={taskId} />
 
@@ -442,7 +452,13 @@ export function TaskDetailPanel({
                   <StatusSelect
                     current={task.status}
                     statuses={statuses}
-                    onSelect={id => updateField({ status_id: id })}
+                    onSelect={id => {
+                      const target = statuses.find(s => s.id === id)
+                      if (target?.category === 'done' && openBlockers > 0) {
+                        toast.warning(`Esta tarea tiene ${openBlockers} dependencia(s) sin cerrar`)
+                      }
+                      updateField({ status_id: id })
+                    }}
                   />
                 </MetaRow>
 
