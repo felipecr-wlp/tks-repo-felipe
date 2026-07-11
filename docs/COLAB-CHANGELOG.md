@@ -8,6 +8,35 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Conversación A, Circuito A1 (guardado robusto de Notas, antipérdida)
+
+Inicio de la Conversación A del roadmap a paridad ClickUp (`docs/ROADMAP-CLICKUP-PARITY.md`):
+robustez del editor y guardado de Notas con estado visible. Aditivo, no toca el
+guardado de descripciones de tareas (que sigue siendo solo al blur). Deja
+`tsc --noEmit` y `next build` en EXIT 0. Deploy prod
+`dpl_FCFUTojbs78NqeU6sbT8qp1BLR6Q` (READY).
+
+### Causa raíz que se corrige
+- El `RichTextEditor` solo persistía el contenido en `onBlur`. Si el usuario
+  escribía y navegaba o cerraba la pestaña sin quitar el foco del editor, se
+  perdía lo escrito. Esa era la razón de fondo de "las notas no funcionan bien".
+
+### Cambios
+- `src/components/editor/RichTextEditor.tsx`: props opcionales nuevas
+  `autosaveMs?: number` (default 0) y `onDirty?: () => void`. Con `autosaveMs>0`
+  se agrega autosave con debounce mientras se escribe (via `onUpdate`), además del
+  guardado al blur. Refs `onSaveRef`/`onDirtyRef` para no capturar closures viejas,
+  timer con limpieza al desmontar. Sin la prop, el comportamiento es idéntico al
+  anterior (solo blur), por eso las descripciones de tareas no cambian.
+- `src/app/(app)/w/[workspaceSlug]/notes/[noteId]/NoteEditor.tsx`: máquina de
+  estado de guardado `saved | dirty | saving | error` con indicador visible
+  (iconos lucide: Check, Loader2, AlertTriangle, RotateCw). Reintento con el
+  último payload que falló (guardado en ref). Guardia `beforeunload` cuando hay
+  cambios sin guardar / en vuelo / con error. Pasa `autosaveMs={1200}` y `onDirty`
+  al editor; el título también marca "sin guardar" durante su debounce.
+
+---
+
 ## 2026-07-11: Circuitos 1 a 3 (arreglo de Notas + chat robusto con historial + burbuja flotante)
 
 Loop de robustecimiento pedido por Ali: "que sea un sistema de verdad eficiente",

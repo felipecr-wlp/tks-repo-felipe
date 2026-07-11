@@ -13,18 +13,26 @@ import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { SlashMenu } from './SlashMenu'
 
 interface RichTextEditorProps {
   /** Contenido inicial (HTML o JSON serializado como string) */
   value: string
-  /** Se llama al hacer blur con el HTML actual */
+  /** Se llama al hacer blur con el HTML actual, y con debounce si autosaveMs>0 */
   onSave: (html: string) => void
   placeholder?: string
   className?: string
   autoFocus?: boolean
+  /**
+   * Si se define (>0), autoguarda mientras se escribe con este debounce en ms,
+   * ademas del guardado al blur. Sin esta prop el comportamiento es el de antes
+   * (solo blur), para no cambiar el guardado de descripciones de tareas.
+   */
+  autosaveMs?: number
+  /** Se llama en cuanto el contenido cambia (para marcar "sin guardar"). */
+  onDirty?: () => void
 }
 
 export function RichTextEditor({
@@ -33,7 +41,18 @@ export function RichTextEditor({
   placeholder = 'Escribe una descripción...',
   className,
   autoFocus = false,
+  autosaveMs = 0,
+  onDirty,
 }: RichTextEditorProps) {
+  // Refs para no capturar closures viejas dentro de los callbacks de Tiptap.
+  const onSaveRef = useRef(onSave)
+  onSaveRef.current = onSave
+  const onDirtyRef = useRef(onDirty)
+  onDirtyRef.current = onDirty
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const htmlOf = (html: string) => (html === '<p></p>' || html === '' ? '' : html)
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -62,14 +81,36 @@ export function RichTextEditor({
         ),
       },
     },
+    onUpdate: ({ editor }) => {
+      // Marca "sin guardar" en cuanto el contenido cambia.
+      onDirtyRef.current?.()
+      // Autosave mientras se escribe, solo si autosaveMs>0. Sin esta prop, el
+      // guardado sigue siendo únicamente al blur (comportamiento de tareas).
+      if (autosaveMs > 0) {
+        if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+        autosaveTimer.current = setTimeout(() => {
+          onSaveRef.current(htmlOf(editor.getHTML()))
+        }, autosaveMs)
+      }
+    },
     onBlur: ({ editor }) => {
-      const html = editor.getHTML()
-      // Si el contenido es solo `<p></p>` vacío, mandamos string vacío
-      const isEmpty = html === '<p></p>' || html === ''
-      onSave(isEmpty ? '' : html)
+      // Al perder foco, cancelamos cualquier autosave pendiente y guardamos ya.
+      if (autosaveTimer.current) {
+        clearTimeout(autosaveTimer.current)
+        autosaveTimer.current = null
+      }
+      onSaveRef.current(htmlOf(editor.getHTML()))
     },
     immediatelyRender: false,
   })
+
+  // Limpieza del timer de autosave al desmontar, para no guardar sobre un
+  // editor muerto ni filtrar timeouts.
+  useEffect(() => {
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+    }
+  }, [])
 
   useEffect(() => {
     if (editor && autoFocus) editor.commands.focus('end')

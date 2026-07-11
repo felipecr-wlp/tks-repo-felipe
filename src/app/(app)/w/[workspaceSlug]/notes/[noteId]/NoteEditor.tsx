@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
-import { Globe, Users, Folder, Lock, ChevronDown } from 'lucide-react'
+import { Globe, Users, Folder, Lock, ChevronDown, Check, AlertTriangle, RotateCw, Loader2 } from 'lucide-react'
 import { cn, timeAgo } from '@/lib/utils'
 import { NoteIcon, NOTE_ICONS, normalizeNoteIconKey } from '@/lib/note-icons'
 import { NotesActionsBar } from '../NotesActionsBar'
@@ -64,7 +64,10 @@ export function NoteEditor({
   const [icon, setIcon] = useState(normalizeNoteIconKey(initial.icon))
   const [visibility, setVisibility] = useState(initial.visibility)
   const [updatedAt, setUpdatedAt] = useState(initial.updated_at)
-  const [saving, setSaving] = useState(false)
+  // Máquina de estado del guardado, para que el usuario SIEMPRE sepa si su
+  // trabajo está a salvo: 'saved' (persistido), 'dirty' (cambios sin guardar),
+  // 'saving' (en vuelo) y 'error' (falló, hay que reintentar).
+  const [status, setStatus] = useState<'saved' | 'dirty' | 'saving' | 'error'>('saved')
   const [showVisMenu, setShowVisMenu] = useState(false)
   const [showIconPicker, setShowIconPicker] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -72,9 +75,11 @@ export function NoteEditor({
   const isOwner = initial.created_by === currentUserId
 
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Último payload que falló, para poder reintentar sin perder el cambio.
+  const lastFailedRef = useRef<Record<string, unknown> | null>(null)
 
   const patch = useCallback(async (data: Record<string, unknown>) => {
-    setSaving(true)
+    setStatus('saving')
     try {
       const res = await fetch(`/api/notes/${initial.id}`, {
         method: 'PATCH',
@@ -87,15 +92,36 @@ export function NoteEditor({
       }
       const json = await res.json()
       setUpdatedAt(json.updated_at)
+      lastFailedRef.current = null
+      setStatus('saved')
     } catch (err) {
+      // Guardamos el payload para reintentar y dejamos el estado en 'error'
+      // (visible y con botón de reintento), en vez de solo un toast efímero.
+      lastFailedRef.current = data
+      setStatus('error')
       toast.error(err instanceof Error ? err.message : 'Error al guardar')
-    } finally {
-      setSaving(false)
     }
   }, [initial.id])
 
+  const retry = useCallback(() => {
+    if (lastFailedRef.current) patch(lastFailedRef.current)
+  }, [patch])
+
+  // Guardia al salir con cambios sin guardar (o guardado en curso / con error).
+  // Evita perder trabajo si el usuario cierra la pestaña o navega fuera.
+  useEffect(() => {
+    if (status === 'saved') return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [status])
+
   useEffect(() => {
     if (title === initial.title) return
+    setStatus(s => (s === 'saving' ? s : 'dirty'))
     if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current)
     titleSaveTimer.current = setTimeout(() => {
       patch({ title: title.trim() || 'Sin título' })
@@ -168,14 +194,32 @@ export function NoteEditor({
 
         {/* Acciones */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          {saving && (
+          {status === 'saving' && (
             <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 border border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+              <Loader2 className="w-3 h-3 animate-spin" />
               Guardando…
             </span>
           )}
-          {!saving && (
-            <span className="text-xs text-muted-foreground hidden md:inline">
+          {status === 'dirty' && (
+            <span className="text-xs text-amber-600 dark:text-amber-500 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              Sin guardar
+            </span>
+          )}
+          {status === 'error' && (
+            <button
+              onClick={retry}
+              title="Reintentar guardado"
+              className="text-xs text-destructive flex items-center gap-1.5 hover:underline"
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              Error, reintentar
+              <RotateCw className="w-3 h-3" />
+            </button>
+          )}
+          {status === 'saved' && (
+            <span className="text-xs text-muted-foreground hidden md:flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-500" />
               Guardado {timeAgo(updatedAt)}
             </span>
           )}
@@ -299,6 +343,8 @@ export function NoteEditor({
         value={initial.content ?? ''}
         placeholder="Empieza a escribir, o usa la barra de formato arriba…"
         onSave={(html) => patch({ content: html || null })}
+        onDirty={() => setStatus(s => (s === 'saving' ? s : 'dirty'))}
+        autosaveMs={1200}
         className="!border-0 [&_.ProseMirror]:px-0 [&_.ProseMirror]:py-2 [&_.ProseMirror]:min-h-[300px]"
       />
 
