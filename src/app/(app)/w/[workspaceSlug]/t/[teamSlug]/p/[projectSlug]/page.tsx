@@ -8,6 +8,8 @@ import dynamic from 'next/dynamic'
 import { LayoutDashboard } from 'lucide-react'
 import { ProjectIcon } from '@/lib/project-icons'
 import { TaskListView } from '@/components/tasks/TaskListView'
+import { TaskCalendarView } from '@/components/tasks/TaskCalendarView'
+import { TaskFilterBar } from '@/components/tasks/TaskFilterBar'
 import { ProjectChat } from '@/components/chat/ProjectChat'
 
 // Kanban cargado lazy, contiene @dnd-kit que pesa ~150KB
@@ -29,7 +31,7 @@ interface ProjectPageProps {
     teamSlug: string
     projectSlug: string
   }
-  searchParams: { view?: string; status?: string; assignee?: string }
+  searchParams: { view?: string; status?: string; assignee?: string; priority?: string }
 }
 
 type ProjectData = {
@@ -59,6 +61,7 @@ type TaskRow = {
   title: string
   priority: string
   due_date: string | null
+  start_date: string | null
   sort_order: string
   status: { id: string; name: string; color: string | null; category: string } | null
   assignee: { id: string; display_name: string; avatar_url: string | null } | null
@@ -129,6 +132,7 @@ export default async function ProjectPage({
       title,
       priority,
       due_date,
+      start_date,
       sort_order,
       status:task_statuses ( id, name, color, category ),
       assignee:profiles ( id, display_name, avatar_url ),
@@ -142,6 +146,12 @@ export default async function ProjectPage({
 
   if (searchParams.status) {
     query = query.eq('status_id', searchParams.status)
+  }
+  if (searchParams.priority) {
+    query = query.eq('priority', searchParams.priority)
+  }
+  if (searchParams.assignee) {
+    query = query.eq('assignee_id', searchParams.assignee)
   }
 
   const { data: tasksRaw } = await query as { data: TaskRowRaw[] | null; error: unknown }
@@ -170,7 +180,21 @@ export default async function ProjectPage({
     .filter(m => m.profile != null)
     .map(m => m.profile!)
 
+  // ── Vistas guardadas del usuario en este proyecto (filtros nombrados) ─────
+  type SavedViewRow = {
+    id: string
+    name: string
+    filters: { view?: string; status?: string; priority?: string; assignee?: string }
+  }
+  const { data: savedViews } = await admin
+    .from('task_saved_views')
+    .select('id, name, filters')
+    .eq('project_id', project.id)
+    .eq('profile_id', user.id)
+    .order('created_at', { ascending: true }) as { data: SavedViewRow[] | null; error: unknown }
+
   const currentView = searchParams.view ?? 'list'
+  const basePath = `/w/${params.workspaceSlug}/t/${params.teamSlug}/p/${params.projectSlug}`
 
   // Chat del proyecto: historial (ultimos 100) solo si la pestana esta activa.
   type ProjectMessageRow = { id: string; author_id: string; body: string; created_at: string }
@@ -234,6 +258,12 @@ export default async function ProjectPage({
               icon={<BoardIcon />}
             />
             <ViewToggle
+              href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/p/${params.projectSlug}?view=calendar`}
+              active={currentView === 'calendar'}
+              label="Calendario"
+              icon={<CalIcon />}
+            />
+            <ViewToggle
               href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/p/${params.projectSlug}?view=chat`}
               active={currentView === 'chat'}
               label="Chat"
@@ -243,7 +273,24 @@ export default async function ProjectPage({
         </div>
       </div>
 
-      {/* ── Vista de tareas (lista, kanban) o chat del proyecto ──────── */}
+      {/* ── Barra de filtros + vistas guardadas (no aplica al chat) ──── */}
+      {currentView !== 'chat' && (
+        <TaskFilterBar
+          basePath={basePath}
+          projectId={project.id}
+          currentView={currentView}
+          statuses={statuses ?? []}
+          members={memberProfiles}
+          current={{
+            status: searchParams.status,
+            priority: searchParams.priority,
+            assignee: searchParams.assignee,
+          }}
+          savedViews={savedViews ?? []}
+        />
+      )}
+
+      {/* ── Vista de tareas (lista, kanban, calendario) o chat ──────── */}
       <div className={`flex-1 min-h-0 ${currentView === 'chat' ? 'flex flex-col' : 'overflow-auto'}`}>
         {currentView === 'chat' ? (
           <ProjectChat
@@ -254,6 +301,14 @@ export default async function ProjectPage({
           />
         ) : currentView === 'board' ? (
           <KanbanBoard
+            projectId={project.id}
+            tasks={tasks ?? []}
+            statuses={statuses ?? []}
+            members={memberProfiles}
+            currentUserId={user.id}
+          />
+        ) : currentView === 'calendar' ? (
+          <TaskCalendarView
             projectId={project.id}
             tasks={tasks ?? []}
             statuses={statuses ?? []}
@@ -326,6 +381,15 @@ function ChatIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
       <path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h6A1.5 1.5 0 0 1 11 3.5v3A1.5 1.5 0 0 1 9.5 8H5l-2.5 2.5V8H3.5A1.5 1.5 0 0 1 2 6.5v-3Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function CalIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <rect x="1.5" y="2.5" width="10" height="8.5" rx="1.2" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M1.5 5h10M4 1.5v2M9 1.5v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   )
 }

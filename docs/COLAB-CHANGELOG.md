@@ -8,6 +8,44 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Conversación B, Circuito B6 (vistas guardadas + calendario)
+
+Sexto y último circuito de la Conversación B: el proyecto gana una barra de filtros
+(estado, prioridad, asignado) aplicados server-side vía searchParams, vistas guardadas
+privadas por usuario (combinación nombrada de filtros + tipo de vista) y una vista de
+Calendario mensual estilo Gantt ligero que coloca cada tarea según su rango
+`[start_date, due_date]` en barras apilables por carril. Aditivo: no toca Scrum,
+Marketplace, Chat, Notas ni Pizarra, y las vistas Lista/Tablero/Chat siguen igual.
+Deja `tsc --noEmit` y `next build` en EXIT 0.
+
+### Capa de datos (migración aditiva)
+- Migración `add_task_saved_views`: tabla nueva `task_saved_views` (`id`, `project_id`,
+  `profile_id`, `name`, `filters` jsonb, `created_at`) con índice `(project_id, profile_id)`.
+  RLS habilitada; el acceso real se valida en cada handler con el admin client (anti-IDOR).
+
+### API (patrón anti-IDOR)
+- `src/app/api/projects/[projectId]/saved-views/route.ts`: GET (lista las vistas propias del
+  proyecto) y POST (crea una). `applyRateLimit` -> auth 401 -> membresía 403 -> zod. Los
+  filtros se validan (status uuid, priority enum, assignee uuid, view string) antes de guardar.
+- `src/app/api/projects/[projectId]/saved-views/[viewId]/route.ts`: DELETE. Borra solo si la
+  vista es del usuario (`profile_id`) y del proyecto de la ruta, para que nadie borre las de otro.
+
+### Página del proyecto (server component)
+- `src/app/(app)/w/[workspaceSlug]/t/[teamSlug]/p/[projectSlug]/page.tsx`: el select de tareas
+  ahora incluye `start_date`; se aplican filtros `priority` y `assignee` además de `status`;
+  se cargan las vistas guardadas del usuario; se monta `<TaskFilterBar>` (excepto en chat) y un
+  cuarto toggle `?view=calendar` que renderiza `<TaskCalendarView>`.
+
+### UI (iconos lucide, texto en español con ñ/tildes)
+- `src/components/tasks/TaskFilterBar.tsx`: componente nuevo. Selects de Estado/Prioridad/Asignado
+  que empujan searchParams, botón "Guardar vista" (POST) y menú de vistas guardadas (aplicar/borrar).
+- `src/components/tasks/TaskCalendarView.tsx`: componente nuevo. Rejilla mensual (semana inicia en
+  lunes), navegación mes anterior/Hoy/siguiente, barras por tarea coloreadas por estado/prioridad,
+  apiladas en carriles greedy cuando se traslapan, clic abre el `TaskDetailPanel`. Aritmética de
+  días con `Date` local, sin dependencias externas. Muestra conteo de tareas sin fecha.
+
+---
+
 ## 2026-07-11: Conversación B, Circuito B5 (estimación, fecha inicio y tiempo)
 
 Quinto circuito de la Conversación B: cada tarea gana una estimación de esfuerzo, una
