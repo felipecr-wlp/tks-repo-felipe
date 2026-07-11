@@ -29,6 +29,7 @@ import { SubtasksSection } from './SubtasksSection'
 import { DependenciesSection } from './DependenciesSection'
 import { AssigneesSection } from './AssigneesSection'
 import { WatchersSection } from './WatchersSection'
+import { TaskActivitySection } from './TaskActivitySection'
 import { TimeTrackingSection } from './TimeTrackingSection'
 import { TaskLabels } from './TaskLabels'
 
@@ -146,6 +147,8 @@ export function TaskDetailPanel({
   const [submittingComment, setSubmittingComment] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [openBlockers, setOpenBlockers] = useState(0)
+  // Bump para recargar el historial de actividad tras guardar o comentar.
+  const [activityKey, setActivityKey] = useState(0)
   const titleRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -206,6 +209,7 @@ export function TaskDetailPanel({
       const updated: TaskDetail = await res.json()
       setTask(updated)
       setTitleValue(updated.title)
+      setActivityKey(k => k + 1)
       onUpdated?.(updated)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al guardar')
@@ -264,6 +268,7 @@ export function TaskDetailPanel({
       if (!res.ok) throw new Error('Error al agregar comentario')
       const comment: Comment = await res.json()
       setComments(prev => [...prev, comment])
+      setActivityKey(k => k + 1)
       registerMentions(trimmed, 'comment')
     } catch {
       toast.error('Error al agregar el comentario')
@@ -452,6 +457,9 @@ export function TaskDetailPanel({
                     onSubmit={handleAddComment}
                   />
                 </section>
+
+                {/* Historial de actividad (B12) */}
+                <TaskActivitySection taskId={taskId} refreshKey={activityKey} />
               </div>
 
               {/* ── Columna de metadatos ─────────────────────── */}

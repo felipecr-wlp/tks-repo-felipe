@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { autoWatch } from '@/lib/watchers'
+import { logActivity, ActivityVerbs } from '@/lib/activity'
 
 export async function GET(
   _request: NextRequest,
@@ -85,10 +86,10 @@ export async function POST(
 
   const admin = createAdminClient()
 
-  type TaskCheck = { project_id: string; workspace_id: string }
+  type TaskCheck = { project_id: string; workspace_id: string; title: string }
   const { data: task } = await admin
     .from('tasks')
-    .select('project_id, workspace_id')
+    .select('project_id, workspace_id, title')
     .eq('id', params.taskId)
     .maybeSingle() as { data: TaskCheck | null; error: unknown }
   if (!task) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
@@ -130,6 +131,17 @@ export async function POST(
 
   // Auto-seguimiento: quien comenta pasa a seguir la tarea (best effort).
   autoWatch(admin, params.taskId, task.project_id, user.id).catch(console.error)
+
+  // Log de actividad: el comentario aparece en el historial del panel (B12).
+  logActivity({
+    verb: ActivityVerbs.COMMENT_ADDED,
+    subject_id: user.id,
+    object_type: 'task',
+    object_id: params.taskId,
+    object_title: task.title,
+    workspace_id: task.workspace_id,
+    project_id: task.project_id,
+  }).catch(console.error)
 
   return NextResponse.json({
     id: raw.id,

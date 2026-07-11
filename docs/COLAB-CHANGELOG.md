@@ -8,6 +8,39 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B12 (historial de actividad en el panel)
+
+Sexto circuito del loop premium: un feed de actividad por tarea en el panel de detalle.
+Cada mutación de tarea ya se registraba en `activity_events` (via `logActivity`), pero no
+había forma de VERLO. Ahora el panel muestra una línea de tiempo "quién hizo qué y cuándo"
+(avatar + frase legible + hace-cuánto). Es el complemento visible de las notificaciones de
+seguidores (B10/B11): el seguidor recibe el aviso en la bandeja y aquí ve exactamente qué
+cambió. Aditivo: no toca tasks, comentarios, asignados, Scrum, Marketplace, Chat, Notas ni
+Pizarra. Deja `tsc --noEmit` y `next build` en EXIT 0.
+
+### API (lectura anti-IDOR)
+- `src/app/api/tasks/[taskId]/activity/route.ts` (nuevo): GET devuelve hasta 50 eventos de
+  `activity_events` del objeto (object_type='task', object_id=taskId), más recientes primero,
+  con el actor (`subject:profiles`) resuelto y el `metadata` del evento. Valida acceso por
+  `checkTaskAccess` (404 si no existe, 403 si no eres miembro del proyecto) con el admin client.
+
+### Log de comentarios (enriquece el feed)
+- `src/app/api/tasks/[taskId]/comments/route.ts` (POST): ahora también llama a
+  `logActivity(COMMENT_ADDED)` (best effort) para que los comentarios aparezcan en el historial,
+  no solo los cambios de campo. Se añadió `title` al select de la tarea para el `object_title`.
+
+### UI (línea de tiempo autocontenida)
+- `src/components/tasks/TaskActivitySection.tsx` (nuevo): autocontenido por `taskId`, lee el
+  endpoint y pinta una timeline compacta (avatar de 20px + línea conectora + frase). Para
+  `task.updated` afina la frase con el `metadata` del PATCH (mapea `status_id` -> "cambió el
+  estado", `priority` -> "cambió la prioridad", etc.; agrupa "cambió N campos"). Si no hay
+  eventos, no renderiza nada (cero ruido). Se recarga cuando el padre incrementa `refreshKey`.
+- `src/components/tasks/TaskDetailPanel.tsx`: nuevo estado `activityKey` que se incrementa tras
+  guardar un campo (`updateField`) o agregar un comentario (`handleAddComment`), y se pasa como
+  `refreshKey` a la sección, que va debajo de Comentarios en la columna de contenido.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B11 (auto-seguimiento en interacciones)
 
 Quinto circuito del loop premium: el auto-seguimiento (auto-watch) que hace útil a B10.
