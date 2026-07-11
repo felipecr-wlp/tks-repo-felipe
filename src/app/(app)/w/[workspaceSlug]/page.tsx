@@ -1,5 +1,5 @@
 /**
- * Dashboard del workspace — overview con teams, mis tareas y actividad.
+ * Dashboard del workspace, overview con teams, mis tareas y actividad.
  * Empty state premium cuando aún no hay teams para guiar al usuario.
  */
 import Link from 'next/link'
@@ -9,6 +9,7 @@ import { redirect } from 'next/navigation'
 import { formatDate, timeAgo, getInitials } from '@/lib/utils'
 import { CheckSquare, CalendarDays, Compass, FileText, LayoutDashboard } from 'lucide-react'
 import MiDia from './MiDia'
+import { DashboardTeamChat, type TeamChatData } from './DashboardTeamChat'
 
 interface WorkspaceDashboardProps {
   params: { workspaceSlug: string }
@@ -85,6 +86,33 @@ export default async function WorkspaceDashboardPage({
     .eq('workspace_id', workspace.id)
     .eq('team_members.profile_id', user.id)
     .order('name', { ascending: true }) as { data: TeamCard[] | null; error: unknown }
+
+  // ── Chat de equipo para el panel general: miembros + mensajes por equipo ──
+  type MemberRow = { profile: { id: string; display_name: string; avatar_url: string | null } | null }
+  type ChatMsgRow = { id: string; author_id: string; body: string; created_at: string }
+  const chatTeams: TeamChatData[] = await Promise.all(
+    (teams ?? []).map(async (t): Promise<TeamChatData> => {
+      const [{ data: memberRows }, { data: msgRows }] = await Promise.all([
+        admin
+          .from('team_members')
+          .select('profile:profiles ( id, display_name, avatar_url )')
+          .eq('team_id', t.id) as unknown as Promise<{ data: MemberRow[] | null }>,
+        admin
+          .from('messages')
+          .select('id, author_id, body, created_at')
+          .eq('team_id', t.id)
+          .order('created_at', { ascending: false })
+          .limit(30) as unknown as Promise<{ data: ChatMsgRow[] | null }>,
+      ])
+      return {
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        members: (memberRows ?? []).filter(m => m.profile != null).map(m => m.profile!),
+        initialMessages: (msgRows ?? []).slice().reverse(),
+      }
+    })
+  )
 
   // ── Mis tareas pendientes ─────────────────────────────────────────────────
   const { data: myTasks } = await admin
@@ -268,6 +296,15 @@ export default async function WorkspaceDashboardPage({
         </section>
       )}
 
+      {/* ── Chat de equipo (panel general) ───────────────────────────────── */}
+      {hasTeams && (
+        <DashboardTeamChat
+          workspaceSlug={params.workspaceSlug}
+          currentUserId={user.id}
+          teams={chatTeams}
+        />
+      )}
+
       {/* ── Mi día (agenda de Google Calendar) ───────────────────────────── */}
       <div className="mb-10">
         <MiDia calendarPath={`/w/${params.workspaceSlug}/calendar`} />
@@ -275,7 +312,7 @@ export default async function WorkspaceDashboardPage({
 
       {/* ── Mis tareas + Actividad ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Mis tareas — 3 cols */}
+        {/* Mis tareas, 3 cols */}
         <section className="lg:col-span-3">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -336,7 +373,7 @@ export default async function WorkspaceDashboardPage({
           </div>
         </section>
 
-        {/* Actividad reciente — 2 cols */}
+        {/* Actividad reciente, 2 cols */}
         <section className="lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

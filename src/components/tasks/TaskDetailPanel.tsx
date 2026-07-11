@@ -25,7 +25,7 @@ import {
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 import { ChecklistSection } from './ChecklistSection'
 
-// Tiptap pesa ~80KB — lazy-load para no inflar bundle inicial
+// Tiptap pesa ~80KB, lazy-load para no inflar bundle inicial
 const RichTextEditor = dynamic(
   () => import('@/components/editor/RichTextEditor').then(m => m.RichTextEditor),
   {

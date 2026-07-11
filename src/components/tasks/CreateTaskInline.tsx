@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Crear tarea inline — fila con input al final de cada grupo de estado.
+ * Crear tarea inline, fila con input al final de cada grupo de estado.
  */
 import { useState, useRef } from 'react'
 import { toast } from 'sonner'

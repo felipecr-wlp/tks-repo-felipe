@@ -1,11 +1,12 @@
 /**
- * Layout del workspace — incluye Sidebar con equipos y proyectos.
+ * Layout del workspace, incluye Sidebar con equipos y proyectos.
  * Carga data del workspace en el servidor para evitar flicker.
  */
 import { redirect, notFound } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
+import { FloatingChat } from '@/components/chat/FloatingChat'
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode
@@ -196,6 +197,13 @@ export default async function WorkspaceLayout({
       <main className="flex-1 overflow-auto min-w-0">
         {children}
       </main>
+
+      {/* Burbuja de chat flotante global (equipos del usuario) */}
+      <FloatingChat
+        workspaceSlug={workspace.slug}
+        currentUserId={user.id}
+        teams={teams.map(t => ({ id: t.id, name: t.name, slug: t.slug }))}
+      />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 /**
- * /w/[slug]/whiteboards/[id] — editor de pizarra con Excalidraw.
+ * /w/[slug]/whiteboards/[id], editor de pizarra con Excalidraw.
  */
 import { notFound, redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'

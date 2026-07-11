@@ -24,7 +24,7 @@
     --input: 220 13% 91%;
     --ring: 224 71.4% 4.1%;
     --radius: 0.5rem;
-    /* Sidebar — ligeramente diferente al fondo para distinguirlo */
+    /* Sidebar, ligeramente diferente al fondo para distinguirlo */
     --sidebar: 220 14.3% 97%;
     --sidebar-foreground: 224 71.4% 4.1%;
   }

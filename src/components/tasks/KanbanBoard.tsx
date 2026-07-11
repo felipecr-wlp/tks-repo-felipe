@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Tablero Kanban — columnas por estado, drag & drop con @dnd-kit.
+ * Tablero Kanban, columnas por estado, drag & drop con @dnd-kit.
  * Se carga lazy desde la página del proyecto cuando view=board.
  */
 import { useState, useEffect } from 'react'

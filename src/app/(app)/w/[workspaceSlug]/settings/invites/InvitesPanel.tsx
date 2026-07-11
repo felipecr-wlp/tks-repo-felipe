@@ -1,10 +1,11 @@
 'use client'
 
 /**
- * InvitesPanel — UI para generar y revocar códigos de invitación de un workspace.
+ * InvitesPanel, UI para generar y revocar códigos de invitación de un workspace.
  */
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { Lock } from 'lucide-react'
 
 interface Invite {
   id: string
@@ -226,8 +227,8 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
                       </span>
                     )}
                     {inv.has_password && isActive && (
-                      <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400">
-                        🔒 Password
+                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                        <Lock className="h-2.5 w-2.5" /> Password
                       </span>
                     )}
                   </div>

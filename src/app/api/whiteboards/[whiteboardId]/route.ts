@@ -1,7 +1,7 @@
 /**
- * GET    /api/whiteboards/[id] — detalle (incluye content JSON)
- * PATCH  /api/whiteboards/[id] — actualiza title/content/visibility
- * DELETE /api/whiteboards/[id] — elimina
+ * GET    /api/whiteboards/[id], detalle (incluye content JSON)
+ * PATCH  /api/whiteboards/[id], actualiza title/content/visibility
+ * DELETE /api/whiteboards/[id], elimina
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'

@@ -2,7 +2,7 @@
  * GET /api/search?q=texto&workspace_id=xxx
  *
  * Búsqueda global en un workspace. Devuelve tasks, projects, teams, members.
- * Usa ILIKE simple — para escala añadir tsvector + GIN en futuro.
+ * Usa ILIKE simple, para escala añadir tsvector + GIN en futuro.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'

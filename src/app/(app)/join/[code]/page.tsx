@@ -1,5 +1,5 @@
 /**
- * /join/[code] — pantalla de unirse a un workspace via invite link.
+ * /join/[code], pantalla de unirse a un workspace via invite link.
  * Si el usuario no está logueado, el middleware ya lo redirige a /auth/login.
  */
 import { redirect } from 'next/navigation'

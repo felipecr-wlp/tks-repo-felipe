@@ -1,6 +1,6 @@
 /**
- * GET  /api/notes?workspace_id=xxx — lista de notas del workspace visibles para el user
- * POST /api/notes — crea nueva nota
+ * GET  /api/notes?workspace_id=xxx, lista de notas del workspace visibles para el user
+ * POST /api/notes, crea nueva nota
  *
  * Visibility: private | project | team | workspace
  */
@@ -17,7 +17,7 @@ const createSchema = z.object({
   visibility:     z.enum(['private', 'project', 'team', 'workspace']).default('workspace'),
   project_id:     z.string().uuid().nullable().optional(),
   parent_note_id: z.string().uuid().nullable().optional(),
-  icon:           z.string().max(8).nullable().optional(),
+  icon:           z.string().max(64).nullable().optional(),
 })
 
 interface NoteListRow {
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
   const visible = (notes ?? []).filter(n => {
     if (n.visibility === 'workspace') return true
     if (n.visibility === 'private') return n.created_by === user.id
-    // project/team — para mantener simple, mostramos todo del workspace por ahora
+    // project/team, para mantener simple, mostramos todo del workspace por ahora
     return true
   })
 

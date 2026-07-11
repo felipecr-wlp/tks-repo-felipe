@@ -1,6 +1,6 @@
 /**
- * GET  /api/tasks/[taskId]/attachments — Lista adjuntos (con signed URL).
- * POST /api/tasks/[taskId]/attachments — Sube un adjunto (multipart/form-data, campo "file").
+ * GET  /api/tasks/[taskId]/attachments, Lista adjuntos (con signed URL).
+ * POST /api/tasks/[taskId]/attachments, Sube un adjunto (multipart/form-data, campo "file").
  *
  * Seguridad:
  *  - Auth + re-chequeo de membresia del proyecto en el handler (anti-IDOR).

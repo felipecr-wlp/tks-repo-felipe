@@ -1,6 +1,6 @@
 /**
- * PATCH /api/projects/[projectId] — Actualiza nombre, descripción, icono, estado.
- * DELETE /api/projects/[projectId] — Archiva el proyecto.
+ * PATCH /api/projects/[projectId], Actualiza nombre, descripción, icono, estado.
+ * DELETE /api/projects/[projectId], Archiva el proyecto.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -83,7 +83,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Se requiere rol manager' }, { status: 403 })
   }
 
-  // Soft delete — archivar el proyecto
+  // Soft delete, archivar el proyecto
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (admin as any)
     .from('projects')

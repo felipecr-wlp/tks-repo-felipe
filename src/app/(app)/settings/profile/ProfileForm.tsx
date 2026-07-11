@@ -159,7 +159,7 @@ export function ProfileForm({ initialName, initialAvatar, email, isAdmin }: Prof
         )}
       </div>
 
-      {/* Acciones — sticky abajo para que el botón Guardar siempre se vea */}
+      {/* Acciones, sticky abajo para que el botón Guardar siempre se vea */}
       <div className="sticky bottom-0 -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 px-4 sm:px-6 py-4 bg-card/95 backdrop-blur border-t border-border rounded-b-xl">
         <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-between gap-3">
           <button

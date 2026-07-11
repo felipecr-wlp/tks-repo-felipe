@@ -1,5 +1,5 @@
 /**
- * POST /api/notifications/mark-all-read — marca todas las del user como leídas
+ * POST /api/notifications/mark-all-read, marca todas las del user como leídas
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'

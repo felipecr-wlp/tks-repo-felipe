@@ -1,5 +1,5 @@
 /**
- * POST /api/invites/[code]/join — usa un invite para unirse al workspace.
+ * POST /api/invites/[code]/join, usa un invite para unirse al workspace.
  *
  * Body: { password?: string }
  *

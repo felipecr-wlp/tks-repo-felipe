@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Sidebar principal de la app — workspaces, navegacion jerarquizada y equipos.
+ * Sidebar principal de la app, workspaces, navegacion jerarquizada y equipos.
  *
  * Nav agrupado en secciones (patron Linear/Height): "Principal", "Espacio" y
  * "Equipos". Cada grupo es colapsable y su estado se persiste en localStorage

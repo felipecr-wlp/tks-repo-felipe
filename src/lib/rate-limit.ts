@@ -119,7 +119,7 @@ export async function applyRateLimit(
     return null
   } catch {
     // Si Redis falla, no bloqueamos el request (fail open)
-    console.error('[rate-limit] Redis error — skipping rate limit')
+    console.error('[rate-limit] Redis error, skipping rate limit')
     return null
   }
 }

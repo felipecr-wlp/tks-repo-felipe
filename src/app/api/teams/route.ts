@@ -1,5 +1,5 @@
 /**
- * POST /api/teams — Crea un equipo en un workspace.
+ * POST /api/teams, Crea un equipo en un workspace.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'

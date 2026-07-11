@@ -1,6 +1,6 @@
 /**
- * GET  /api/workspaces/[workspaceId]/invites — lista invites activos (admin)
- * POST /api/workspaces/[workspaceId]/invites — crea un invite (admin)
+ * GET  /api/workspaces/[workspaceId]/invites, lista invites activos (admin)
+ * POST /api/workspaces/[workspaceId]/invites, crea un invite (admin)
  *
  * Body POST:
  *   {

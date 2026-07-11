@@ -1,6 +1,6 @@
 /**
- * PATCH  /api/sprints/[sprintId] — Actualiza un sprint (nombre, meta, estado, fechas)
- * DELETE /api/sprints/[sprintId] — Elimina un sprint. Las tareas NO se borran:
+ * PATCH  /api/sprints/[sprintId], Actualiza un sprint (nombre, meta, estado, fechas)
+ * DELETE /api/sprints/[sprintId], Elimina un sprint. Las tareas NO se borran:
  *                                   sprint_id pasa a NULL (vuelven al backlog) por
  *                                   el ON DELETE SET NULL del FK.
  */

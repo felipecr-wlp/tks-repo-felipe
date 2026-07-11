@@ -1,7 +1,7 @@
 /**
- * GET    /api/tasks/[taskId] — Detalle completo de una tarea
- * PATCH  /api/tasks/[taskId] — Actualiza campos de una tarea
- * DELETE /api/tasks/[taskId] — Archiva una tarea (soft delete)
+ * GET    /api/tasks/[taskId], Detalle completo de una tarea
+ * PATCH  /api/tasks/[taskId], Actualiza campos de una tarea
+ * DELETE /api/tasks/[taskId], Archiva una tarea (soft delete)
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'

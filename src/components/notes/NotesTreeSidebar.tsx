@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Sidebar persistente del wiki — tree, favoritos, recientes, context menu, inline rename.
+ * Sidebar persistente del wiki, tree, favoritos, recientes, context menu, inline rename.
  *
  * Features:
  *   - Tree jerárquico con expand/collapse (estado en localStorage por workspace)
@@ -22,6 +22,7 @@ import {
   PointerSensor, useDraggable, useDroppable, useSensor, useSensors,
 } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
+import { NoteIcon, DEFAULT_NOTE_ICON } from '@/lib/note-icons'
 
 interface NoteRow {
   id: string
@@ -224,7 +225,7 @@ export function NotesTreeSidebar({
           parent_note_id: parentId ?? null,
           title: 'Sin título',
           visibility: 'workspace',
-          icon: '📄',
+          icon: DEFAULT_NOTE_ICON,
         }),
       })
       const data = await res.json()
@@ -488,7 +489,7 @@ export function NotesTreeSidebar({
       <DragOverlay dropAnimation={null}>
         {draggingId && notesById.get(draggingId) && (
           <div className="bg-popover border border-border shadow-lg rounded-md px-3 py-1.5 text-sm text-foreground flex items-center gap-2 max-w-xs">
-            <span>{notesById.get(draggingId)!.icon ?? '📄'}</span>
+            <NoteIcon icon={notesById.get(draggingId)!.icon} size={14} className="flex-shrink-0 text-muted-foreground" />
             <span className="truncate">{notesById.get(draggingId)!.title || 'Sin título'}</span>
           </div>
         )}
@@ -573,7 +574,7 @@ function SimpleRow({
         href={`/w/${workspaceSlug}/notes/${note.id}`}
         className="flex-1 flex items-center gap-1.5 text-sm min-w-0"
       >
-        <span className="flex-shrink-0 text-sm leading-none">{note.icon ?? '📄'}</span>
+        <NoteIcon icon={note.icon} size={14} className="flex-shrink-0 text-muted-foreground" />
         <span className="truncate">{note.title || 'Sin título'}</span>
       </Link>
       <button
@@ -673,7 +674,7 @@ function TreeNode({
         {isRenaming ? (
           <RenameInput
             initial={node.title}
-            icon={node.icon ?? '📄'}
+            icon={node.icon}
             onSubmit={(t) => { onRename(node.id, t); setRenaming(null) }}
             onCancel={() => setRenaming(null)}
           />
@@ -684,7 +685,7 @@ function TreeNode({
             className="flex-1 flex items-center gap-1.5 text-sm min-w-0"
             title="Doble clic para renombrar · Clic derecho para más"
           >
-            <span className="flex-shrink-0 text-sm leading-none">{node.icon ?? '📄'}</span>
+            <NoteIcon icon={node.icon} size={14} className="flex-shrink-0 text-muted-foreground" />
             <span className="truncate">{node.title || 'Sin título'}</span>
           </Link>
         )}
@@ -764,14 +765,14 @@ function RenameInput({
   initial, icon, onSubmit, onCancel,
 }: {
   initial: string
-  icon: string
+  icon: string | null
   onSubmit: (title: string) => void
   onCancel: () => void
 }) {
   const [value, setValue] = useState(initial)
   return (
     <div className="flex-1 flex items-center gap-1.5 min-w-0">
-      <span className="flex-shrink-0 text-sm leading-none">{icon}</span>
+      <NoteIcon icon={icon} size={14} className="flex-shrink-0 text-muted-foreground" />
       <input
         autoFocus
         value={value}

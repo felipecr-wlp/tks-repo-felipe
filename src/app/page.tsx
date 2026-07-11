@@ -1,5 +1,5 @@
 /**
- * Raíz de la app — redirige al último workspace o al login.
+ * Raíz de la app, redirige al último workspace o al login.
  * Usa admin client para el lookup simple de membership del propio usuario,
  * evitando cualquier edge case de RLS.
  */
@@ -14,7 +14,7 @@ export default async function RootPage() {
     redirect('/auth/login')
   }
 
-  // Admin client bypass RLS — lookup seguro del propio usuario
+  // Admin client bypass RLS, lookup seguro del propio usuario
   const admin = createAdminClient()
 
   type MembershipWithWorkspace = { workspace_id: string; workspaces: { slug: string } | null }
@@ -29,6 +29,6 @@ export default async function RootPage() {
     redirect(`/w/${membership.workspaces.slug}`)
   }
 
-  // Sin workspace — ir a onboarding
+  // Sin workspace, ir a onboarding
   redirect('/onboarding')
 }

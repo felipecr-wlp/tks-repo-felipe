@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * ProjectChat — chat de proyecto en tiempo real (espeja TeamChat).
+ * ProjectChat, chat de proyecto en tiempo real (espeja TeamChat).
  *
  * Se suscribe a los INSERT de project_messages filtrados por project_id y hace
  * append en vivo (no router.refresh). Resuelve el autor con el mapa de miembros

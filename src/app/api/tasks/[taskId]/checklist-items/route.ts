@@ -1,6 +1,6 @@
 /**
- * GET  /api/tasks/[taskId]/checklist-items — lista items de la checklist
- * POST /api/tasks/[taskId]/checklist-items — crea un nuevo item
+ * GET  /api/tasks/[taskId]/checklist-items, lista items de la checklist
+ * POST /api/tasks/[taskId]/checklist-items, crea un nuevo item
  *
  * Para mantener UI simple, cada task tiene UNA checklist default
  * (auto-creada al insertar el primer item).

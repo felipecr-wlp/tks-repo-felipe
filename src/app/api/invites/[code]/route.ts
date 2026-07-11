@@ -1,5 +1,5 @@
 /**
- * GET /api/invites/[code] — info pública del invite (workspace name + flags)
+ * GET /api/invites/[code], info pública del invite (workspace name + flags)
  * Requiere usuario autenticado pero no membership.
  * NUNCA expone password_hash.
  */

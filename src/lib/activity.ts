@@ -1,5 +1,5 @@
 /**
- * logActivity — registra eventos en activity_events y crea notificaciones.
+ * logActivity, registra eventos en activity_events y crea notificaciones.
  * Llamar desde Route Handlers después de cada mutación importante.
  *
  * Uso:
@@ -88,7 +88,7 @@ export async function createNotification(params: NotifyParams): Promise<void> {
 }
 
 /**
- * Verbs estándar — usar siempre estos para consistencia
+ * Verbs estándar, usar siempre estos para consistencia
  */
 export const ActivityVerbs = {
   // Tasks
@@ -136,7 +136,7 @@ export const ActivityVerbs = {
 } as const
 
 /**
- * Tipos de notificacion — para la campana del inbox.
+ * Tipos de notificacion, para la campana del inbox.
  */
 export const NotificationTypes = {
   APPLICATION_SUBMITTED: 'application_submitted', // al lider: alguien se postulo

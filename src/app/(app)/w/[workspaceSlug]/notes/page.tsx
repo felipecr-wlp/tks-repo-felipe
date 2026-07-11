@@ -1,11 +1,12 @@
 /**
- * /w/[slug]/notes — vista "home" del wiki.
+ * /w/[slug]/notes, vista "home" del wiki.
  * El tree completo está en el sidebar (layout). Esta página muestra welcome + recientes.
  */
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { timeAgo } from '@/lib/utils'
+import { NoteIcon } from '@/lib/note-icons'
 import { NotesActionsBar } from './NotesActionsBar'
 
 interface NotesPageProps {
@@ -90,7 +91,7 @@ export default async function NotesPage({ params }: NotesPageProps) {
                 href={`/w/${params.workspaceSlug}/notes/${n.id}`}
                 className="group flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
               >
-                <span className="flex-shrink-0 text-base leading-none">{n.icon ?? '📄'}</span>
+                <NoteIcon icon={n.icon} size={16} className="flex-shrink-0 text-muted-foreground" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
                     {n.title || 'Sin título'}
@@ -118,7 +119,7 @@ export default async function NotesPage({ params }: NotesPageProps) {
           </div>
           <h3 className="text-sm font-semibold text-foreground mb-1">Tu wiki está vacío</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Empieza con una plantilla — SOP, brief, minutas, decisión, wiki — o desde cero.
+            Empieza con una plantilla, SOP, brief, minutas, decisión, wiki, o desde cero.
           </p>
         </div>
       )}

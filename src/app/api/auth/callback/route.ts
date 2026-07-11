@@ -1,5 +1,5 @@
 /**
- * Callback de OAuth — Supabase redirige aquí después del login con Google.
+ * Callback de OAuth, Supabase redirige aquí después del login con Google.
  * Intercambia el code por una sesión y redirige al destino.
  */
 import { createClient } from '@/lib/supabase/server'
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // TODO: Fase 0 — Verificar si el usuario tiene org/workspace asignado
+  // TODO: Fase 0, Verificar si el usuario tiene org/workspace asignado
   // Si es el primer login, redirigir al onboarding
 
   // Redirigir al destino original o al workspace.

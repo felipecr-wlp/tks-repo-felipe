@@ -1,7 +1,7 @@
 /**
- * GET    /api/notes/[noteId] — detalle completo de una nota
- * PATCH  /api/notes/[noteId] — actualiza título / content / visibility
- * DELETE /api/notes/[noteId] — elimina la nota (hard delete; las notas no se archivan)
+ * GET    /api/notes/[noteId], detalle completo de una nota
+ * PATCH  /api/notes/[noteId], actualiza título / content / visibility
+ * DELETE /api/notes/[noteId], elimina la nota (hard delete; las notas no se archivan)
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -17,7 +17,7 @@ const patchSchema = z.object({
   title:          z.string().max(200).trim().optional(),
   content:        z.string().nullable().optional(),
   visibility:     z.enum(['private', 'project', 'team', 'workspace']).optional(),
-  icon:           z.string().max(8).nullable().optional(),
+  icon:           z.string().max(64).nullable().optional(),
   parent_note_id: z.string().uuid().nullable().optional(),
 }).strict()
 
@@ -108,7 +108,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   // Solo creador o admin del workspace puede editar
   // (UI: dejar al creador editar; validación más fina se puede hacer aquí)
-  // Por ahora cualquiera con acceso puede editar — coherente con docs colaborativos.
+  // Por ahora cualquiera con acceso puede editar, coherente con docs colaborativos.
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: updated, error } = await (admin as any)

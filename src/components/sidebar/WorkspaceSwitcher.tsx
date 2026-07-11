@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Workspace Switcher — dropdown para cambiar entre workspaces del usuario.
+ * Workspace Switcher, dropdown para cambiar entre workspaces del usuario.
  */
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'

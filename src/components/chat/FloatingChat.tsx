@@ -1,0 +1,189 @@
+'use client'
+
+/**
+ * FloatingChat, burbuja de chat flotante global montada en el layout del
+ * workspace. Accesible desde cualquier página. Carga los mensajes y miembros
+ * bajo demanda (lazy) via GET /api/messages la primera vez que se abre un
+ * equipo, cachea por equipo mientras el panel siga vivo, y reutiliza TeamChat
+ * para el hilo en vivo. Indicador de mensajes sin leer por realtime cuando el
+ * panel está cerrado.
+ */
+import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
+import { MessageSquare, X, Maximize2, ChevronDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
+import { TeamChat } from './TeamChat'
+
+interface TeamRef {
+  id: string
+  name: string
+  slug: string
+}
+
+interface Member {
+  id: string
+  display_name: string
+  avatar_url: string | null
+}
+
+interface Message {
+  id: string
+  author_id: string
+  body: string
+  created_at: string
+}
+
+interface LoadedTeam {
+  members: Member[]
+  initialMessages: Message[]
+}
+
+interface FloatingChatProps {
+  workspaceSlug: string
+  currentUserId: string
+  teams: TeamRef[]
+}
+
+export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingChatProps) {
+  const [open, setOpen] = useState(false)
+  const [activeId, setActiveId] = useState(teams[0]?.id ?? '')
+  const [loaded, setLoaded] = useState<Record<string, LoadedTeam>>({})
+  const [loading, setLoading] = useState(false)
+  const [unread, setUnread] = useState(false)
+  const openRef = useRef(open)
+  openRef.current = open
+
+  const active = teams.find(t => t.id === activeId) ?? teams[0]
+
+  // Cargar mensajes + miembros del equipo activo la primera vez que se abre.
+  useEffect(() => {
+    if (!open || !active || loaded[active.id]) return
+    let cancelled = false
+    setLoading(true)
+    fetch(`/api/messages?team_id=${active.id}&limit=30`)
+      .then(res => (res.ok ? res.json() : Promise.reject(new Error('load'))))
+      .then((data: { messages: Message[]; members: Member[] }) => {
+        if (cancelled) return
+        setLoaded(prev => ({
+          ...prev,
+          [active.id]: { members: data.members ?? [], initialMessages: data.messages ?? [] },
+        }))
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [open, active, loaded])
+
+  // Indicador de no leídos: escucha INSERT de cualquier equipo del usuario
+  // mientras el panel esté cerrado. Ignora los mensajes propios.
+  useEffect(() => {
+    if (teams.length === 0) return
+    const supabase = createClient()
+    const ids = new Set(teams.map(t => t.id))
+    const ch = supabase
+      .channel('floating-chat-unread')
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (payload: any) => {
+          const row = payload.new as { team_id: string; author_id: string }
+          if (!ids.has(row.team_id)) return
+          if (row.author_id === currentUserId) return
+          if (!openRef.current) setUnread(true)
+        }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [teams, currentUserId])
+
+  if (teams.length === 0) return null
+
+  return (
+    <>
+      {/* Panel */}
+      {open && active && (
+        <div className="fixed bottom-24 right-6 z-50 w-[min(380px,calc(100vw-3rem))] h-[min(560px,calc(100vh-8rem))] flex flex-col bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/40">
+            <div className="flex items-center gap-2 min-w-0">
+              <MessageSquare className="w-4 h-4 text-primary flex-shrink-0" />
+              <span className="text-sm font-semibold text-foreground truncate">Chat de equipo</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Link
+                href={`/w/${workspaceSlug}/t/${active.slug}/chat`}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title="Abrir en pantalla completa"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </Link>
+              <button
+                onClick={() => setOpen(false)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title="Cerrar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Selector de equipo */}
+          {teams.length > 1 && (
+            <div className="px-3 py-2 border-b border-border">
+              <div className="relative">
+                <select
+                  value={activeId}
+                  onChange={e => setActiveId(e.target.value)}
+                  className="w-full appearance-none text-xs font-medium bg-background border border-border rounded-lg pl-3 pr-8 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {teams.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+          )}
+
+          {/* Hilo */}
+          <div className="flex-1 min-h-0 flex flex-col">
+            {loaded[active.id] ? (
+              <TeamChat
+                key={active.id}
+                teamId={active.id}
+                currentUserId={currentUserId}
+                members={loaded[active.id].members}
+                initialMessages={loaded[active.id].initialMessages}
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-xs text-muted-foreground">
+                  {loading ? 'Cargando conversación…' : 'Preparando chat…'}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Burbuja */}
+      <button
+        onClick={() => { setOpen(o => !o); setUnread(false) }}
+        className={cn(
+          'fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all',
+          'bg-primary text-primary-foreground hover:scale-105 active:scale-95'
+        )}
+        title={open ? 'Cerrar chat' : 'Abrir chat de equipo'}
+        aria-label={open ? 'Cerrar chat de equipo' : 'Abrir chat de equipo'}
+      >
+        {open ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
+        {!open && unread && (
+          <span className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-background" />
+        )}
+      </button>
+    </>
+  )
+}

@@ -1,5 +1,5 @@
 /**
- * Página del proyecto — vista de lista y kanban de tareas.
+ * Página del proyecto, vista de lista y kanban de tareas.
  */
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
@@ -10,7 +10,7 @@ import { ProjectIcon } from '@/lib/project-icons'
 import { TaskListView } from '@/components/tasks/TaskListView'
 import { ProjectChat } from '@/components/chat/ProjectChat'
 
-// Kanban cargado lazy — contiene @dnd-kit que pesa ~150KB
+// Kanban cargado lazy, contiene @dnd-kit que pesa ~150KB
 const KanbanBoard = dynamic(
   () => import('@/components/tasks/KanbanBoard').then(m => m.KanbanBoard),
   {
@@ -76,7 +76,7 @@ export default async function ProjectPage({
   const admin = createAdminClient()
 
   // ── Lookup atómico: proyecto desde la membership del usuario ──────────────
-  // Mismo patrón que workspace layout — evita loops de RLS y ambigüedad de slug.
+  // Mismo patrón que workspace layout, evita loops de RLS y ambigüedad de slug.
   type ProjectFromMember = {
     role: string
     projects: ProjectData | null
@@ -106,7 +106,7 @@ export default async function ProjectPage({
     notFound()
   }
 
-  // ── Cargar estados, tareas y miembros (admin client — acceso ya validado) ─
+  // ── Cargar estados, tareas y miembros (admin client, acceso ya validado) ─
   const { data: statuses } = await admin
     .from('task_statuses')
     .select('id, name, color, category, position')

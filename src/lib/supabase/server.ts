@@ -1,6 +1,6 @@
 /**
  * Supabase client para uso en el servidor (RSC, Route Handlers).
- * Lee la sesión desde cookies del request — NUNCA usar en el browser.
+ * Lee la sesión desde cookies del request, NUNCA usar en el browser.
  */
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'

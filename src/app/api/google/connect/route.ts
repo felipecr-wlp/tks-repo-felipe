@@ -1,5 +1,5 @@
 /**
- * GET /api/google/connect — Inicia el flujo de OAuth de Google Calendar.
+ * GET /api/google/connect, Inicia el flujo de OAuth de Google Calendar.
  *
  * Este flujo es INDEPENDIENTE del login de Supabase: pedimos consentimiento
  * incremental con scope de calendario (solo lectura) y, tras el callback,

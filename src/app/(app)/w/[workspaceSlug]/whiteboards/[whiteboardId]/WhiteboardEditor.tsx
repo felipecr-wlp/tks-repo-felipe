@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Editor de pizarra — Excalidraw lazy-loaded (~1MB+).
+ * Editor de pizarra, Excalidraw lazy-loaded (~1MB+).
  * Auto-save con debounce 1.5s al cambiar el canvas.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -340,7 +340,7 @@ export function WhiteboardEditor({ initial, currentUserId, currentUserName, work
         </div>
       </div>
 
-      {/* Canvas — el flex item exterior calcula la caja disponible; el hijo
+      {/* Canvas, el flex item exterior calcula la caja disponible; el hijo
           `absolute inset-0` le da a Excalidraw dimensiones de píxel CONCRETAS e
           inmediatas (sin ambigüedad de sizing intrínseco de flex, que hacía que
           midiera un ancho corto y se quedara recortado). */}

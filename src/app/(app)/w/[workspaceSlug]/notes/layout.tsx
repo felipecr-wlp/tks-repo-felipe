@@ -1,5 +1,5 @@
 /**
- * Layout de notas — split view persistente.
+ * Layout de notas, split view persistente.
  * Sidebar con árbol del wiki a la izquierda, editor / contenido a la derecha.
  */
 import { redirect } from 'next/navigation'

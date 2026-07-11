@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * useRealtimeRefresh — backbone de colaboración en vivo de WLO.
+ * useRealtimeRefresh, backbone de colaboración en vivo de WLO.
  *
  * Se suscribe a los cambios (INSERT/UPDATE/DELETE) de un conjunto de tablas via
  * Supabase Realtime y dispara router.refresh() con debounce. Como las páginas

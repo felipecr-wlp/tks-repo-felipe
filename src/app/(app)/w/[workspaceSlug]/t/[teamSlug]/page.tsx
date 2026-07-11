@@ -1,11 +1,12 @@
 /**
- * Página del equipo — lista proyectos del equipo y acceso rápido.
+ * Página del equipo, lista proyectos del equipo y acceso rápido.
  */
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, FolderKanban, Plus, ListChecks } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Plus, ListChecks, MessageSquare, Maximize2 } from 'lucide-react'
 import { ProjectIcon } from '@/lib/project-icons'
+import { TeamChat } from '@/components/chat/TeamChat'
 
 interface TeamPageProps {
   params: { workspaceSlug: string; teamSlug: string }
@@ -66,7 +67,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
   }
   const team = teamRow.teams
 
-  // ── Cargar proyectos del equipo (admin — acceso ya validado) ─────────────
+  // ── Cargar proyectos del equipo (admin, acceso ya validado) ─────────────
   const { data: projects } = await admin
     .from('projects')
     .select('id, name, slug, icon, description, status')
@@ -88,6 +89,29 @@ export default async function TeamPage({ params }: TeamPageProps) {
     }
   }
 
+  // ── Chat general del equipo: miembros (autores) + historial reciente ──────
+  type MemberRow = {
+    profile: { id: string; display_name: string; avatar_url: string | null } | null
+  }
+  const { data: memberRows } = await admin
+    .from('team_members')
+    .select('profile:profiles ( id, display_name, avatar_url )')
+    .eq('team_id', team.id) as { data: MemberRow[] | null; error: unknown }
+
+  const members = (memberRows ?? [])
+    .filter(m => m.profile != null)
+    .map(m => m.profile!)
+
+  type MsgRow = { id: string; author_id: string; body: string; created_at: string }
+  const { data: msgRows } = await admin
+    .from('messages')
+    .select('id, author_id, body, created_at')
+    .eq('team_id', team.id)
+    .order('created_at', { ascending: false })
+    .limit(50) as { data: MsgRow[] | null; error: unknown }
+
+  const messages = (msgRows ?? []).slice().reverse()
+
   const statusLabel: Record<string, string> = {
     active: 'Activo',
     on_hold: 'En pausa',
@@ -101,7 +125,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -136,53 +160,86 @@ export default async function TeamPage({ params }: TeamPageProps) {
         </div>
       </div>
 
-      {/* Proyectos */}
-      {!projects || projects.length === 0 ? (
-        <div className="border-2 border-dashed border-border rounded-xl p-12 text-center">
-          <FolderKanban className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground mb-1">Sin proyectos aún</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Crea el primer proyecto para este equipo.
-          </p>
-          <Link
-            href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/projects/new`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            Crear proyecto
-          </Link>
+      {/* Cuerpo: proyectos (izquierda) + chat general del equipo (derecha) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Proyectos */}
+        <div className="lg:col-span-2 space-y-4">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Proyectos
+          </h2>
+          {!projects || projects.length === 0 ? (
+            <div className="border-2 border-dashed border-border rounded-xl p-12 text-center">
+              <FolderKanban className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+              <h3 className="text-sm font-medium text-foreground mb-1">Sin proyectos aún</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Crea el primer proyecto para este equipo.
+              </p>
+              <Link
+                href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/projects/new`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                Crear proyecto
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {projects.map(project => (
+                <Link
+                  key={project.id}
+                  href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/p/${project.slug}`}
+                  className="block bg-card border border-border rounded-xl p-4 hover:border-ring/50 hover:shadow-sm transition-all group"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ProjectIcon icon={project.icon} size={20} className="text-muted-foreground flex-shrink-0" />
+                      <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                        {project.name}
+                      </h3>
+                    </div>
+                    <span className={`flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${statusColor[project.status] ?? 'bg-muted text-muted-foreground'}`}>
+                      {statusLabel[project.status] ?? project.status}
+                    </span>
+                  </div>
+                  {project.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                      {project.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-3">
+                    <ListChecks className="w-3.5 h-3.5" />
+                    <span>{taskCount.get(project.id) ?? 0} tareas</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map(project => (
+
+        {/* Chat general del equipo (embebido en el panel) */}
+        <aside className="lg:col-span-1">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <MessageSquare className="w-3.5 h-3.5" />
+              Chat general
+            </h2>
             <Link
-              key={project.id}
-              href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/p/${project.slug}`}
-              className="block bg-card border border-border rounded-xl p-4 hover:border-ring/50 hover:shadow-sm transition-all group"
+              href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/chat`}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              title="Abrir chat en pantalla completa"
             >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <ProjectIcon icon={project.icon} size={20} className="text-muted-foreground flex-shrink-0" />
-                  <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">
-                    {project.name}
-                  </h3>
-                </div>
-                <span className={`flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${statusColor[project.status] ?? 'bg-muted text-muted-foreground'}`}>
-                  {statusLabel[project.status] ?? project.status}
-                </span>
-              </div>
-              {project.description && (
-                <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                  {project.description}
-                </p>
-              )}
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-3">
-                <ListChecks className="w-3.5 h-3.5" />
-                <span>{taskCount.get(project.id) ?? 0} tareas</span>
-              </div>
+              <Maximize2 className="w-3.5 h-3.5" />
             </Link>
-          ))}
-        </div>
-      )}
+          </div>
+          <div className="flex flex-col bg-card border border-border rounded-xl overflow-hidden h-[520px]">
+            <TeamChat
+              teamId={team.id}
+              currentUserId={user.id}
+              members={members}
+              initialMessages={messages}
+            />
+          </div>
+        </aside>
+      </div>
     </div>
   )
 }

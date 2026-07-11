@@ -106,7 +106,7 @@ async function finishOnboarding(
   org: { id: string; slug: string },
   workspaceName: string
 ): Promise<NextResponse> {
-  // 2. Actualizar perfil del usuario (org + rol owner — es quien crea la org)
+  // 2. Actualizar perfil del usuario (org + rol owner, es quien crea la org)
   const { error: profileError } = await admin
     .from('profiles')
     .update({

@@ -1,5 +1,5 @@
 /**
- * /settings/profile — Mi perfil. El usuario edita su nombre para mostrar y
+ * /settings/profile, Mi perfil. El usuario edita su nombre para mostrar y
  * elige su avatar de la galería WLO. (Antes este link del UserMenu apuntaba a
  * una página inexistente.)
  */

@@ -8,6 +8,131 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Circuitos 1 a 3 (arreglo de Notas + chat robusto con historial + burbuja flotante)
+
+Loop de robustecimiento pedido por Ali: "que sea un sistema de verdad eficiente",
+chat robusto con historial revisable y burbuja flotante. Tres circuitos aditivos,
+cada uno deja `tsc --noEmit` y `next build` en EXIT 0. Deploy prod
+`dpl_4zcSZXe6Siq8y5TjdyjkWAREb3a9` (READY).
+
+### Circuito 1: Notas volvieron a funcionar (bug crítico auto-introducido)
+- Causa raíz: la migración previa de iconos de Notas de emoji a claves lucide
+  produjo claves de más de 8 caracteres (`clipboard`=9, `lightbulb`=9,
+  `graduation`=10) pero los schemas zod de la API seguían con `icon` a `max(8)`,
+  así que crear/editar nota con esas plantillas devolvía 422 "Datos inválidos".
+- Fix: subí `icon` a `z.string().max(64)` en `api/notes/route.ts` (POST) y en
+  `api/notes/[noteId]/route.ts` (PATCH). Sin migración de DB.
+
+### Circuito 2: chat robusto con historial paginado
+- Nuevo `GET /api/messages?team_id&before&limit` con paginación por cursor
+  (orden ascendente, `hasMore` para saber si queda historia detrás). Autoriza por
+  membresía de equipo (401 -> admin -> 403). Trae `limit+1` para detectar más.
+  En la primera página (sin cursor) devuelve también `members` para resolver el
+  autor en el widget flotante. Egress cuidado: miembros solo en la primera página.
+- `TeamChat.tsx`: botón "Cargar mensajes anteriores" arriba del hilo. Prepende
+  la historia sin saltar al fondo (preserva la posición de lectura con
+  `scrollHeight` antes/después y un `requestAnimationFrame`). Dedupe por id.
+
+### Circuito 3: burbuja de chat flotante global
+- Nuevo `components/chat/FloatingChat.tsx`, montado en el layout del workspace
+  (`w/[workspaceSlug]/layout.tsx`), accesible desde CUALQUIER página. Burbuja
+  fija abajo a la derecha; al abrir muestra un panel con selector de equipo
+  (si hay más de uno), carga mensajes + miembros bajo demanda via el nuevo GET
+  y cachea por equipo mientras el panel viva. Reutiliza `TeamChat` para el hilo
+  en vivo y el historial. Indicador de no leídos: escucha INSERT realtime de los
+  equipos del usuario mientras el panel está cerrado, ignora mensajes propios.
+  Link a pantalla completa (`/t/[slug]/chat`). Iconos lucide (MessageSquare, X,
+  Maximize2, ChevronDown), sin emojis.
+
+### Verificación
+- `npx tsc --noEmit` EXIT 0. `npx next build` EXIT 0. Deploy prod READY.
+
+---
+
+## 2026-07-11: Bloques B y C del loop (chat de equipo + barrido de guiones + iconos de Notas)
+
+Continuación del loop de mejora. Este pase junta el trabajo pendiente medido en
+el bloque A: chat general por equipo visible en el panel del equipo, barrido
+mecánico de guiones largos en todo `src`, y la migración del sistema de iconos
+de Notas de emojis a registry lucide con fallback legacy (sin migración de DB).
+Todo aditivo: no rompe Scrum, Marketplace ni Chat.
+
+### Chat general por equipo en el panel del equipo
+- La página del equipo (`w/[workspaceSlug]/t/[teamSlug]/page.tsx`) monta el
+  `<TeamChat>` en un `<aside>` a la derecha del panel, de modo que el chat del
+  equipo se ve directo en la vista principal (el "panel general" del equipo).
+  Usa las tablas Realtime existentes (`messages`), sin esquema nuevo.
+
+### Capa de colaboración (bloque B) verificada
+- Rutas API de mensajes, comentarios, adjuntos, menciones y mensajes de proyecto
+  (`api/messages`, `api/tasks/[taskId]/comments`, `.../attachments`,
+  `.../mentions`, `api/projects/[projectId]/messages`) revisadas: ya cumplen el
+  patrón auth 401 -> admin client -> membresía 403 -> columnas explícitas + zod
+  + rate limit + IDs desde params (anti-IDOR). Sin cambios (evitar churn).
+
+### Barrido de guiones largos en `src`
+- Reemplazo mecánico de em/en dash por coma, dos puntos, paréntesis o `·` en los
+  archivos restantes (mayoría comentarios docstring, no visibles). Regla F025.
+
+### Iconos de Notas: emoji a registry lucide (sin migración de DB)
+- Nuevo `lib/note-icons.tsx`: registry `NOTE_ICONS` (15 iconos lucide con clave
+  estable), `DEFAULT_NOTE_ICON = 'file'`, componente `<NoteIcon />`, y
+  `LEGACY_EMOJI_MAP` + `normalizeNoteIconKey()` que convierten los emojis viejos
+  guardados en DB a la clave lucide equivalente al renderizar. Las notas y
+  plantillas nuevas guardan la clave; las viejas siguen viéndose bien. Cero
+  riesgo de datos, sin tocar Supabase.
+- `lib/note-templates.ts`: los 6 `icon` de plantillas pasan de emoji a clave
+  (`file`, `clipboard`, `calendar`, `target`, `scale`, `books`).
+- `NoteEditor.tsx`, `NotesActionsBar.tsx`, `NotesTreeSidebar.tsx`,
+  `notes/page.tsx`: render de icono migrado a `<NoteIcon />`; el picker mapea
+  `NOTE_ICONS`; el estado inicial usa `normalizeNoteIconKey(initial.icon)`.
+
+### Verificación
+- `npx tsc --noEmit` = EXIT 0. `npx next build` = EXIT 0 (todas las rutas
+  compilan). Los únicos glifos emoji restantes son las claves intencionales del
+  `LEGACY_EMOJI_MAP` (no se renderizan como UI).
+- Sin migración de DB. Sin deploy (lo coordina el deployer).
+
+---
+
+## 2026-07-11: Bloque A del loop de mejora (purga de emojis + guiones en UI)
+
+Loop de mejora system-wide dividido en 3 conversaciones (A/B/C). Este es el
+bloque A: cumplir las reglas duras del proyecto (sin emojis decorativos en UI,
+sin guiones largos en texto visible) en superficies que las violaban, con
+cambios aditivos que no rompen Scrum, Marketplace ni Chat.
+
+### Emojis decorativos reemplazados por iconos lucide
+- `tasks/TaskRow.tsx`: mapa de prioridades pasa de emojis/flechas de texto
+  (con un em dash en el label "none") a iconos lucide con color semántico
+  (`ChevronsUp`/`ChevronUp`/`Equal`/`ChevronDown`/`Minus`). Aplica en los dos
+  sitios de render (botón inline y `PriorityMenu`).
+- `chat/TeamChat.tsx`: estado vacío usa `<MessageSquare />` en vez de 💬.
+- `auth/unauthorized/page.tsx`: usa `<ShieldX />` en vez de ✕.
+- `settings/invites/InvitesPanel.tsx`: badge de invite con contraseña usa
+  `<Lock />` en vez de 🔒.
+
+### Guiones largos visibles al usuario
+- `lib/note-templates.ts`: 9 em dashes que renderizaban como contenido/títulos
+  de plantillas se reemplazan por dos puntos o `·` ("SOP: Procedimiento",
+  "Paso 1: describir...", "Reunión: [Tema]", "[Tarea] · [responsable] · [fecha]",
+  "Brief: [Nombre del proyecto]", "Decisión: [Tema]"). Los iconos emoji de las
+  plantillas se dejan para el bloque C (requieren migración de datos como la de
+  project-icons).
+
+### Verificación
+- `npx tsc --noEmit` = EXIT 0.
+- Sin cambios de datos ni migración. Sin deploy (lo coordina el deployer).
+
+### Pendiente medido para B/C
+- 144 ocurrencias de em/en dash en 88 archivos (mayoría comentarios docstring,
+  no visibles) para barrido mecánico.
+- Sistema de iconos emoji de Notas (`note-templates.ts`, `NotesTreeSidebar.tsx`,
+  `NoteEditor.tsx` picker, `notes/page.tsx`) guarda un emoji `icon` por nota en
+  DB: migrar a registry lucide + fallback legacy.
+
+---
+
 ## 2026-07-05: Planeación del equipo (renombre + puente de contexto)
 
 Auditoría: el equipo tiene un tablero (Scrum/Kanban) y cada proyecto tiene otro

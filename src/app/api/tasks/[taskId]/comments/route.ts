@@ -1,6 +1,6 @@
 /**
- * GET  /api/tasks/[taskId]/comments — Lista comentarios de una tarea
- * POST /api/tasks/[taskId]/comments — Agrega un comentario
+ * GET  /api/tasks/[taskId]/comments, Lista comentarios de una tarea
+ * POST /api/tasks/[taskId]/comments, Agrega un comentario
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * ScrumWorkspace — capa ágil sobre el task engine de WLO.
+ * ScrumWorkspace, capa ágil sobre el task engine de WLO.
  *
  * Cuatro vistas sobre las MISMAS tareas (no duplica datos):
  *   · Tablero  : sprint activo por columnas To-Do / En progreso / Hecho.

@@ -1,5 +1,5 @@
 /**
- * PATCH /api/profile — Actualiza el perfil del usuario autenticado
+ * PATCH /api/profile, Actualiza el perfil del usuario autenticado
  * (nombre para mostrar y/o avatar). Cada quien solo edita su propio perfil.
  *
  * El avatar debe ser una de las rutas de la galería (AVATAR_PATHS). Los

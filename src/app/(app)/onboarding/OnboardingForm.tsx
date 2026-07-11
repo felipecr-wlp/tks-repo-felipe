@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Formulario de onboarding — Client Component
+ * Formulario de onboarding, Client Component
  * Permite crear una organización + workspace, o unirse con un código de invitación.
  */
 import { useState } from 'react'

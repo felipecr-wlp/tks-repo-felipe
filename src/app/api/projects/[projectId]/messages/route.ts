@@ -1,6 +1,6 @@
 /**
- * POST /api/projects/[projectId]/messages — Publica un mensaje en el chat del proyecto.
- * GET  /api/projects/[projectId]/messages — Historial (ultimos 100).
+ * POST /api/projects/[projectId]/messages, Publica un mensaje en el chat del proyecto.
+ * GET  /api/projects/[projectId]/messages, Historial (ultimos 100).
  * Body POST: { body }
  *
  * Authz: miembros del proyecto o de su workspace (consistente con la politica de

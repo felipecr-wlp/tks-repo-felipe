@@ -1,5 +1,5 @@
 /**
- * /w/[slug]/whiteboards — lista de pizarras del workspace.
+ * /w/[slug]/whiteboards, lista de pizarras del workspace.
  */
 import Link from 'next/link'
 import { redirect } from 'next/navigation'

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Botón de login con Google — Client Component (necesita onClick)
+ * Botón de login con Google, Client Component (necesita onClick)
  */
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'

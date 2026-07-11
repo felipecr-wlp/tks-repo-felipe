@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * MiDia — agenda de HOY para la home. Prioriza lo de WLO sobre Google.
+ * MiDia, agenda de HOY para la home. Prioriza lo de WLO sobre Google.
  *
  * Dos fuentes independientes:
  *  - WLO (/api/activities): tareas asignadas con vencimiento hoy + fin de sprint.

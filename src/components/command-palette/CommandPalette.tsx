@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * CommandPalette — modal de búsqueda global (Cmd+K).
+ * CommandPalette, modal de búsqueda global (Cmd+K).
  *
  * Features:
  *   - Búsqueda en tasks, projects, teams, members del workspace

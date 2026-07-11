@@ -55,7 +55,7 @@ export function NavSection({ team, workspaceSlug, collapsed, pathname }: NavSect
 
   return (
     <div>
-      {/* Header del equipo — chevron (toggle) + nombre (link a la vista del equipo) */}
+      {/* Header del equipo, chevron (toggle) + nombre (link a la vista del equipo) */}
       <div className="flex items-center gap-0.5 group">
         <button
           onClick={() => setOpen(!open)}

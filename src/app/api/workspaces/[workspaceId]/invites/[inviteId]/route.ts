@@ -1,5 +1,5 @@
 /**
- * DELETE /api/workspaces/[workspaceId]/invites/[inviteId] — revoca un invite
+ * DELETE /api/workspaces/[workspaceId]/invites/[inviteId], revoca un invite
  * Solo admins del workspace o de la org.
  */
 import { NextRequest, NextResponse } from 'next/server'

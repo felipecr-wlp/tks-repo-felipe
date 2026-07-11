@@ -1,5 +1,5 @@
 /**
- * Página de login — solo Google OAuth
+ * Página de login, solo Google OAuth
  */
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'

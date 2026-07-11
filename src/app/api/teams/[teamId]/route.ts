@@ -1,5 +1,5 @@
 /**
- * PATCH /api/teams/[teamId] — Actualiza nombre o descripción del equipo.
+ * PATCH /api/teams/[teamId], Actualiza nombre o descripción del equipo.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Vista de lista de tareas — muestra tareas agrupadas por estado.
+ * Vista de lista de tareas, muestra tareas agrupadas por estado.
  * Permite crear tareas inline y cambiar estado/prioridad.
  */
 import { useState, useEffect } from 'react'

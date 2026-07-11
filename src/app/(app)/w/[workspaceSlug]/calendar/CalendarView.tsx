@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * CalendarView — vista mensual propia (grilla con date-fns) que fusiona DOS
+ * CalendarView, vista mensual propia (grilla con date-fns) que fusiona DOS
  * fuentes:
  *  - Actividades WLO (/api/activities): tareas con vencimiento + fin de sprint.
  *  - Eventos de Google (/api/calendar/events): agenda externa.
@@ -389,7 +389,7 @@ export default function CalendarView({
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Grilla — 2 cols */}
+          {/* Grilla, 2 cols */}
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-foreground capitalize">
@@ -455,7 +455,7 @@ export default function CalendarView({
             </div>
           </div>
 
-          {/* Panel del dia — 1 col */}
+          {/* Panel del dia, 1 col */}
           <div className="lg:col-span-1">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-foreground capitalize">

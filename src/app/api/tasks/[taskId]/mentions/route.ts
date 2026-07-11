@@ -1,6 +1,6 @@
 /**
- * GET  /api/tasks/[taskId]/mentions — Miembros mencionables (solo del proyecto).
- * POST /api/tasks/[taskId]/mentions — Registra menciones y notifica.
+ * GET  /api/tasks/[taskId]/mentions, Miembros mencionables (solo del proyecto).
+ * POST /api/tasks/[taskId]/mentions, Registra menciones y notifica.
  *
  * Body POST: { mentioned_ids: string[], source: 'comment' | 'description' }
  *

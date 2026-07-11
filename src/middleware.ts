@@ -1,10 +1,10 @@
 /**
- * Middleware de Next.js — se ejecuta en CADA request (Edge Runtime)
+ * Middleware de Next.js, se ejecuta en CADA request (Edge Runtime)
  *
  * Responsabilidades:
- * 1. Refresh de sesión Supabase — mantiene tokens frescos
- * 2. Verificación de autenticación — redirige a /login si no hay sesión
- * 3. Domain restriction — solo @ALLOWED_EMAIL_DOMAIN puede acceder
+ * 1. Refresh de sesión Supabase, mantiene tokens frescos
+ * 2. Verificación de autenticación, redirige a /login si no hay sesión
+ * 3. Domain restriction, solo @ALLOWED_EMAIL_DOMAIN puede acceder
  *
  * NOTA: Rate limiting NO se hace aquí (Edge Runtime no soporta @upstash/redis node.js).
  * El rate limiting se aplica en los Route Handlers de API via src/lib/rate-limit.ts
@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
 
   if (!user) {
     const loginUrl = new URL('/auth/login', request.url)
-    // searchParams.set ya hace el encoding — no llamar encodeURIComponent
+    // searchParams.set ya hace el encoding, no llamar encodeURIComponent
     loginUrl.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(loginUrl)
   }

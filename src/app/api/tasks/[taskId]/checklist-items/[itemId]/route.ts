@@ -1,6 +1,6 @@
 /**
- * PATCH  /api/tasks/[taskId]/checklist-items/[itemId] — actualiza item (toggle is_checked, edit title)
- * DELETE /api/tasks/[taskId]/checklist-items/[itemId] — elimina item
+ * PATCH  /api/tasks/[taskId]/checklist-items/[itemId], actualiza item (toggle is_checked, edit title)
+ * DELETE /api/tasks/[taskId]/checklist-items/[itemId], elimina item
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'

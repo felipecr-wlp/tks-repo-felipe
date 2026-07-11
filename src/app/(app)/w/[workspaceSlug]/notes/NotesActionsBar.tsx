@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * NotesActionsBar — botón "Nueva nota" con dropdown de templates.
+ * NotesActionsBar, botón "Nueva nota" con dropdown de templates.
  * Al elegir un template, crea la nota con contenido predefinido y navega al editor.
  */
 import { useState, useRef, useEffect } from 'react'
@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { NOTE_TEMPLATES } from '@/lib/note-templates'
+import { NoteIcon } from '@/lib/note-icons'
 
 interface NotesActionsBarProps {
   workspaceId: string
@@ -107,9 +108,8 @@ export function NotesActionsBar({
                 onClick={() => createFromTemplate(template.id)}
                 className="w-full flex items-start gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left"
               >
-                <span className="flex-shrink-0 text-lg leading-none mt-0.5">
-                  {template.icon}
-                </span>
+                <NoteIcon icon={template.icon} size={18} className="flex-shrink-0 mt-0.5 text-muted-foreground" />
+
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground">{template.name}</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">

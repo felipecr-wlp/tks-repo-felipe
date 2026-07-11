@@ -1,5 +1,5 @@
 /**
- * /w/[slug]/notes/[id] — editor de una nota (Notion-lite).
+ * /w/[slug]/notes/[id], editor de una nota (Notion-lite).
  * Server Component que carga la nota y delega edición al cliente.
  */
 import { notFound, redirect } from 'next/navigation'

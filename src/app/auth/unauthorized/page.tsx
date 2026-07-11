@@ -1,7 +1,8 @@
 /**
- * Página de acceso no autorizado — dominio no permitido
+ * Página de acceso no autorizado, dominio no permitido
  */
 import Link from 'next/link'
+import { ShieldX } from 'lucide-react'
 
 export const metadata = { title: 'Acceso no autorizado' }
 
@@ -10,7 +11,7 @@ export default function UnauthorizedPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="text-center space-y-4 max-w-sm">
         <div className="w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
-          <span className="text-destructive text-xl">✕</span>
+          <ShieldX className="h-6 w-6 text-destructive" />
         </div>
         <h1 className="text-xl font-semibold">Acceso no autorizado</h1>
         <p className="text-sm text-muted-foreground">

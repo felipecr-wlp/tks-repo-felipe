@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Editor de nota — full screen, Notion-lite con icon, breadcrumb y sub-páginas.
+ * Editor de nota, full screen, Notion-lite con icon, breadcrumb y sub-páginas.
  * Auto-save con debounce 800ms.
  */
 import { useEffect, useRef, useState, useCallback } from 'react'
@@ -11,6 +11,7 @@ import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import { Globe, Users, Folder, Lock, ChevronDown } from 'lucide-react'
 import { cn, timeAgo } from '@/lib/utils'
+import { NoteIcon, NOTE_ICONS, normalizeNoteIconKey } from '@/lib/note-icons'
 import { NotesActionsBar } from '../NotesActionsBar'
 
 const RichTextEditor = dynamic(
@@ -54,14 +55,13 @@ const VISIBILITY_OPTIONS = [
   { value: 'private',   label: 'Privada',   Icon: Lock,   description: 'Solo tú la puedes ver' },
 ] as const
 
-const ICON_OPTIONS = ['📄', '📋', '🎯', '🗓️', '📚', '⚖️', '💡', '🚀', '⭐', '🔥', '🎨', '🛠️', '📊', '🎓', '📁']
 
 export function NoteEditor({
   initial, currentUserId, workspaceSlug, workspaceId, breadcrumbs, childNotes,
 }: NoteEditorProps) {
   const router = useRouter()
   const [title, setTitle] = useState(initial.title)
-  const [icon, setIcon] = useState(initial.icon ?? '📄')
+  const [icon, setIcon] = useState(normalizeNoteIconKey(initial.icon))
   const [visibility, setVisibility] = useState(initial.visibility)
   const [updatedAt, setUpdatedAt] = useState(initial.updated_at)
   const [saving, setSaving] = useState(false)
@@ -157,7 +157,7 @@ export function NoteEditor({
                 href={`/w/${workspaceSlug}/notes/${b.id}`}
                 className="hover:text-foreground transition-colors flex items-center gap-1 truncate max-w-[120px]"
               >
-                <span>{b.icon ?? '📄'}</span>
+                <NoteIcon icon={b.icon} size={14} className="flex-shrink-0" />
                 <span className="truncate">{b.title}</span>
               </Link>
             </span>
@@ -248,26 +248,27 @@ export function NoteEditor({
         <div className="relative">
           <button
             onClick={() => setShowIconPicker(!showIconPicker)}
-            className="text-5xl leading-none hover:bg-accent rounded p-1 transition-colors"
+            className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-lg p-2 transition-colors"
             title="Cambiar icono"
           >
-            {icon}
+            <NoteIcon icon={icon} size={40} />
           </button>
           {showIconPicker && (
             <div
               className="absolute top-full left-0 mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg p-2 grid grid-cols-5 gap-1 w-56"
               onMouseLeave={() => setShowIconPicker(false)}
             >
-              {ICON_OPTIONS.map(opt => (
+              {NOTE_ICONS.map(opt => (
                 <button
-                  key={opt}
-                  onClick={() => handleIconChange(opt)}
+                  key={opt.key}
+                  onClick={() => handleIconChange(opt.key)}
+                  title={opt.label}
                   className={cn(
-                    'text-xl p-1.5 rounded hover:bg-accent transition-colors',
-                    opt === icon && 'bg-accent'
+                    'flex items-center justify-center p-2 rounded text-foreground hover:bg-accent transition-colors',
+                    opt.key === icon && 'bg-accent'
                   )}
                 >
-                  {opt}
+                  <opt.Icon className="w-5 h-5" />
                 </button>
               ))}
             </div>
@@ -314,7 +315,7 @@ export function NoteEditor({
                 href={`/w/${workspaceSlug}/notes/${child.id}`}
                 className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent transition-colors text-sm text-foreground"
               >
-                <span>{child.icon ?? '📄'}</span>
+                <NoteIcon icon={child.icon} size={16} className="flex-shrink-0 text-muted-foreground" />
                 <span>{child.title || 'Sin título'}</span>
               </Link>
             ))}

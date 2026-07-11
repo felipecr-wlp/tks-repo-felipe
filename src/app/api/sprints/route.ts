@@ -1,6 +1,6 @@
 /**
- * GET  /api/sprints?team_id=...  — Lista los sprints de un equipo
- * POST /api/sprints              — Crea un sprint para un equipo
+ * GET  /api/sprints?team_id=..., Lista los sprints de un equipo
+ * POST /api/sprints, Crea un sprint para un equipo
  *
  * Sprints viven a nivel de equipo (team-scoped). Autorización manual con
  * admin client (bypass RLS) + membership de team_members, mismo molde que

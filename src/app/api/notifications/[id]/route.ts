@@ -1,6 +1,6 @@
 /**
- * PATCH  /api/notifications/[id] — marcar como leído/no leído
- * DELETE /api/notifications/[id] — eliminar notificación
+ * PATCH  /api/notifications/[id], marcar como leído/no leído
+ * DELETE /api/notifications/[id], eliminar notificación
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'

@@ -1,5 +1,5 @@
 /**
- * Mis Tareas — todas las tareas asignadas al usuario en el workspace.
+ * Mis Tareas, todas las tareas asignadas al usuario en el workspace.
  * Filtros: prioridad, estado, proyecto. Ordenado por fecha de vencimiento.
  */
 import { createClient, createAdminClient } from '@/lib/supabase/server'

@@ -1,5 +1,5 @@
 /**
- * POST /api/tasks — Crea una nueva tarea en un proyecto.
+ * POST /api/tasks, Crea una nueva tarea en un proyecto.
  *
  * Body: { project_id, title, status_id?, priority?, assignee_id?, due_date? }
  */
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     resolvedStatusId = firstStatus?.id
   }
 
-  // Calcular sort_order (fractal indexing — posición al final del grupo)
+  // Calcular sort_order (fractal indexing, posición al final del grupo)
   type SortRow = { sort_order: string }
   let lastTaskQuery = admin
     .from('tasks')

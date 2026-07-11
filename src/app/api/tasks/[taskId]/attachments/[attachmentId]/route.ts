@@ -1,5 +1,5 @@
 /**
- * DELETE /api/tasks/[taskId]/attachments/[attachmentId] — Borra un adjunto.
+ * DELETE /api/tasks/[taskId]/attachments/[attachmentId], Borra un adjunto.
  *
  * Autorizacion: solo quien lo subio, o un manager del proyecto (o lider / org
  * owner-admin). Se borra el objeto del bucket y luego la fila.

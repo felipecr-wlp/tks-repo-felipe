@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Lista de notificaciones — agrupada por leído/no leído.
+ * Lista de notificaciones, agrupada por leído/no leído.
  * Permite marcar individual o todo como leído, click navega al objeto.
  */
 import { useState, useEffect } from 'react'

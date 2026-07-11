@@ -1,5 +1,5 @@
 /**
- * GET /api/google/callback — Callback del flujo de OAuth de Google Calendar.
+ * GET /api/google/callback, Callback del flujo de OAuth de Google Calendar.
  *
  * Google redirige aqui con ?code y ?state. Revalidamos el state contra la cookie
  * (CSRF), intercambiamos el code por tokens, identificamos la cuenta de Google y

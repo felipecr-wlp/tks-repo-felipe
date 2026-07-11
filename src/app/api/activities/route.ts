@@ -1,5 +1,5 @@
 /**
- * GET /api/activities?from=&to= — Actividades WLO del usuario en un rango.
+ * GET /api/activities?from=&to=, Actividades WLO del usuario en un rango.
  *
  * Fuente unica para MiDia y CalendarView de "lo que pasa en WLO" (no Google):
  *  - Tareas ASIGNADAS al usuario (assignee_id = user.id, no archivadas) con

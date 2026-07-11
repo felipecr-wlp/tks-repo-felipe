@@ -1,6 +1,6 @@
 /**
  * Layout protegido de la app.
- * Verifica sesión en el servidor — sin sesión → redirige a login.
+ * Verifica sesión en el servidor, sin sesión → redirige a login.
  * Provee QueryClient para TanStack Query.
  */
 import { redirect } from 'next/navigation'

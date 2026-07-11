@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * TeamChat — chat de equipo en tiempo real.
+ * TeamChat, chat de equipo en tiempo real.
  *
  * Se suscribe a los INSERT de la tabla messages filtrados por team_id y hace
  * append en vivo (no router.refresh, para no recargar todo el hilo). Resuelve
@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
+import { MessageSquare } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -39,7 +40,12 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages }: Te
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  // Historial: asumimos que hay más si la carga inicial vino "llena".
+  const [hasMore, setHasMore] = useState(initialMessages.length >= 20)
+  const [loadingMore, setLoadingMore] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const prependingRef = useRef(false)
 
   const memberById = useMemo(() => {
     const m = new Map<string, Member>()
@@ -75,10 +81,47 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages }: Te
     return () => { supabase.removeChannel(ch) }
   }, [teamId])
 
-  // Auto-scroll al fondo cuando llega o se envía un mensaje.
+  // Auto-scroll al fondo cuando llega o se envía un mensaje. Al prepender
+  // historia antigua NO saltamos al fondo (se preserva la posición de lectura).
   useEffect(() => {
+    if (prependingRef.current) {
+      prependingRef.current = false
+      return
+    }
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length])
+
+  // Cargar mensajes anteriores (paginación por cursor sobre el más antiguo).
+  async function loadOlder() {
+    if (loadingMore || !hasMore) return
+    const oldest = messages[0]?.created_at
+    setLoadingMore(true)
+    const el = scrollRef.current
+    const prevHeight = el?.scrollHeight ?? 0
+    try {
+      const params = new URLSearchParams({ team_id: teamId, limit: '30' })
+      if (oldest) params.set('before', oldest)
+      const res = await fetch(`/api/messages?${params.toString()}`)
+      if (!res.ok) throw new Error('load failed')
+      const data = (await res.json()) as { messages: Message[]; hasMore: boolean }
+      prependingRef.current = true
+      setMessages(prev => {
+        const seen = new Set(prev.map(m => m.id))
+        const older = data.messages.filter(m => !seen.has(m.id))
+        return [...older, ...prev]
+      })
+      setHasMore(data.hasMore)
+      // Preservar posición: mantener el mismo mensaje bajo la vista.
+      requestAnimationFrame(() => {
+        const cur = scrollRef.current
+        if (cur) cur.scrollTop = cur.scrollHeight - prevHeight
+      })
+    } catch {
+      toast.error('No se pudo cargar el historial')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   async function send() {
     const body = draft.trim()
@@ -112,10 +155,21 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages }: Te
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Hilo */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+        {hasMore && messages.length > 0 && (
+          <div className="flex justify-center pb-1">
+            <button
+              onClick={loadOlder}
+              disabled={loadingMore}
+              className="text-xs font-medium text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-full border border-border hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              {loadingMore ? 'Cargando…' : 'Cargar mensajes anteriores'}
+            </button>
+          </div>
+        )}
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center">
-            <div className="text-3xl mb-2">💬</div>
+            <MessageSquare className="h-8 w-8 mb-2 text-muted-foreground/50" />
             <p className="text-sm text-muted-foreground">
               Aún no hay mensajes. Escribe el primero para arrancar la conversación del equipo.
             </p>

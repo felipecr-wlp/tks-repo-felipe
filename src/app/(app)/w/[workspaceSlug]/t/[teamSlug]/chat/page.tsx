@@ -1,5 +1,5 @@
 /**
- * /w/[workspaceSlug]/t/[teamSlug]/chat — Chat del equipo.
+ * /w/[workspaceSlug]/t/[teamSlug]/chat, Chat del equipo.
  *
  * Server Component: valida acceso al equipo, carga el historial reciente de
  * mensajes (admin client, anti-RLS-loop) + los miembros para resolver autores,

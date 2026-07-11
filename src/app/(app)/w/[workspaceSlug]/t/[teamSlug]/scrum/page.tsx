@@ -1,5 +1,5 @@
 /**
- * /w/[workspaceSlug]/t/[teamSlug]/scrum — Capa SCRUM del equipo.
+ * /w/[workspaceSlug]/t/[teamSlug]/scrum, Capa SCRUM del equipo.
  *
  * Server Component: valida acceso al equipo, carga sprints + tareas de TODOS
  * los proyectos del equipo (con su capa scrum) y delega la interacción al

@@ -1,6 +1,9 @@
 /**
  * Templates predefinidos para notas (wiki / SOP / docs).
  * El contenido es HTML compatible con Tiptap (StarterKit + extensions).
+ *
+ * `icon` es una CLAVE del registro lucide (ver src/lib/note-icons.tsx), no un
+ * emoji: el render lo resuelve con <NoteIcon />.
  */
 
 export interface NoteTemplate {
@@ -16,17 +19,17 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
   {
     id: 'blank',
     name: 'En blanco',
-    icon: '📄',
+    icon: 'file',
     description: 'Empezar de cero',
     defaultTitle: 'Sin título',
     content: '',
   },
   {
     id: 'sop',
-    name: 'SOP — Procedimiento',
-    icon: '📋',
+    name: 'SOP: Procedimiento',
+    icon: 'clipboard',
     description: 'Procedimiento operativo estándar paso a paso',
-    defaultTitle: 'SOP — [Nombre del proceso]',
+    defaultTitle: 'SOP: [Nombre del proceso]',
     content: `
 <h2>Objetivo</h2>
 <p>Describir brevemente el propósito de este procedimiento y a quién aplica.</p>
@@ -49,9 +52,9 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
 
 <h2>Procedimiento</h2>
 <ol>
-  <li>Paso 1 — describir la acción concreta.</li>
-  <li>Paso 2 — describir la acción concreta.</li>
-  <li>Paso 3 — describir la acción concreta.</li>
+  <li>Paso 1: describir la acción concreta.</li>
+  <li>Paso 2: describir la acción concreta.</li>
+  <li>Paso 3: describir la acción concreta.</li>
 </ol>
 
 <h2>Validación</h2>
@@ -64,9 +67,9 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
   {
     id: 'meeting',
     name: 'Notas de reunión',
-    icon: '🗓️',
+    icon: 'calendar',
     description: 'Plantilla para minutas de reunión',
-    defaultTitle: 'Reunión — [Tema]',
+    defaultTitle: 'Reunión: [Tema]',
     content: `
 <h2>Datos</h2>
 <ul>
@@ -92,16 +95,16 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
 
 <h2>Acción</h2>
 <ul data-type="taskList">
-  <li data-type="taskItem" data-checked="false"><label><input type="checkbox"></label><div><p>[Tarea] — [responsable] — [fecha]</p></div></li>
+  <li data-type="taskItem" data-checked="false"><label><input type="checkbox"></label><div><p>[Tarea] · [responsable] · [fecha]</p></div></li>
 </ul>
     `.trim(),
   },
   {
     id: 'brief',
     name: 'Project Brief',
-    icon: '🎯',
+    icon: 'target',
     description: 'Documento inicial de un proyecto',
-    defaultTitle: 'Brief — [Nombre del proyecto]',
+    defaultTitle: 'Brief: [Nombre del proyecto]',
     content: `
 <h2>Resumen</h2>
 <p>Una descripción de 2-3 oraciones sobre qué es este proyecto y por qué importa.</p>
@@ -144,9 +147,9 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
   {
     id: 'decision',
     name: 'Decision Log',
-    icon: '⚖️',
+    icon: 'scale',
     description: 'Registro de una decisión importante',
-    defaultTitle: 'Decisión — [Tema]',
+    defaultTitle: 'Decisión: [Tema]',
     content: `
 <h2>Contexto</h2>
 <p>¿Qué situación estamos enfrentando? ¿Por qué necesitamos decidir?</p>
@@ -183,7 +186,7 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
   {
     id: 'wiki',
     name: 'Wiki / Documento',
-    icon: '📚',
+    icon: 'books',
     description: 'Página estilo wiki con secciones',
     defaultTitle: '[Tema]',
     content: `

@@ -1,6 +1,6 @@
 /**
- * GET  /api/whiteboards?workspace_id=xxx — lista pizarras del workspace
- * POST /api/whiteboards — crea nueva pizarra
+ * GET  /api/whiteboards?workspace_id=xxx, lista pizarras del workspace
+ * POST /api/whiteboards, crea nueva pizarra
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'

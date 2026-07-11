@@ -1,5 +1,5 @@
 /**
- * Onboarding — crea la primera organización y workspace del usuario.
+ * Onboarding, crea la primera organización y workspace del usuario.
  * Solo se muestra cuando el usuario autenticado no tiene ningún workspace.
  *
  * Usa admin client para el lookup inicial: evita cualquier edge case de RLS

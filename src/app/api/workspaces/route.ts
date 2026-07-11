@@ -1,5 +1,5 @@
 /**
- * POST /api/workspaces — Crea un workspace adicional en la organización.
+ * POST /api/workspaces, Crea un workspace adicional en la organización.
  * Solo admins de la org pueden crear workspaces.
  */
 import { NextRequest, NextResponse } from 'next/server'

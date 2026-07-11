@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * SlashMenu — menú flotante tipo Notion al escribir "/" en el editor Tiptap.
+ * SlashMenu, menú flotante tipo Notion al escribir "/" en el editor Tiptap.
  *
  * Detecta "/" al inicio de un block vacío (o tras espacio), muestra menú
  * con bloques disponibles, navegación con teclado, inserta y borra el "/".
@@ -102,7 +102,7 @@ const COMMANDS: SlashCommand[] = [
     label: 'Divisor',
     description: 'Línea horizontal separadora',
     keywords: ['divider', 'divisor', 'linea', 'hr', 'separador'],
-    icon: '—',
+    icon: '-',
     group: 'Bloques',
     command: (e, r) => e.chain().focus().deleteRange(r).setHorizontalRule().run(),
   },

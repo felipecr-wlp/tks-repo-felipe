@@ -1,5 +1,5 @@
 /**
- * POST /api/projects — Crea un nuevo proyecto en un equipo.
+ * POST /api/projects, Crea un nuevo proyecto en un equipo.
  * Body: { team_id, name, description?, icon? }
  */
 import { NextRequest, NextResponse } from 'next/server'

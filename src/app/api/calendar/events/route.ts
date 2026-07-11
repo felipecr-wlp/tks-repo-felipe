@@ -1,5 +1,5 @@
 /**
- * GET /api/calendar/events?from=&to= — Lista eventos del Google Calendar del
+ * GET /api/calendar/events?from=&to=, Lista eventos del Google Calendar del
  * usuario (calendario "primary"), normalizados para el front.
  *
  * Todo corre en el servidor: cargamos la conexion del usuario desde

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * usePresence — presencia en vivo reutilizable (Supabase Realtime Presence).
+ * usePresence, presencia en vivo reutilizable (Supabase Realtime Presence).
  *
  * Devuelve la lista de OTROS usuarios viendo la misma superficie ahora mismo.
  * Se auto-registra (track) al suscribirse y limpia el canal al desmontar.

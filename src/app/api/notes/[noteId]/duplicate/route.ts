@@ -1,9 +1,9 @@
 /**
- * POST /api/notes/[noteId]/duplicate — duplica una nota.
+ * POST /api/notes/[noteId]/duplicate, duplica una nota.
  *
  * Crea una nueva nota con el mismo content/icon/visibility, agregando
  * "(copia)" al título. La nueva nota queda al mismo nivel (mismo parent).
- * NO duplica recursivamente las sub-páginas (decisión de UX — evita sorpresas).
+ * NO duplica recursivamente las sub-páginas (decisión de UX, evita sorpresas).
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'

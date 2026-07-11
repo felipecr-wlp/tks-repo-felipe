@@ -1,5 +1,5 @@
 /**
- * Pagina de Calendario del workspace — vista mensual conectada a Google Calendar.
+ * Pagina de Calendario del workspace, vista mensual conectada a Google Calendar.
  *
  * El server solo valida sesion + membresia y detecta si el usuario ya tiene una
  * conexion de Google (para elegir entre la vista o el estado vacio con CTA).

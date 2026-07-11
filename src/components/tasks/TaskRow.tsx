@@ -7,6 +7,7 @@
 import { useState, useRef } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
+import { ChevronsUp, ChevronUp, Equal, ChevronDown, Minus, type LucideIcon } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 
 interface Status {
@@ -42,12 +43,12 @@ interface TaskRowProps {
   onOpen?: () => void
 }
 
-const PRIORITY_ICONS: Record<string, { icon: string; label: string; color: string }> = {
-  urgent: { icon: '⚡', label: 'Urgente', color: 'text-red-500' },
-  high:   { icon: '↑↑', label: 'Alta',    color: 'text-orange-500' },
-  medium: { icon: '↑',  label: 'Media',   color: 'text-yellow-500' },
-  low:    { icon: '↓',  label: 'Baja',    color: 'text-blue-400' },
-  none:   { icon: '—',  label: 'Sin prioridad', color: 'text-muted-foreground' },
+const PRIORITY_ICONS: Record<string, { Icon: LucideIcon; label: string; color: string }> = {
+  urgent: { Icon: ChevronsUp,  label: 'Urgente', color: 'text-red-500' },
+  high:   { Icon: ChevronUp,   label: 'Alta',    color: 'text-orange-500' },
+  medium: { Icon: Equal,       label: 'Media',   color: 'text-yellow-500' },
+  low:    { Icon: ChevronDown, label: 'Baja',    color: 'text-blue-400' },
+  none:   { Icon: Minus,       label: 'Sin prioridad', color: 'text-muted-foreground' },
 }
 
 export function TaskRow({
@@ -174,9 +175,9 @@ export function TaskRow({
         <button
           onClick={() => { setShowPriorityMenu(!showPriorityMenu); setShowStatusMenu(false); setShowAssignMenu(false) }}
           title={priority.label}
-          className={cn('text-xs font-mono w-6 text-center', priority.color)}
+          className={cn('flex items-center justify-center w-6', priority.color)}
         >
-          {priority.icon}
+          <priority.Icon className="h-4 w-4" />
         </button>
         {showPriorityMenu && (
           <PriorityMenu
@@ -315,7 +316,7 @@ function PriorityMenu({
               p === current ? 'text-foreground font-medium' : 'text-muted-foreground'
             )}
           >
-            <span className={cn('font-mono w-4 text-center', info.color)}>{info.icon}</span>
+            <info.Icon className={cn('h-4 w-4 flex-shrink-0', info.color)} />
             {info.label}
           </button>
         )
