@@ -19,7 +19,7 @@ para volver hacia arriba. Aditivo, no toca Scrum, Marketplace, Chat, Notas ni Pi
 Deja `tsc --noEmit` y `next build` en EXIT 0.
 
 ### Capa de datos (migración aditiva)
-- Migración `b2_20260711030000_add_parent_task_id_to_tasks`: agrega
+- Migración `add_parent_task_id_for_subtasks`: agrega
   `tasks.parent_task_id uuid references tasks(id) on delete cascade` (nullable, default
   null) + índice parcial `idx_tasks_parent_task_id`. Segura: todas las filas existentes
   quedan con parent null, así que el comportamiento actual no cambia.
