@@ -8,6 +8,45 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B14 (tablero Kanban premium + funciones)
+
+Octavo circuito del loop premium. Petición directa de Ali: "mejora el tablero, haz la vista más
+premium, mejora y agrega funciones". El tablero se rediseñó y ganó funciones nuevas, todo
+autocontenido en `KanbanBoard.tsx` (sin tocar esquema, APIs ni queries del server component).
+Aditivo: no rompe Scrum, Marketplace, Chat, Notas, Pizarra ni el flujo de tareas. Deja
+`tsc --noEmit` y `next build` en EXIT 0.
+
+### Bug real corregido
+- **Soltar en columnas vacías ya funciona.** Antes `KanbanColumn` no registraba `useDroppable`,
+  así que una columna sin tarjetas no tenía `over` para su status id y el drop se perdía. Ahora
+  cada columna es droppable (`useDroppable({ id: status.id })`) y resalta al arrastrar encima
+  (`isOver`: fondo tenue + borde punteado del color primario).
+
+### Funciones nuevas
+- **Colapsar/expandir columnas.** Estado cliente `collapsed: Set<string>`. Una columna colapsada
+  se vuelve una barra angosta (w-11) con el punto de color, el conteo y el nombre en vertical;
+  clic para expandir. Header con botón de colapsar que aparece al hover.
+- **Placeholder de columna vacía.** Mensaje guía ("Suelta una tarea aquí o créala abajo", o
+  "Nada aquí todavía" en la columna done) en lugar de un hueco vacío.
+
+### Rediseño premium
+- **Tarjetas:** meta de prioridad (`PRIORITY_META`) con punto de color + etiqueta ("Urgente",
+  "Alta", etc.), fecha con icono `CalendarDays` y énfasis rojo si está vencida, avatar del
+  asignado con anillo, y micro-interacción al hover (`-translate-y-0.5` + sombra).
+- **Headers:** nombre en semibold, pill de conteo con `tabular-nums`, estilo atenuado para la
+  categoría done.
+- **DragOverlay:** ahora refleja el acento de prioridad y muestra la etiqueta, no solo el título.
+
+### Archivos
+- `src/components/tasks/KanbanBoard.tsx`: reescrito (props, exports, realtime, dnd optimista,
+  `CreateTaskInline` y `TaskDetailPanel` intactos). Íconos lucide `CalendarDays`, `ChevronLeft`,
+  `ChevronRight`.
+
+### Deploy
+- `npx vercel --prod --yes` (READY). Commit + push a `origin master`.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B13 (notificar a seguidores en comentarios)
 
 Séptimo circuito del loop premium: cerrar el hueco de notificaciones. Hasta B12, los
