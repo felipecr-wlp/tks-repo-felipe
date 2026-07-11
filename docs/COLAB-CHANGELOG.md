@@ -8,6 +8,37 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B15 (barra de filtros del tablero)
+
+Noveno circuito. Continuación de "mejora el tablero, agrega funciones": el tablero ahora tiene
+una barra de filtros client-side arriba de las columnas. Todo autocontenido en `KanbanBoard.tsx`
+(sin esquema, APIs ni queries nuevas). Aditivo: no rompe nada del flujo existente. Deja
+`tsc --noEmit` y `next build` en EXIT 0.
+
+### Funciones nuevas
+- **Filtrar por prioridad:** pills Urgente/Alta/Media/Baja (multi-selección) con el punto de
+  color de `PRIORITY_META`.
+- **Filtrar por asignado:** fila de avatares de los miembros del proyecto; toggle con anillo
+  primario cuando está activo. Un asignado nulo se agrupa como `__none__` internamente.
+- **Solo mías:** atajo que togglea al usuario actual en el filtro de asignado.
+- **Contador + limpiar:** cuando hay filtros activos muestra "N de M" tareas visibles y un botón
+  "Limpiar" para resetear.
+
+### Implementación
+- Estado `priorityFilter` y `assigneeFilter` (`Set<string>`). Se deriva `visibleTasks` filtrando
+  la copia local antes de agrupar por columna, así el dnd y el realtime siguen operando sobre la
+  lista completa (`tasks`) sin conflicto.
+- Layout reestructurado a `flex-col`: barra de filtros arriba, franja de columnas
+  (`overflow-x-auto`) abajo. `TaskDetailPanel` es overlay `fixed`, no le afecta el cambio.
+
+### Archivos
+- `src/components/tasks/KanbanBoard.tsx`. Íconos lucide `Filter`, `X`.
+
+### Deploy
+- `npx vercel --prod --yes` (READY). Commit + push a `origin master`.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B14 (tablero Kanban premium + funciones)
 
 Octavo circuito del loop premium. Petición directa de Ali: "mejora el tablero, haz la vista más

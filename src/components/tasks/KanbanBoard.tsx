@@ -24,7 +24,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { toast } from 'sonner'
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Filter, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { CreateTaskInline } from './CreateTaskInline'
@@ -279,6 +279,8 @@ export function KanbanBoard({
   const [activeTask, setActiveTask] = useState<Task | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [priorityFilter, setPriorityFilter] = useState<Set<string>>(new Set())
+  const [assigneeFilter, setAssigneeFilter] = useState<Set<string>>(new Set())
 
   // Colaboración en vivo: al cambiar tareas/estados otro usuario, el server
   // component re-renderiza y este efecto sincroniza la copia local del tablero.
@@ -289,9 +291,17 @@ export function KanbanBoard({
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   )
 
-  // Agrupar tareas por columna
+  // Filtros client-side: prioridad y asignado. Vacío = mostrar todo.
+  const filtersActive = priorityFilter.size > 0 || assigneeFilter.size > 0
+  const visibleTasks = tasks.filter(t => {
+    if (priorityFilter.size > 0 && !priorityFilter.has(t.priority)) return false
+    if (assigneeFilter.size > 0 && !assigneeFilter.has(t.assignee?.id ?? '__none__')) return false
+    return true
+  })
+
+  // Agrupar tareas (ya filtradas) por columna
   const tasksByStatus = statuses.reduce<Record<string, Task[]>>((acc, s) => {
-    acc[s.id] = tasks.filter(t => t.status?.id === s.id)
+    acc[s.id] = visibleTasks.filter(t => t.status?.id === s.id)
     return acc
   }, {})
 
@@ -302,6 +312,29 @@ export function KanbanBoard({
       else next.add(statusId)
       return next
     })
+  }
+
+  const togglePriority = (p: string) => {
+    setPriorityFilter(prev => {
+      const next = new Set(prev)
+      if (next.has(p)) next.delete(p)
+      else next.add(p)
+      return next
+    })
+  }
+
+  const toggleAssignee = (id: string) => {
+    setAssigneeFilter(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const clearFilters = () => {
+    setPriorityFilter(new Set())
+    setAssigneeFilter(new Set())
   }
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -358,8 +391,8 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="flex gap-4 px-6 py-4 overflow-x-auto pb-8 min-h-full">
-      {/* Panel de detalle */}
+    <div className="flex flex-col min-h-full">
+      {/* Panel de detalle (overlay fixed, no afecta el layout del tablero) */}
       {selectedTaskId && (
         <TaskDetailPanel
           taskId={selectedTaskId}
@@ -373,6 +406,92 @@ export function KanbanBoard({
         />
       )}
 
+      {/* Barra de filtros */}
+      <div className="flex items-center gap-3 px-6 pt-4 pb-1 flex-wrap">
+        <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <Filter className="w-3.5 h-3.5" /> Filtrar
+        </span>
+
+        {/* Prioridad */}
+        <div className="flex items-center gap-1">
+          {(['urgent', 'high', 'medium', 'low'] as const).map(p => {
+            const m = PRIORITY_META[p]
+            const active = priorityFilter.has(p)
+            return (
+              <button
+                key={p}
+                onClick={() => togglePriority(p)}
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border transition-colors',
+                  active
+                    ? 'bg-foreground/[0.06] border-border text-foreground'
+                    : 'border-transparent text-muted-foreground hover:bg-muted'
+                )}
+              >
+                <span className={cn('w-1.5 h-1.5 rounded-full', m.dot)} />
+                {m.label}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Asignados */}
+        {members.length > 0 && (
+          <div className="flex items-center gap-1">
+            {members.map(mem => {
+              const active = assigneeFilter.has(mem.id)
+              return (
+                <button
+                  key={mem.id}
+                  onClick={() => toggleAssignee(mem.id)}
+                  title={mem.display_name}
+                  className={cn(
+                    'w-6 h-6 rounded-full overflow-hidden flex items-center justify-center text-[10px] font-medium bg-muted text-muted-foreground ring-2 transition-all',
+                    active ? 'ring-primary' : 'ring-transparent hover:ring-border'
+                  )}
+                >
+                  {mem.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={mem.avatar_url} alt={mem.display_name} className="w-full h-full object-cover" />
+                  ) : (
+                    mem.display_name.charAt(0).toUpperCase()
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Solo mías */}
+        <button
+          onClick={() => toggleAssignee(currentUserId)}
+          className={cn(
+            'px-2 py-1 rounded-md text-[11px] font-medium border transition-colors',
+            assigneeFilter.has(currentUserId)
+              ? 'bg-primary/10 border-primary/30 text-primary'
+              : 'border-border text-muted-foreground hover:bg-muted'
+          )}
+        >
+          Solo mías
+        </button>
+
+        {filtersActive && (
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {visibleTasks.length} de {tasks.length}
+            </span>
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-3 h-3" /> Limpiar
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Columnas */}
+      <div className="flex gap-4 px-6 py-4 overflow-x-auto pb-8 flex-1">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -413,6 +532,7 @@ export function KanbanBoard({
           })()}
         </DragOverlay>
       </DndContext>
+      </div>
     </div>
   )
 }
