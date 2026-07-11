@@ -27,6 +27,7 @@ import { cn, getInitials, timeAgo } from '@/lib/utils'
 import { ChecklistSection } from './ChecklistSection'
 import { SubtasksSection } from './SubtasksSection'
 import { DependenciesSection } from './DependenciesSection'
+import { AssigneesSection } from './AssigneesSection'
 import { TaskLabels } from './TaskLabels'
 
 // Tiptap pesa ~80KB, lazy-load para no inflar bundle inicial
@@ -469,12 +470,8 @@ export function TaskDetailPanel({
                   />
                 </MetaRow>
 
-                <MetaRow icon={<UserIcon className="w-3.5 h-3.5" />} label="Asignado a">
-                  <AssigneeSelect
-                    current={task.assignee}
-                    members={members}
-                    onSelect={id => updateField({ assignee_id: id })}
-                  />
+                <MetaRow icon={<UserIcon className="w-3.5 h-3.5" />} label="Asignados">
+                  <AssigneesSection taskId={taskId} members={members} />
                 </MetaRow>
 
                 <MetaRow icon={<CalendarIcon className="w-3.5 h-3.5" />} label="Vence el">
@@ -818,55 +815,6 @@ function PrioritySelect({ current, onSelect }: { current: string; onSelect: (p: 
               className={cn('flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent transition-colors', p.value === current ? 'font-medium text-foreground' : 'text-muted-foreground')}>
               <p.Icon className={cn('w-3.5 h-3.5', p.color)} />
               {p.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function AssigneeSelect({ current, members, onSelect }: {
-  current: Member | null
-  members: Member[]
-  onSelect: (id: string | null) => void
-}) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="relative">
-      <button onClick={() => setOpen(!open)} className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors">
-        {current ? (
-          <>
-            <div className="w-4 h-4 rounded-full overflow-hidden bg-muted flex-shrink-0">
-              {current.avatar_url ? (
-                <Image src={current.avatar_url} alt={current.display_name} width={16} height={16} className="object-cover" />
-              ) : (
-                <span className="flex items-center justify-center w-full h-full text-[8px] font-medium">{getInitials(current.display_name)}</span>
-              )}
-            </div>
-            <span className="truncate">{current.display_name}</span>
-          </>
-        ) : (
-          <span className="text-muted-foreground">Sin asignar</span>
-        )}
-      </button>
-      {open && (
-        <div className="absolute top-6 left-0 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 w-44" onMouseLeave={() => setOpen(false)}>
-          <button onClick={() => { onSelect(null); setOpen(false) }}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent transition-colors">
-            Sin asignar
-          </button>
-          {members.map(m => (
-            <button key={m.id} onClick={() => { onSelect(m.id); setOpen(false) }}
-              className={cn('flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent transition-colors', m.id === current?.id ? 'font-medium text-foreground' : 'text-muted-foreground')}>
-              <div className="w-5 h-5 rounded-full overflow-hidden bg-muted flex-shrink-0">
-                {m.avatar_url ? (
-                  <Image src={m.avatar_url} alt={m.display_name} width={20} height={20} className="object-cover" />
-                ) : (
-                  <span className="flex items-center justify-center w-full h-full text-[9px] font-medium">{getInitials(m.display_name)}</span>
-                )}
-              </div>
-              <span className="truncate">{m.display_name}</span>
             </button>
           ))}
         </div>

@@ -8,6 +8,40 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Conversación B, Circuito B4 (múltiples asignados)
+
+Cuarto circuito de la Conversación B: una tarea puede tener VARIOS asignados, con
+avatares apilados en el panel y un menú para agregar/quitar personas del proyecto. Se
+conserva `tasks.assignee_id` como "asignado principal" para no romper las vistas que aún
+leen un solo asignado (tablero, listas, scrum): el endpoint lo mantiene sincronizado.
+Aditivo, no toca Scrum, Marketplace, Chat, Notas ni Pizarra. Deja `tsc --noEmit` y
+`next build` en EXIT 0.
+
+### Capa de datos (migración aditiva con backfill)
+- Migración `add_task_assignees_for_multi_assignee`: crea `task_assignees`
+  (`task_id` + `profile_id`, PK compuesta, ambos FK on delete cascade) + índice por
+  `profile_id`. Backfill: siembra cada `tasks.assignee_id` actual como fila, así el estado
+  presente queda reflejado sin perder datos. `tasks.assignee_id` se conserva intacto.
+
+### API (patrón anti-IDOR)
+- `src/app/api/tasks/[taskId]/assignees/route.ts`: ruta nueva.
+  - GET: lista los asignados (con avatar y nombre).
+  - POST `{ profileId }`: agrega; valida que el profile pertenezca al proyecto o workspace;
+    si `assignee_id` estaba vacío lo llena (compat).
+  - DELETE `?profileId=`: quita; si era el principal, reasigna `assignee_id` a otro
+    restante o null.
+  - `applyRateLimit` -> auth 401 -> admin -> `checkTaskAccess`. Upsert idempotente.
+
+### UI (iconos lucide, texto en español)
+- `src/components/tasks/AssigneesSection.tsx`: componente nuevo, avatares apilados (máx 4 +
+  contador) y menú con check por miembro para alternar asignación.
+- `src/components/tasks/TaskDetailPanel.tsx`: la fila "Asignado a" pasa a "Asignados" y usa
+  `<AssigneesSection>`. Se retira el `AssigneeSelect` de un solo asignado (ya no se usa).
+- Los tableros/listas siguen mostrando el asignado principal (`assignee_id` sincronizado);
+  la vista apilada vive en el panel para evitar consultas N+1 en las tarjetas.
+
+---
+
 ## 2026-07-11: Conversación B, Circuito B3 (dependencias entre tareas)
 
 Tercer circuito de la Conversación B: dependencias estilo ClickUp/Linear. Una tarea
