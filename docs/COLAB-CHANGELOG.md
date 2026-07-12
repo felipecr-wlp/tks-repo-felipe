@@ -8,6 +8,30 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B21 (atajo de teclado + estado vacío de búsqueda)
+
+Quinceavo circuito. Dos mejoras de pulido premium en el tablero: (1) atajo de teclado "/" que enfoca
+el campo de búsqueda desde cualquier parte del tablero (patrón tipo Linear), ignorado si ya estás
+escribiendo en un campo o si hay un panel de tarea abierto; Escape dentro del campo limpia y desenfoca.
+Se muestra una tecla "/" sutil dentro del input como pista. (2) Estado vacío claro cuando los filtros o
+la búsqueda no arrojan ninguna tarea: antes cada columna mostraba su placeholder ("suelta una tarea
+aquí"), lo cual confundía al filtrar; ahora se reemplazan las columnas por un mensaje centrado "Sin
+coincidencias" con botón para limpiar filtros. Aditivo, sin esquema. Deja `tsc` y `next build` en EXIT 0.
+
+### Qué cambió
+- `KanbanBoard`: `useRef` para el input de búsqueda + efecto global `keydown` para "/"; `onKeyDown`
+  Escape en el input; pista `<kbd>/</kbd>` cuando el campo está vacío.
+- Estado vacío "Sin coincidencias" (ícono `Search` + botón limpiar) que sustituye las columnas cuando
+  `filtersActive && visibleTasks.length === 0`.
+
+### Archivos
+- `src/components/tasks/KanbanBoard.tsx`
+
+### Deploy
+- `npx tsc --noEmit` EXIT 0, `npx next build` EXIT 0, `npx vercel --prod --yes` READY.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B20 (progreso de subtareas en tarjetas del tablero)
 
 Catorceavo circuito. Las tarjetas del Kanban no mostraban señal de subtareas; una tarea con hijas se

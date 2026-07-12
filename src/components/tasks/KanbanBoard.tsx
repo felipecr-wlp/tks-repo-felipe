@@ -4,7 +4,7 @@
  * Tablero Kanban, columnas por estado, drag & drop con @dnd-kit.
  * Se carga lazy desde la página del proyecto cuando view=board.
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import {
   DndContext,
@@ -304,11 +304,27 @@ export function KanbanBoard({
   const [priorityFilter, setPriorityFilter] = useState<Set<string>>(new Set())
   const [assigneeFilter, setAssigneeFilter] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
 
   // Colaboración en vivo: al cambiar tareas/estados otro usuario, el server
   // component re-renderiza y este efecto sincroniza la copia local del tablero.
   useRealtimeRefresh({ channel: `proj-tasks-${projectId}`, tables: ['tasks', 'task_statuses'] })
   useEffect(() => { setTasks(initialTasks) }, [initialTasks])
+
+  // Atajos de teclado: "/" enfoca la búsqueda (patrón de apps premium tipo Linear).
+  // Se ignora si el foco ya está en un campo de texto o si un modal está abierto.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      const el = document.activeElement as HTMLElement | null
+      const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+      if (typing || selectedTaskId) return
+      e.preventDefault()
+      searchRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedTaskId])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -482,13 +498,15 @@ export function KanbanBoard({
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
           <input
+            ref={searchRef}
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); e.currentTarget.blur() } }}
             placeholder="Buscar tarea..."
-            className="w-44 pl-7 pr-2 py-1 text-[11px] rounded-md border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:w-56 transition-all"
+            className="w-44 pl-7 pr-7 py-1 text-[11px] rounded-md border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:w-56 transition-all"
           />
-          {search && (
+          {search ? (
             <button
               onClick={() => setSearch('')}
               title="Limpiar búsqueda"
@@ -496,6 +514,10 @@ export function KanbanBoard({
             >
               <X className="w-3 h-3" />
             </button>
+          ) : (
+            <kbd className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-medium text-muted-foreground border border-border rounded px-1 pointer-events-none">
+              /
+            </kbd>
           )}
         </div>
 
@@ -577,7 +599,27 @@ export function KanbanBoard({
         )}
       </div>
 
+      {/* Estado vacío al filtrar: ninguna tarea coincide */}
+      {filtersActive && visibleTasks.length === 0 && (
+        <div className="flex flex-col items-center justify-center flex-1 py-16 px-6 text-center">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted text-muted-foreground mb-3">
+            <Search className="w-5 h-5" />
+          </div>
+          <h3 className="text-sm font-medium text-foreground mb-1">Sin coincidencias</h3>
+          <p className="text-xs text-muted-foreground mb-4 max-w-xs">
+            Ninguna tarea coincide con los filtros o la búsqueda actual.
+          </p>
+          <button
+            onClick={clearFilters}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border text-foreground hover:bg-muted transition-colors"
+          >
+            <X className="w-3.5 h-3.5" /> Limpiar filtros
+          </button>
+        </div>
+      )}
+
       {/* Columnas */}
+      {!(filtersActive && visibleTasks.length === 0) && (
       <div className="flex gap-4 px-6 py-4 overflow-x-auto pb-8 flex-1">
       <DndContext
         sensors={sensors}
@@ -620,6 +662,7 @@ export function KanbanBoard({
         </DragOverlay>
       </DndContext>
       </div>
+      )}
     </div>
   )
 }
