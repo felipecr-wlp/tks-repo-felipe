@@ -7,7 +7,7 @@
 import { useState, useRef } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
-import { ChevronsUp, ChevronUp, Equal, ChevronDown, Minus, type LucideIcon } from 'lucide-react'
+import { ChevronsUp, ChevronUp, Equal, ChevronDown, Minus, ListChecks, type LucideIcon } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { LabelChips } from './TaskLabels'
 
@@ -27,6 +27,8 @@ interface Task {
   status: { id: string; name: string; color: string | null; category: string } | null
   assignee: { id: string; display_name: string; avatar_url: string | null } | null
   labels?: { id: string; name: string; color: string }[]
+  subtaskTotal?: number
+  subtaskDone?: number
 }
 
 interface Member {
@@ -220,6 +222,22 @@ export function TaskRow({
       {/* ── Etiquetas ──────────────────────────────────────── */}
       {task.labels && task.labels.length > 0 && (
         <LabelChips labels={task.labels} className="flex-shrink-0 max-w-[40%]" />
+      )}
+
+      {/* ── Progreso de subtareas ──────────────────────────── */}
+      {typeof task.subtaskTotal === 'number' && task.subtaskTotal > 0 && (
+        <span
+          title={`${task.subtaskDone ?? 0} de ${task.subtaskTotal} subtareas completadas`}
+          className={cn(
+            'flex-shrink-0 flex items-center gap-1 text-[11px]',
+            (task.subtaskDone ?? 0) === task.subtaskTotal
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-muted-foreground'
+          )}
+        >
+          <ListChecks className="w-3 h-3" />
+          {task.subtaskDone ?? 0}/{task.subtaskTotal}
+        </span>
       )}
 
       {/* ── Fecha de vencimiento ───────────────────────────── */}

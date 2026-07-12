@@ -32,6 +32,8 @@ interface Task {
   status: { id: string; name: string; color: string | null; category: string } | null
   assignee: { id: string; display_name: string; avatar_url: string | null } | null
   labels?: { id: string; name: string; color: string }[]
+  subtaskTotal?: number
+  subtaskDone?: number
 }
 
 interface Member {

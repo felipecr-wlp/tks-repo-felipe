@@ -8,6 +8,21 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B24 (progreso de subtareas en la vista de lista)
+
+Dieciochoavo circuito. En B20 el tablero Kanban ya mostraba en cada tarjeta un badge de progreso de
+subtareas (ej. `2/5` con ícono ListChecks, verde al completarse). La vista de lista NO lo mostraba: la
+misma tarea se veía con subtareas en el tablero y sin señal alguna en la lista, una inconsistencia
+visual. Ahora `TaskRow` renderiza el mismo badge, justo antes de la fecha de vencimiento, alimentado
+por los campos `subtaskTotal`/`subtaskDone` que la página servidor ya calcula (query agregada única en
+`page.tsx`, sin N+1). Aditivo: si la tarea no tiene subtareas el badge no aparece.
+
+- Archivos: `src/components/tasks/TaskRow.tsx` (import ListChecks, interface Task + campos, badge antes
+  de la fecha), `src/components/tasks/TaskListView.tsx` (interface Task + campos para que fluyan al row).
+- Sin migración. `npx tsc --noEmit` y `npx next build` en verde. Deploy prod desde `C:\Users\GRIZZLY\Desktop\TSKR`.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B23 (tablero responsivo en móvil)
 
 Diecisieteavo circuito. El tablero usaba columnas de ancho fijo `w-72` con padding `px-6`, cómodo en
