@@ -227,7 +227,7 @@ function KanbanColumn({
   }
 
   return (
-    <div className="flex flex-col w-72 flex-shrink-0">
+    <div className="flex flex-col w-[82vw] max-w-[18rem] sm:w-72 flex-shrink-0 snap-start">
       {/* Header */}
       <div className="flex items-center gap-2 px-1 mb-3 group/head">
         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: dot }} />
@@ -489,7 +489,7 @@ export function KanbanBoard({
       )}
 
       {/* Barra de filtros */}
-      <div className="flex items-center gap-3 px-6 pt-4 pb-1 flex-wrap">
+      <div className="flex items-center gap-3 px-3 sm:px-6 pt-4 pb-1 flex-wrap">
         <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <Filter className="w-3.5 h-3.5" /> Filtrar
         </span>
@@ -620,7 +620,7 @@ export function KanbanBoard({
 
       {/* Columnas */}
       {!(filtersActive && visibleTasks.length === 0) && (
-      <div className="flex gap-4 px-6 py-4 overflow-x-auto pb-8 flex-1">
+      <div className="flex gap-3 sm:gap-4 px-3 sm:px-6 py-4 overflow-x-auto pb-8 flex-1 snap-x snap-mandatory sm:snap-none">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}

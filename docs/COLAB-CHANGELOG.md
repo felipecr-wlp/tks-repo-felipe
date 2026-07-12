@@ -8,6 +8,28 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B23 (tablero responsivo en móvil)
+
+Diecisieteavo circuito. El tablero usaba columnas de ancho fijo `w-72` con padding `px-6`, cómodo en
+escritorio pero apretado en móvil. Ahora en pantallas chicas cada columna ocupa `82vw` (máx 18rem) con
+scroll horizontal por deslizamiento y snap (`snap-x snap-mandatory`), el patrón estándar de Kanban
+móvil (ves una columna a la vez y deslizas), volviendo a `w-72` sin snap desde `sm`. Padding y gaps se
+reducen en móvil (`px-3 sm:px-6`, `gap-3 sm:gap-4`). Aditivo, solo clases responsivas de Tailwind, sin
+cambios de lógica ni esquema. Deja `tsc` y `next build` en EXIT 0.
+
+### Qué cambió
+- `KanbanColumn`: ancho `w-[82vw] max-w-[18rem] sm:w-72` + `snap-start`.
+- Contenedor de columnas: `gap-3 sm:gap-4 px-3 sm:px-6` + `snap-x snap-mandatory sm:snap-none`.
+- Barra de filtros: `px-3 sm:px-6`.
+
+### Archivos
+- `src/components/tasks/KanbanBoard.tsx`
+
+### Deploy
+- `npx tsc --noEmit` EXIT 0, `npx next build` EXIT 0, `npx vercel --prod --yes` READY.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B22 (recordatorios de fecha de entrega, cron diario)
 
 Dieciseisavo circuito. Faltaba cualquier aviso proactivo de fechas: una tarea vencía y nadie se
