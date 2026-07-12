@@ -23,6 +23,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { generateKeyBetween } from 'fractional-indexing'
 import { toast } from 'sonner'
 import { CalendarDays, ChevronLeft, ChevronRight, Filter, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -299,9 +300,11 @@ export function KanbanBoard({
     return true
   })
 
-  // Agrupar tareas (ya filtradas) por columna
+  // Agrupar tareas (ya filtradas) por columna, ordenadas por sort_order para que
+  // el reordenamiento optimista se refleje visualmente al instante.
+  const byOrder = (a: Task, b: Task) => (a.sort_order < b.sort_order ? -1 : a.sort_order > b.sort_order ? 1 : 0)
   const tasksByStatus = statuses.reduce<Record<string, Task[]>>((acc, s) => {
-    acc[s.id] = visibleTasks.filter(t => t.status?.id === s.id)
+    acc[s.id] = visibleTasks.filter(t => t.status?.id === s.id).sort(byOrder)
     return acc
   }, {})
 
@@ -347,38 +350,76 @@ export function KanbanBoard({
     const { active, over } = event
     if (!over || active.id === over.id) return
 
-    // Determinar el nuevo status_id
+    const taskId = String(active.id)
+    const moved = tasks.find(t => t.id === taskId)
+    if (!moved) return
+
     // 'over' puede ser una tarjeta o una columna (incluida una columna vacía).
     const overId = String(over.id)
-    const overStatus = statuses.find(s => s.id === overId)
+    const overIsColumn = statuses.some(s => s.id === overId)
     const overTask = tasks.find(t => t.id === overId)
-    const newStatusId = overStatus?.id ?? overTask?.status?.id ?? null
+    const targetStatusId = overIsColumn
+      ? overId
+      : (overTask?.status?.id ?? moved.status?.id ?? null)
+    if (!targetStatusId) return
 
-    if (!newStatusId) return
+    // Lista COMPLETA de la columna destino (sin la tarea que se mueve), ordenada.
+    // Se usa la lista completa, no la filtrada, para que el sort_order sea coherente
+    // aunque haya filtros activos ocultando vecinos.
+    const colTasks = tasks
+      .filter(t => t.status?.id === targetStatusId && t.id !== taskId)
+      .sort(byOrder)
 
-    const taskId = String(active.id)
-    const currentTask = tasks.find(t => t.id === taskId)
-    if (!currentTask || currentTask.status?.id === newStatusId) return
+    // Determinar los vecinos entre los que cae la tarea.
+    let before: string | null
+    let after: string | null
+    if (!overIsColumn && overTask && overTask.id !== taskId) {
+      const idx = colTasks.findIndex(t => t.id === overTask.id)
+      if (idx === -1) {
+        before = colTasks[colTasks.length - 1]?.sort_order ?? null
+        after = null
+      } else {
+        // Insertar justo antes de la tarjeta sobre la que se soltó.
+        before = colTasks[idx - 1]?.sort_order ?? null
+        after = colTasks[idx]?.sort_order ?? null
+      }
+    } else {
+      // Soltar en la columna (vacía o su área): al final.
+      before = colTasks[colTasks.length - 1]?.sort_order ?? null
+      after = null
+    }
+
+    let newKey: string
+    try {
+      newKey = generateKeyBetween(before, after)
+    } catch {
+      return // orden inconsistente; no mover
+    }
+
+    const sameColumn = moved.status?.id === targetStatusId
+    // Si no cambió de columna y la clave nueva es igual a la actual, no hay nada que hacer.
+    if (sameColumn && newKey === moved.sort_order) return
+
+    const newStatus = statuses.find(s => s.id === targetStatusId) ?? moved.status
 
     // Optimistic update
     setTasks(prev => prev.map(t =>
-      t.id === taskId
-        ? { ...t, status: statuses.find(s => s.id === newStatusId) ?? t.status }
-        : t
+      t.id === taskId ? { ...t, status: newStatus, sort_order: newKey } : t
     ))
 
-    // Persistir
+    // Persistir: siempre sort_order; status_id solo si cambió de columna.
     try {
+      const payload: Record<string, unknown> = { sort_order: newKey }
+      if (!sameColumn) payload.status_id = targetStatusId
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status_id: newStatusId }),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) throw new Error('Error al mover la tarea')
     } catch {
       toast.error('Error al mover la tarea')
-      // Revertir
-      setTasks(initialTasks)
+      setTasks(initialTasks) // revertir
     }
   }
 

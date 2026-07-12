@@ -8,6 +8,33 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B16 (persistir orden al reordenar en el tablero)
+
+Décimo circuito. Bug real del tablero: `handleDragEnd` solo hacía PATCH de `status_id`, así que
+reordenar tarjetas DENTRO de una columna no se guardaba (al refrescar volvían a su lugar). Ahora
+el orden se persiste con índice fraccional. Autocontenido en `KanbanBoard.tsx`; el endpoint PATCH
+ya aceptaba `sort_order`, no hubo cambios de API ni esquema. Deja `tsc` y `next build` en EXIT 0.
+
+### Qué cambió
+- `handleDragEnd` calcula el nuevo `sort_order` con `generateKeyBetween` (paquete
+  `fractional-indexing`, ya usado server-side al crear tareas) entre los vecinos de la posición
+  donde se soltó. Soltar sobre una tarjeta inserta justo antes de ella; soltar en el área/columna
+  vacía manda al final.
+- Se calcula sobre la lista COMPLETA de la columna (no la filtrada) para que el orden sea
+  coherente aunque haya filtros activos ocultando vecinos.
+- Las columnas ahora se renderizan ordenadas por `sort_order` (`byOrder`), así el reordenamiento
+  optimista se refleja al instante.
+- PATCH manda siempre `sort_order`; `status_id` solo si cambió de columna. Revierte con
+  `setTasks(initialTasks)` si falla.
+
+### Archivos
+- `src/components/tasks/KanbanBoard.tsx`. Import nuevo: `generateKeyBetween` de `fractional-indexing`.
+
+### Deploy
+- `npx vercel --prod --yes` (READY). Commit + push a `origin master`.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B15 (barra de filtros del tablero)
 
 Noveno circuito. Continuación de "mejora el tablero, agrega funciones": el tablero ahora tiene
