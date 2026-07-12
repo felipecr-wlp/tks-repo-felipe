@@ -49,6 +49,8 @@ interface TaskListViewProps {
   statuses: Status[]
   members: Member[]
   currentUserId: string
+  /** Si viene (deep-link desde inbox), abre el panel de esa tarea al montar. */
+  initialTaskId?: string
 }
 
 export function TaskListView({
@@ -57,11 +59,12 @@ export function TaskListView({
   members,
   currentUserId,
   tasks: initialTasks,
+  initialTaskId,
 }: TaskListViewProps) {
   const router = useRouter()
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialTaskId ?? null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null)
 

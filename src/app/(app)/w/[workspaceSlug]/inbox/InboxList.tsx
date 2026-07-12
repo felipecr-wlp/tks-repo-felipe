@@ -99,8 +99,9 @@ export function InboxList({ initial, workspaceSlug }: InboxListProps) {
       return
     }
     if (notif.object_type === 'task' && notif.object_id) {
-      // TODO: abrir TaskDetailPanel desde inbox cuando esté contextual
-      router.refresh()
+      // Deep-link al resolutor: resuelve la ruta del proyecto y abre la tarea.
+      router.push(`/w/${workspaceSlug}/task/${notif.object_id}`)
+      return
     }
   }
 

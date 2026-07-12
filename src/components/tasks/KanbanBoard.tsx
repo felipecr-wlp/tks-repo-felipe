@@ -62,6 +62,8 @@ interface KanbanBoardProps {
   statuses: Status[]
   members: Member[]
   currentUserId: string
+  /** Si viene (deep-link desde inbox), abre el panel de esa tarea al montar. */
+  initialTaskId?: string
 }
 
 // Metadatos de prioridad: color del acento (borde izquierdo) + punto + etiqueta.
@@ -275,10 +277,11 @@ export function KanbanBoard({
   statuses,
   members,
   currentUserId,
+  initialTaskId,
 }: KanbanBoardProps) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [activeTask, setActiveTask] = useState<Task | null>(null)
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialTaskId ?? null)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [priorityFilter, setPriorityFilter] = useState<Set<string>>(new Set())
   const [assigneeFilter, setAssigneeFilter] = useState<Set<string>>(new Set())

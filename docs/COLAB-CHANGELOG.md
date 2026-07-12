@@ -8,6 +8,39 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B17 (la bandeja abre la tarea)
+
+Onceavo circuito. La bandeja de notificaciones tenía un TODO: al hacer clic en una notificación de
+tarea solo hacía `router.refresh()` en vez de abrir la tarea. Ahora sí abre el `TaskDetailPanel` de
+esa tarea. Como la bandeja no conoce la ruta del proyecto (solo el id de la tarea), se agregó un
+resolutor server-side que mapea tarea -> proyecto -> equipo y redirige al tablero con `?task=<id>`.
+Aditivo, sin cambios de esquema. Deja `tsc` y `next build` en EXIT 0.
+
+### Qué cambió
+- Nueva ruta resolutora `w/[workspaceSlug]/task/[taskId]/page.tsx`: resuelve la tarea, verifica que
+  el usuario sea miembro del proyecto y hace `redirect()` a
+  `/w/<ws>/t/<team>/p/<project>?view=board&task=<id>`. Si la tarea no existe o no hay acceso,
+  `notFound()`.
+- `page.tsx` del proyecto lee `searchParams.task` y lo pasa como `initialTaskId` a `KanbanBoard` y
+  `TaskListView`.
+- `KanbanBoard` y `TaskListView` aceptan `initialTaskId?` e inicializan `selectedTaskId` con él, así
+  el panel abre al montar sin efecto extra.
+- `InboxList.handleClick` para notificaciones de tarea ahora hace
+  `router.push('/w/<ws>/task/<id>')` en vez del `router.refresh()` que era un TODO.
+
+### Archivos
+- `src/app/(app)/w/[workspaceSlug]/task/[taskId]/page.tsx` (nuevo)
+- `src/app/(app)/w/[workspaceSlug]/t/[teamSlug]/p/[projectSlug]/page.tsx`
+- `src/components/tasks/KanbanBoard.tsx`
+- `src/components/tasks/TaskListView.tsx`
+- `src/app/(app)/w/[workspaceSlug]/inbox/InboxList.tsx`
+
+### Deploy
+- `npx tsc --noEmit` EXIT 0, `npx next build` EXIT 0 (ruta `/w/[workspaceSlug]/task/[taskId]`
+  registrada), `npx vercel --prod --yes` READY.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B16 (persistir orden al reordenar en el tablero)
 
 Décimo circuito. Bug real del tablero: `handleDragEnd` solo hacía PATCH de `status_id`, así que

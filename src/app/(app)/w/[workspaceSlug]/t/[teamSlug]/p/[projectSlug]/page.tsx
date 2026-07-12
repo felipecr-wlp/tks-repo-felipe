@@ -32,7 +32,7 @@ interface ProjectPageProps {
     teamSlug: string
     projectSlug: string
   }
-  searchParams: { view?: string; status?: string; assignee?: string; priority?: string }
+  searchParams: { view?: string; status?: string; assignee?: string; priority?: string; task?: string }
 }
 
 type ProjectData = {
@@ -325,6 +325,7 @@ export default async function ProjectPage({
             statuses={statuses ?? []}
             members={memberProfiles}
             currentUserId={user.id}
+            initialTaskId={searchParams.task}
           />
         ) : currentView === 'calendar' ? (
           <TaskCalendarView
@@ -352,6 +353,7 @@ export default async function ProjectPage({
             statuses={statuses ?? []}
             members={memberProfiles}
             currentUserId={user.id}
+            initialTaskId={searchParams.task}
           />
         )}
       </div>
