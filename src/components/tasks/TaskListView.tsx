@@ -7,7 +7,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ListTodo } from 'lucide-react'
+import { ListTodo, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { TaskRow as TaskItem } from './TaskRow'
@@ -65,6 +65,7 @@ export function TaskListView({
 }: TaskListViewProps) {
   const router = useRouter()
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
+  const [search, setSearch] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialTaskId ?? null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -109,14 +110,19 @@ export function TaskListView({
     router.refresh()
   }
 
+  // Búsqueda por título (client-side, refleja el patrón del tablero).
+  const q = search.trim().toLowerCase()
+  const matches = (t: Task) => q === '' || t.title.toLowerCase().includes(q)
+  const visibleTasks = tasks.filter(matches)
+
   // Agrupar tareas por estado
   const tasksByStatus = statuses.reduce<Record<string, Task[]>>((acc, status) => {
-    acc[status.id] = tasks.filter(t => t.status?.id === status.id)
+    acc[status.id] = visibleTasks.filter(t => t.status?.id === status.id)
     return acc
   }, {})
 
   // Tareas sin estado
-  const unassigned = tasks.filter(t => !t.status)
+  const unassigned = visibleTasks.filter(t => !t.status)
 
   const toggleGroup = (statusId: string) => {
     setCollapsedGroups(prev => {
@@ -158,11 +164,49 @@ export function TaskListView({
           onOpenTask={setSelectedTaskId}
         />
       )}
+      {/* Búsqueda por título */}
+      {tasks.length > 0 && (
+        <div className="relative mb-4 max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); e.currentTarget.blur() } }}
+            placeholder="Buscar por título..."
+            className="w-full rounded-md border border-border bg-background pl-8 pr-7 py-1.5 text-sm outline-none focus:border-ring transition-colors"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              title="Limpiar búsqueda"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Sin coincidencias de búsqueda */}
+      {tasks.length > 0 && q !== '' && visibleTasks.length === 0 && (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 bg-muted/20 py-12 px-6 text-center">
+          <span className="flex items-center justify-center w-10 h-10 rounded-full bg-muted text-muted-foreground">
+            <Search className="w-5 h-5" aria-hidden />
+          </span>
+          <p className="text-sm text-muted-foreground">
+            Sin coincidencias para <span className="font-medium text-foreground">&ldquo;{search}&rdquo;</span>
+          </p>
+        </div>
+      )}
+
       {/* Grupos de tareas por estado */}
-      {statuses.map(status => {
+      {(q === '' || visibleTasks.length > 0) && statuses.map(status => {
         const groupTasks = tasksByStatus[status.id] ?? []
         const isCollapsed = collapsedGroups.has(status.id)
         const isDoneCategory = status.category === 'done'
+
+        // Durante una búsqueda activa, ocultar grupos sin coincidencias.
+        if (q !== '' && groupTasks.length === 0) return null
 
         return (
           <div key={status.id} className="mb-6">
@@ -211,8 +255,8 @@ export function TaskListView({
                   />
                 ))}
 
-                {/* Crear tarea inline (solo para estados no-done) */}
-                {!isDoneCategory && (
+                {/* Crear tarea inline (solo para estados no-done, oculto en búsqueda) */}
+                {!isDoneCategory && q === '' && (
                   <CreateTaskInline
                     projectId={projectId}
                     statusId={status.id}

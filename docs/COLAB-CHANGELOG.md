@@ -8,6 +8,21 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B25 (búsqueda por título en la vista de lista)
+
+Diecinueveavo circuito. El tablero Kanban ganó búsqueda por título con atajo `/` en B19/B21, pero la
+vista de lista no tenía ninguna forma de filtrar: en proyectos con muchas tareas había que scrollear a
+mano. Ahora la lista tiene un input de búsqueda (ícono Search, botón X para limpiar, Escape limpia y
+desenfoca) que filtra las tareas por título en cliente, reflejando el patrón del tablero. Durante una
+búsqueda activa se ocultan los grupos de estado sin coincidencias y el "+ Nueva tarea" inline, y si nada
+coincide se muestra un estado vacío "Sin coincidencias" con el término buscado.
+
+- Archivos: `src/components/tasks/TaskListView.tsx` (import Search/X, estado `search`, `visibleTasks`
+  filtrado, input, estado vacío de búsqueda, ocultar grupos vacíos e inline-create en búsqueda).
+- Sin migración. `npx tsc --noEmit` y `npx next build` en verde. Deploy prod desde `C:\Users\GRIZZLY\Desktop\TSKR`.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B24 (progreso de subtareas en la vista de lista)
 
 Dieciochoavo circuito. En B20 el tablero Kanban ya mostraba en cada tarjeta un badge de progreso de
