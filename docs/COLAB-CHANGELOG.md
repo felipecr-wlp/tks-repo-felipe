@@ -8,6 +8,29 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B19 (búsqueda de tareas en el tablero)
+
+Treceavo circuito. El tablero ya filtraba por prioridad y asignado; faltaba búsqueda por texto. Se
+agregó un campo de búsqueda por título en la barra de filtros (client-side sobre las tareas ya
+cargadas, sin llamada de red). Nota: el circuito de @menciones en comentarios (item pendiente #4) ya
+estaba implementado de antes (autocompletar en el composer + endpoint `/mentions`), así que no
+requirió trabajo. Aditivo, sin esquema. Deja `tsc` y `next build` en EXIT 0.
+
+### Qué cambió
+- `KanbanBoard`: nuevo estado `search`; `visibleTasks` ahora también descarta tareas cuyo título no
+  contiene el texto (case-insensitive). `filtersActive` incluye la búsqueda y `clearFilters` la
+  limpia.
+- Campo de búsqueda con ícono `Search`, botón de limpiar y expansión al enfocar, ubicado junto a la
+  etiqueta "Filtrar".
+
+### Archivos
+- `src/components/tasks/KanbanBoard.tsx`
+
+### Deploy
+- `npx tsc --noEmit` EXIT 0, `npx next build` EXIT 0, `npx vercel --prod --yes` READY.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B18 (editar y eliminar comentarios)
 
 Doceavo circuito. Los comentarios de tarea solo se podían crear, no editar ni borrar. Ahora el

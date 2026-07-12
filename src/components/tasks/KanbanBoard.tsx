@@ -25,7 +25,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { generateKeyBetween } from 'fractional-indexing'
 import { toast } from 'sonner'
-import { CalendarDays, ChevronLeft, ChevronRight, Filter, X } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Filter, X, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { CreateTaskInline } from './CreateTaskInline'
@@ -285,6 +285,7 @@ export function KanbanBoard({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [priorityFilter, setPriorityFilter] = useState<Set<string>>(new Set())
   const [assigneeFilter, setAssigneeFilter] = useState<Set<string>>(new Set())
+  const [search, setSearch] = useState('')
 
   // Colaboración en vivo: al cambiar tareas/estados otro usuario, el server
   // component re-renderiza y este efecto sincroniza la copia local del tablero.
@@ -296,10 +297,12 @@ export function KanbanBoard({
   )
 
   // Filtros client-side: prioridad y asignado. Vacío = mostrar todo.
-  const filtersActive = priorityFilter.size > 0 || assigneeFilter.size > 0
+  const q = search.trim().toLowerCase()
+  const filtersActive = priorityFilter.size > 0 || assigneeFilter.size > 0 || q.length > 0
   const visibleTasks = tasks.filter(t => {
     if (priorityFilter.size > 0 && !priorityFilter.has(t.priority)) return false
     if (assigneeFilter.size > 0 && !assigneeFilter.has(t.assignee?.id ?? '__none__')) return false
+    if (q && !t.title.toLowerCase().includes(q)) return false
     return true
   })
 
@@ -341,6 +344,7 @@ export function KanbanBoard({
   const clearFilters = () => {
     setPriorityFilter(new Set())
     setAssigneeFilter(new Set())
+    setSearch('')
   }
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -455,6 +459,27 @@ export function KanbanBoard({
         <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <Filter className="w-3.5 h-3.5" /> Filtrar
         </span>
+
+        {/* Búsqueda por título */}
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar tarea..."
+            className="w-44 pl-7 pr-2 py-1 text-[11px] rounded-md border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:w-56 transition-all"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              title="Limpiar búsqueda"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
 
         {/* Prioridad */}
         <div className="flex items-center gap-1">
