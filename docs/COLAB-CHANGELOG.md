@@ -8,6 +8,37 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B22 (recordatorios de fecha de entrega, cron diario)
+
+Dieciseisavo circuito. Faltaba cualquier aviso proactivo de fechas: una tarea vencía y nadie se
+enteraba salvo mirando el tablero. Se agregó un cron diario (08:00 PT / 15:00 UTC) que recorre las
+tareas activas con asignado y fecha, y crea una notificación en la bandeja del asignado cuando la tarea
+está VENCIDA (`task_overdue`) o vence dentro de 24h (`task_due_soon`). Idempotente por día: deduplica
+contra notificaciones del mismo tipo+tarea+destinatario de las últimas 20h, así una corrida repetida no
+genera spam. Recordatorio del sistema, sin actor (`subject_id: null`, la bandeja muestra "Sistema").
+Aditivo, sin esquema (reutiliza la tabla `notifications`). Deja `tsc` y `next build` en EXIT 0.
+
+### Qué cambió
+- `src/app/api/cron/due-reminders/route.ts` (NUEVO): GET protegido opcionalmente por `CRON_SECRET`
+  (Vercel Cron envía el `Authorization: Bearer` automáticamente si la variable existe; si no, corre sin
+  protección con advertencia). Lee tasks `is_archived=false`, con `assignee_id` y `due_date <= now+24h`,
+  excluye categoría `done`, clasifica overdue/due_soon, deduplica e inserta notificaciones.
+- `vercel.json`: bloque `crons` con `path: /api/cron/due-reminders`, `schedule: "0 15 * * *"`.
+- `src/lib/activity.ts`: `NotificationTypes.TASK_OVERDUE` y `TASK_DUE_SOON`.
+- `InboxList`: etiquetas de verbo para los dos tipos nuevos ("tarea vencida:", "vence pronto:").
+
+### Archivos
+- `src/app/api/cron/due-reminders/route.ts` (nuevo)
+- `vercel.json`
+- `src/lib/activity.ts`
+- `src/app/(app)/w/[workspaceSlug]/inbox/InboxList.tsx`
+
+### Deploy
+- `npx tsc --noEmit` EXIT 0, `npx next build` EXIT 0, `npx vercel --prod --yes` READY.
+- Nota: para blindar el endpoint, definir `CRON_SECRET` en el entorno de Vercel (opcional).
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B21 (atajo de teclado + estado vacío de búsqueda)
 
 Quinceavo circuito. Dos mejoras de pulido premium en el tablero: (1) atajo de teclado "/" que enfoca

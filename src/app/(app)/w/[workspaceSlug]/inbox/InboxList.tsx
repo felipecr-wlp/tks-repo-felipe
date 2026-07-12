@@ -40,6 +40,8 @@ const VERB_LABELS: Record<string, string> = {
   'note_mentioned':       'te mencionó en la nota',
   'task_updated':         'actualizó la tarea que sigues',
   'task_commented':       'comentó en la tarea que sigues',
+  'task_overdue':         'tarea vencida:',
+  'task_due_soon':        'vence pronto:',
   'project.member_added': 'te agregó al proyecto',
   'workspace.member_joined': 'se unió al workspace',
 }

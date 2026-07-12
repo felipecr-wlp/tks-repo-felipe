@@ -197,4 +197,6 @@ export const NotificationTypes = {
   NOTE_MENTIONED:        'note_mentioned',        // al mencionado: te nombraron en un comentario de nota
   TASK_UPDATED:          'task_updated',          // al seguidor: se actualizo una tarea que sigues
   TASK_COMMENTED:        'task_commented',        // al seguidor: alguien comento en una tarea que sigues
+  TASK_OVERDUE:          'task_overdue',          // al asignado: tarea vencida (recordatorio diario, sistema)
+  TASK_DUE_SOON:         'task_due_soon',         // al asignado: tarea vence hoy (recordatorio diario, sistema)
 } as const
