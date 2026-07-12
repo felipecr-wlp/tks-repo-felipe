@@ -8,6 +8,33 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B18 (editar y eliminar comentarios)
+
+Doceavo circuito. Los comentarios de tarea solo se podían crear, no editar ni borrar. Ahora el
+autor puede editar en línea (textarea con Cmd/Ctrl+Enter para guardar, Esc para cancelar) y eliminar
+(con confirmación de un clic que expira en 3s). Aditivo, sin cambios de esquema (la tabla
+`task_comments` ya tenía `updated_at`). Deja `tsc` y `next build` en EXIT 0.
+
+### Qué cambió
+- Nuevo endpoint `api/tasks/[taskId]/comments/[commentId]/route.ts` con `PATCH` (editar) y `DELETE`.
+  Ambos: rate limit, auth 401, y verificación de que el comentario existe, pertenece a esa tarea y
+  el usuario es el autor (403 si no). PATCH valida body con zod (1..5000), actualiza `content` +
+  `updated_at` y devuelve el comentario mapeado a `body`.
+- `TaskDetailPanel`: `handleEditComment` (PATCH + reemplazo en estado) y `handleDeleteComment`
+  (borrado optimista con reversión si falla).
+- `CommentItem` reescrito: botones editar/eliminar visibles al hover solo para comentarios propios;
+  edición en línea con textarea; eliminación con confirmación de un clic.
+
+### Archivos
+- `src/app/api/tasks/[taskId]/comments/[commentId]/route.ts` (nuevo)
+- `src/components/tasks/TaskDetailPanel.tsx`
+
+### Deploy
+- `npx tsc --noEmit` EXIT 0, `npx next build` EXIT 0 (ruta del endpoint registrada),
+  `npx vercel --prod --yes` READY.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B17 (la bandeja abre la tarea)
 
 Onceavo circuito. La bandeja de notificaciones tenía un TODO: al hacer clic en una notificación de

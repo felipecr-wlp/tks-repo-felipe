@@ -21,7 +21,7 @@ import {
   X, Trash2, Loader2, Paperclip, UploadCloud, Download, AtSign,
   Zap, ChevronsUp, ChevronUp, ChevronDown, Minus, ImageIcon, FileText,
   CircleDot, User as UserIcon, Calendar as CalendarIcon, MessageSquare,
-  CornerLeftUp, PlayCircle, Clock, Eye,
+  CornerLeftUp, PlayCircle, Clock, Eye, Pencil, Check,
 } from 'lucide-react'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 import { ChecklistSection } from './ChecklistSection'
@@ -278,6 +278,31 @@ export function TaskDetailPanel({
     }
   }
 
+  const handleEditComment = async (commentId: string, body: string) => {
+    const trimmed = body.trim()
+    if (!trimmed) return
+    const res = await fetch(`/api/tasks/${taskId}/comments/${commentId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: trimmed }),
+    })
+    if (!res.ok) { toast.error('Error al editar el comentario'); throw new Error('failed') }
+    const updated: Comment = await res.json()
+    setComments(prev => prev.map(c => c.id === commentId ? updated : c))
+  }
+
+  const handleDeleteComment = async (commentId: string) => {
+    const prev = comments
+    setComments(cs => cs.filter(c => c.id !== commentId)) // optimista
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/comments/${commentId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('failed')
+    } catch {
+      setComments(prev) // revertir
+      toast.error('Error al eliminar el comentario')
+    }
+  }
+
   const priorityInfo = PRIORITIES.find(p => p.value === task?.priority) ?? PRIORITIES[4]
 
   return (
@@ -446,7 +471,13 @@ export function TaskDetailPanel({
                   {comments.length > 0 && (
                     <div className="space-y-3 mb-4">
                       {comments.map(comment => (
-                        <CommentItem key={comment.id} comment={comment} currentUserId={currentUserId} />
+                        <CommentItem
+                          key={comment.id}
+                          comment={comment}
+                          currentUserId={currentUserId}
+                          onEdit={handleEditComment}
+                          onDelete={handleDeleteComment}
+                        />
                       ))}
                     </div>
                   )}
@@ -939,10 +970,39 @@ function DescriptionEditor({ value, onSave }: { value: string; onSave: (v: strin
   )
 }
 
-function CommentItem({ comment, currentUserId }: { comment: Comment; currentUserId: string }) {
+function CommentItem({
+  comment,
+  currentUserId,
+  onEdit,
+  onDelete,
+}: {
+  comment: Comment
+  currentUserId: string
+  onEdit: (commentId: string, body: string) => Promise<void>
+  onDelete: (commentId: string) => Promise<void>
+}) {
   const isOwn = comment.author?.id === currentUserId
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(comment.body)
+  const [saving, setSaving] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+
+  const saveEdit = async () => {
+    const trimmed = draft.trim()
+    if (!trimmed || trimmed === comment.body) { setEditing(false); return }
+    setSaving(true)
+    try {
+      await onEdit(comment.id, trimmed)
+      setEditing(false)
+    } catch {
+      // el error ya se notifica arriba
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
-    <div className="flex items-start gap-2.5">
+    <div className="flex items-start gap-2.5 group/comment">
       <div className="flex-shrink-0 w-6 h-6 rounded-full bg-muted overflow-hidden flex items-center justify-center text-[10px] font-medium mt-0.5">
         {comment.author?.avatar_url ? (
           <Image src={comment.author.avatar_url} alt={comment.author.display_name} width={24} height={24} className="object-cover" />
@@ -954,9 +1014,68 @@ function CommentItem({ comment, currentUserId }: { comment: Comment; currentUser
         <div className="flex items-baseline gap-2">
           <span className="text-xs font-medium text-foreground">{comment.author?.display_name ?? 'Usuario'}</span>
           <span className="text-[11px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
-          {isOwn && <span className="text-[11px] text-muted-foreground ml-auto">Tú</span>}
+          {isOwn && !editing && (
+            <div className="ml-auto flex items-center gap-1 opacity-0 group-hover/comment:opacity-100 transition-opacity">
+              <button
+                onClick={() => { setDraft(comment.body); setEditing(true) }}
+                title="Editar"
+                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+              {confirming ? (
+                <button
+                  onClick={() => onDelete(comment.id)}
+                  className="text-[11px] text-destructive font-medium px-1"
+                >
+                  Confirmar
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setConfirming(true); setTimeout(() => setConfirming(false), 3000) }}
+                  title="Eliminar"
+                  className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-muted transition-colors"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
-        <p className="text-sm text-foreground mt-0.5 whitespace-pre-wrap">{comment.body}</p>
+
+        {editing ? (
+          <div className="mt-1">
+            <textarea
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              rows={2}
+              autoFocus
+              onKeyDown={e => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveEdit() }
+                if (e.key === 'Escape') setEditing(false)
+              }}
+              className="w-full text-sm rounded-md border border-border bg-background px-2 py-1.5 resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <div className="flex items-center gap-2 mt-1.5">
+              <button
+                onClick={saveEdit}
+                disabled={saving}
+                className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                Guardar
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-foreground mt-0.5 whitespace-pre-wrap">{comment.body}</p>
+        )}
       </div>
     </div>
   )
