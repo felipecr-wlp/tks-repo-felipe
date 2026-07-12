@@ -68,10 +68,12 @@ type TaskRow = {
   status: { id: string; name: string; color: string | null; category: string } | null
   assignee: { id: string; display_name: string; avatar_url: string | null } | null
   labels: TaskLabel[]
+  subtaskTotal?: number
+  subtaskDone?: number
 }
 
 // Forma cruda de Supabase antes de aplanar las etiquetas.
-type TaskRowRaw = Omit<TaskRow, 'labels'> & {
+type TaskRowRaw = Omit<TaskRow, 'labels' | 'subtaskTotal' | 'subtaskDone'> & {
   labels: { label: TaskLabel | null }[] | null
 }
 
@@ -169,6 +171,37 @@ export default async function ProjectPage({
         .filter((l): l is { id: string; name: string; color: string } => l != null),
     }
   })
+
+  // ── Progreso de subtareas: contar hijas (total + completadas) por padre ───
+  // Una sola consulta acotada al proyecto; se agrega en JS a un mapa padre -> {total, done}.
+  type SubtaskCountRow = {
+    parent_task_id: string
+    status: { category: string } | null
+  }
+  const parentIds = tasks.map(t => t.id)
+  if (parentIds.length > 0) {
+    const { data: subRows } = await admin
+      .from('tasks')
+      .select('parent_task_id, status:task_statuses ( category )')
+      .in('parent_task_id', parentIds)
+      .eq('is_archived', false) as { data: SubtaskCountRow[] | null; error: unknown }
+
+    const counts = new Map<string, { total: number; done: number }>()
+    for (const s of subRows ?? []) {
+      if (!s.parent_task_id) continue
+      const c = counts.get(s.parent_task_id) ?? { total: 0, done: 0 }
+      c.total += 1
+      if (s.status?.category === 'done') c.done += 1
+      counts.set(s.parent_task_id, c)
+    }
+    for (const t of tasks) {
+      const c = counts.get(t.id)
+      if (c) {
+        t.subtaskTotal = c.total
+        t.subtaskDone = c.done
+      }
+    }
+  }
 
   // ── Miembros del proyecto (para asignar tareas) ───────────────────────────
   type MemberRow = {

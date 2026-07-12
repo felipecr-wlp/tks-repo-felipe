@@ -8,6 +8,31 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-11: Loop premium, Circuito B20 (progreso de subtareas en tarjetas del tablero)
+
+Catorceavo circuito. Las tarjetas del Kanban no mostraban señal de subtareas; una tarea con hijas se
+veía igual que una sin ellas. Se agregó un indicador de progreso (ícono `ListChecks` + "hechas/total")
+en cada tarjeta que tiene subtareas, verde cuando están todas completadas. El conteo se calcula en el
+server component del proyecto con una sola consulta acotada (todas las tareas con `parent_task_id` en
+los ids visibles), agregada en JS a un mapa padre -> {total, done} usando la categoría del estado
+(`done`). Aditivo, sin esquema. Deja `tsc` y `next build` en EXIT 0.
+
+### Qué cambió
+- `page.tsx` del proyecto: tras aplanar tareas, nueva consulta `tasks.in('parent_task_id', parentIds)`
+  con `status:task_statuses(category)`; agregación a mapa de conteos y asignación de `subtaskTotal` /
+  `subtaskDone` a cada tarea de nivel superior.
+- `KanbanBoard`: `Task` gana `subtaskTotal?` / `subtaskDone?`; la tarjeta renderiza un badge con
+  `ListChecks` y "done/total", coloreado en verde cuando está completo.
+
+### Archivos
+- `src/app/(app)/w/[workspaceSlug]/t/[teamSlug]/p/[projectSlug]/page.tsx`
+- `src/components/tasks/KanbanBoard.tsx`
+
+### Deploy
+- `npx tsc --noEmit` EXIT 0, `npx next build` EXIT 0, `npx vercel --prod --yes` READY.
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B19 (búsqueda de tareas en el tablero)
 
 Treceavo circuito. El tablero ya filtraba por prioridad y asignado; faltaba búsqueda por texto. Se

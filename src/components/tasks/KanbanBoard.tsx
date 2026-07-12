@@ -25,7 +25,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { generateKeyBetween } from 'fractional-indexing'
 import { toast } from 'sonner'
-import { CalendarDays, ChevronLeft, ChevronRight, Filter, X, Search } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Filter, X, Search, ListChecks } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { CreateTaskInline } from './CreateTaskInline'
@@ -48,6 +48,8 @@ interface Task {
   status: { id: string; name: string; color: string | null; category: string } | null
   assignee: { id: string; display_name: string; avatar_url: string | null } | null
   labels?: { id: string; name: string; color: string }[]
+  subtaskTotal?: number
+  subtaskDone?: number
 }
 
 interface Member {
@@ -139,6 +141,22 @@ function KanbanCard({
           )}>
             <CalendarDays className="w-3 h-3" />
             {new Date(task.due_date).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
+          </span>
+        )}
+
+        {/* Progreso de subtareas */}
+        {typeof task.subtaskTotal === 'number' && task.subtaskTotal > 0 && (
+          <span
+            title={`${task.subtaskDone ?? 0} de ${task.subtaskTotal} subtareas completadas`}
+            className={cn(
+              'flex items-center gap-1 text-[11px]',
+              (task.subtaskDone ?? 0) === task.subtaskTotal
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-muted-foreground'
+            )}
+          >
+            <ListChecks className="w-3 h-3" />
+            {task.subtaskDone ?? 0}/{task.subtaskTotal}
           </span>
         )}
 
