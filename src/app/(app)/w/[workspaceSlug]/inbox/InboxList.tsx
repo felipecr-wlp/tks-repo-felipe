@@ -42,6 +42,7 @@ const VERB_LABELS: Record<string, string> = {
   'task_commented':       'comentó en la tarea que sigues',
   'task_overdue':         'tarea vencida:',
   'task_due_soon':        'vence pronto:',
+  'task_recurrence_created': 'nueva ocurrencia recurrente:',
   'project.member_added': 'te agregó al proyecto',
   'workspace.member_joined': 'se unió al workspace',
 }

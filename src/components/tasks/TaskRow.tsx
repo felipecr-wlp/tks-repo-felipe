@@ -7,7 +7,7 @@
 import { useState, useRef } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
-import { ChevronsUp, ChevronUp, Equal, ChevronDown, Minus, ListChecks, type LucideIcon } from 'lucide-react'
+import { ChevronsUp, ChevronUp, Equal, ChevronDown, Minus, ListChecks, Repeat, type LucideIcon } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { LabelChips } from './TaskLabels'
 
@@ -29,6 +29,7 @@ interface Task {
   labels?: { id: string; name: string; color: string }[]
   subtaskTotal?: number
   subtaskDone?: number
+  recurrence_rule?: string | null
 }
 
 interface Member {
@@ -237,6 +238,13 @@ export function TaskRow({
         >
           <ListChecks className="w-3 h-3" />
           {task.subtaskDone ?? 0}/{task.subtaskTotal}
+        </span>
+      )}
+
+      {/* ── Tarea recurrente ───────────────────────────────── */}
+      {task.recurrence_rule && (
+        <span title="Tarea recurrente" className="flex-shrink-0 flex items-center text-muted-foreground">
+          <Repeat className="w-3 h-3" />
         </span>
       )}
 

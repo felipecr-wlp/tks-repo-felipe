@@ -34,6 +34,7 @@ interface Task {
   labels?: { id: string; name: string; color: string }[]
   subtaskTotal?: number
   subtaskDone?: number
+  recurrence_rule?: string | null
 }
 
 interface Member {

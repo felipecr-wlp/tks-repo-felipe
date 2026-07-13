@@ -21,9 +21,10 @@ import {
   X, Trash2, Loader2, Paperclip, UploadCloud, Download, AtSign,
   Zap, ChevronsUp, ChevronUp, ChevronDown, Minus, ImageIcon, FileText,
   CircleDot, User as UserIcon, Calendar as CalendarIcon, MessageSquare,
-  CornerLeftUp, PlayCircle, Clock, Eye, Pencil, Check,
+  CornerLeftUp, PlayCircle, Clock, Eye, Pencil, Check, Repeat,
 } from 'lucide-react'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
+import { RECURRENCE_RULES, RECURRENCE_LABELS } from '@/lib/recurrence'
 import { ChecklistSection } from './ChecklistSection'
 import { SubtasksSection } from './SubtasksSection'
 import { DependenciesSection } from './DependenciesSection'
@@ -58,6 +59,8 @@ interface TaskDetail {
   due_date: string | null
   start_date: string | null
   estimate_minutes: number | null
+  recurrence_rule: string | null
+  recurrence_end_date: string | null
   sort_order: string
   project_id: string
   status: Status | null
@@ -206,11 +209,14 @@ export function TaskDetailPanel({
         const err = await res.json()
         throw new Error(err.error ?? 'Error')
       }
-      const updated: TaskDetail = await res.json()
+      const updated: TaskDetail & { spawned_task_id?: string | null } = await res.json()
       setTask(updated)
       setTitleValue(updated.title)
       setActivityKey(k => k + 1)
       onUpdated?.(updated)
+      if (updated.spawned_task_id) {
+        toast.success('Tarea recurrente: se creo la siguiente ocurrencia')
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
@@ -547,6 +553,34 @@ export function TaskDetailPanel({
                     minutes={task.estimate_minutes}
                     onSave={mins => updateField({ estimate_minutes: mins })}
                   />
+                </MetaRow>
+
+                <MetaRow icon={<Repeat className="w-3.5 h-3.5" />} label="Repetir">
+                  <select
+                    value={task.recurrence_rule ?? ''}
+                    onChange={e => updateField({
+                      recurrence_rule: e.target.value ? e.target.value : null,
+                      // Si se apaga la recurrencia, limpiar tambien la fecha limite
+                      ...(e.target.value ? {} : { recurrence_end_date: null }),
+                    })}
+                    className="text-sm bg-transparent text-foreground cursor-pointer hover:text-primary transition-colors outline-none w-full"
+                  >
+                    <option value="">No repetir</option>
+                    {RECURRENCE_RULES.map(r => (
+                      <option key={r} value={r}>{RECURRENCE_LABELS[r]}</option>
+                    ))}
+                  </select>
+                  {task.recurrence_rule && (
+                    <div className="mt-1.5">
+                      <label className="text-[10px] text-muted-foreground block mb-0.5">Repetir hasta (opcional)</label>
+                      <input
+                        type="date"
+                        defaultValue={task.recurrence_end_date ? task.recurrence_end_date.slice(0, 10) : ''}
+                        onChange={e => updateField({ recurrence_end_date: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                        className="text-sm bg-transparent text-foreground cursor-pointer hover:text-primary transition-colors outline-none w-full"
+                      />
+                    </div>
+                  )}
                 </MetaRow>
 
                 <div className="text-[11px] text-muted-foreground pt-3 border-t border-border space-y-0.5">

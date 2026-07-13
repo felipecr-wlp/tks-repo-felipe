@@ -7,7 +7,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
-import { logActivity, ActivityVerbs, notifyTaskWatchers } from '@/lib/activity'
+import { logActivity, ActivityVerbs, NotificationTypes, notifyTaskWatchers } from '@/lib/activity'
+import { autoWatch } from '@/lib/watchers'
+import { nextRecurrenceDate, type RecurrenceRule } from '@/lib/recurrence'
 
 // ── GET: detalle completo ─────────────────────────────────────────────────────
 export async function GET(
@@ -25,6 +27,7 @@ export async function GET(
     due_date: string | null; start_date: string | null; estimate_minutes: number | null
     sort_order: string; created_at: string; updated_at: string
     project_id: string
+    recurrence_rule: string | null; recurrence_end_date: string | null
     status: { id: string; name: string; color: string | null; category: string } | null
     assignee: { id: string; display_name: string; avatar_url: string | null } | null
     created_by_profile: { id: string; display_name: string; avatar_url: string | null } | null
@@ -34,6 +37,7 @@ export async function GET(
     .from('tasks')
     .select(`
       id, title, description, priority, due_date, start_date, estimate_minutes, sort_order, created_at, updated_at, project_id,
+      recurrence_rule, recurrence_end_date,
       status:task_statuses ( id, name, color, category ),
       assignee:profiles!tasks_assignee_id_fkey ( id, display_name, avatar_url ),
       created_by_profile:profiles!tasks_created_by_fkey ( id, display_name, avatar_url ),
@@ -74,6 +78,9 @@ const patchSchema = z.object({
   story_points:      z.number().refine(n => (SP_VALUES as readonly number[]).includes(n), 'Fibonacci 1,2,3,5,8,13,21').nullable().optional(),
   story_points_done: z.number().refine(n => (SP_VALUES as readonly number[]).includes(n), 'Fibonacci 1,2,3,5,8,13,21').nullable().optional(),
   area:              z.string().max(60).nullable().optional(),
+  // ── Recurrencia (Circuito B26) ─────────────────────────────
+  recurrence_rule:      z.enum(['daily', 'weekly', 'biweekly', 'monthly']).nullable().optional(),
+  recurrence_end_date:  z.string().datetime().nullable().optional(),
 }).strict()
 
 export async function PATCH(
@@ -98,10 +105,15 @@ export async function PATCH(
 
   const admin = createAdminClient()
 
-  type TaskCheck = { id: string; project_id: string; workspace_id: string; title: string }
+  type TaskCheck = {
+    id: string; project_id: string; workspace_id: string; title: string
+    status_id: string | null; due_date: string | null; priority: string
+    assignee_id: string | null
+    recurrence_rule: string | null; recurrence_end_date: string | null
+  }
   const { data: existing } = await admin
     .from('tasks')
-    .select('id, project_id, workspace_id, title')
+    .select('id, project_id, workspace_id, title, status_id, due_date, priority, assignee_id, recurrence_rule, recurrence_end_date')
     .eq('id', params.taskId)
     .maybeSingle() as { data: TaskCheck | null; error: unknown }
 
@@ -127,6 +139,8 @@ export async function PATCH(
     sort_order: string
     created_at: string
     updated_at: string
+    recurrence_rule: string | null
+    recurrence_end_date: string | null
     status: { id: string; name: string; color: string | null; category: string } | null
     assignee: { id: string; display_name: string; avatar_url: string | null } | null
     created_by_profile: { id: string; display_name: string; avatar_url: string | null } | null
@@ -139,6 +153,7 @@ export async function PATCH(
     .eq('id', params.taskId)
     .select(`
       id, title, description, priority, due_date, start_date, estimate_minutes, sort_order, created_at, updated_at,
+      recurrence_rule, recurrence_end_date,
       status:task_statuses ( id, name, color, category ),
       assignee:profiles!tasks_assignee_id_fkey ( id, display_name, avatar_url ),
       created_by_profile:profiles!tasks_created_by_fkey ( id, display_name, avatar_url )
@@ -169,7 +184,107 @@ export async function PATCH(
     workspaceId: existing.workspace_id,
   }).catch(console.error)
 
-  return NextResponse.json(updated)
+  // ── Recurrencia (Circuito B26) ────────────────────────────────────────────
+  // Si esta PATCH movio la tarea a un estado categoria 'done' y la tarea (o
+  // el propio PATCH) trae una regla de recurrencia activa, clonar la tarea
+  // con la fecha de vencimiento avanzada segun la regla. Solo dispara cuando
+  // el PATCH realmente cambio el estado (evita re-clonar en cada edicion
+  // menor de una tarea ya completada).
+  const statusChanged = parsed.data.status_id !== undefined && parsed.data.status_id !== existing.status_id
+  const effectiveRule = (parsed.data.recurrence_rule !== undefined ? parsed.data.recurrence_rule : existing.recurrence_rule) as RecurrenceRule | null
+  const effectiveEnd = parsed.data.recurrence_end_date !== undefined ? parsed.data.recurrence_end_date : existing.recurrence_end_date
+
+  let spawnedTaskId: string | null = null
+  if (statusChanged && updated.status?.category === 'done' && effectiveRule) {
+    const baseDate = existing.due_date ? new Date(existing.due_date) : new Date()
+    const nextDue = nextRecurrenceDate(effectiveRule, baseDate)
+
+    const seriesEnded = effectiveEnd ? nextDue > new Date(effectiveEnd) : false
+
+    if (!seriesEnded) {
+      // Primer estado del proyecto (columna "todo") para la nueva ocurrencia
+      type StatusRow = { id: string }
+      const { data: firstStatus } = await admin
+        .from('task_statuses')
+        .select('id')
+        .eq('project_id', existing.project_id)
+        .order('position', { ascending: true })
+        .limit(1)
+        .maybeSingle() as { data: StatusRow | null; error: unknown }
+
+      type SortRow = { sort_order: string }
+      let lastTaskQuery = admin
+        .from('tasks')
+        .select('sort_order')
+        .eq('project_id', existing.project_id)
+        .order('sort_order', { ascending: false })
+        .limit(1)
+      lastTaskQuery = firstStatus?.id
+        ? lastTaskQuery.eq('status_id', firstStatus.id)
+        : lastTaskQuery.is('status_id', null)
+      const { data: lastTask } = await lastTaskQuery.maybeSingle() as { data: SortRow | null; error: unknown }
+
+      const { generateKeyBetween } = await import('fractional-indexing')
+      const sortOrder = generateKeyBetween(lastTask?.sort_order ?? null, null)
+
+      const nextAssignee = updated.assignee?.id ?? existing.assignee_id ?? null
+
+      type SpawnResult = { id: string; title: string }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: spawned, error: spawnError } = await (admin as any)
+        .from('tasks')
+        .insert({
+          project_id: existing.project_id,
+          workspace_id: existing.workspace_id,
+          title: updated.title,
+          status_id: firstStatus?.id ?? null,
+          priority: updated.priority,
+          assignee_id: nextAssignee,
+          due_date: nextDue.toISOString(),
+          recurrence_rule: effectiveRule,
+          recurrence_end_date: effectiveEnd,
+          sort_order: sortOrder,
+          created_by: user.id,
+        })
+        .select('id, title')
+        .single() as { data: SpawnResult | null; error: unknown }
+
+      if (spawnError) {
+        console.error('[tasks PATCH] recurrence spawn error:', spawnError)
+      } else if (spawned) {
+        spawnedTaskId = spawned.id
+
+        logActivity({
+          verb: ActivityVerbs.TASK_CREATED,
+          subject_id: user.id,
+          object_type: 'task',
+          object_id: spawned.id,
+          object_title: spawned.title,
+          workspace_id: existing.workspace_id,
+          project_id: existing.project_id,
+          metadata: { recurrence_of: updated.id, recurrence_rule: effectiveRule },
+        }).catch(console.error)
+
+        autoWatch(admin, spawned.id, existing.project_id, user.id).catch(console.error)
+        if (nextAssignee && nextAssignee !== user.id) {
+          autoWatch(admin, spawned.id, existing.project_id, nextAssignee).catch(console.error)
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(admin as any).from('notifications').insert({
+            workspace_id: existing.workspace_id,
+            recipient_id: nextAssignee,
+            subject_id: null, // generado por el sistema de recurrencia, no por el actor
+            type: NotificationTypes.TASK_RECURRENCE_CREATED,
+            object_type: 'task',
+            object_id: spawned.id,
+            object_title: spawned.title,
+          }).then(() => {}).catch(console.error)
+        }
+      }
+    }
+  }
+
+  return NextResponse.json({ ...updated, spawned_task_id: spawnedTaskId })
 }
 
 export async function DELETE(

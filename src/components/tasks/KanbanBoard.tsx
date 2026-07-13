@@ -25,7 +25,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { generateKeyBetween } from 'fractional-indexing'
 import { toast } from 'sonner'
-import { CalendarDays, ChevronLeft, ChevronRight, Filter, X, Search, ListChecks } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Filter, X, Search, ListChecks, Repeat } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { CreateTaskInline } from './CreateTaskInline'
@@ -50,6 +50,7 @@ interface Task {
   labels?: { id: string; name: string; color: string }[]
   subtaskTotal?: number
   subtaskDone?: number
+  recurrence_rule?: string | null
 }
 
 interface Member {
@@ -157,6 +158,16 @@ function KanbanCard({
           >
             <ListChecks className="w-3 h-3" />
             {task.subtaskDone ?? 0}/{task.subtaskTotal}
+          </span>
+        )}
+
+        {/* Tarea recurrente */}
+        {task.recurrence_rule && (
+          <span
+            title="Tarea recurrente"
+            className="flex items-center gap-1 text-[11px] text-muted-foreground"
+          >
+            <Repeat className="w-3 h-3" />
           </span>
         )}
 

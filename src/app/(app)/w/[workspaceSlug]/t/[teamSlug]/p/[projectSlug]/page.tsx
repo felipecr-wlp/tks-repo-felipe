@@ -65,6 +65,7 @@ type TaskRow = {
   start_date: string | null
   estimate_minutes: number | null
   sort_order: string
+  recurrence_rule: string | null
   status: { id: string; name: string; color: string | null; category: string } | null
   assignee: { id: string; display_name: string; avatar_url: string | null } | null
   labels: TaskLabel[]
@@ -139,6 +140,7 @@ export default async function ProjectPage({
       start_date,
       estimate_minutes,
       sort_order,
+      recurrence_rule,
       status:task_statuses ( id, name, color, category ),
       assignee:profiles ( id, display_name, avatar_url ),
       labels:task_labels ( label:labels ( id, name, color ) )

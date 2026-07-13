@@ -8,6 +8,35 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-13: Loop premium, Circuito B26 (tareas recurrentes)
+
+Veinteavo circuito. WLO no tenía forma de repetir una tarea: recordatorios semanales, cierres
+mensuales o checklists diarias había que recrearlas a mano cada vez. Ahora una tarea puede marcarse
+como recurrente (diaria, semanal, cada 2 semanas o mensual) desde el panel de detalle, con fecha
+límite opcional para cortar la serie. El disparador es por evento, no por cron: cuando el PATCH de
+`/api/tasks/[taskId]` mueve la tarea a un estado de categoría `done` y la tarea tiene una regla de
+recurrencia activa, la API clona la tarea de inmediato con la siguiente fecha calculada, la coloca en
+la primera columna del proyecto, conserva asignado/prioridad/regla, y notifica al asignado (nuevo tipo
+`task_recurrence_created` en el inbox). Si la próxima fecha calculada supera `recurrence_end_date`, la
+serie no continúa. Se agregó también un badge (ícono Repeat) en tarjetas del tablero y filas de la
+lista para identificar tareas recurrentes de un vistazo, siguiendo el mismo patrón visual que el badge
+de subtareas de B20/B24.
+
+- Migración: `supabase/migrations/20260713000000_task_recurrence.sql` (columnas `recurrence_rule`
+  con CHECK enum, `recurrence_end_date`, índice parcial). Aplicada directamente al proyecto Supabase
+  de producción vía MCP (`apply_migration`).
+- Archivos: `src/lib/recurrence.ts` (nuevo: reglas, labels, cálculo de siguiente fecha), `src/lib/activity.ts`
+  (nuevo tipo de notificación `TASK_RECURRENCE_CREATED`), `src/app/(app)/w/[workspaceSlug]/inbox/InboxList.tsx`
+  (label del nuevo tipo), `src/app/api/tasks/[taskId]/route.ts` (Zod schema, select de GET/PATCH ampliado,
+  lógica de spawn de la siguiente ocurrencia tras completar), `src/components/tasks/TaskDetailPanel.tsx`
+  (control "Repetir" + fecha límite, toast al generarse la siguiente ocurrencia), `src/app/(app)/w/[workspaceSlug]/t/[teamSlug]/p/[projectSlug]/page.tsx`
+  (query agrega `recurrence_rule`), `src/components/tasks/KanbanBoard.tsx`, `TaskListView.tsx`, `TaskRow.tsx`
+  (badge de recurrencia en tablero y lista).
+- `npx tsc --noEmit` y `npx next build` en verde. Deploy prod desde `C:\Users\GRIZZLY\Desktop\TSKR`
+  (`npx vercel --prod --yes`, READY, alias `wlo.vercel.app`).
+
+---
+
 ## 2026-07-11: Loop premium, Circuito B25 (búsqueda por título en la vista de lista)
 
 Diecinueveavo circuito. El tablero Kanban ganó búsqueda por título con atajo `/` en B19/B21, pero la
