@@ -8,6 +8,23 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-13: Loop premium, Circuito B29 (foco visible global para navegación por teclado)
+
+Veintitresavo circuito. Auditoría encontró 0 usos de `focus-visible` y 34 archivos con `outline-none`
+sin un reemplazo consistente: un usuario navegando con Tab (teclado, o accesibilidad) perdía por
+completo la referencia de qué elemento tenía el foco en buena parte de la app. En vez de tocar 34
+archivos uno por uno (riesgo de inconsistencia), se resolvió con una sola regla global en
+`globals.css` sobre el pseudo-selector `:focus-visible`: un ring de 2px offset (mismo patrón visual
+que shadcn/ui) que usa las variables de tema `--background`/`--ring` ya existentes, así que respeta
+claro/oscuro sin CSS adicional. Al ser `:focus-visible` (no `:focus`), el ring solo aparece con
+teclado, nunca al hacer click con mouse, entonces no agrega ruido visual a la mayoría de usuarios ni
+compite con los `outline-none` locales (son propiedades distintas, outline vs box-shadow).
+
+- Archivos: `src/app/globals.css` (regla `:focus-visible` global en la capa base).
+- Sin migración. `npx next build` en verde. Deploy prod desde `C:\Users\GRIZZLY\Desktop\TSKR`.
+
+---
+
 ## 2026-07-13: Loop premium, Circuito B28 (error/404 on-brand, sin pantallas genéricas de Next.js)
 
 Veintidosavo circuito, sigue el foco en UI premium tras B27. La app no tenía NINGÚN `error.tsx` ni

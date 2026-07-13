@@ -64,6 +64,17 @@
   }
 }
 
+/* Foco visible consistente para navegacion por teclado (Circuito B29).
+   Solo aparece con :focus-visible (teclado), no en click de mouse, y no
+   compite con outline-none locales porque usa box-shadow. Cubre toda la
+   app sin tener que tocar cada boton/input uno por uno. */
+:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / 0.6);
+}
+
 /* Scrollbar personalizado */
 ::-webkit-scrollbar {
   width: 6px;
