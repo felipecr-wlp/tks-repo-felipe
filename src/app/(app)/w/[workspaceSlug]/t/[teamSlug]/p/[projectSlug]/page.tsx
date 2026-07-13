@@ -12,6 +12,7 @@ import { TaskCalendarView } from '@/components/tasks/TaskCalendarView'
 import { TaskWorkloadView } from '@/components/tasks/TaskWorkloadView'
 import { TaskFilterBar } from '@/components/tasks/TaskFilterBar'
 import { ProjectChat } from '@/components/chat/ProjectChat'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 // Kanban cargado lazy, contiene @dnd-kit que pesa ~150KB
 const KanbanBoard = dynamic(
@@ -19,8 +20,15 @@ const KanbanBoard = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-        Cargando tablero...
+      <div className="flex-1 flex gap-4 px-6 py-4 overflow-hidden">
+        {Array.from({ length: 4 }).map((_, col) => (
+          <div key={col} className="flex-1 min-w-[260px] flex flex-col gap-3">
+            <Skeleton className="h-4 w-24" />
+            {Array.from({ length: 3 }).map((_, card) => (
+              <Skeleton key={card} className="h-24 w-full rounded-lg" />
+            ))}
+          </div>
+        ))}
       </div>
     ),
   }

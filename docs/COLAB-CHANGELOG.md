@@ -8,6 +8,28 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-13: Loop premium, Circuito B27 (skeletons de carga en rutas pesadas)
+
+Veintiunavo circuito, foco en UI premium y percepción de velocidad. La app no tenía NINGÚN
+`loading.tsx` en todo el App Router: al navegar a un proyecto, scrum, notas, calendario, tracking,
+mis tareas, marketplace de proyectos o inbox, la pantalla se quedaba en blanco hasta que el Server
+Component terminaba de traer los datos (perceptible sobre todo en proyectos con muchas tareas). Ahora
+cada una de esas rutas tiene su propio `loading.tsx` que Next.js monta automáticamente como boundary
+de Suspense, mostrando un skeleton con shimmer (`animate-pulse`) que respeta la forma real del
+contenido (columnas de kanban, filas de lista, grid de calendario, tarjetas de marketplace). El
+sidebar y la topbar del layout persisten sin parpadeo, solo el área de contenido muestra el skeleton.
+De paso, el fallback del `dynamic()` del tablero Kanban (que antes era el texto plano "Cargando
+tablero...") ahora usa el mismo primitivo de skeleton para que la transición data-lista a JS-del-tablero
+se sienta continua.
+
+- Archivos: `src/components/ui/Skeleton.tsx` (nuevo, primitivo compartido con shimmer), `loading.tsx`
+  nuevo en: `t/[teamSlug]/p/[projectSlug]`, `t/[teamSlug]/scrum`, `notes`, `calendar`, `tracking`,
+  `my-tasks`, `projects`, `inbox`. `t/[teamSlug]/p/[projectSlug]/page.tsx` (fallback del dynamic import
+  de KanbanBoard usa Skeleton en vez de texto).
+- Sin migración. `npx tsc --noEmit` y `npx next build` en verde. Deploy prod desde `C:\Users\GRIZZLY\Desktop\TSKR`.
+
+---
+
 ## 2026-07-13: Loop premium, Circuito B26 (tareas recurrentes)
 
 Veinteavo circuito. WLO no tenía forma de repetir una tarea: recordatorios semanales, cierres
