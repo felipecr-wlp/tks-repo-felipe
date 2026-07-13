@@ -8,6 +8,25 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-13: Loop premium, Circuito B28 (error/404 on-brand, sin pantallas genéricas de Next.js)
+
+Veintidosavo circuito, sigue el foco en UI premium tras B27. La app no tenía NINGÚN `error.tsx` ni
+`not-found.tsx` propio: 12 puntos del código llaman `notFound()` (proyecto, tarea, nota, equipo,
+pizarra invalidos, etc.) y cualquier excepción no controlada, y en ambos casos el usuario caía en la
+pantalla genérica de Next.js (o el stack trace en dev), rompiendo por completo la marca. Ahora hay
+boundaries on-brand en dos niveles: uno global (`src/app/not-found.tsx`, `src/app/error.tsx`) para
+fuera del contexto de workspace, y uno a nivel workspace (`src/app/(app)/w/[workspaceSlug]/not-found.tsx`,
+`.../error.tsx`) que al ser sibling del layout con el Sidebar lo mantiene montado cuando el error viene
+de una página hija, así el usuario no pierde el contexto de navegación. El error boundary incluye botón
+"Reintentar" (usa el `reset()` que da Next.js) y loguea a consola; el 404 explica que el recurso no
+existe o no se tiene acceso, con link de vuelta al inicio.
+
+- Archivos nuevos: `src/app/not-found.tsx`, `src/app/error.tsx`, `src/app/(app)/w/[workspaceSlug]/not-found.tsx`,
+  `src/app/(app)/w/[workspaceSlug]/error.tsx`.
+- Sin migración. `npx tsc --noEmit` y `npx next build` en verde. Deploy prod desde `C:\Users\GRIZZLY\Desktop\TSKR`.
+
+---
+
 ## 2026-07-13: Loop premium, Circuito B27 (skeletons de carga en rutas pesadas)
 
 Veintiunavo circuito, foco en UI premium y percepción de velocidad. La app no tenía NINGÚN
