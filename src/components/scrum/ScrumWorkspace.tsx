@@ -87,6 +87,24 @@ const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, medium: 2, l
 type SortKey = 'manual' | 'priority' | 'due' | 'points'
 type GroupKey = 'none' | 'assignee' | 'priority' | 'project'
 
+// Rango de fechas del sprint en formato compacto ("14 jul - 28 jul"). Devuelve
+// null si el sprint no tiene fechas para no pintar un separador huérfano.
+function formatSprintRange(start: string | null, end: string | null): string | null {
+  const fmt = (d: string) => new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+  if (start && end) return `${fmt(start)} - ${fmt(end)}`
+  if (start) return `desde ${fmt(start)}`
+  if (end) return `hasta ${fmt(end)}`
+  return null
+}
+
+// Días que faltan para el fin del sprint (redondeado hacia arriba). Negativo si
+// ya venció. null si no hay fecha de fin.
+function daysUntil(end: string | null): number | null {
+  if (!end) return null
+  const target = new Date(end); target.setHours(23, 59, 59, 999)
+  return Math.ceil((target.getTime() - Date.now()) / 86400000)
+}
+
 function sortTasks(list: ScrumTask[], by: SortKey): ScrumTask[] {
   if (by === 'manual') return list
   const arr = [...list]
@@ -153,6 +171,27 @@ export function ScrumWorkspace({
     [localTasks, selectedSprintId]
   )
   const backlog = useMemo(() => localTasks.filter(t => t.sprint_id === null), [localTasks])
+
+  // Resumen del sprint seleccionado para el encabezado premium: avance en
+  // tareas, story points comprometidos vs completados, y cuántas van vencidas.
+  // Se calcula aquí (donde vive el estado optimista) y se pasa a la barra.
+  const sprintSummary = useMemo(() => {
+    const total = sprintTasks.length
+    const done = sprintTasks.filter(t => t.status?.category === 'done').length
+    const committedSP = sprintTasks.reduce((a, t) => a + (t.story_points ?? 0), 0)
+    const completedSP = sprintTasks
+      .filter(t => t.status?.category === 'done')
+      .reduce((a, t) => a + (t.story_points_done ?? t.story_points ?? 0), 0)
+    const now = Date.now()
+    const overdue = sprintTasks.filter(
+      t => t.status?.category !== 'done' && !!t.due_date && new Date(t.due_date).getTime() < now,
+    ).length
+    // Avance por story points si hay estimación; si no, por conteo de tareas.
+    const pct = committedSP > 0
+      ? Math.round((completedSP / committedSP) * 100)
+      : total > 0 ? Math.round((done / total) * 100) : 0
+    return { total, done, committedSP, completedSP, overdue, pct }
+  }, [sprintTasks])
 
   // Mapa proyecto -> categoría -> status_id (para mover entre columnas)
   const statusFor = useMemo(() => {
@@ -316,6 +355,7 @@ export function ScrumWorkspace({
         onSwitchMethodology={switchMethodology}
         sprints={sprints}
         selected={selectedSprint}
+        summary={sprintSummary}
         onSelect={setSelectedSprintId}
         onCreate={createSprint}
         onSetStatus={(st) => selectedSprint && patchSprint(selectedSprint.id, { status: st }, 'Estado actualizado')}
@@ -369,9 +409,11 @@ export function ScrumWorkspace({
 /* ════════════════════════════════════════════════════════════════════════ */
 /* Barra superior: selector de sprint + tabs + crear sprint                   */
 /* ════════════════════════════════════════════════════════════════════════ */
+type SprintSummary = { total: number; done: number; committedSP: number; completedSP: number; overdue: number; pct: number }
+
 function SprintBar({
   teamName, methodology, isAdmin, onSwitchMethodology,
-  sprints, selected, onSelect, onCreate, onSetStatus, view, onView, busy, viewers,
+  sprints, selected, summary, onSelect, onCreate, onSetStatus, view, onView, busy, viewers,
 }: {
   teamName: string
   methodology: Methodology
@@ -379,6 +421,7 @@ function SprintBar({
   onSwitchMethodology: (m: Methodology) => void
   sprints: ScrumSprint[]
   selected: ScrumSprint | null
+  summary: SprintSummary
   onSelect: (id: string) => void
   onCreate: (p: { name: string; goal: string; start_date: string; end_date: string }) => void
   onSetStatus: (s: 'planning' | 'active' | 'completed') => void
@@ -506,8 +549,8 @@ function SprintBar({
         </div>
       </div>
 
-      {!isKanban && selected?.goal && (
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-2"><Target className="w-3.5 h-3.5 shrink-0" /> {selected.goal}</p>
+      {!isKanban && selected && (
+        <SprintHeaderCard sprint={selected} summary={summary} />
       )}
 
       {showNew && (
@@ -548,6 +591,92 @@ function SprintBar({
             </button>
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* Encabezado premium del sprint: meta, rango de fechas, barra de avance con   */
+/* gradiente y lectura compacta (hechas, story points, vencidas).             */
+/* ════════════════════════════════════════════════════════════════════════ */
+function SprintHeaderCard({ sprint, summary }: { sprint: ScrumSprint; summary: SprintSummary }) {
+  const isActive = sprint.status === 'active'
+  const range = formatSprintRange(sprint.start_date, sprint.end_date)
+  const left = daysUntil(sprint.end_date)
+  // "Termina pronto" si faltan 0..3 días y el sprint sigue en curso.
+  const endingSoon = isActive && left != null && left >= 0 && left <= 3
+  const ended = left != null && left < 0
+  const { pct, done, total, committedSP, completedSP, overdue } = summary
+  const complete = pct >= 100
+
+  return (
+    <div
+      className={cn(
+        'mt-2.5 rounded-xl border bg-card px-4 py-3 transition-all hover:shadow-sm',
+        isActive
+          ? 'border-primary/30 ring-1 ring-primary/20 bg-gradient-to-r from-primary/[0.06] to-transparent'
+          : 'border-border hover:border-primary/30',
+      )}
+    >
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0 flex items-center gap-2">
+          {isActive
+            ? <Flame className="w-4 h-4 text-primary shrink-0" aria-label="Sprint activo" />
+            : <Timer className="w-4 h-4 text-muted-foreground shrink-0" />}
+          <span className="text-sm font-semibold text-foreground truncate">{sprint.name}</span>
+          {range && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
+              <CalendarClock className="w-3.5 h-3.5" /> {range}
+            </span>
+          )}
+          {endingSoon && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-600 px-1.5 py-0.5 text-[10px] font-medium shrink-0">
+              <CalendarClock className="w-3 h-3" /> {left === 0 ? 'Termina hoy' : `${left} d restantes`}
+            </span>
+          )}
+          {ended && !complete && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive px-1.5 py-0.5 text-[10px] font-medium shrink-0">
+              <AlertTriangle className="w-3 h-3" /> Vencido
+            </span>
+          )}
+        </div>
+
+        {/* Lectura compacta: hechas / total, story points y vencidas. */}
+        <div className="flex items-center gap-2 text-[11px] shrink-0">
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <CheckCircle2 className={cn('w-3.5 h-3.5', done > 0 ? 'text-emerald-500' : 'text-muted-foreground')} />
+            <span className="tabular-nums font-medium text-foreground">{done}</span>/{total} hechas
+          </span>
+          {committedSP > 0 && (
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
+              <Gauge className="w-3.5 h-3.5 text-primary" />
+              <span className="tabular-nums font-medium text-foreground">{completedSP}</span>/{committedSP} SP
+            </span>
+          )}
+          {overdue > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive px-1.5 py-0.5 font-medium">
+              <AlertTriangle className="w-3 h-3" /> {overdue} vencida{overdue === 1 ? '' : 's'}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Barra de avance con gradiente (lenguaje visual compartido con Goals). */}
+      <div className="mt-2.5 flex items-center gap-2.5">
+        <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
+          <div
+            className={cn('h-full rounded-full transition-all duration-500', complete ? 'bg-emerald-500' : 'bg-gradient-to-r from-primary to-emerald-500')}
+            style={{ width: `${Math.min(pct, 100)}%` }}
+          />
+        </div>
+        <span className={cn('text-xs font-semibold tabular-nums shrink-0', complete ? 'text-emerald-600' : 'text-foreground')}>{pct}%</span>
+      </div>
+
+      {sprint.goal && (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-2">
+          <Target className="w-3.5 h-3.5 shrink-0" /> {sprint.goal}
+        </p>
       )}
     </div>
   )
