@@ -7,7 +7,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ListTodo, Search, X, Layers, Filter } from 'lucide-react'
+import { ListTodo, Search, X, Layers, Filter, CheckCircle2, AlertTriangle, CalendarClock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { TaskRow as TaskItem } from './TaskRow'
@@ -36,6 +36,21 @@ interface Task {
   subtaskTotal?: number
   subtaskDone?: number
   recurrence_rule?: string | null
+}
+
+// Clasifica el vencimiento relativo a HOY (medianoche local, sin corrimiento por
+// zona horaria). Mismo criterio que el tablero y la fila de lista.
+function dueBucket(due: string | null | undefined, isDone: boolean): 'overdue' | 'today' | 'future' | null {
+  if (!due || isDone) return null
+  const d = new Date(String(due).slice(0, 10) + 'T00:00:00')
+  if (Number.isNaN(d.getTime())) return null
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(start)
+  end.setDate(start.getDate() + 1)
+  if (d < start) return 'overdue'
+  if (d < end) return 'today'
+  return 'future'
 }
 
 interface Member {
@@ -335,6 +350,46 @@ export function TaskListView({
           )}
         </div>
       )}
+
+      {/* Salud del proyecto: barra de completado + conteos clave */}
+      {tasks.length > 0 && (() => {
+        const total = tasks.length
+        const doneCount = tasks.filter(t => t.status?.category === 'done').length
+        const overdueCount = tasks.filter(t => dueBucket(t.due_date, t.status?.category === 'done') === 'overdue').length
+        const todayCount = tasks.filter(t => dueBucket(t.due_date, t.status?.category === 'done') === 'today').length
+        const donePct = total === 0 ? 0 : Math.round((doneCount / total) * 100)
+        return (
+          <div className="mb-4 flex items-center gap-x-4 gap-y-1.5 flex-wrap">
+            <div className="flex items-center gap-2 min-w-[160px] flex-1 max-w-[16rem]">
+              <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-primary to-emerald-500 transition-all duration-500"
+                  style={{ width: `${donePct}%` }}
+                />
+              </div>
+              <span className="text-[11px] font-semibold text-foreground tabular-nums">{donePct}%</span>
+            </div>
+            <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
+              <span className="inline-flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="tabular-nums">{doneCount}/{total}</span> completadas
+              </span>
+              {overdueCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-destructive font-medium">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span className="tabular-nums">{overdueCount}</span> vencidas
+                </span>
+              )}
+              {todayCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                  <CalendarClock className="w-3.5 h-3.5" />
+                  <span className="tabular-nums">{todayCount}</span> para hoy
+                </span>
+              )}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Sin coincidencias de búsqueda */}
       {tasks.length > 0 && q !== '' && visibleTasks.length === 0 && (

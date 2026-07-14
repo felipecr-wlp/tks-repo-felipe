@@ -64,6 +64,22 @@ const PRIORITY_ICONS: Record<string, { Icon: LucideIcon; label: string; color: s
   none:   { Icon: Minus,       label: 'Sin prioridad', color: 'text-muted-foreground' },
 }
 
+// Clasifica la fecha de vencimiento relativa a HOY (medianoche local). El
+// 'YYYY-MM-DD' se parsea como fecha local (no UTC) para no correrla un dia por
+// zona horaria. Mismo criterio que el tablero Kanban para consistencia visual.
+function dueBucket(due: string | null | undefined, isDone: boolean): 'overdue' | 'today' | 'future' | null {
+  if (!due || isDone) return null
+  const d = new Date(String(due).slice(0, 10) + 'T00:00:00')
+  if (Number.isNaN(d.getTime())) return null
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(start)
+  end.setDate(start.getDate() + 1)
+  if (d < start) return 'overdue'
+  if (d < end) return 'today'
+  return 'future'
+}
+
 export function TaskRow({
   task,
   statuses,
@@ -260,16 +276,23 @@ export function TaskRow({
       )}
 
       {/* ── Fecha de vencimiento ───────────────────────────── */}
-      {task.due_date && (
-        <span className={cn(
-          'flex-shrink-0 text-[11px] px-1.5 py-0.5 rounded',
-          new Date(task.due_date) < new Date()
-            ? 'bg-destructive/10 text-destructive'
-            : 'text-muted-foreground'
-        )}>
-          {new Date(task.due_date).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
-        </span>
-      )}
+      {task.due_date && (() => {
+        const bucket = dueBucket(task.due_date, task.status?.category === 'done')
+        return (
+          <span className={cn(
+            'flex-shrink-0 text-[11px] px-1.5 py-0.5 rounded',
+            bucket === 'overdue'
+              ? 'bg-destructive/10 text-destructive font-medium'
+              : bucket === 'today'
+                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium'
+                : 'text-muted-foreground'
+          )}>
+            {bucket === 'today'
+              ? 'Hoy'
+              : new Date(String(task.due_date).slice(0, 10) + 'T00:00:00').toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
+          </span>
+        )
+      })()}
 
       {/* ── Asignado ───────────────────────────────────────── */}
       <div className="relative flex-shrink-0">
