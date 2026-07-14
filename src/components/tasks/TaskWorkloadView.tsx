@@ -14,7 +14,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { ChevronDown, ChevronRight, AlertTriangle, Clock, ListChecks } from 'lucide-react'
+import { ChevronDown, ChevronRight, AlertTriangle, Clock, ListChecks, CheckCircle2, CalendarClock } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { TaskDetailPanel } from './TaskDetailPanel'
@@ -59,6 +59,8 @@ interface Bucket {
   tasks: Task[]
   openCount: number
   overdueCount: number
+  todayCount: number
+  doneCount: number
   estimatedMinutes: number // solo tareas no terminadas
   byCategory: Record<string, number>
 }
@@ -98,6 +100,8 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
           tasks: [],
           openCount: 0,
           overdueCount: 0,
+          todayCount: 0,
+          doneCount: 0,
           estimatedMinutes: 0,
           byCategory: {},
         }
@@ -107,13 +111,15 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
       const cat = t.status?.category ?? 'todo'
       b.byCategory[cat] = (b.byCategory[cat] ?? 0) + 1
       const isDone = cat === 'done' || cat === 'cancelled'
+      if (cat === 'done') b.doneCount += 1
       if (!isDone) {
         b.openCount += 1
         b.estimatedMinutes += t.estimate_minutes ?? 0
         if (t.due_date) {
-          const due = new Date(t.due_date)
-          const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime()
+          // Medianoche local, sin corrimiento por zona horaria.
+          const dueDay = new Date(String(t.due_date).slice(0, 10) + 'T00:00:00').getTime()
           if (dueDay < today) b.overdueCount += 1
+          else if (dueDay === today) b.todayCount += 1
         }
       }
     }
@@ -136,7 +142,10 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
 
   const totalOpen = buckets.reduce((s, b) => s + b.openCount, 0)
   const totalOverdue = buckets.reduce((s, b) => s + b.overdueCount, 0)
+  const totalToday = buckets.reduce((s, b) => s + b.todayCount, 0)
+  const totalDone = buckets.reduce((s, b) => s + b.doneCount, 0)
   const totalMinutes = buckets.reduce((s, b) => s + b.estimatedMinutes, 0)
+  const donePct = tasks.length === 0 ? 0 : Math.round((totalDone / tasks.length) * 100)
 
   function toggle(key: string) {
     setExpanded(prev => {
@@ -170,6 +179,37 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
         />
       )}
 
+      {/* Lectura de salud del proyecto (sobre todas las tareas visibles) */}
+      <div className="mb-4 flex items-center gap-x-4 gap-y-1.5 flex-wrap">
+        <div className="flex items-center gap-2 min-w-[160px] flex-1 max-w-[16rem]">
+          <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-primary to-emerald-500 transition-all duration-500"
+              style={{ width: `${donePct}%` }}
+            />
+          </div>
+          <span className="text-[11px] font-semibold text-foreground tabular-nums">{donePct}%</span>
+        </div>
+        <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
+          <span className="inline-flex items-center gap-1">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            <span className="tabular-nums">{totalDone}/{tasks.length}</span> completadas
+          </span>
+          {totalOverdue > 0 && (
+            <span className="inline-flex items-center gap-1 text-destructive font-medium">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span className="tabular-nums">{totalOverdue}</span> vencidas
+            </span>
+          )}
+          {totalToday > 0 && (
+            <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+              <CalendarClock className="w-3.5 h-3.5" />
+              <span className="tabular-nums">{totalToday}</span> para hoy
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Resumen global */}
       <div className="grid grid-cols-3 gap-3 mb-4">
         <SummaryCard icon={<ListChecks className="w-4 h-4" />} label="Tareas abiertas" value={String(totalOpen)} />
@@ -190,7 +230,7 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
           const loadPct = maxMinutes > 0 ? (b.estimatedMinutes / maxMinutes) * 100 : 0
           const name = b.member?.display_name ?? 'Sin asignar'
           return (
-            <div key={key} className="bg-background">
+            <div key={key} className="bg-background transition-all hover:bg-muted/20">
               {/* Cabecera de la persona */}
               <button
                 onClick={() => toggle(key)}
@@ -207,10 +247,10 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
                     alt={name}
                     width={26}
                     height={26}
-                    className="rounded-full flex-shrink-0"
+                    className="rounded-full object-cover ring-1 ring-border flex-shrink-0"
                   />
                 ) : (
-                  <span className="w-[26px] h-[26px] rounded-full bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground flex-shrink-0">
+                  <span className="w-[26px] h-[26px] rounded-full bg-muted ring-1 ring-border flex items-center justify-center text-[10px] font-medium text-muted-foreground flex-shrink-0">
                     {b.member ? getInitials(name) : '?'}
                   </span>
                 )}
@@ -242,20 +282,31 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
                     {/* Indicador relativo de carga en horas */}
                     <div className="w-16 h-2 rounded-full bg-muted overflow-hidden flex-shrink-0" title="Carga relativa">
                       <span
-                        className="block h-full rounded-full"
-                        style={{
-                          width: `${Math.max(loadPct, b.estimatedMinutes > 0 ? 6 : 0)}%`,
-                          backgroundColor: b.overdueCount > 0 ? '#ef4444' : '#6366f1',
-                        }}
+                        className={`block h-full rounded-full bg-gradient-to-r transition-all duration-500 ${
+                          b.overdueCount > 0 ? 'from-amber-500 to-destructive' : 'from-primary to-emerald-500'
+                        }`}
+                        style={{ width: `${Math.max(loadPct, b.estimatedMinutes > 0 ? 6 : 0)}%` }}
                       />
                     </div>
                   </div>
                 </div>
 
-                {b.overdueCount > 0 && (
-                  <span className="flex items-center gap-1 text-[11px] text-red-500 font-medium flex-shrink-0">
-                    <AlertTriangle className="w-3 h-3" /> {b.overdueCount}
-                  </span>
+                {/* Alertas por persona */}
+                {(b.overdueCount > 0 || b.todayCount > 0) && (
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {b.overdueCount > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive px-1.5 py-0.5 text-[11px] font-medium">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span className="tabular-nums">{b.overdueCount}</span>
+                      </span>
+                    )}
+                    {b.todayCount > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 text-[11px] font-medium">
+                        <CalendarClock className="w-3 h-3" />
+                        <span className="tabular-nums">{b.todayCount}</span>
+                      </span>
+                    )}
+                  </div>
                 )}
               </button>
 

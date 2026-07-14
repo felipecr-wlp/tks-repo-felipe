@@ -13,7 +13,7 @@
  */
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, CheckCircle2, AlertTriangle, CalendarClock } from 'lucide-react'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { TaskDetailPanel } from './TaskDetailPanel'
 
@@ -43,6 +43,19 @@ const DAY_MS = 86_400_000
 const WEEKDAYS = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom']
 const PRIORITY_COLOR: Record<string, string> = {
   urgent: '#ef4444', high: '#f97316', medium: '#eab308', low: '#3b82f6', none: '#94a3b8',
+}
+
+// Clasifica el vencimiento relativo a HOY (medianoche local, sin corrimiento por
+// zona horaria). Mismo criterio que la lista y el tablero.
+type DueBucket = 'overdue' | 'today' | 'future'
+function dueBucket(due: string | null | undefined, isDone: boolean): DueBucket | null {
+  if (!due || isDone) return null
+  const d = new Date(String(due).slice(0, 10) + 'T00:00:00')
+  if (Number.isNaN(d.getTime())) return null
+  const t = new Date(); t.setHours(0, 0, 0, 0)
+  if (d.getTime() < t.getTime()) return 'overdue'
+  if (d.getTime() === t.getTime()) return 'today'
+  return 'future'
 }
 
 function startOfDay(d: Date): Date { return new Date(d.getFullYear(), d.getMonth(), d.getDate()) }
@@ -156,6 +169,46 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
         </div>
       </div>
 
+      {/* Lectura de salud del proyecto (sobre todas las tareas visibles) */}
+      {tasks.length > 0 && (() => {
+        const total = tasks.length
+        const doneCount = tasks.filter(t => t.status?.category === 'done').length
+        const overdueCount = tasks.filter(t => dueBucket(t.due_date, t.status?.category === 'done') === 'overdue').length
+        const todayCount = tasks.filter(t => dueBucket(t.due_date, t.status?.category === 'done') === 'today').length
+        const donePct = total === 0 ? 0 : Math.round((doneCount / total) * 100)
+        return (
+          <div className="mb-4 flex items-center gap-x-4 gap-y-1.5 flex-wrap">
+            <div className="flex items-center gap-2 min-w-[160px] flex-1 max-w-[16rem]">
+              <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-primary to-emerald-500 transition-all duration-500"
+                  style={{ width: `${donePct}%` }}
+                />
+              </div>
+              <span className="text-[11px] font-semibold text-foreground tabular-nums">{donePct}%</span>
+            </div>
+            <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
+              <span className="inline-flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="tabular-nums">{doneCount}/{total}</span> completadas
+              </span>
+              {overdueCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-destructive font-medium">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span className="tabular-nums">{overdueCount}</span> vencidas
+                </span>
+              )}
+              {todayCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                  <CalendarClock className="w-3.5 h-3.5" />
+                  <span className="tabular-nums">{todayCount}</span> para hoy
+                </span>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Encabezado de dias */}
       <div className="grid grid-cols-7 gap-px mb-px">
         {WEEKDAYS.map(d => (
@@ -177,7 +230,11 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
                 return (
                   <div
                     key={di}
-                    className={`min-h-[92px] p-1 ${inMonth ? 'bg-background' : 'bg-muted/30'}`}
+                    className={`relative min-h-[92px] p-1 transition-colors ${
+                      isToday
+                        ? 'bg-primary/5 ring-1 ring-inset ring-primary/40'
+                        : inMonth ? 'bg-background' : 'bg-muted/30'
+                    }`}
                   >
                     <div className="flex justify-end">
                       <span
@@ -198,16 +255,20 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
               {bars.length > 0 && (
                 <div className="col-span-7 relative -mt-[80px] mb-1 mx-px pointer-events-none" style={{ height: barsHeight }}>
                   {bars.map((b, bi) => {
-                    const color = b.task.status?.color ?? PRIORITY_COLOR[b.task.priority] ?? PRIORITY_COLOR.none
+                    const done = b.task.status?.category === 'done' || b.task.status?.category === 'cancelled'
+                    const bucket = dueBucket(b.task.due_date, done)
+                    // Tinte por vencimiento: vencidas en rojo, para hoy en ambar; el
+                    // resto conserva el color de estado o prioridad.
+                    const baseColor = b.task.status?.color ?? PRIORITY_COLOR[b.task.priority] ?? PRIORITY_COLOR.none
+                    const color = bucket === 'overdue' ? '#ef4444' : bucket === 'today' ? '#f59e0b' : baseColor
                     const leftPct = (b.startCol / 7) * 100
                     const widthPct = ((b.endCol - b.startCol + 1) / 7) * 100
-                    const done = b.task.status?.category === 'done'
                     return (
                       <button
                         key={bi}
                         onClick={() => setSelectedTaskId(b.task.id)}
                         title={b.task.title}
-                        className="absolute pointer-events-auto flex items-center gap-1 h-[19px] px-1.5 rounded text-[11px] font-medium truncate hover:brightness-110 hover:ring-1 hover:ring-foreground/20 transition-all"
+                        className="absolute pointer-events-auto flex items-center gap-1 h-[19px] px-1.5 rounded text-[11px] font-medium truncate hover:brightness-110 hover:ring-1 hover:ring-foreground/20 hover:shadow-sm transition-all"
                         style={{
                           left: `calc(${leftPct}% + 2px)`,
                           width: `calc(${widthPct}% - 4px)`,
@@ -217,6 +278,8 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
                           borderLeft: `2px solid ${color}`,
                         }}
                       >
+                        {bucket === 'overdue' && <AlertTriangle className="w-3 h-3 flex-shrink-0" />}
+                        {bucket === 'today' && <CalendarClock className="w-3 h-3 flex-shrink-0" />}
                         <span className={`truncate ${done ? 'line-through opacity-70' : ''}`}>{b.task.title}</span>
                       </button>
                     )
