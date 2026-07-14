@@ -9,10 +9,11 @@
  * llama POST /api/tasks/[taskId]/relations; quitar usa DELETE con ?relationId.
  * Autocontenida por taskId. `onOpenTask` (opcional) abre la tarea enlazada.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { GitMerge, Plus, X, Loader2, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 
 interface RelStatus { id: string; name: string; color: string | null; category: string }
 interface RelTask { id: string; title: string; status: RelStatus | null }
@@ -47,16 +48,40 @@ export function RelationsSection({ taskId, projectId, onOpenTask }: RelationsSec
   const [searching, setSearching] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const loadRelations = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/relations`)
+      const data = res.ok ? await res.json() : { relations: [] }
+      setRelations(data.relations ?? [])
+    } catch {
+      toast.error('Error al cargar relaciones')
+    }
+  }, [taskId])
+
+  // Carga inicial.
   useEffect(() => {
     let alive = true
     setLoading(true)
-    fetch(`/api/tasks/${taskId}/relations`)
-      .then(r => (r.ok ? r.json() : { relations: [] }))
-      .then(data => { if (alive) setRelations(data.relations ?? []) })
-      .catch(() => { if (alive) toast.error('Error al cargar relaciones') })
-      .finally(() => { if (alive) setLoading(false) })
+    loadRelations().finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [taskId])
+  }, [loadRelations])
+
+  // Realtime: re-carga (con debounce) cuando cambian relaciones donde esta tarea
+  // es origen o destino. La API normaliza la direccion; aqui basta re-fetch.
+  useEffect(() => {
+    const supabase = createClient()
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const refresh = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => { loadRelations() }, 350)
+    }
+    const ch = supabase
+      .channel(`task-relations-${taskId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_relations', filter: `source_task_id=eq.${taskId}` }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_relations', filter: `target_task_id=eq.${taskId}` }, refresh)
+      .subscribe()
+    return () => { if (timer) clearTimeout(timer); supabase.removeChannel(ch) }
+  }, [taskId, loadRelations])
 
   useEffect(() => {
     if (!adding) return
