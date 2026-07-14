@@ -76,14 +76,19 @@ type TaskRow = {
   recurrence_rule: string | null
   status: { id: string; name: string; color: string | null; category: string } | null
   assignee: { id: string; display_name: string; avatar_url: string | null } | null
+  assignees: { id: string; display_name: string | null; avatar_url: string | null }[]
   labels: TaskLabel[]
   subtaskTotal?: number
   subtaskDone?: number
 }
 
-// Forma cruda de Supabase antes de aplanar las etiquetas.
-type TaskRowRaw = Omit<TaskRow, 'labels' | 'subtaskTotal' | 'subtaskDone'> & {
+// Forma cruda de Supabase antes de aplanar etiquetas y asignados.
+type AssigneeJoinRow = {
+  profile: { id: string; display_name: string | null; avatar_url: string | null } | null
+}
+type TaskRowRaw = Omit<TaskRow, 'labels' | 'assignees' | 'subtaskTotal' | 'subtaskDone'> & {
   labels: { label: TaskLabel | null }[] | null
+  task_assignees: AssigneeJoinRow[] | null
 }
 
 export default async function ProjectPage({
@@ -151,6 +156,7 @@ export default async function ProjectPage({
       recurrence_rule,
       status:task_statuses ( id, name, color, category ),
       assignee:profiles ( id, display_name, avatar_url ),
+      task_assignees ( profile:profiles ( id, display_name, avatar_url ) ),
       labels:task_labels ( label:labels ( id, name, color ) )
     `)
     .eq('project_id', project.id)
@@ -171,14 +177,17 @@ export default async function ProjectPage({
 
   const { data: tasksRaw } = await query as { data: TaskRowRaw[] | null; error: unknown }
 
-  // Aplanar etiquetas: task_labels -> label -> { id, name, color }
+  // Aplanar etiquetas (task_labels -> label) y asignados (task_assignees -> profile).
   const tasks: TaskRow[] = (tasksRaw ?? []).map(t => {
-    const { labels: rawLabels, ...rest } = t
+    const { labels: rawLabels, task_assignees: rawAssignees, ...rest } = t
     return {
       ...rest,
       labels: (rawLabels ?? [])
         .map(r => r.label)
         .filter((l): l is { id: string; name: string; color: string } => l != null),
+      assignees: (rawAssignees ?? [])
+        .map(r => r.profile)
+        .filter((p): p is { id: string; display_name: string | null; avatar_url: string | null } => p != null),
     }
   })
 

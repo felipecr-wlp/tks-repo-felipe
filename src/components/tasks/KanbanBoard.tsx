@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { CreateTaskInline } from './CreateTaskInline'
 import { LabelChips } from './TaskLabels'
+import { StackedAvatars } from './StackedAvatars'
 
 interface Status {
   id: string
@@ -47,6 +48,7 @@ interface Task {
   sort_order: string
   status: { id: string; name: string; color: string | null; category: string } | null
   assignee: { id: string; display_name: string; avatar_url: string | null } | null
+  assignees?: { id: string; display_name: string | null; avatar_url: string | null }[]
   labels?: { id: string; name: string; color: string }[]
   subtaskTotal?: number
   subtaskDone?: number
@@ -195,8 +197,10 @@ function KanbanCard({
           </span>
         )}
 
-        {/* Avatar del asignado */}
-        {task.assignee && (
+        {/* Avatares de los asignados (apilados si hay varios) */}
+        {task.assignees && task.assignees.length > 0 ? (
+          <StackedAvatars assignees={task.assignees} className="ml-auto" />
+        ) : task.assignee ? (
           <div
             title={task.assignee.display_name}
             className="ml-auto w-5 h-5 rounded-full bg-muted overflow-hidden flex items-center justify-center text-[9px] font-medium text-muted-foreground ring-1 ring-border"
@@ -208,7 +212,7 @@ function KanbanCard({
               task.assignee.display_name.charAt(0).toUpperCase()
             )}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   )

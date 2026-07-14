@@ -11,6 +11,7 @@ import { ChevronsUp, ChevronUp, Equal, ChevronDown, Minus, ListChecks, Repeat, t
 import { cn, getInitials } from '@/lib/utils'
 import { LabelChips } from './TaskLabels'
 import { CustomFieldCells, type CustomFieldDef } from './CustomFieldCells'
+import { StackedAvatars } from './StackedAvatars'
 
 interface Status {
   id: string
@@ -27,6 +28,7 @@ interface Task {
   sort_order: string
   status: { id: string; name: string; color: string | null; category: string } | null
   assignee: { id: string; display_name: string; avatar_url: string | null } | null
+  assignees?: { id: string; display_name: string | null; avatar_url: string | null }[]
   labels?: { id: string; name: string; color: string }[]
   subtaskTotal?: number
   subtaskDone?: number
@@ -294,34 +296,44 @@ export function TaskRow({
         )
       })()}
 
-      {/* ── Asignado ───────────────────────────────────────── */}
+      {/* ── Asignados ──────────────────────────────────────── */}
       <div className="relative flex-shrink-0">
-        <button
-          onClick={() => { setShowAssignMenu(!showAssignMenu); setShowStatusMenu(false); setShowPriorityMenu(false) }}
-          title={task.assignee?.display_name ?? 'Sin asignar'}
-          className="w-6 h-6 rounded-full overflow-hidden bg-muted flex items-center justify-center"
-        >
-          {task.assignee ? (
-            task.assignee.avatar_url ? (
-              <Image
-                src={task.assignee.avatar_url}
-                alt={task.assignee.display_name}
-                width={24}
-                height={24}
-                className="object-cover w-full h-full"
-              />
+        {task.assignees && task.assignees.length > 0 ? (
+          <button
+            onClick={() => { setShowAssignMenu(!showAssignMenu); setShowStatusMenu(false); setShowPriorityMenu(false) }}
+            title="Asignados"
+            className="flex items-center h-6"
+          >
+            <StackedAvatars assignees={task.assignees} />
+          </button>
+        ) : (
+          <button
+            onClick={() => { setShowAssignMenu(!showAssignMenu); setShowStatusMenu(false); setShowPriorityMenu(false) }}
+            title={task.assignee?.display_name ?? 'Sin asignar'}
+            className="w-6 h-6 rounded-full overflow-hidden bg-muted flex items-center justify-center"
+          >
+            {task.assignee ? (
+              task.assignee.avatar_url ? (
+                <Image
+                  src={task.assignee.avatar_url}
+                  alt={task.assignee.display_name}
+                  width={24}
+                  height={24}
+                  className="object-cover w-full h-full"
+                />
+              ) : (
+                <span className="text-[9px] font-medium text-muted-foreground">
+                  {getInitials(task.assignee.display_name)}
+                </span>
+              )
             ) : (
-              <span className="text-[9px] font-medium text-muted-foreground">
-                {getInitials(task.assignee.display_name)}
-              </span>
-            )
-          ) : (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-muted-foreground">
-              <circle cx="5" cy="3.5" r="1.8" stroke="currentColor" strokeWidth="1.2" />
-              <path d="M1.5 9c0-1.7 1.6-3 3.5-3s3.5 1.3 3.5 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-            </svg>
-          )}
-        </button>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-muted-foreground">
+                <circle cx="5" cy="3.5" r="1.8" stroke="currentColor" strokeWidth="1.2" />
+                <path d="M1.5 9c0-1.7 1.6-3 3.5-3s3.5 1.3 3.5 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
+            )}
+          </button>
+        )}
         {showAssignMenu && (
           <AssignMenu
             members={members}
