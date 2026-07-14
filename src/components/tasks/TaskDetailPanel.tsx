@@ -22,6 +22,7 @@ import {
   Zap, ChevronsUp, ChevronUp, ChevronDown, Minus, ImageIcon, FileText,
   CircleDot, User as UserIcon, Calendar as CalendarIcon, MessageSquare,
   CornerLeftUp, PlayCircle, Clock, Eye, Pencil, Check, Repeat,
+  AlertTriangle, CalendarClock,
 } from 'lucide-react'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 import { RECURRENCE_RULES, RECURRENCE_LABELS } from '@/lib/recurrence'
@@ -110,6 +111,21 @@ const PRIORITIES: { value: string; label: string; color: string; Icon: typeof Za
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+// Clasifica el vencimiento relativo a HOY (medianoche local, sin corrimiento por
+// zona horaria). Mismo criterio que el tablero y la lista.
+function dueBucket(due: string | null | undefined, isDone: boolean): 'overdue' | 'today' | 'future' | null {
+  if (!due || isDone) return null
+  const d = new Date(String(due).slice(0, 10) + 'T00:00:00')
+  if (Number.isNaN(d.getTime())) return null
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(start)
+  end.setDate(start.getDate() + 1)
+  if (d < start) return 'overdue'
+  if (d < end) return 'today'
+  return 'future'
+}
+
 function formatSize(bytes: number | null): string {
   if (!bytes || bytes <= 0) return ''
   const units = ['B', 'KB', 'MB', 'GB']
@@ -549,12 +565,28 @@ export function TaskDetailPanel({
                 </MetaRow>
 
                 <MetaRow icon={<CalendarIcon className="w-3.5 h-3.5" />} label="Vence el">
-                  <input
-                    type="date"
-                    defaultValue={task.due_date ? task.due_date.slice(0, 10) : ''}
-                    onChange={e => updateField({ due_date: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                    className="text-sm bg-transparent text-foreground cursor-pointer hover:text-primary transition-colors outline-none w-full"
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      defaultValue={task.due_date ? task.due_date.slice(0, 10) : ''}
+                      onChange={e => updateField({ due_date: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                      className="text-sm bg-transparent text-foreground cursor-pointer hover:text-primary transition-colors outline-none flex-1"
+                    />
+                    {(() => {
+                      const bucket = dueBucket(task.due_date, task.status?.category === 'done')
+                      if (bucket === 'overdue') return (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive text-[10px] font-medium px-1.5 py-0.5 flex-shrink-0">
+                          <AlertTriangle className="w-3 h-3" /> Vencida
+                        </span>
+                      )
+                      if (bucket === 'today') return (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-medium px-1.5 py-0.5 flex-shrink-0">
+                          <CalendarClock className="w-3 h-3" /> Hoy
+                        </span>
+                      )
+                      return null
+                    })()}
+                  </div>
                 </MetaRow>
 
                 <MetaRow icon={<Clock className="w-3.5 h-3.5" />} label="Estimacion">
