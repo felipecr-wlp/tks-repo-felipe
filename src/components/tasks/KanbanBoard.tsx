@@ -25,7 +25,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { generateKeyBetween } from 'fractional-indexing'
 import { toast } from 'sonner'
-import { CalendarDays, ChevronLeft, ChevronRight, Filter, X, Search, ListChecks, Repeat } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Filter, X, Search, ListChecks, Repeat, CheckCircle2, AlertTriangle, CalendarClock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { CreateTaskInline } from './CreateTaskInline'
@@ -82,6 +82,22 @@ function priorityMeta(priority: string) {
   return PRIORITY_META[priority] ?? PRIORITY_META.none
 }
 
+// Clasifica la fecha de vencimiento relativa a HOY (medianoche local). Parseamos el
+// 'YYYY-MM-DD' como fecha local (no UTC) para no correrla un dia por zona horaria.
+type DueBucket = 'overdue' | 'today' | 'future'
+function dueBucket(due: string | null | undefined, isDone: boolean): DueBucket | null {
+  if (!due || isDone) return null
+  const d = new Date(String(due).slice(0, 10) + 'T00:00:00')
+  if (Number.isNaN(d.getTime())) return null
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(start)
+  end.setDate(start.getDate() + 1)
+  if (d < start) return 'overdue'
+  if (d < end) return 'today'
+  return 'future'
+}
+
 // ─── Tarjeta Kanban ───────────────────────────────────────────────────────────
 function KanbanCard({
   task,
@@ -97,7 +113,9 @@ function KanbanCard({
 
   const meta = priorityMeta(task.priority)
   const isDone = task.status?.category === 'done'
-  const overdue = !!task.due_date && new Date(task.due_date) < new Date() && !isDone
+  const bucket = dueBucket(task.due_date, isDone)
+  const overdue = bucket === 'overdue'
+  const dueToday = bucket === 'today'
 
   return (
     <div
@@ -138,10 +156,16 @@ function KanbanCard({
         {task.due_date && (
           <span className={cn(
             'flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded',
-            overdue ? 'bg-destructive/10 text-destructive font-medium' : 'text-muted-foreground'
+            overdue
+              ? 'bg-destructive/10 text-destructive font-medium'
+              : dueToday
+                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium'
+                : 'text-muted-foreground'
           )}>
             <CalendarDays className="w-3 h-3" />
-            {new Date(task.due_date).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
+            {dueToday
+              ? 'Hoy'
+              : new Date(String(task.due_date).slice(0, 10) + 'T00:00:00').toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
           </span>
         )}
 
@@ -475,6 +499,14 @@ export function KanbanBoard({
     }
   }
 
+  // Salud del proyecto (sobre TODAS las tareas, no las filtradas): completado,
+  // vencidas y para hoy. Da una lectura de un vistazo arriba del tablero.
+  const total = tasks.length
+  const doneCount = tasks.filter(t => t.status?.category === 'done').length
+  const overdueCount = tasks.filter(t => dueBucket(t.due_date, t.status?.category === 'done') === 'overdue').length
+  const todayCount = tasks.filter(t => dueBucket(t.due_date, t.status?.category === 'done') === 'today').length
+  const donePct = total === 0 ? 0 : Math.round((doneCount / total) * 100)
+
   const handleTaskCreated = (newTask: Task) => {
     setTasks(prev => [...prev, newTask])
   }
@@ -609,6 +641,39 @@ export function KanbanBoard({
           </div>
         )}
       </div>
+
+      {/* Salud del proyecto: barra de completado + conteos clave */}
+      {total > 0 && (
+        <div className="flex items-center gap-x-4 gap-y-1.5 px-3 sm:px-6 pb-2.5 pt-0.5 flex-wrap">
+          <div className="flex items-center gap-2 min-w-[160px] flex-1 max-w-[16rem]">
+            <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-primary to-emerald-500 transition-all duration-500"
+                style={{ width: `${donePct}%` }}
+              />
+            </div>
+            <span className="text-[11px] font-semibold text-foreground tabular-nums">{donePct}%</span>
+          </div>
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
+            <span className="inline-flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="tabular-nums">{doneCount}/{total}</span> completadas
+            </span>
+            {overdueCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-destructive font-medium">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span className="tabular-nums">{overdueCount}</span> vencidas
+              </span>
+            )}
+            {todayCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                <CalendarClock className="w-3.5 h-3.5" />
+                <span className="tabular-nums">{todayCount}</span> para hoy
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Estado vacío al filtrar: ninguna tarea coincide */}
       {filtersActive && visibleTasks.length === 0 && (
