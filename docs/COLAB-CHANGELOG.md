@@ -8,6 +8,28 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-14: Loop premium, Circuitos B41 a B43 (tres frentes en paralelo)
+
+Se trabajaron tres mejoras al mismo tiempo (agentes aislados por worktree, luego ensamblados en
+master con historia lineal y una sola verificación combinada de tsc y next build antes del deploy).
+
+- B41: avatares apilados para multiples asignados. La consulta del server component de la página
+  de proyecto ahora trae `task_assignees ( profile:profiles (...) )` y normaliza un arreglo
+  `assignees` por tarea. Nuevo componente `StackedAvatars` (hasta 3 círculos superpuestos con anillo
+  del color de la tarjeta más chip `+N`); cae al asignado único si no hay arreglo, sin regresiones.
+  Archivos: `page.tsx` del proyecto, `KanbanBoard.tsx`, `TaskRow.tsx`, `TaskListView.tsx`,
+  `StackedAvatars.tsx` (nuevo).
+- B42: vistas de Calendario y Carga de trabajo con el mismo lenguaje visual premium (barras de
+  progreso con gradiente, badges de fecha, lecturas de salud, estados hover).
+  Archivos: `TaskCalendarView.tsx`, `TaskWorkloadView.tsx`.
+- B43: tablero de sprints (Scrum) con el lenguaje visual premium.
+  Archivo: `ScrumWorkspace.tsx`.
+- Verificación combinada en verde (`tsc --noEmit` y `next build`, ruta de proyecto 20.8 kB, ruta de
+  scrum 22.9 kB). Deploy prod desde `C:\Users\GRIZZLY\Desktop\TSKR`, alias `wlo.vercel.app` (el
+  primer intento se colgó en Vercel, el reintento compiló en 1m).
+
+---
+
 ## 2026-07-13: Loop premium, Circuito B29 (foco visible global para navegación por teclado)
 
 Veintitresavo circuito. Auditoría encontró 0 usos de `focus-visible` y 34 archivos con `outline-none`
