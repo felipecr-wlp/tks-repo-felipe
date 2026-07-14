@@ -121,7 +121,7 @@ export function CustomFieldsSection({ taskId, projectId }: Props) {
         <ManageCustomFieldsModal
           projectId={projectId}
           onClose={() => setManaging(false)}
-          onChanged={() => { setManaging(false); load() }}
+          onChanged={load}
         />
       )}
     </div>

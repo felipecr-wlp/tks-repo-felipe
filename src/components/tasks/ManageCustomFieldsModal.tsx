@@ -96,6 +96,7 @@ export function ManageCustomFieldsModal({ projectId, onClose, onChanged }: Props
       toast.success('Campo creado')
       setName(''); setType('text'); setOptions([]); setOptLabel('')
       await load()
+      onChanged()
     } catch (e) {
       toast.error(e instanceof Error && e.message ? e.message : 'Error al crear el campo')
     } finally {
@@ -114,6 +115,7 @@ export function ManageCustomFieldsModal({ projectId, onClose, onChanged }: Props
         body: JSON.stringify({ name: trimmed }),
       })
       if (!res.ok) throw new Error()
+      onChanged()
     } catch {
       toast.error('Error al renombrar')
       load()
@@ -128,6 +130,7 @@ export function ManageCustomFieldsModal({ projectId, onClose, onChanged }: Props
       if (!res.ok) throw new Error()
       toast.success('Campo borrado')
       setFields(prev => prev.filter(f => f.id !== fieldId))
+      onChanged()
     } catch {
       toast.error('Error al borrar el campo')
     } finally {
