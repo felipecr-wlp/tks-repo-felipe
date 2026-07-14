@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { ChevronsUp, ChevronUp, Equal, ChevronDown, Minus, ListChecks, Repeat, type LucideIcon } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { LabelChips } from './TaskLabels'
+import { CustomFieldCells, type CustomFieldDef } from './CustomFieldCells'
 
 interface Status {
   id: string
@@ -50,6 +51,9 @@ interface TaskRowProps {
   selected?: boolean
   selectionActive?: boolean
   onToggleSelect?: (taskId: string, shiftKey: boolean) => void
+  // Campos personalizados del proyecto + valores de esta tarea (solo-lectura).
+  customFields?: CustomFieldDef[]
+  customValues?: Record<string, unknown>
 }
 
 const PRIORITY_ICONS: Record<string, { Icon: LucideIcon; label: string; color: string }> = {
@@ -70,6 +74,8 @@ export function TaskRow({
   selected = false,
   selectionActive = false,
   onToggleSelect,
+  customFields,
+  customValues,
 }: TaskRowProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [title, setTitle] = useState(task.title)
@@ -223,6 +229,11 @@ export function TaskRow({
       {/* ── Etiquetas ──────────────────────────────────────── */}
       {task.labels && task.labels.length > 0 && (
         <LabelChips labels={task.labels} className="flex-shrink-0 max-w-[40%]" />
+      )}
+
+      {/* ── Campos personalizados (solo-lectura, editables en el panel) ── */}
+      {customFields && customFields.length > 0 && (
+        <CustomFieldCells fields={customFields} values={customValues} />
       )}
 
       {/* ── Progreso de subtareas ──────────────────────────── */}

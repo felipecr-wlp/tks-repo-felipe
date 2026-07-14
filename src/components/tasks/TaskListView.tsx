@@ -14,6 +14,7 @@ import { TaskRow as TaskItem } from './TaskRow'
 import { CreateTaskInline } from './CreateTaskInline'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { BulkActionBar } from './BulkActionBar'
+import type { CustomFieldDef } from './CustomFieldCells'
 
 interface Status {
   id: string
@@ -71,10 +72,27 @@ export function TaskListView({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialTaskId ?? null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null)
+  // Campos personalizados del proyecto + sus valores por tarea (para la lista).
+  const [customFields, setCustomFields] = useState<CustomFieldDef[]>([])
+  const [customValues, setCustomValues] = useState<Record<string, Record<string, unknown>>>({})
 
   // Colaboración en vivo: sincroniza la lista cuando otro usuario cambia tareas.
   useRealtimeRefresh({ channel: `proj-list-${projectId}`, tables: ['tasks', 'task_statuses'] })
   useEffect(() => { setTasks(initialTasks) }, [initialTasks])
+
+  // Carga en bloque los campos personalizados y sus valores (una sola llamada).
+  useEffect(() => {
+    let alive = true
+    fetch(`/api/projects/${projectId}/custom-fields/values`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (!alive || !data) return
+        setCustomFields(data.fields ?? [])
+        setCustomValues(data.values ?? {})
+      })
+      .catch(() => { /* silencioso: la lista funciona sin campos personalizados */ })
+    return () => { alive = false }
+  }, [projectId])
 
   // Orden visual plano de las tareas (grupos por estado, luego sin estado) para
   // resolver la seleccion por rango con Shift.
@@ -253,6 +271,8 @@ export function TaskListView({
                     selected={selectedIds.has(task.id)}
                     selectionActive={selectedIds.size > 0}
                     onToggleSelect={toggleSelect}
+                    customFields={customFields}
+                    customValues={customValues[task.id]}
                   />
                 ))}
 
@@ -292,6 +312,8 @@ export function TaskListView({
                 selected={selectedIds.has(task.id)}
                 selectionActive={selectedIds.size > 0}
                 onToggleSelect={toggleSelect}
+                customFields={customFields}
+                customValues={customValues[task.id]}
               />
             ))}
           </div>
