@@ -30,6 +30,7 @@ import { SubtasksSection } from './SubtasksSection'
 import { DependenciesSection } from './DependenciesSection'
 import { AssigneesSection } from './AssigneesSection'
 import { WatchersSection } from './WatchersSection'
+import { CustomFieldsSection } from './CustomFieldsSection'
 import { TaskActivitySection } from './TaskActivitySection'
 import { TimeTrackingSection } from './TimeTrackingSection'
 import { TaskLabels } from './TaskLabels'
@@ -582,6 +583,9 @@ export function TaskDetailPanel({
                     </div>
                   )}
                 </MetaRow>
+
+                {/* Campos personalizados del proyecto (paridad ClickUp/Jira) */}
+                <CustomFieldsSection taskId={taskId} projectId={task.project_id} />
 
                 <div className="text-[11px] text-muted-foreground pt-3 border-t border-border space-y-0.5">
                   <p>Creado {timeAgo(task.created_at)}{task.created_by_profile ? ` por ${task.created_by_profile.display_name}` : ''}</p>
