@@ -166,16 +166,36 @@ export function GoalsView({
 
       {/* Rollup de progreso global */}
       {goals.length > 0 && (
-        <div className="mb-5 rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Progreso general</span>
-            <span className="text-sm font-semibold text-foreground">{rollup}%</span>
-          </div>
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
-            <div
-              className={cn('h-full rounded-full transition-all', rollup >= 100 ? 'bg-emerald-500' : 'bg-primary')}
-              style={{ width: `${rollup}%` }}
-            />
+        <div className="mb-5 rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-5">
+            <ProgressRing pct={rollup} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Progreso general</span>
+                <span className="text-xs text-muted-foreground">
+                  {tracked.length > 0 ? `${tracked.length} en seguimiento` : 'Todas logradas'}
+                </span>
+              </div>
+              <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn('h-full rounded-full transition-all duration-500', rollup >= 100 ? 'bg-emerald-500' : 'bg-gradient-to-r from-primary to-emerald-500')}
+                  style={{ width: `${rollup}%` }}
+                />
+              </div>
+              <div className="flex items-center gap-4 mt-3 flex-wrap">
+                {STATUS_OPTIONS.map(s => {
+                  const n = goals.filter(g => g.status === s).length
+                  if (n === 0) return null
+                  const sm = STATUS_META[s]
+                  return (
+                    <span key={s} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className={cn('w-2 h-2 rounded-full', sm.dot)} />
+                      {n} {sm.label.toLowerCase()}
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -408,6 +428,31 @@ function GoalForm({
   )
 }
 
+// ── Anillo de progreso (SVG) ───────────────────────────────────────────────────
+function ProgressRing({ pct, size = 56, stroke = 5 }: { pct: number; size?: number; stroke?: number }) {
+  const r = (size - stroke) / 2
+  const c = 2 * Math.PI * r
+  const clamped = Math.max(0, Math.min(100, pct))
+  const offset = c - (clamped / 100) * c
+  const done = clamped >= 100
+  return (
+    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-muted" />
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke}
+          strokeLinecap="round"
+          className={cn('transition-all duration-500', done ? 'stroke-emerald-500' : 'stroke-primary')}
+          style={{ strokeDasharray: c, strokeDashoffset: offset }}
+        />
+      </svg>
+      <span className="absolute inset-0 grid place-items-center text-sm font-semibold text-foreground">
+        {clamped}%
+      </span>
+    </div>
+  )
+}
+
 // ── Tarjeta de meta ────────────────────────────────────────────────────────────
 function GoalCard({
   goal, workspaceId, onEdit, onUpdated, onDeleted,
@@ -459,7 +504,7 @@ function GoalCard({
   const dueSoon = goal.due_date && new Date(goal.due_date) < new Date() && goal.status !== 'done'
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="group rounded-lg border border-border bg-card p-4 transition-all hover:border-primary/30 hover:shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-medium text-foreground truncate">{goal.title}</h3>
@@ -542,16 +587,31 @@ function GoalCard({
       <div className="flex items-center gap-3 mt-3 text-[11px] text-muted-foreground">
         {goal.owner && (
           <span className="inline-flex items-center gap-1">
-            <span className="w-4 h-4 rounded-full bg-primary/15 text-primary grid place-items-center text-[9px] font-medium">
-              {(goal.owner.display_name ?? '?').charAt(0).toUpperCase()}
-            </span>
+            {goal.owner.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={goal.owner.avatar_url}
+                alt={goal.owner.display_name ?? 'Responsable'}
+                className="w-4 h-4 rounded-full object-cover"
+              />
+            ) : (
+              <span className="w-4 h-4 rounded-full bg-primary/15 text-primary grid place-items-center text-[9px] font-medium">
+                {(goal.owner.display_name ?? '?').charAt(0).toUpperCase()}
+              </span>
+            )}
             {goal.owner.display_name ?? 'Sin nombre'}
           </span>
         )}
         {goal.due_date && (
-          <span className={cn('inline-flex items-center gap-1', dueSoon && 'text-destructive')}>
-            <Calendar className="w-3 h-3" /> {goal.due_date}
-          </span>
+          dueSoon ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive px-1.5 py-0.5 font-medium">
+              <Calendar className="w-3 h-3" /> {goal.due_date}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1">
+              <Calendar className="w-3 h-3" /> {goal.due_date}
+            </span>
+          )
         )}
         {goal.progress_mode === 'tasks' && (
           <button
