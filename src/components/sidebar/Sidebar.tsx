@@ -22,6 +22,7 @@ import {
   Inbox,
   CalendarDays,
   Timer,
+  Target,
   FileText,
   PenTool,
   Compass,
@@ -101,6 +102,7 @@ export function Sidebar({
     { href: `${base}/my-tasks`, icon: CheckSquare, label: 'Mis tareas' },
     { href: `${base}/inbox`, icon: Inbox, label: 'Bandeja' },
     { href: `${base}/calendar`, icon: CalendarDays, label: 'Calendario' },
+    { href: `${base}/goals`, icon: Target, label: 'Metas' },
     { href: `${base}/tracking`, icon: Timer, label: 'Tracking' },
   ]
 

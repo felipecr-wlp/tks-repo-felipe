@@ -28,6 +28,7 @@ import { RECURRENCE_RULES, RECURRENCE_LABELS } from '@/lib/recurrence'
 import { ChecklistSection } from './ChecklistSection'
 import { SubtasksSection } from './SubtasksSection'
 import { DependenciesSection } from './DependenciesSection'
+import { RelationsSection } from './RelationsSection'
 import { AssigneesSection } from './AssigneesSection'
 import { WatchersSection } from './WatchersSection'
 import { CustomFieldsSection } from './CustomFieldsSection'
@@ -458,6 +459,13 @@ export function TaskDetailPanel({
                   projectId={task.project_id}
                   onOpenTask={onOpenTask}
                   onBlockersChange={setOpenBlockers}
+                />
+
+                {/* Relaciones no bloqueantes (relacionada con / duplica a) */}
+                <RelationsSection
+                  taskId={taskId}
+                  projectId={task.project_id}
+                  onOpenTask={onOpenTask}
                 />
 
                 {/* Tiempo registrado */}

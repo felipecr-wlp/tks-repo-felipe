@@ -7,14 +7,14 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ListTodo, Search, X } from 'lucide-react'
+import { ListTodo, Search, X, Layers, Filter } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { TaskRow as TaskItem } from './TaskRow'
 import { CreateTaskInline } from './CreateTaskInline'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { BulkActionBar } from './BulkActionBar'
-import type { CustomFieldDef } from './CustomFieldCells'
+import { formatFieldValue, type CustomFieldDef } from './CustomFieldCells'
 
 interface Status {
   id: string
@@ -75,6 +75,11 @@ export function TaskListView({
   // Campos personalizados del proyecto + sus valores por tarea (para la lista).
   const [customFields, setCustomFields] = useState<CustomFieldDef[]>([])
   const [customValues, setCustomValues] = useState<Record<string, Record<string, unknown>>>({})
+  // Agrupar por: 'status' (default) o el id de un campo personalizado.
+  const [groupBy, setGroupBy] = useState<string>('status')
+  // Filtro por campo personalizado: id del campo + valor (interpretado por tipo).
+  const [filterFieldId, setFilterFieldId] = useState<string>('')
+  const [filterValue, setFilterValue] = useState<string>('')
 
   // Colaboración en vivo: sincroniza la lista cuando otro usuario cambia tareas.
   useRealtimeRefresh({ channel: `proj-list-${projectId}`, tables: ['tasks', 'task_statuses'] })
@@ -94,23 +99,39 @@ export function TaskListView({
     return () => { alive = false }
   }, [projectId])
 
-  // Orden visual plano de las tareas (grupos por estado, luego sin estado) para
-  // resolver la seleccion por rango con Shift.
-  const orderedIds = [
-    ...statuses.flatMap(s => tasks.filter(t => t.status?.id === s.id).map(t => t.id)),
-    ...tasks.filter(t => !t.status).map(t => t.id),
-  ]
+  const filterField = customFields.find(f => f.id === filterFieldId) ?? null
+
+  // ¿La tarea pasa el filtro por campo personalizado activo?
+  const passesCustomFilter = (taskId: string): boolean => {
+    if (!filterField || filterValue === '') return true
+    const v = customValues[taskId]?.[filterField.id]
+    switch (filterField.field_type) {
+      case 'select':
+        return v === filterValue
+      case 'multi_select':
+        return Array.isArray(v) && v.includes(filterValue)
+      case 'checkbox':
+        return filterValue === 'true' ? v === true : v !== true
+      default: {
+        const empty = v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
+        return filterValue === '__empty__' ? empty : !empty
+      }
+    }
+  }
+
+  // Orden visual plano (relleno tras construir los grupos) para el Shift-range.
+  const orderedIdsRef: string[] = []
 
   const toggleSelect = (taskId: string, shiftKey: boolean) => {
     setSelectedIds(prev => {
       const next = new Set(prev)
       if (shiftKey && lastSelectedId && lastSelectedId !== taskId) {
         // Seleccion por rango: marca todo entre la ultima y la actual.
-        const a = orderedIds.indexOf(lastSelectedId)
-        const b = orderedIds.indexOf(taskId)
+        const a = orderedIdsRef.indexOf(lastSelectedId)
+        const b = orderedIdsRef.indexOf(taskId)
         if (a !== -1 && b !== -1) {
           const [lo, hi] = a < b ? [a, b] : [b, a]
-          for (let i = lo; i <= hi; i++) next.add(orderedIds[i])
+          for (let i = lo; i <= hi; i++) next.add(orderedIdsRef[i])
         }
       } else if (next.has(taskId)) {
         next.delete(taskId)
@@ -129,25 +150,62 @@ export function TaskListView({
     router.refresh()
   }
 
-  // Búsqueda por título (client-side, refleja el patrón del tablero).
+  // Búsqueda por título (client-side) + filtro por campo personalizado.
   const q = search.trim().toLowerCase()
-  const matches = (t: Task) => q === '' || t.title.toLowerCase().includes(q)
+  const matches = (t: Task) => (q === '' || t.title.toLowerCase().includes(q)) && passesCustomFilter(t.id)
   const visibleTasks = tasks.filter(matches)
 
-  // Agrupar tareas por estado
-  const tasksByStatus = statuses.reduce<Record<string, Task[]>>((acc, status) => {
-    acc[status.id] = visibleTasks.filter(t => t.status?.id === status.id)
-    return acc
-  }, {})
+  // Modelo de grupos unificado: por estado (default) o por campo personalizado.
+  // status !== undefined solo en modo estado, para el punto de color + crear inline.
+  interface RenderGroup {
+    key: string
+    label: string
+    color: string | null
+    tasks: Task[]
+    status?: Status
+  }
+  const groupByField = groupBy !== 'status' ? customFields.find(f => f.id === groupBy) ?? null : null
 
-  // Tareas sin estado
-  const unassigned = visibleTasks.filter(t => !t.status)
+  let groups: RenderGroup[]
+  if (groupByField) {
+    // Agrupar por el valor formateado del campo (cada tarea en un bucket).
+    const buckets = new Map<string, RenderGroup>()
+    for (const t of visibleTasks) {
+      const fmt = formatFieldValue(groupByField, customValues[t.id]?.[groupByField.id])
+      const key = fmt ? `v:${fmt.text}` : '__none__'
+      const label = fmt ? fmt.text : 'Sin valor'
+      if (!buckets.has(key)) buckets.set(key, { key, label, color: fmt?.color ?? null, tasks: [] })
+      buckets.get(key)!.tasks.push(t)
+    }
+    // 'Sin valor' al final; el resto por orden de aparicion.
+    groups = [...buckets.values()].sort((a, b) => {
+      if (a.key === '__none__') return 1
+      if (b.key === '__none__') return -1
+      return 0
+    })
+  } else {
+    groups = statuses.map(s => ({
+      key: s.id,
+      label: s.name,
+      color: s.color,
+      tasks: visibleTasks.filter(t => t.status?.id === s.id),
+      status: s,
+    }))
+    const unassigned = visibleTasks.filter(t => !t.status)
+    if (unassigned.length > 0) {
+      groups.push({ key: '__unassigned__', label: 'Sin estado', color: null, tasks: unassigned })
+    }
+  }
 
-  const toggleGroup = (statusId: string) => {
+  // Rellena el orden plano segun el agrupado actual (para el Shift-range).
+  orderedIdsRef.length = 0
+  for (const g of groups) for (const t of g.tasks) orderedIdsRef.push(t.id)
+
+  const toggleGroup = (key: string) => {
     setCollapsedGroups(prev => {
       const next = new Set(prev)
-      if (next.has(statusId)) next.delete(statusId)
-      else next.add(statusId)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
   }
@@ -183,25 +241,97 @@ export function TaskListView({
           onOpenTask={setSelectedTaskId}
         />
       )}
-      {/* Búsqueda por título */}
+      {/* Barra de búsqueda + agrupar + filtrar */}
       {tasks.length > 0 && (
-        <div className="relative mb-4 max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); e.currentTarget.blur() } }}
-            placeholder="Buscar por título..."
-            className="w-full rounded-md border border-border bg-background pl-8 pr-7 py-1.5 text-sm outline-none focus:border-ring transition-colors"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch('')}
-              title="Limpiar búsqueda"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div className="relative max-w-xs flex-1 min-w-[180px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); e.currentTarget.blur() } }}
+              placeholder="Buscar por título..."
+              className="w-full rounded-md border border-border bg-background pl-8 pr-7 py-1.5 text-sm outline-none focus:border-ring transition-colors"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                title="Limpiar búsqueda"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {customFields.length > 0 && (
+            <>
+              {/* Agrupar por */}
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Layers className="w-3.5 h-3.5" />
+                <select
+                  value={groupBy}
+                  onChange={e => { setGroupBy(e.target.value); setCollapsedGroups(new Set()) }}
+                  className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-ring cursor-pointer"
+                >
+                  <option value="status">Agrupar: Estado</option>
+                  {customFields.map(f => (
+                    <option key={f.id} value={f.id}>Agrupar: {f.name}</option>
+                  ))}
+                </select>
+              </label>
+
+              {/* Filtrar por campo */}
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Filter className="w-3.5 h-3.5" />
+                <select
+                  value={filterFieldId}
+                  onChange={e => { setFilterFieldId(e.target.value); setFilterValue('') }}
+                  className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-ring cursor-pointer"
+                >
+                  <option value="">Filtrar: (ninguno)</option>
+                  {customFields.map(f => (
+                    <option key={f.id} value={f.id}>Filtrar: {f.name}</option>
+                  ))}
+                </select>
+              </label>
+
+              {/* Valor del filtro, adaptado al tipo del campo */}
+              {filterField && (
+                <select
+                  value={filterValue}
+                  onChange={e => setFilterValue(e.target.value)}
+                  className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-ring cursor-pointer"
+                >
+                  <option value="">(cualquiera)</option>
+                  {(filterField.field_type === 'select' || filterField.field_type === 'multi_select') &&
+                    filterField.options.map(o => (
+                      <option key={o.id} value={o.id}>{o.label}</option>
+                    ))}
+                  {filterField.field_type === 'checkbox' && (
+                    <>
+                      <option value="true">Si</option>
+                      <option value="false">No</option>
+                    </>
+                  )}
+                  {!['select', 'multi_select', 'checkbox'].includes(filterField.field_type) && (
+                    <>
+                      <option value="__has__">Con valor</option>
+                      <option value="__empty__">Sin valor</option>
+                    </>
+                  )}
+                </select>
+              )}
+
+              {(filterFieldId || groupBy !== 'status') && (
+                <button
+                  onClick={() => { setGroupBy('status'); setFilterFieldId(''); setFilterValue('') }}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors underline decoration-dotted"
+                >
+                  Restablecer
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
@@ -218,21 +348,20 @@ export function TaskListView({
         </div>
       )}
 
-      {/* Grupos de tareas por estado */}
-      {(q === '' || visibleTasks.length > 0) && statuses.map(status => {
-        const groupTasks = tasksByStatus[status.id] ?? []
-        const isCollapsed = collapsedGroups.has(status.id)
-        const isDoneCategory = status.category === 'done'
+      {/* Grupos de tareas (por estado o por campo personalizado) */}
+      {(q === '' || visibleTasks.length > 0) && groups.map(group => {
+        const isCollapsed = collapsedGroups.has(group.key)
+        const isDoneCategory = group.status?.category === 'done'
 
-        // Durante una búsqueda activa, ocultar grupos sin coincidencias.
-        if (q !== '' && groupTasks.length === 0) return null
+        // Durante una búsqueda/filtro activo, ocultar grupos sin coincidencias.
+        if ((q !== '' || filterFieldId) && group.tasks.length === 0) return null
 
         return (
-          <div key={status.id} className="mb-6">
+          <div key={group.key} className="mb-6">
             {/* Header del grupo */}
             <div className="flex items-center gap-2 mb-1.5 group/header">
               <button
-                onClick={() => toggleGroup(status.id)}
+                onClick={() => toggleGroup(group.key)}
                 className="flex items-center gap-2 text-sm font-medium hover:text-foreground transition-colors"
               >
                 <svg
@@ -246,11 +375,11 @@ export function TaskListView({
                 </svg>
                 <span
                   className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: status.color ?? '#94a3b8' }}
+                  style={{ backgroundColor: group.color ?? '#94a3b8' }}
                 />
-                <span className="text-foreground">{status.name}</span>
+                <span className="text-foreground">{group.label}</span>
                 <span className="text-xs text-muted-foreground font-normal">
-                  {groupTasks.length}
+                  {group.tasks.length}
                 </span>
               </button>
             </div>
@@ -258,7 +387,7 @@ export function TaskListView({
             {/* Tareas del grupo */}
             {!isCollapsed && (
               <div className="space-y-0.5">
-                {groupTasks.map(task => (
+                {group.tasks.map(task => (
                   <TaskItem
                     key={task.id}
                     task={task}
@@ -276,11 +405,11 @@ export function TaskListView({
                   />
                 ))}
 
-                {/* Crear tarea inline (solo para estados no-done, oculto en búsqueda) */}
-                {!isDoneCategory && q === '' && (
+                {/* Crear tarea inline: solo en modo estado, no-done, sin búsqueda/filtro */}
+                {group.status && !isDoneCategory && q === '' && !filterFieldId && (
                   <CreateTaskInline
                     projectId={projectId}
-                    statusId={status.id}
+                    statusId={group.status.id}
                     onCreated={handleTaskCreated}
                   />
                 )}
@@ -289,36 +418,6 @@ export function TaskListView({
           </div>
         )
       })}
-
-      {/* Tareas sin estado asignado */}
-      {unassigned.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/30" />
-            <span className="text-sm font-medium text-foreground">Sin estado</span>
-            <span className="text-xs text-muted-foreground">{unassigned.length}</span>
-          </div>
-          <div className="space-y-0.5">
-            {unassigned.map(task => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                statuses={statuses}
-                members={members}
-                currentUserId={currentUserId}
-                onUpdated={handleTaskUpdated}
-                onDeleted={handleTaskDeleted}
-                onOpen={() => setSelectedTaskId(task.id)}
-                selected={selectedIds.has(task.id)}
-                selectionActive={selectedIds.size > 0}
-                onToggleSelect={toggleSelect}
-                customFields={customFields}
-                customValues={customValues[task.id]}
-              />
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Mensaje vacío total */}
       {tasks.length === 0 && (

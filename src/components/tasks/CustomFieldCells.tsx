@@ -17,7 +17,7 @@ export interface CustomFieldDef {
   position: number
 }
 
-function formatValue(def: CustomFieldDef, value: unknown): { text: string; color?: string } | null {
+export function formatFieldValue(def: CustomFieldDef, value: unknown): { text: string; color?: string } | null {
   if (value === null || value === undefined || value === '') return null
 
   switch (def.field_type) {
@@ -61,7 +61,7 @@ export function CustomFieldCells({
   if (!fields.length || !values) return null
 
   const chips = fields
-    .map(def => ({ def, fmt: formatValue(def, values[def.id]) }))
+    .map(def => ({ def, fmt: formatFieldValue(def, values[def.id]) }))
     .filter(x => x.fmt !== null) as { def: CustomFieldDef; fmt: { text: string; color?: string } }[]
 
   if (!chips.length) return null
