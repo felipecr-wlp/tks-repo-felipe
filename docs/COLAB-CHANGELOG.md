@@ -8,6 +8,40 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-18: Confluence real, vertical Docs por departamentos (F0 a F3)
+
+Vertical de "Confluence de verdad" en el módulo de notas, segmentado por AREAS/DEPARTAMENTOS
+(distintos de los equipos operativos). Trabajado en worktree aislado `feat/docs-spaces` para no
+colisionar con el sistema visual global de Fable en master (R5); al final rebase limpio sobre la R5
+y merge fast-forward (los archivos solapados eran CRLF puro, 0 cambios reales). Cuatro fases:
+
+- F0: capa de datos espacios=departamentos. Tablas `spaces` y `space_members`, columna `space_id` en
+  `notes`, helpers `is_space_member(sp_id)`/`is_space_admin(sp_id)` (SECURITY DEFINER) y RLS aditiva.
+  Migración `20260718120000_spaces_departments.sql`, alineada al patrón RLS de prod. Tipos en
+  `src/lib/supabase/types.ts`. API `src/app/api/spaces/route.ts` (GET/POST).
+- F1: navegación por departamentos en el árbol del wiki. `NotesTreeSidebar.tsx` con switcher de
+  departamento; el layout de notas carga espacios visibles.
+- F2: editor enriquecido de notas (bloques wiki), gateado por `blocks="full"` para que las
+  descripciones de tareas sigan lean. Tablas redimensionables, callouts (info/warn/success/tip, sin
+  emoji por regla), toggles con `<details>` nativo (colapso lo maneja el navegador, sin JS extra).
+  Slash-menu filtrado por schema (solo muestra bloques disponibles). Estilos container-scoped en
+  `RichTextEditor.tsx` (NO en globals.css, para no chocar con Fable). Archivos: `RichTextEditor.tsx`,
+  `SlashMenu.tsx`, `extensions/Callout.ts` (nuevo), `extensions/Details.ts` (nuevo), `NoteEditor.tsx`.
+- F3: ocultamiento ESTRICTO de espacios restringidos por rol (confidencialidad por depto, ej. RH,
+  Legal). Como las policies PERMISSIVE se combinan con OR, la policy base `notes_select` dejaba ver
+  notas `workspace` aunque vivieran en un espacio restringido; se cierra con una policy RESTRICTIVE
+  `notes_restrict_space` (combina con AND). Sin escape por `created_by`: si te sacan del espacio dejas
+  de ver sus páginas aunque las escribieras (segmentación estricta, intencional). Como el app lee con
+  admin client (bypassa RLS), se replica el filtro en las 3 rutas app-layer: `notes/layout.tsx` (árbol),
+  `api/notes/route.ts` (lista) y `api/notes/[noteId]/route.ts` (detalle GET/PATCH/DELETE, cierra acceso
+  directo por URL). Migración `20260718130000_spaces_restricted_notes.sql`.
+- Ambas migraciones ya aplicadas a la DB de prod y verificadas. Verificación combinada en verde
+  (`tsc --noEmit`, `next lint`, `next build`; ruta `notes/[noteId]` 14.4 kB). Merge ff a master
+  (`4483f77..758f4c4`), push a `origin/master`, deploy prod por Vercel CLI con token, alias
+  `wlo.vercel.app`.
+
+---
+
 ## 2026-07-14: Loop premium, Circuitos B41 a B43 (tres frentes en paralelo)
 
 Se trabajaron tres mejoras al mismo tiempo (agentes aislados por worktree, luego ensamblados en
