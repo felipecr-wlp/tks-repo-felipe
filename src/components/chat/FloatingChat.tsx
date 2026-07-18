@@ -112,7 +112,7 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
     <>
       {/* Panel */}
       {open && active && (
-        <div className="fixed bottom-24 right-6 z-50 w-[min(380px,calc(100vw-3rem))] h-[min(560px,calc(100vh-8rem))] flex flex-col bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="fixed bottom-24 right-6 z-50 w-[min(380px,calc(100vw-3rem))] h-[min(560px,calc(100vh-8rem))] flex flex-col bg-card border border-border rounded-2xl shadow-overlay overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/40">
             <div className="flex items-center gap-2 min-w-0">
@@ -195,7 +195,7 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
       <button
         onClick={() => { setOpen(o => !o); setUnread(false) }}
         className={cn(
-          'fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all',
+          'fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-raised flex items-center justify-center transition-all',
           'bg-primary text-primary-foreground hover:scale-105 active:scale-95'
         )}
         title={open ? 'Cerrar chat' : 'Abrir chat de equipo'}

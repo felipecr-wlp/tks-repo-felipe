@@ -495,7 +495,7 @@ export function NotesTreeSidebar({
 
       <DragOverlay dropAnimation={null}>
         {draggingId && notesById.get(draggingId) && (
-          <div className="bg-popover border border-border shadow-lg rounded-md px-3 py-1.5 text-sm text-foreground flex items-center gap-2 max-w-xs">
+          <div className="bg-popover border border-border shadow-raised rounded-md px-3 py-1.5 text-sm text-foreground flex items-center gap-2 max-w-xs">
             <NoteIcon icon={notesById.get(draggingId)!.icon} size={14} className="flex-shrink-0 text-muted-foreground" />
             <span className="truncate">{notesById.get(draggingId)!.title || 'Sin título'}</span>
           </div>
@@ -821,7 +821,7 @@ function ContextMenu({
 
   return (
     <div
-      className="fixed z-[80] w-50 bg-popover border border-border rounded-lg shadow-2xl py-1 animate-in fade-in zoom-in-95 duration-100"
+      className="fixed z-[80] w-50 bg-popover border border-border rounded-lg shadow-raised py-1 animate-in fade-in zoom-in-95 duration-100"
       style={{ top: adjY, left: adjX, width: menuW }}
       onContextMenu={(e) => e.preventDefault()}
     >

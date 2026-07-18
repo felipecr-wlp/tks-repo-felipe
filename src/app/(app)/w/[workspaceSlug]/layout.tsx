@@ -7,6 +7,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
 import { FloatingChat } from '@/components/chat/FloatingChat'
+import { GlobalNewTaskModal } from '@/components/tasks/GlobalNewTaskModal'
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode
@@ -177,6 +178,9 @@ export default async function WorkspaceLayout({
     <div className="flex h-screen overflow-hidden flex-1 min-w-0 w-full">
       {/* Command palette global (Cmd+K) */}
       <CommandPalette workspaceSlug={workspace.slug} workspaceId={workspace.id} />
+
+      {/* Modal global "Nueva tarea" (atajo C) */}
+      <GlobalNewTaskModal teams={teams} />
 
       {/* Sidebar */}
       <Sidebar

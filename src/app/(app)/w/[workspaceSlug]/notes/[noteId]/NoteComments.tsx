@@ -225,7 +225,7 @@ function CommentComposer({ members, submitting, onSubmit }: {
         />
 
         {mentionQuery !== null && suggestions.length > 0 && (
-          <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 max-h-52 overflow-y-auto">
+          <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 max-h-52 overflow-y-auto">
             {suggestions.map(m => (
               <button
                 key={m.id}

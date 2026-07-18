@@ -95,7 +95,7 @@ export function NotesActionsBar({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-72 bg-popover border border-border rounded-lg shadow-2xl z-[100] overflow-hidden">
+        <div className="absolute top-full left-0 mt-1 w-72 bg-popover border border-border rounded-lg shadow-raised z-[100] overflow-hidden">
           <div className="px-3 py-2 border-b border-border">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Plantillas

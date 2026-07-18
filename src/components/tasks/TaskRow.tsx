@@ -411,7 +411,7 @@ function StatusMenu({
     <>
     <div className="fixed inset-0 z-40" onClick={onClose} />
     <div
-      className="absolute top-6 left-0 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 w-44"
+      className="absolute top-6 left-0 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 w-44"
       onMouseLeave={onClose}
     >
       {statuses.map(s => (
@@ -451,7 +451,7 @@ function PriorityMenu({
     <>
     <div className="fixed inset-0 z-40" onClick={onClose} />
     <div
-      className="absolute top-6 right-0 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 w-40"
+      className="absolute top-6 right-0 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 w-40"
       onMouseLeave={onClose}
     >
       {priorities.map(p => {
@@ -492,7 +492,7 @@ function AssignMenu({
     <>
     <div className="fixed inset-0 z-40" onClick={onClose} />
     <div
-      className="absolute top-7 right-0 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 w-44"
+      className="absolute top-7 right-0 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 w-44"
       onMouseLeave={onClose}
     >
       <button

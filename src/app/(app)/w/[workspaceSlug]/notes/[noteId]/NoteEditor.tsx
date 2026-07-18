@@ -248,7 +248,7 @@ export function NoteEditor({
             </button>
             {showVisMenu && (
               <div
-                className="absolute top-7 right-0 z-50 w-56 bg-popover border border-border rounded-lg shadow-lg py-1"
+                className="absolute top-7 right-0 z-50 w-56 bg-popover border border-border rounded-lg shadow-raised py-1"
                 onMouseLeave={() => setShowVisMenu(false)}
               >
                 {VISIBILITY_OPTIONS.map(opt => (
@@ -318,7 +318,7 @@ export function NoteEditor({
           </button>
           {showIconPicker && (
             <div
-              className="absolute top-full left-0 mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg p-2 grid grid-cols-5 gap-1 w-56"
+              className="absolute top-full left-0 mt-1 z-50 bg-popover border border-border rounded-lg shadow-raised p-2 grid grid-cols-5 gap-1 w-56"
               onMouseLeave={() => setShowIconPicker(false)}
             >
               {NOTE_ICONS.map(opt => (

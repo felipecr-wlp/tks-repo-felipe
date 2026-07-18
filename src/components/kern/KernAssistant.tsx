@@ -58,7 +58,7 @@ export function KernAssistant() {
         aria-label={open ? 'Cerrar KERN' : 'Abrir KERN'}
         className={cn(
           'fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center',
-          'rounded-full shadow-lg shadow-black/20 transition-all duration-200',
+          'rounded-full shadow-raised transition-all duration-200',
           'bg-[#0F0F10] text-[#FED500] hover:scale-105 active:scale-95',
           'ring-1 ring-[#FED500]/30',
           open && 'opacity-0 pointer-events-none scale-90'
@@ -72,7 +72,7 @@ export function KernAssistant() {
         className={cn(
           'fixed bottom-5 right-5 z-50 flex flex-col overflow-hidden',
           'w-[min(380px,calc(100vw-2.5rem))] h-[min(580px,calc(100vh-2.5rem))]',
-          'rounded-2xl border border-border bg-card shadow-2xl shadow-black/25',
+          'rounded-2xl border border-border bg-card shadow-overlay',
           'origin-bottom-right transition-all duration-200',
           open ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
         )}

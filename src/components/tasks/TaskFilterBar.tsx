@@ -214,7 +214,7 @@ export function TaskFilterBar({
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-20" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 mt-1 w-56 max-h-72 overflow-auto rounded-md border border-border bg-background shadow-lg z-30 py-1">
+              <div className="absolute right-0 mt-1 w-56 max-h-72 overflow-auto rounded-md border border-border bg-background shadow-raised z-30 py-1">
                 {views.length === 0 ? (
                   <p className="px-3 py-2 text-xs text-muted-foreground">No hay vistas guardadas todavia.</p>
                 ) : (

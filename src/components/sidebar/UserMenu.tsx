@@ -85,7 +85,7 @@ export function UserMenu({ profile, collapsed }: UserMenuProps) {
       {/* Dropdown */}
       {open && (
         <div className={cn(
-          'absolute bg-popover border border-border rounded-lg shadow-lg z-50 py-1 w-48',
+          'absolute bg-popover border border-border rounded-lg shadow-raised z-50 py-1 w-48',
           collapsed ? 'left-full bottom-0 ml-2' : 'bottom-full left-0 mb-1'
         )}>
           <div className="px-3 py-2 border-b border-border">

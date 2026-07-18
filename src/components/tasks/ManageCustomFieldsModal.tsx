@@ -147,7 +147,7 @@ export function ManageCustomFieldsModal({ projectId, onClose, onChanged }: Props
       <div
         role="dialog"
         aria-modal="true"
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[61] w-[92vw] max-w-lg max-h-[85vh] overflow-auto rounded-xl border border-border bg-popover shadow-2xl"
+        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[61] w-[92vw] max-w-lg max-h-[85vh] overflow-auto rounded-xl border border-border bg-popover shadow-overlay"
       >
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border sticky top-0 bg-popover">
           <h2 className="text-sm font-semibold">Campos personalizados del proyecto</h2>

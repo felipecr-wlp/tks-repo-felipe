@@ -88,7 +88,7 @@ export function BulkActionBar({
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
-      <div className="flex items-center gap-1 rounded-xl border border-border bg-popover shadow-2xl shadow-black/20 px-2 py-1.5">
+      <div className="flex items-center gap-1 rounded-xl border border-border bg-popover shadow-overlay px-2 py-1.5">
         {/* Contador */}
         <span className="flex items-center gap-1.5 px-2 text-xs font-medium text-foreground">
           <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
@@ -240,7 +240,7 @@ function FloatMenu({ children, onClose }: { children: React.ReactNode; onClose: 
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-50 w-48 max-h-64 overflow-auto rounded-lg border border-border bg-popover shadow-xl py-1">
+      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-50 w-48 max-h-64 overflow-auto rounded-lg border border-border bg-popover shadow-raised py-1">
         {children}
       </div>
     </>

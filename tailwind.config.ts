@@ -53,6 +53,16 @@ const config: Config = {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      // Escala de elevación con intención (3 capas):
+      // soft = tarjetas en reposo, raised = elementos flotantes ligeros
+      // (burbujas, dropdowns), overlay = modales y paneles sobre la app.
+      boxShadow: {
+        soft: '0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 4px 0 rgb(0 0 0 / 0.05)',
+        raised:
+          '0 2px 8px -2px rgb(0 0 0 / 0.10), 0 6px 20px -6px rgb(0 0 0 / 0.10)',
+        overlay:
+          '0 2px 8px -2px rgb(0 0 0 / 0.12), 0 12px 40px -8px rgb(0 0 0 / 0.28)',
+      },
       transitionTimingFunction: {
         panel: 'cubic-bezier(0.32, 0.72, 0, 1)',
       },

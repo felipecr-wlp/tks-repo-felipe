@@ -229,7 +229,7 @@ export default async function WorkspaceDashboardPage({
               myTasks.map(task => (
                 <div
                   key={task.id}
-                  className="group flex items-center gap-3 bg-card border border-border rounded-lg px-3 py-2.5 hover:border-primary/30 transition-colors"
+                  className="group flex items-center gap-3 bg-card border border-border rounded-lg px-3 py-2.5 shadow-soft hover:border-primary/30 transition-colors"
                 >
                   <span
                     className="flex-shrink-0 w-2 h-2 rounded-full"
@@ -271,7 +271,7 @@ export default async function WorkspaceDashboardPage({
             </h2>
           </div>
 
-          <div className="space-y-0 bg-card border border-border rounded-xl px-3 py-1">
+          <div className="space-y-0 bg-card border border-border rounded-xl px-3 py-1 shadow-soft">
             {!recentActivity || recentActivity.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-8">
                 Sin actividad aún
@@ -327,7 +327,7 @@ export default async function WorkspaceDashboardPage({
             {teams!.map(team => (
               <div
                 key={team.id}
-                className="group relative flex flex-col bg-card border border-border rounded-xl p-4 hover:border-primary/50 hover:shadow-sm transition-all"
+                className="group relative flex flex-col bg-card border border-border rounded-xl p-4 shadow-soft hover:border-primary/50 hover:shadow-raised transition-all"
               >
                 <Link
                   href={`/w/${params.workspaceSlug}/t/${team.slug}`}

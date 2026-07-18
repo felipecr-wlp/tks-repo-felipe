@@ -226,7 +226,7 @@ export function SlashMenu({ editor }: SlashMenuProps) {
   let runningIndex = 0
   return (
     <div
-      className="fixed z-[80] w-72 max-h-80 overflow-y-auto bg-popover border border-border rounded-lg shadow-2xl py-1 animate-in fade-in slide-in-from-top-1 duration-100"
+      className="fixed z-[80] w-72 max-h-80 overflow-y-auto bg-popover border border-border rounded-lg shadow-raised py-1 animate-in fade-in slide-in-from-top-1 duration-100"
       style={{ top: position.top, left: position.left }}
       onMouseDown={(e) => e.preventDefault()}  // evitar perder focus del editor
     >

@@ -16,6 +16,7 @@ import { WorkspaceSwitcher } from './WorkspaceSwitcher'
 import { NavSection } from './NavSection'
 import { UserMenu } from './UserMenu'
 import { useCommandPalette } from '@/stores/command-palette'
+import { useNewTask } from '@/stores/new-task'
 import {
   Home,
   CheckSquare,
@@ -153,6 +154,9 @@ export function Sidebar({
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 space-y-0.5 px-2">
         {/* Búsqueda global (Cmd+K) */}
         <SearchButton collapsed={collapsed} />
+
+        {/* Nueva tarea global (atajo C) */}
+        <NewTaskButton collapsed={collapsed} />
 
         {/* Acceso directo: lo mas usado arriba y sin grupo */}
         <div className="space-y-0.5 pt-1">
@@ -331,6 +335,35 @@ function NavItem({
       <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">{icon}</span>
       {!collapsed && <span className="truncate">{label}</span>}
     </Link>
+  )
+}
+
+// ── Nueva tarea con shortcut C ──────────────────────────────────────────────
+function NewTaskButton({ collapsed }: { collapsed: boolean }) {
+  const setOpen = useNewTask(s => s.setOpen)
+
+  return (
+    <button
+      onClick={() => setOpen(true)}
+      title={collapsed ? 'Nueva tarea (C)' : undefined}
+      className={cn(
+        'w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors',
+        'text-muted-foreground hover:bg-accent hover:text-foreground',
+        collapsed && 'justify-center'
+      )}
+    >
+      <span className="flex-shrink-0 flex items-center justify-center w-4 h-4">
+        <Plus size={16} />
+      </span>
+      {!collapsed && (
+        <>
+          <span className="flex-1 text-left">Nueva tarea</span>
+          <kbd className="text-[10px] font-mono px-1.5 py-0.5 bg-muted text-muted-foreground rounded border border-border">
+            C
+          </kbd>
+        </>
+      )}
+    </button>
   )
 }
 

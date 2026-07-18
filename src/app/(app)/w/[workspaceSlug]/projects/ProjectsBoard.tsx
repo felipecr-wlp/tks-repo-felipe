@@ -399,7 +399,7 @@ function CreateProjectModal({ workspaceSlug, onClose }: { workspaceSlug: string;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-card border border-border rounded-xl shadow-lg w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-card border border-border rounded-xl shadow-overlay w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-1">
           <span className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
             <FolderKanban className="w-4 h-4 text-primary" />
@@ -484,7 +484,7 @@ function ReviewModal({ project, onClose }: { project: MyProject; onClose: () => 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-card border border-border rounded-xl shadow-lg w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-card border border-border rounded-xl shadow-overlay w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3 mb-1">
           <div className="flex items-center gap-2">
             <span className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">

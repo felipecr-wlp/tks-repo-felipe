@@ -280,7 +280,7 @@ export function ProjectChat({ projectId, currentUserId, members, initialMessages
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setPickerFor(null)} />
                         <div className={cn(
-                          'absolute z-50 bottom-full mb-1 flex items-center gap-0.5 p-1 rounded-full border border-border bg-popover shadow-lg',
+                          'absolute z-50 bottom-full mb-1 flex items-center gap-0.5 p-1 rounded-full border border-border bg-popover shadow-raised',
                           mine ? 'right-0' : 'left-0'
                         )}>
                           {EMOJIS.map(e => (

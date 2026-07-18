@@ -107,7 +107,7 @@ export function ConfirmDialogHost() {
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-message"
-        className="fixed left-1/2 top-1/2 z-[91] w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-popover p-5 shadow-2xl"
+        className="fixed left-1/2 top-1/2 z-[91] w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-popover p-5 shadow-overlay animate-in fade-in zoom-in-95 duration-150"
       >
         <div className="flex items-start gap-3">
           {destructive && (

@@ -349,7 +349,7 @@ export function TaskDetailPanel({
         aria-modal="true"
         aria-label="Detalle de la tarea"
         className={cn(
-          'fixed right-0 top-0 h-full w-full max-w-3xl bg-background border-l border-border shadow-2xl z-50 flex flex-col overflow-hidden',
+          'fixed right-0 top-0 h-full w-full max-w-3xl bg-background border-l border-border shadow-overlay z-50 flex flex-col overflow-hidden',
           'transition-transform duration-300 ease-panel',
           mounted ? 'translate-x-0' : 'translate-x-full'
         )}
@@ -915,7 +915,7 @@ function CommentComposer({ members, submitting, onSubmit }: {
 
         {/* Autocompletar de menciones */}
         {mentionQuery !== null && suggestions.length > 0 && (
-          <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 max-h-52 overflow-y-auto">
+          <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 max-h-52 overflow-y-auto">
             {suggestions.map(m => (
               <button
                 key={m.id}
@@ -973,7 +973,7 @@ function StatusSelect({ current, statuses, onSelect }: {
         <span className="truncate">{current?.name ?? 'Sin estado'}</span>
       </button>
       {open && (
-        <div className="absolute top-6 left-0 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 w-44" onMouseLeave={() => setOpen(false)}>
+        <div className="absolute top-6 left-0 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 w-44" onMouseLeave={() => setOpen(false)}>
           {statuses.map(s => (
             <button key={s.id} onClick={() => { onSelect(s.id); setOpen(false) }}
               className={cn('flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent transition-colors', s.id === current?.id ? 'font-medium text-foreground' : 'text-muted-foreground')}>
@@ -997,7 +997,7 @@ function PrioritySelect({ current, onSelect }: { current: string; onSelect: (p: 
         <span>{info.label}</span>
       </button>
       {open && (
-        <div className="absolute top-6 left-0 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 w-40" onMouseLeave={() => setOpen(false)}>
+        <div className="absolute top-6 left-0 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 w-40" onMouseLeave={() => setOpen(false)}>
           {PRIORITIES.map(p => (
             <button key={p.value} onClick={() => { onSelect(p.value); setOpen(false) }}
               className={cn('flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent transition-colors', p.value === current ? 'font-medium text-foreground' : 'text-muted-foreground')}>

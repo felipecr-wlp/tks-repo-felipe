@@ -65,7 +65,7 @@ export function WorkspaceSwitcher({
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-56 bg-popover border border-border rounded-lg shadow-lg z-50 py-1">
+        <div className="absolute top-full left-0 mt-1 w-56 bg-popover border border-border rounded-lg shadow-raised z-50 py-1">
           <div className="px-3 py-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               {orgName}

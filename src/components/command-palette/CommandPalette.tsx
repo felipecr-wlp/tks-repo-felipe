@@ -275,7 +275,7 @@ export function CommandPalette({ workspaceSlug, workspaceId }: CommandPalettePro
       {/* Modal */}
       <div className="fixed inset-0 z-[70] flex items-start justify-center p-4 pt-[12vh] pointer-events-none">
         <div
-          className="w-full max-w-xl bg-popover border border-border rounded-xl shadow-2xl pointer-events-auto overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-4 duration-200"
+          className="w-full max-w-xl bg-popover border border-border rounded-xl shadow-overlay pointer-events-auto overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-4 duration-200"
           style={{ maxHeight: '70vh' }}
         >
           {/* Input */}

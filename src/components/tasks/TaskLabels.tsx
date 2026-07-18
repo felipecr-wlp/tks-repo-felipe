@@ -221,7 +221,7 @@ function LabelPicker({
       </button>
 
       {open && (
-        <div className="absolute top-6 left-0 z-50 w-56 rounded-lg border border-border bg-popover shadow-lg p-2">
+        <div className="absolute top-6 left-0 z-50 w-56 rounded-lg border border-border bg-popover shadow-raised p-2">
           <input
             value={name}
             onChange={e => setName(e.target.value)}
