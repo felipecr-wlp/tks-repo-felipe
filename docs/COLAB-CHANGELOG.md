@@ -8,6 +8,44 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-18: Pase de UX transversal (modales, robustez, responsive, accesibilidad)
+
+Ronda de mejoras de experiencia sobre toda la app, a peticion de Ali ("mejora todo:
+pantallas, funciones, flujos"). Trabajado en el worktree `feat/docs-spaces`, merge ff a master.
+
+- **Modales propios en vez de `prompt()` nativo:** nuevo `PromptDialog.tsx` (patron imperativo
+  gemelo de `ConfirmDialog`: estado a nivel modulo + `useSyncExternalStore` + `PromptDialogHost`
+  montado en el root layout). Reemplaza los 3 `window.prompt` que quedaban: crear departamento
+  (`NotesTreeSidebar`), guardar vista (`TaskFilterBar`) y el enlace del editor (luego migrado a
+  popover, ver abajo). Soporta validacion inline, autofocus+select, Enter/Escape.
+- **Blindaje del embed de pizarra:** nuevo `ErrorBoundary.tsx` reutilizable (class component);
+  el `<Excalidraw>` del NodeView va envuelto para que un fallo del lienzo NO tumbe el editor
+  entero de la nota (muestra fallback "No se pudo cargar" + Reintentar).
+- **Estados de carga y vacio:** skeleton propio al abrir una nota (`notes/[noteId]/loading.tsx`);
+  empty state con icono + CTA "Crear primera pagina" en el arbol de notas; empty state en el
+  hilo de comentarios ("Aun no hay comentarios. Inicia la conversacion.").
+- **Errores silenciosos con toast:** carga de adjuntos (`TaskDetailPanel`) y otros fetch
+  secundarios ahora avisan con `toast.error` en vez de fallar en silencio.
+- **Responsive:** toolbar del editor con `flex-wrap` (envuelve en pantallas angostas en vez de
+  desbordar); arbol de notas `w-52` en movil / `sm:w-64` en desktop. (Kanban ya era responsive
+  con `w-[82vw] max-w-[18rem] sm:w-72` + `overflow-x-auto snap-x`.)
+- **Accesibilidad:** columnas Kanban como `<section aria-label>` (nombre + conteo), puntos de
+  color decorativos `aria-hidden`, botones colapsar/expandir con `aria-label`; input de titulo
+  del modal de nueva tarea con `aria-label`.
+- **Enlace del editor como popover inline** (en vez de modal bloqueante): input de URL, preview
+  clicable que abre en pestana nueva, boton Quitar y normalizacion de URL (antepone `https://`
+  si falta protocolo; respeta `mailto:`/`tel:`/rutas). Componente `LinkButton` en `RichTextEditor`.
+- Archivos nuevos: `PromptDialog.tsx`, `ErrorBoundary.tsx`, `notes/[noteId]/loading.tsx`.
+  Editados: `layout.tsx`, `NotesTreeSidebar.tsx`, `RichTextEditor.tsx`, `TaskFilterBar.tsx`,
+  `WhiteboardNodeView.tsx`, `TaskDetailPanel.tsx`, `GoalsView.tsx`, `KanbanBoard.tsx`,
+  `GlobalNewTaskModal.tsx`, `NoteComments.tsx`. Sin dependencias nuevas.
+- Verificacion en verde en cada tanda (`tsc --noEmit`, `next lint`, `next build`). Commits
+  `4f9de0f`, `5be9e5e`, `fe43189`, `d92e4f8`; merge ff a master; deploys prod por Vercel CLI con
+  token: `dpl_3n6TxojCuGPDuqkDXh7iBJ8YcV56`, `dpl_8MYfJaNngzYi9LxGY1iHv6XtEBau`,
+  `dpl_9AhH7SMnaJjwm1vENUjaFTCjJsKt`, `dpl_6TFJF5nK6VtppToB8Vm5GunKiSb8` (alias `wlo.vercel.app`).
+
+---
+
 ## 2026-07-18: Pizarra Excalidraw incrustada en notas (F4)
 
 Robustecimiento estilo Confluence del editor de notas: ahora una nota puede llevar una PIZARRA
