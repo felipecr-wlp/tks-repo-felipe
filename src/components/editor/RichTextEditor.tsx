@@ -18,15 +18,14 @@ import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableHeader from '@tiptap/extension-table-header'
 import TableCell from '@tiptap/extension-table-cell'
-import { useCallback, useEffect, useRef } from 'react'
-import { Table2, Megaphone, ListCollapse, PenTool } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Table2, Megaphone, ListCollapse, PenTool, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { SlashMenu } from './SlashMenu'
 import { Callout } from './extensions/Callout'
 import { Details, DetailsSummary, DetailsContent } from './extensions/Details'
 import { WhiteboardEmbed } from './extensions/WhiteboardEmbed'
-import { promptDialog } from '@/components/PromptDialog'
 
 interface RichTextEditorProps {
   /** Contenido inicial (HTML o JSON serializado como string) */
@@ -231,6 +230,113 @@ export function RichTextEditor({
 // ── Toolbar minimalista ─────────────────────────────────────────────────────
 type Editor = ReturnType<typeof useEditor>
 
+// Normaliza una URL: si no trae protocolo (ni es mailto/tel/ruta relativa),
+// antepone https:// para que el enlace no quede roto.
+function normalizeHref(raw: string): string {
+  const t = raw.trim()
+  if (!t) return ''
+  return /^(https?:|mailto:|tel:|\/|#)/i.test(t) ? t : `https://${t}`
+}
+
+// Boton de enlace con popover inline: input de URL + preview clicable, en vez de
+// un modal bloqueante. Enter aplica, Escape/click-fuera cierra.
+function LinkButton({ editor, className }: { editor: NonNullable<Editor>; className: string }) {
+  const [open, setOpen] = useState(false)
+  const [url, setUrl] = useState('')
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    requestAnimationFrame(() => inputRef.current?.select())
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  const toggle = () => {
+    if (open) { setOpen(false); return }
+    setUrl((editor.getAttributes('link').href as string) ?? '')
+    setOpen(true)
+  }
+
+  const apply = () => {
+    const href = normalizeHref(url)
+    if (href === '') editor.chain().focus().unsetLink().run()
+    else editor.chain().focus().extendMarkRange('link').setLink({ href }).run()
+    setOpen(false)
+  }
+
+  const remove = () => {
+    editor.chain().focus().unsetLink().run()
+    setOpen(false)
+  }
+
+  const preview = normalizeHref(url)
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={toggle}
+        className={className}
+        title="Agregar enlace"
+        aria-label="Agregar o editar enlace"
+        aria-expanded={open}
+      >
+        <LinkIcon />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-50 w-72 rounded-lg border border-border bg-popover p-2.5 shadow-overlay">
+          <input
+            ref={inputRef}
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); apply() }
+              if (e.key === 'Escape') { e.preventDefault(); setOpen(false) }
+            }}
+            placeholder="https://..."
+            aria-label="URL del enlace"
+            className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          {preview && (
+            <a
+              href={preview}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1.5 flex items-center gap-1 text-[11px] text-primary hover:underline"
+            >
+              <ExternalLink className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">{preview}</span>
+            </a>
+          )}
+          <div className="mt-2 flex items-center justify-end gap-1.5">
+            {editor.isActive('link') && (
+              <button
+                type="button"
+                onClick={remove}
+                className="rounded-md px-2 py-1 text-xs font-medium text-destructive hover:bg-accent transition-colors"
+              >
+                Quitar
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={apply}
+              className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              Aplicar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Toolbar({
   editor,
   full = false,
@@ -324,27 +430,8 @@ function Toolbar({
       >
         <CodeIcon />
       </button>
-      <button
-        type="button"
-        onClick={async () => {
-          const current = editor.getAttributes('link').href ?? ''
-          const url = await promptDialog({
-            title: 'Enlace',
-            label: 'URL del enlace (vacío para quitarlo)',
-            placeholder: 'https://...',
-            defaultValue: current,
-            confirmLabel: 'Aplicar',
-            allowEmpty: true,
-          })
-          if (url === null) return
-          if (url === '') editor.chain().focus().unsetLink().run()
-          else editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
-        }}
-        className={btn(editor.isActive('link'))}
-        title="Agregar enlace"
-      >
-        <LinkIcon />
-      </button>
+      <LinkButton editor={editor} className={btn(editor.isActive('link'))} />
+
 
       {full && (
         <>

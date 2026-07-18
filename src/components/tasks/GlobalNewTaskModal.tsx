@@ -181,6 +181,7 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="Título de la tarea"
+              aria-label="Título de la tarea"
               maxLength={500}
               className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />

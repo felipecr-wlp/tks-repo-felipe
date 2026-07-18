@@ -249,9 +249,10 @@ function KanbanColumn({
         <button
           onClick={onToggleCollapse}
           title={`Expandir ${status.name}`}
+          aria-label={`Expandir columna ${status.name}, ${tasks.length} tareas`}
           className="flex flex-col items-center gap-2 h-full bg-muted/30 hover:bg-muted/50 rounded-xl py-3 transition-colors"
         >
-          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: dot }} />
+          <span aria-hidden="true" className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: dot }} />
           <span className="text-xs font-medium text-muted-foreground tabular-nums">{tasks.length}</span>
           <span
             className="text-xs font-medium text-foreground mt-1 whitespace-nowrap"
@@ -266,19 +267,23 @@ function KanbanColumn({
   }
 
   return (
-    <div className="flex flex-col w-[82vw] max-w-[18rem] sm:w-72 flex-shrink-0 snap-start">
+    <section
+      aria-label={`${status.name}, ${tasks.length} tareas`}
+      className="flex flex-col w-[82vw] max-w-[18rem] sm:w-72 flex-shrink-0 snap-start"
+    >
       {/* Header */}
       <div className="flex items-center gap-2 px-1 mb-3 group/head">
-        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: dot }} />
+        <span aria-hidden="true" className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: dot }} />
         <span className={cn('text-sm font-semibold', isDone ? 'text-muted-foreground' : 'text-foreground')}>
           {status.name}
         </span>
-        <span className="text-[11px] font-medium text-muted-foreground bg-muted rounded-full px-1.5 py-0.5 tabular-nums min-w-[20px] text-center">
+        <span aria-hidden="true" className="text-[11px] font-medium text-muted-foreground bg-muted rounded-full px-1.5 py-0.5 tabular-nums min-w-[20px] text-center">
           {tasks.length}
         </span>
         <button
           onClick={onToggleCollapse}
           title={`Colapsar ${status.name}`}
+          aria-label={`Colapsar columna ${status.name}`}
           className="ml-auto p-1 rounded text-muted-foreground opacity-0 group-hover/head:opacity-100 hover:bg-muted hover:text-foreground transition-all"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
@@ -323,7 +328,7 @@ function KanbanColumn({
           </div>
         )}
       </div>
-    </div>
+    </section>
   )
 }
 

@@ -147,12 +147,16 @@ export function NoteComments({ noteId, currentUserId }: NoteCommentsProps) {
         <p className="text-sm text-muted-foreground py-2">Cargando comentarios…</p>
       ) : (
         <>
-          {comments.length > 0 && (
+          {comments.length > 0 ? (
             <div className="space-y-4 mb-4">
               {comments.map(c => (
                 <CommentItem key={c.id} comment={c} currentUserId={currentUserId} />
               ))}
             </div>
+          ) : (
+            <p className="text-sm text-muted-foreground mb-4">
+              Aún no hay comentarios. Inicia la conversación.
+            </p>
           )}
           <CommentComposer members={members} submitting={submitting} onSubmit={handleAdd} />
           <MentionHint members={members} />
