@@ -1,5 +1,7 @@
 /**
- * Dashboard del workspace, overview con teams, mis tareas y actividad.
+ * Inicio del workspace, flujo estilo Linear: Mi día primero, luego mis
+ * tareas y actividad, equipos al final. Sin accesos duplicados del sidebar
+ * ni chat embebido (el chat vive en la burbuja flotante y en cada equipo).
  * Empty state premium cuando aún no hay teams para guiar al usuario.
  */
 import Link from 'next/link'
@@ -7,9 +9,8 @@ import Image from 'next/image'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { formatDate, timeAgo, getInitials } from '@/lib/utils'
-import { CheckSquare, CalendarDays, Compass, FileText, LayoutDashboard } from 'lucide-react'
+import { LayoutDashboard } from 'lucide-react'
 import MiDia from './MiDia'
-import { DashboardTeamChat, type TeamChatData } from './DashboardTeamChat'
 
 interface WorkspaceDashboardProps {
   params: { workspaceSlug: string }
@@ -87,33 +88,6 @@ export default async function WorkspaceDashboardPage({
     .eq('team_members.profile_id', user.id)
     .order('name', { ascending: true }) as { data: TeamCard[] | null; error: unknown }
 
-  // ── Chat de equipo para el panel general: miembros + mensajes por equipo ──
-  type MemberRow = { profile: { id: string; display_name: string; avatar_url: string | null } | null }
-  type ChatMsgRow = { id: string; author_id: string; body: string; created_at: string }
-  const chatTeams: TeamChatData[] = await Promise.all(
-    (teams ?? []).map(async (t): Promise<TeamChatData> => {
-      const [{ data: memberRows }, { data: msgRows }] = await Promise.all([
-        admin
-          .from('team_members')
-          .select('profile:profiles ( id, display_name, avatar_url )')
-          .eq('team_id', t.id) as unknown as Promise<{ data: MemberRow[] | null }>,
-        admin
-          .from('messages')
-          .select('id, author_id, body, created_at')
-          .eq('team_id', t.id)
-          .order('created_at', { ascending: false })
-          .limit(30) as unknown as Promise<{ data: ChatMsgRow[] | null }>,
-      ])
-      return {
-        id: t.id,
-        name: t.name,
-        slug: t.slug,
-        members: (memberRows ?? []).filter(m => m.profile != null).map(m => m.profile!),
-        initialMessages: (msgRows ?? []).slice().reverse(),
-      }
-    })
-  )
-
   // ── Mis tareas pendientes ─────────────────────────────────────────────────
   const { data: myTasks } = await admin
     .from('tasks')
@@ -156,13 +130,6 @@ export default async function WorkspaceDashboardPage({
 
   const hasTeams = teams && teams.length > 0
 
-  const quickActions = [
-    { href: `/w/${params.workspaceSlug}/my-tasks`, label: 'Mis tareas', Icon: CheckSquare },
-    { href: `/w/${params.workspaceSlug}/calendar`, label: 'Calendario', Icon: CalendarDays },
-    { href: `/w/${params.workspaceSlug}/projects`, label: 'Proyectos', Icon: Compass },
-    { href: `/w/${params.workspaceSlug}/notes`, label: 'Notas', Icon: FileText },
-  ]
-
   return (
     <div className="px-8 py-8 max-w-6xl mx-auto">
       {/* ── Header ───────────────────────────────────────────────────────── */}
@@ -194,24 +161,6 @@ export default async function WorkspaceDashboardPage({
             Hola, {userName}
           </h1>
         </div>
-      </div>
-
-      {/* ── Accesos rápidos ──────────────────────────────────────────────── */}
-      <div className="mb-10 grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {quickActions.map(({ href, label, Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className="group flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-3.5 hover:border-primary/50 hover:shadow-sm transition-all"
-          >
-            <span className="flex-shrink-0 w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary/15 transition-colors">
-              <Icon size={18} />
-            </span>
-            <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-              {label}
-            </span>
-          </Link>
-        ))}
       </div>
 
       {/* ── Empty state cuando no hay teams ──────────────────────────────── */}
@@ -246,72 +195,13 @@ export default async function WorkspaceDashboardPage({
         </div>
       )}
 
-      {/* ── Teams del workspace ──────────────────────────────────────────── */}
-      {hasTeams && (
-        <section className="mb-10">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Equipos
-            </h2>
-            <Link
-              href={`/w/${params.workspaceSlug}/teams/new`}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              + Nuevo equipo
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {teams!.map(team => (
-              <div
-                key={team.id}
-                className="group relative flex flex-col bg-card border border-border rounded-xl p-4 hover:border-primary/50 hover:shadow-sm transition-all"
-              >
-                <Link
-                  href={`/w/${params.workspaceSlug}/t/${team.slug}`}
-                  className="flex items-start gap-3"
-                >
-                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">
-                    {team.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                      {team.name}
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {team.projects?.length ?? 0}{' '}
-                      {(team.projects?.length ?? 0) === 1 ? 'proyecto' : 'proyectos'}
-                    </p>
-                  </div>
-                </Link>
-                <Link
-                  href={`/w/${params.workspaceSlug}/t/${team.slug}/scrum`}
-                  className="mt-3 inline-flex items-center gap-1.5 self-start px-2.5 py-1.5 text-xs font-medium border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  <LayoutDashboard className="w-3.5 h-3.5" />
-                  Tablero
-                </Link>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── Chat de equipo (panel general) ───────────────────────────────── */}
-      {hasTeams && (
-        <DashboardTeamChat
-          workspaceSlug={params.workspaceSlug}
-          currentUserId={user.id}
-          teams={chatTeams}
-        />
-      )}
-
       {/* ── Mi día (agenda de Google Calendar) ───────────────────────────── */}
       <div className="mb-10">
         <MiDia calendarPath={`/w/${params.workspaceSlug}/calendar`} />
       </div>
 
       {/* ── Mis tareas + Actividad ───────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-10">
         {/* Mis tareas, 3 cols */}
         <section className="lg:col-span-3">
           <div className="flex items-center justify-between mb-3">
@@ -418,6 +308,57 @@ export default async function WorkspaceDashboardPage({
           </div>
         </section>
       </div>
+
+      {/* ── Teams del workspace ──────────────────────────────────────────── */}
+      {hasTeams && (
+        <section className="mb-10">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Equipos
+            </h2>
+            <Link
+              href={`/w/${params.workspaceSlug}/teams/new`}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              + Nuevo equipo
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {teams!.map(team => (
+              <div
+                key={team.id}
+                className="group relative flex flex-col bg-card border border-border rounded-xl p-4 hover:border-primary/50 hover:shadow-sm transition-all"
+              >
+                <Link
+                  href={`/w/${params.workspaceSlug}/t/${team.slug}`}
+                  className="flex items-start gap-3"
+                >
+                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">
+                    {team.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                      {team.name}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {team.projects?.length ?? 0}{' '}
+                      {(team.projects?.length ?? 0) === 1 ? 'proyecto' : 'proyectos'}
+                    </p>
+                  </div>
+                </Link>
+                <Link
+                  href={`/w/${params.workspaceSlug}/t/${team.slug}/scrum`}
+                  className="mt-3 inline-flex items-center gap-1.5 self-start px-2.5 py-1.5 text-xs font-medium border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  Tablero
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
     </div>
   )
 }

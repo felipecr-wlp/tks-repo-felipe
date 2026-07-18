@@ -279,72 +279,47 @@ export default async function ProjectPage({
 
   return (
     <div className="flex flex-col h-full">
-      {/* ── Header del proyecto ───────────────────────────────────── */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background sticky top-0 z-10">
-        <div>
-          <p className="text-xs text-muted-foreground mb-0.5">
-            <Link href={`/w/${params.workspaceSlug}`} className="hover:text-foreground transition-colors">
+      {/* ── Header del proyecto: breadcrumb compacto + tabs (estilo Linear) ── */}
+      <div className="px-6 pt-3 border-b border-border bg-background sticky top-0 z-10">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 min-w-0 text-sm">
+            <Link
+              href={`/w/${params.workspaceSlug}`}
+              className="text-muted-foreground hover:text-foreground transition-colors truncate max-w-[140px]"
+            >
               {project.workspace?.name}
             </Link>
-            {' / '}
+            <span className="text-muted-foreground/40">/</span>
             <Link
               href={`/w/${params.workspaceSlug}/t/${params.teamSlug}`}
-              className="hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors truncate max-w-[140px]"
             >
               {project.team?.name}
             </Link>
-          </p>
-          <div className="flex items-center gap-2">
-            <ProjectIcon icon={project.icon} size={18} className="text-muted-foreground" />
-            <h1 className="text-lg font-semibold text-foreground">{project.name}</h1>
+            <span className="text-muted-foreground/40">/</span>
+            <ProjectIcon icon={project.icon} size={16} className="text-muted-foreground flex-shrink-0" />
+            <h1 className="text-sm font-semibold text-foreground truncate">{project.name}</h1>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          {/* Acceso a Planeación del equipo (Scrum/Kanban) */}
+          {/* Acceso discreto a Planeación del equipo (Scrum/Kanban) */}
           <Link
             href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/scrum`}
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-foreground text-xs font-medium rounded-md hover:bg-muted transition-colors"
+            className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition-colors"
             title="Planeación del equipo (Scrum/Kanban)"
           >
             <LayoutDashboard className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Planeación del equipo</span>
+            <span className="hidden sm:inline">Planeación</span>
           </Link>
-
-          {/* View switcher */}
-          <div className="flex items-center gap-0.5 bg-muted rounded-md p-0.5">
-            <ViewToggle
-              href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/p/${params.projectSlug}?view=list`}
-              active={currentView === 'list'}
-              label="Lista"
-              icon={<ListIcon />}
-            />
-            <ViewToggle
-              href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/p/${params.projectSlug}?view=board`}
-              active={currentView === 'board'}
-              label="Tablero"
-              icon={<BoardIcon />}
-            />
-            <ViewToggle
-              href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/p/${params.projectSlug}?view=calendar`}
-              active={currentView === 'calendar'}
-              label="Calendario"
-              icon={<CalIcon />}
-            />
-            <ViewToggle
-              href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/p/${params.projectSlug}?view=workload`}
-              active={currentView === 'workload'}
-              label="Carga"
-              icon={<LoadIcon />}
-            />
-            <ViewToggle
-              href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/p/${params.projectSlug}?view=chat`}
-              active={currentView === 'chat'}
-              label="Chat"
-              icon={<ChatIcon />}
-            />
-          </div>
         </div>
+
+        {/* Tabs de vista con subrayado */}
+        <nav className="flex items-center gap-1 mt-1" aria-label="Vistas del proyecto">
+          <ViewToggle href={`${basePath}?view=list`} active={currentView === 'list'} label="Lista" icon={<ListIcon />} />
+          <ViewToggle href={`${basePath}?view=board`} active={currentView === 'board'} label="Tablero" icon={<BoardIcon />} />
+          <ViewToggle href={`${basePath}?view=calendar`} active={currentView === 'calendar'} label="Calendario" icon={<CalIcon />} />
+          <ViewToggle href={`${basePath}?view=workload`} active={currentView === 'workload'} label="Carga" icon={<LoadIcon />} />
+          <ViewToggle href={`${basePath}?view=chat`} active={currentView === 'chat'} label="Chat" icon={<ChatIcon />} />
+        </nav>
       </div>
 
       {/* ── Barra de filtros + vistas guardadas (no aplica al chat) ──── */}
@@ -432,10 +407,11 @@ function ViewToggle({
     <Link
       href={href}
       title={label}
-      className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+      aria-current={active ? 'page' : undefined}
+      className={`flex items-center gap-1.5 px-3 py-2 text-xs border-b-2 transition-colors ${
         active
-          ? 'bg-background text-foreground shadow-sm'
-          : 'text-muted-foreground hover:text-foreground'
+          ? 'border-primary text-foreground font-medium'
+          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
       }`}
     >
       {icon}

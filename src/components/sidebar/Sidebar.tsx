@@ -3,9 +3,9 @@
 /**
  * Sidebar principal de la app, workspaces, navegacion jerarquizada y equipos.
  *
- * Nav agrupado en secciones (patron Linear/Height): "Principal", "Espacio" y
- * "Equipos". Cada grupo es colapsable y su estado se persiste en localStorage
- * (`wlo-sidebar-groups`). Se mantiene el modo colapsado (w-14) con tooltips.
+ * Acomodo estilo Linear: Bandeja y Mis tareas arriba sin grupo, luego
+ * "Workspace", "Marketplace" y "Equipos" colapsables persistidos en
+ * localStorage (`wlo-sidebar-groups-v2`). Modo colapsado (w-14) con tooltips.
  * Iconos de lucide-react para consistencia visual (sin emojis).
  */
 import Link from 'next/link'
@@ -53,9 +53,9 @@ interface SidebarProps {
   allWorkspaces: Array<{ id: string; name: string; slug: string }>
 }
 
-type GroupKey = 'principal' | 'espacio' | 'equipos'
+type GroupKey = 'workspace' | 'marketplace' | 'equipos'
 
-const STORAGE_KEY = 'wlo-sidebar-groups'
+const STORAGE_KEY = 'wlo-sidebar-groups-v2'
 
 export function Sidebar({
   workspaceSlug,
@@ -71,8 +71,8 @@ export function Sidebar({
 
   // Estado de grupos colapsables, persistido en localStorage.
   const [openGroups, setOpenGroups] = useState<Record<GroupKey, boolean>>({
-    principal: true,
-    espacio: true,
+    workspace: true,
+    marketplace: true,
     equipos: true,
   })
 
@@ -97,18 +97,22 @@ export function Sidebar({
     })
   }
 
-  const principalItems: Array<{ href: string; icon: LucideIcon; label: string; exact?: boolean }> = [
-    { href: base, icon: Home, label: 'Inicio', exact: true },
-    { href: `${base}/my-tasks`, icon: CheckSquare, label: 'Mis tareas' },
+  // Lo mas usado va arriba, sin grupo: acceso en un clic (patron Linear).
+  const topItems: Array<{ href: string; icon: LucideIcon; label: string; exact?: boolean }> = [
     { href: `${base}/inbox`, icon: Inbox, label: 'Bandeja' },
+    { href: `${base}/my-tasks`, icon: CheckSquare, label: 'Mis tareas' },
+  ]
+
+  const workspaceItems: Array<{ href: string; icon: LucideIcon; label: string; exact?: boolean }> = [
+    { href: base, icon: Home, label: 'Inicio', exact: true },
     { href: `${base}/calendar`, icon: CalendarDays, label: 'Calendario' },
+    { href: `${base}/notes`, icon: FileText, label: 'Notas' },
+    { href: `${base}/whiteboards`, icon: PenTool, label: 'Pizarras' },
     { href: `${base}/goals`, icon: Target, label: 'Metas' },
     { href: `${base}/tracking`, icon: Timer, label: 'Tracking' },
   ]
 
-  const espacioItems: Array<{ href: string; icon: LucideIcon; label: string; exact?: boolean }> = [
-    { href: `${base}/notes`, icon: FileText, label: 'Notas' },
-    { href: `${base}/whiteboards`, icon: PenTool, label: 'Pizarras' },
+  const marketplaceItems: Array<{ href: string; icon: LucideIcon; label: string; exact?: boolean }> = [
     { href: `${base}/projects`, icon: Compass, label: 'Oportunidades' },
     { href: `${base}/cv/${userProfile.id}`, icon: IdCard, label: 'Mi CV', exact: true },
   ]
@@ -150,14 +154,28 @@ export function Sidebar({
         {/* Búsqueda global (Cmd+K) */}
         <SearchButton collapsed={collapsed} />
 
-        {/* Grupo: Principal */}
+        {/* Acceso directo: lo mas usado arriba y sin grupo */}
+        <div className="space-y-0.5 pt-1">
+          {topItems.map((item) => (
+            <NavItem
+              key={item.href}
+              href={item.href}
+              icon={<item.icon size={16} />}
+              label={item.label}
+              collapsed={collapsed}
+              active={isActive(item.href, item.exact)}
+            />
+          ))}
+        </div>
+
+        {/* Grupo: Workspace */}
         <NavGroup
-          label="Principal"
+          label="Workspace"
           collapsed={collapsed}
-          open={openGroups.principal}
-          onToggle={() => toggleGroup('principal')}
+          open={openGroups.workspace}
+          onToggle={() => toggleGroup('workspace')}
         >
-          {principalItems.map((item) => (
+          {workspaceItems.map((item) => (
             <NavItem
               key={item.href}
               href={item.href}
@@ -169,14 +187,14 @@ export function Sidebar({
           ))}
         </NavGroup>
 
-        {/* Grupo: Espacio */}
+        {/* Grupo: Marketplace */}
         <NavGroup
-          label="Espacio"
+          label="Marketplace"
           collapsed={collapsed}
-          open={openGroups.espacio}
-          onToggle={() => toggleGroup('espacio')}
+          open={openGroups.marketplace}
+          onToggle={() => toggleGroup('marketplace')}
         >
-          {espacioItems.map((item) => (
+          {marketplaceItems.map((item) => (
             <NavItem
               key={item.href}
               href={item.href}
