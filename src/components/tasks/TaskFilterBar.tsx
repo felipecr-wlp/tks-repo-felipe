@@ -11,6 +11,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { promptDialog } from '@/components/PromptDialog'
 import { Filter, Bookmark, BookmarkPlus, X, Trash2, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -80,8 +81,13 @@ export function TaskFilterBar({
   }
 
   async function saveCurrent() {
-    const name = window.prompt('Nombre de la vista guardada')
-    if (!name || !name.trim()) return
+    const name = await promptDialog({
+      title: 'Guardar vista',
+      label: 'Nombre de la vista guardada',
+      placeholder: 'Ej. Mis pendientes urgentes',
+      confirmLabel: 'Guardar',
+    })
+    if (!name) return
     setSaving(true)
     try {
       const res = await fetch(`/api/projects/${projectId}/saved-views`, {

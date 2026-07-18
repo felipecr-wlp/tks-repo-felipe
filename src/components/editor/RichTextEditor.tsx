@@ -26,6 +26,7 @@ import { SlashMenu } from './SlashMenu'
 import { Callout } from './extensions/Callout'
 import { Details, DetailsSummary, DetailsContent } from './extensions/Details'
 import { WhiteboardEmbed } from './extensions/WhiteboardEmbed'
+import { promptDialog } from '@/components/PromptDialog'
 
 interface RichTextEditorProps {
   /** Contenido inicial (HTML o JSON serializado como string) */
@@ -325,8 +326,16 @@ function Toolbar({
       </button>
       <button
         type="button"
-        onClick={() => {
-          const url = window.prompt('URL del enlace:', editor.getAttributes('link').href ?? '')
+        onClick={async () => {
+          const current = editor.getAttributes('link').href ?? ''
+          const url = await promptDialog({
+            title: 'Enlace',
+            label: 'URL del enlace (vacío para quitarlo)',
+            placeholder: 'https://...',
+            defaultValue: current,
+            confirmLabel: 'Aplicar',
+            allowEmpty: true,
+          })
           if (url === null) return
           if (url === '') editor.chain().focus().unsetLink().run()
           else editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()

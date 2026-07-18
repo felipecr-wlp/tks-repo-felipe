@@ -14,9 +14,10 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Pencil, Plus, Copy, Star, Trash2, Building2, ChevronDown, Hash, Lock } from 'lucide-react'
+import { Pencil, Plus, Copy, Star, Trash2, Building2, ChevronDown, Hash, Lock, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
+import { promptDialog } from '@/components/PromptDialog'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
@@ -290,7 +291,13 @@ export function NotesTreeSidebar({
   async function createSpace() {
     if (creatingSpace) return
     setSpaceMenuOpen(false)
-    const name = window.prompt('Nombre del departamento (RH, Marketing, Legal...)')?.trim()
+    const name = await promptDialog({
+      title: 'Nuevo departamento',
+      label: 'Nombre del departamento (RH, Marketing, Legal...)',
+      placeholder: 'Ej. Marketing',
+      confirmLabel: 'Crear',
+      validate: (v) => (v.length > 60 ? 'Máximo 60 caracteres.' : null),
+    })
     if (!name) return
     setCreatingSpace(true)
     try {
@@ -598,11 +605,23 @@ export function NotesTreeSidebar({
 
           <Section title={activeSpace ? activeSpace.name : activeFilter === 'general' ? 'General' : 'Todas las páginas'}>
             {tree.length === 0 ? (
-              <p className="px-3 py-4 text-xs text-muted-foreground/70 italic">
-                {activeSpace
-                  ? `Sin páginas en ${activeSpace.name}. Clic + arriba para empezar.`
-                  : 'Sin notas. Clic + arriba para empezar.'}
-              </p>
+              <div className="flex flex-col items-center gap-2 px-3 py-6 text-center">
+                <div className="rounded-full bg-muted p-2.5">
+                  <FileText className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {activeSpace
+                    ? `Sin páginas en ${activeSpace.name} todavía.`
+                    : 'Sin notas todavía.'}
+                </p>
+                <button
+                  onClick={() => createSubpage(null)}
+                  disabled={creatingUnder !== null}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Crear primera página
+                </button>
+              </div>
             ) : (
               tree.map(node => (
                 <TreeNode
