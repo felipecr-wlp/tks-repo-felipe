@@ -8,6 +8,46 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-18: Panel de administracion + guia de inicio + pase estetico (F6/F7/F8)
+
+Tres frentes pedidos por Ali sobre las capturas del dashboard: (a) "NO tenemos panel de
+configuraciones nivel admin", (b) "un modulo introductor / una guia al inicio", (c) "mejora
+el front, se ve muy simple" + "permiteme visualizar equipos y organizarlos". Modelo de roles
+estandar: owner/admin gestionan, member consume. Trabajado en worktree `feat/docs-spaces`.
+
+- **F6a, capa API de administracion** (helper + 6 rutas nuevas, todas gateadas a admin del
+  workspace via `isWorkspaceAdminById`, con `applyRateLimit(req,'api')`, zod `.strict()` y
+  escrituras `(admin as any)` al estilo de la casa):
+  - `src/lib/workspace-admin.ts` (nuevo): `getWorkspaceAdminContext(slug)` (para páginas server) e
+    `isWorkspaceAdminById(workspaceId)` (para rutas /api). isAdmin = `org_role` owner/admin O
+    `workspace_members.role` owner/admin.
+  - `api/workspaces/[workspaceId]/route.ts` (PATCH nombre/descripcion).
+  - `api/workspaces/[workspaceId]/members/route.ts` (GET) + `.../members/[memberId]/route.ts`
+    (PATCH rol, DELETE). Guardas: no dejar el workspace sin owners; no quitarte a ti mismo.
+  - `api/teams/[teamId]/route.ts`: agregado DELETE (gate por workspace admin). Nuevos
+    `.../members/route.ts` (GET+POST, valida que el objetivo sea miembro del workspace) y
+    `.../members/[profileId]/route.ts` (PATCH rol admin/member, DELETE; no dejar el equipo sin admins).
+  - `api/spaces/[spaceId]/route.ts` (PATCH nombre/desc/icono/color/restringido/archivado + DELETE) +
+    `.../members/route.ts` (GET+POST) + `.../members/[profileId]/route.ts` (DELETE; no dejar sin owner).
+- **F6b, hub de Configuración** en `w/[workspaceSlug]/settings/`: `layout.tsx` (gatea a admins,
+  redirige a los demas, provee contenedor + `SettingsNav` de pestañas), y paneles General
+  (editar nombre/descripcion), Miembros (cambiar rol/quitar con avatares), Equipos (renombrar,
+  metodologia scrum/kanban, eliminar, contador de miembros), Departamentos (crear, renombrar,
+  restringir/hacer publico, archivar/restaurar, eliminar). Invitaciones re-encajada dentro del
+  layout. Cableado: `UserMenu` recibe `workspaceSlug` y "Configuración" ahora apunta a
+  `/w/[slug]/settings` (antes iba a `/settings`, un 404).
+- **F7, guia de inicio** (`OnboardingGuide.tsx`): checklist de primeros pasos (crear equipo,
+  crear proyecto, invitar, primera nota) que se marca solo con datos reales (conteos de teams,
+  projects, workspace_members>1, notes), barra de progreso, tour colapsable "¿Cómo funciona WLO?"
+  con enlaces a cada area, cerrable y reabrible (pastilla), estado en localStorage por workspace.
+  Reemplaza el viejo empty-state de "crea tu primer equipo" en el dashboard.
+- **F8, pase estetico:** empty-states del dashboard con iconos lucide (Mis tareas, Actividad);
+  el board Kanban se dejo intacto para no arriesgar el drag-and-drop.
+- **Gates:** type-check + lint + build en verde. Sin deps nuevas. Sin migraciones (usa tablas
+  existentes: workspaces, workspace_members, teams, team_members, spaces, space_members, profiles).
+
+---
+
 ## 2026-07-18: Plantillas WLP + sembrado de departamentos (Confluence real)
 
 Especializacion del Confluence de WLO al negocio de WLP (pavimento), a peticion de Ali.

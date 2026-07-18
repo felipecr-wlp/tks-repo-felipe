@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import { isWorkspaceAdminById } from '@/lib/workspace-admin'
 
 const patchSchema = z.object({
   name:        z.string().min(2).max(80).trim().optional(),
@@ -56,4 +57,33 @@ export async function PATCH(
 
   if (error || !updated) return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 })
   return NextResponse.json(updated)
+}
+
+/**
+ * DELETE /api/teams/[teamId], Elimina el equipo. Solo admins del workspace.
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { teamId: string } }
+) {
+  const limited = await applyRateLimit(request, 'api')
+  if (limited) return limited
+
+  const admin = createAdminClient()
+
+  const { data: team } = (await admin
+    .from('teams')
+    .select('workspace_id')
+    .eq('id', params.teamId)
+    .maybeSingle()) as { data: { workspace_id: string } | null; error: unknown }
+  if (!team) return NextResponse.json({ error: 'Equipo no encontrado' }, { status: 404 })
+
+  const auth = await isWorkspaceAdminById(team.workspace_id)
+  if (!auth) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+  if (!auth.isAdmin) return NextResponse.json({ error: 'Se requiere rol admin' }, { status: 403 })
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (admin as any).from('teams').delete().eq('id', params.teamId)
+  if (error) return NextResponse.json({ error: 'Error al eliminar el equipo' }, { status: 500 })
+  return NextResponse.json({ ok: true })
 }

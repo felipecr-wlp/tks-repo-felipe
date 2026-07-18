@@ -19,9 +19,10 @@ interface UserMenuProps {
     email: string
   }
   collapsed: boolean
+  workspaceSlug: string
 }
 
-export function UserMenu({ profile, collapsed }: UserMenuProps) {
+export function UserMenu({ profile, collapsed, workspaceSlug }: UserMenuProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const router = useRouter()
@@ -105,7 +106,7 @@ export function UserMenu({ profile, collapsed }: UserMenuProps) {
           </button>
 
           <button
-            onClick={() => { setOpen(false); router.push('/settings') }}
+            onClick={() => { setOpen(false); router.push(`/w/${workspaceSlug}/settings`) }}
             className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">

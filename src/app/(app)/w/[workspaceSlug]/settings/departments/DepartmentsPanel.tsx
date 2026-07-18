@@ -1,0 +1,290 @@
+'use client'
+
+/**
+ * DepartmentsPanel, crea, renombra, restringe, archiva y elimina departamentos (spaces).
+ */
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ConfirmDialog'
+import { FolderKanban, Plus, Pencil, Check, X, Lock, Globe } from 'lucide-react'
+
+interface Space {
+  id: string
+  name: string
+  description: string | null
+  is_restricted: boolean
+  is_archived: boolean
+  member_count: number
+}
+
+export function DepartmentsPanel({
+  workspaceId,
+  initialSpaces,
+}: {
+  workspaceId: string
+  initialSpaces: Space[]
+}) {
+  const router = useRouter()
+  const [spaces, setSpaces] = useState<Space[]>(initialSpaces)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [draftName, setDraftName] = useState('')
+  const [busy, setBusy] = useState<string | null>(null)
+
+  // Crear
+  const [showCreate, setShowCreate] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newRestricted, setNewRestricted] = useState(false)
+  const [creating, setCreating] = useState(false)
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    if (newName.trim().length < 1) return
+    setCreating(true)
+    try {
+      const res = await fetch('/api/spaces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspace_id: workspaceId,
+          name: newName.trim(),
+          is_restricted: newRestricted,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Error al crear')
+      toast.success('Departamento creado')
+      setSpaces((prev) =>
+        [...prev, { id: data.id, name: data.name, description: data.description ?? null, is_restricted: data.is_restricted, is_archived: data.is_archived, member_count: 1 }].sort((a, b) =>
+          a.name.localeCompare(b.name)
+        )
+      )
+      setNewName('')
+      setNewRestricted(false)
+      setShowCreate(false)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  async function patch(s: Space, body: Record<string, unknown>, okMsg: string) {
+    setBusy(s.id)
+    try {
+      const res = await fetch(`/api/spaces/${s.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Error al guardar')
+      toast.success(okMsg)
+      setSpaces((prev) => prev.map((x) => (x.id === s.id ? { ...x, ...body } as Space : x)))
+      setEditing(null)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  function saveName(s: Space) {
+    const name = draftName.trim()
+    if (name.length < 1) {
+      toast.error('El nombre no puede estar vacío')
+      return
+    }
+    patch(s, { name }, 'Departamento actualizado')
+  }
+
+  async function removeSpace(s: Space) {
+    if (
+      !(await confirmDialog({
+        message: `¿Eliminar el departamento ${s.name}? Las notas asociadas quedarán sin departamento.`,
+        destructive: true,
+        confirmLabel: 'Eliminar',
+      }))
+    )
+      return
+    setBusy(s.id)
+    try {
+      const res = await fetch(`/api/spaces/${s.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error ?? 'Error al eliminar')
+      }
+      toast.success('Departamento eliminado')
+      setSpaces((prev) => prev.filter((x) => x.id !== s.id))
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {spaces.length} {spaces.length === 1 ? 'departamento' : 'departamentos'}. Los restringidos solo son visibles para sus miembros y admins.
+        </p>
+        {!showCreate && (
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90"
+          >
+            <Plus size={14} /> Nuevo
+          </button>
+        )}
+      </div>
+
+      {showCreate && (
+        <form onSubmit={handleCreate} className="bg-card border border-border rounded-xl p-5 space-y-3">
+          <h3 className="text-sm font-semibold text-foreground">Nuevo departamento</h3>
+          <input
+            autoFocus
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            maxLength={120}
+            placeholder="Ej. Marketing, Finanzas, Legal"
+            className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background"
+            disabled={creating}
+          />
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={newRestricted}
+              onChange={(e) => setNewRestricted(e.target.checked)}
+              disabled={creating}
+              className="rounded border-input"
+            />
+            Restringido (visible solo para sus miembros y admins)
+          </label>
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="submit"
+              disabled={creating || newName.trim().length < 1}
+              className="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90 disabled:opacity-50"
+            >
+              {creating ? 'Creando...' : 'Crear'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreate(false)}
+              disabled={creating}
+              className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
+
+      {spaces.length === 0 ? (
+        <div className="bg-muted/30 border border-border rounded-lg px-4 py-10 text-center">
+          <FolderKanban className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Aún no hay departamentos.</p>
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
+          {spaces.map((s) => (
+            <div key={s.id} className="px-4 py-3 flex items-center gap-3">
+              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                <FolderKanban size={15} className="text-muted-foreground" />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                {editing === s.id ? (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      autoFocus
+                      value={draftName}
+                      onChange={(e) => setDraftName(e.target.value)}
+                      maxLength={120}
+                      className="flex-1 px-2 py-1 text-sm border border-input rounded-md bg-background"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveName(s)
+                        if (e.key === 'Escape') setEditing(null)
+                      }}
+                    />
+                    <button
+                      onClick={() => saveName(s)}
+                      disabled={busy === s.id}
+                      className="p-1 text-primary hover:bg-accent rounded"
+                      title="Guardar"
+                    >
+                      <Check size={15} />
+                    </button>
+                    <button
+                      onClick={() => setEditing(null)}
+                      className="p-1 text-muted-foreground hover:bg-accent rounded"
+                      title="Cancelar"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium text-foreground truncate">{s.name}</p>
+                    <button
+                      onClick={() => { setEditing(s.id); setDraftName(s.name) }}
+                      className="p-0.5 text-muted-foreground hover:text-foreground"
+                      title="Renombrar"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    {s.is_restricted ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                        <Lock className="h-2.5 w-2.5" /> Restringido
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                        <Globe className="h-2.5 w-2.5" /> Público
+                      </span>
+                    )}
+                    {s.is_archived && (
+                      <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                        Archivado
+                      </span>
+                    )}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {s.member_count} {s.member_count === 1 ? 'miembro' : 'miembros'}
+                </p>
+              </div>
+
+              <button
+                onClick={() => patch(s, { is_restricted: !s.is_restricted }, s.is_restricted ? 'Ahora es público' : 'Ahora es restringido')}
+                disabled={busy === s.id}
+                className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground rounded disabled:opacity-40"
+              >
+                {s.is_restricted ? 'Hacer público' : 'Restringir'}
+              </button>
+
+              <button
+                onClick={() => patch(s, { is_archived: !s.is_archived }, s.is_archived ? 'Restaurado' : 'Archivado')}
+                disabled={busy === s.id}
+                className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground rounded disabled:opacity-40"
+              >
+                {s.is_archived ? 'Restaurar' : 'Archivar'}
+              </button>
+
+              <button
+                onClick={() => removeSpace(s)}
+                disabled={busy === s.id}
+                className="text-xs px-2 py-1 text-destructive hover:bg-destructive/10 rounded disabled:opacity-40"
+              >
+                Eliminar
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

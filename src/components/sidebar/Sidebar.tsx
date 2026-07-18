@@ -252,7 +252,7 @@ export function Sidebar({
 
       {/* ── Footer: perfil de usuario ──────────────────────────── */}
       <div className="border-t border-border p-2">
-        <UserMenu profile={userProfile} collapsed={collapsed} />
+        <UserMenu profile={userProfile} collapsed={collapsed} workspaceSlug={workspaceSlug} />
       </div>
     </aside>
   )

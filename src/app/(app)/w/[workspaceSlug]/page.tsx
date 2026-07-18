@@ -9,8 +9,9 @@ import Image from 'next/image'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { formatDate, timeAgo, getInitials } from '@/lib/utils'
-import { LayoutDashboard } from 'lucide-react'
+import { LayoutDashboard, CheckSquare, Activity } from 'lucide-react'
 import MiDia from './MiDia'
+import { OnboardingGuide } from './OnboardingGuide'
 
 interface WorkspaceDashboardProps {
   params: { workspaceSlug: string }
@@ -130,6 +131,26 @@ export default async function WorkspaceDashboardPage({
 
   const hasTeams = teams && teams.length > 0
 
+  // ── Progreso de onboarding (checklist de primeros pasos) ──────────────────
+  const projectsCount = (teams ?? []).reduce((acc, t) => acc + (t.projects?.length ?? 0), 0)
+
+  const { count: memberCount } = (await admin
+    .from('workspace_members')
+    .select('profile_id', { count: 'exact', head: true })
+    .eq('workspace_id', workspace.id)) as { count: number | null }
+
+  const { count: notesCount } = (await admin
+    .from('notes')
+    .select('id', { count: 'exact', head: true })
+    .eq('workspace_id', workspace.id)) as { count: number | null }
+
+  const onboardingSteps = {
+    teams: !!hasTeams,
+    projects: projectsCount > 0,
+    members: (memberCount ?? 0) > 1,
+    notes: (notesCount ?? 0) > 0,
+  }
+
   return (
     <div className="px-8 py-8 max-w-6xl mx-auto">
       {/* ── Header ───────────────────────────────────────────────────────── */}
@@ -163,37 +184,13 @@ export default async function WorkspaceDashboardPage({
         </div>
       </div>
 
-      {/* ── Empty state cuando no hay teams ──────────────────────────────── */}
-      {!hasTeams && (
-        <div className="mb-8 rounded-2xl border border-border bg-gradient-to-br from-card to-muted/30 p-8">
-          <div className="max-w-md">
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 text-primary mb-4">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-            </div>
-            <h2 className="text-lg font-semibold text-foreground mb-1">
-              Crea tu primer equipo
-            </h2>
-            <p className="text-sm text-muted-foreground mb-5">
-              Los equipos contienen proyectos y tareas. Puedes tener uno por área
-              (Marketing, Producto, Operaciones) o crear el que necesites.
-            </p>
-            <Link
-              href={`/w/${params.workspaceSlug}/teams/new`}
-              className="inline-flex items-center gap-2 px-3.5 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              </svg>
-              Crear equipo
-            </Link>
-          </div>
-        </div>
-      )}
+      {/* ── Guía de inicio (checklist + tour), reabrible ─────────────────── */}
+      <OnboardingGuide
+        workspaceSlug={params.workspaceSlug}
+        workspaceId={workspace.id}
+        userId={user.id}
+        steps={onboardingSteps}
+      />
 
       {/* ── Mi día (agenda de Google Calendar) ───────────────────────────── */}
       <div className="mb-10">
@@ -219,6 +216,7 @@ export default async function WorkspaceDashboardPage({
           <div className="space-y-1">
             {!myTasks || myTasks.length === 0 ? (
               <div className="bg-muted/20 border border-dashed border-border rounded-xl px-4 py-10 text-center">
+                <CheckSquare className="mx-auto mb-2 h-6 w-6 text-muted-foreground/70" />
                 <p className="text-sm text-muted-foreground">
                   {hasTeams
                     ? 'No tienes tareas asignadas'
@@ -273,9 +271,10 @@ export default async function WorkspaceDashboardPage({
 
           <div className="space-y-0 bg-card border border-border rounded-xl px-3 py-1 shadow-soft">
             {!recentActivity || recentActivity.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-8">
-                Sin actividad aún
-              </p>
+              <div className="py-8 text-center">
+                <Activity className="mx-auto mb-2 h-6 w-6 text-muted-foreground/70" />
+                <p className="text-xs text-muted-foreground">Sin actividad aún</p>
+              </div>
             ) : (
               recentActivity.map(event => (
                 <div
