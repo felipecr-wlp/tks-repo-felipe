@@ -16,8 +16,18 @@ interface NoteTreeRow {
   title: string
   icon: string | null
   parent_note_id: string | null
+  space_id: string | null
   visibility: string
   updated_at: string
+  created_by: string | null
+}
+
+interface SpaceRow {
+  id: string
+  name: string
+  icon: string | null
+  color: string | null
+  is_restricted: boolean
   created_by: string | null
 }
 
@@ -44,7 +54,7 @@ export default async function NotesLayout({ children, params }: NotesLayoutProps
   // Cargar todas las notas del workspace (visibilidad básica filtrada)
   const { data: rawNotes } = await admin
     .from('notes')
-    .select('id, title, icon, parent_note_id, visibility, updated_at, created_by')
+    .select('id, title, icon, parent_note_id, space_id, visibility, updated_at, created_by')
     .eq('workspace_id', workspace.id)
     .order('updated_at', { ascending: false })
     .limit(500) as { data: NoteTreeRow[] | null; error: unknown }
@@ -53,10 +63,30 @@ export default async function NotesLayout({ children, params }: NotesLayoutProps
     n.visibility !== 'private' || n.created_by === user.id
   )
 
+  // Cargar departamentos (espacios) del workspace. La visibilidad fina de
+  // restringidos se afinara en F3; aqui se filtra best-effort por membresia.
+  const { data: rawSpaces } = await admin
+    .from('spaces')
+    .select('id, name, icon, color, is_restricted, created_by')
+    .eq('workspace_id', workspace.id)
+    .eq('is_archived', false)
+    .order('name', { ascending: true }) as { data: SpaceRow[] | null; error: unknown }
+
+  const { data: mySpaceMemberships } = await admin
+    .from('space_members')
+    .select('space_id')
+    .eq('profile_id', user.id) as { data: { space_id: string }[] | null; error: unknown }
+  const mySpaceIds = new Set((mySpaceMemberships ?? []).map(m => m.space_id))
+
+  const spaces = (rawSpaces ?? []).filter(s =>
+    !s.is_restricted || s.created_by === user.id || mySpaceIds.has(s.id)
+  )
+
   return (
     <div className="flex h-full overflow-hidden">
       <NotesTreeSidebar
         notes={notes}
+        spaces={spaces}
         workspaceId={workspace.id}
         workspaceSlug={params.workspaceSlug}
         currentUserId={user.id}

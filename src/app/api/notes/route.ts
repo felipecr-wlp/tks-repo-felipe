@@ -17,6 +17,7 @@ const createSchema = z.object({
   visibility:     z.enum(['private', 'project', 'team', 'workspace']).default('workspace'),
   project_id:     z.string().uuid().nullable().optional(),
   parent_note_id: z.string().uuid().nullable().optional(),
+  space_id:       z.string().uuid().nullable().optional(),
   icon:           z.string().max(64).nullable().optional(),
 })
 
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 422 })
   }
 
-  const { workspace_id, title, content, visibility, project_id, parent_note_id, icon } = parsed.data
+  const { workspace_id, title, content, visibility, project_id, parent_note_id, space_id, icon } = parsed.data
 
   const admin = createAdminClient()
 
@@ -133,6 +134,7 @@ export async function POST(request: NextRequest) {
       workspace_id,
       project_id:     project_id ?? null,
       parent_note_id: parent_note_id ?? null,
+      space_id:       space_id ?? null,
       title:          title ?? 'Sin título',
       content:        content ?? null,
       visibility,

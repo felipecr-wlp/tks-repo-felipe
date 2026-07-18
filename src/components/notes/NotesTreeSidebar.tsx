@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Pencil, Plus, Copy, Star, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Copy, Star, Trash2, Building2, ChevronDown, Hash, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
@@ -30,8 +30,18 @@ interface NoteRow {
   title: string
   icon: string | null
   parent_note_id: string | null
+  space_id: string | null
   visibility: string
   updated_at: string
+  created_by: string | null
+}
+
+interface SpaceRow {
+  id: string
+  name: string
+  icon: string | null
+  color: string | null
+  is_restricted: boolean
   created_by: string | null
 }
 
@@ -41,10 +51,15 @@ interface NoteNode extends NoteRow {
 
 interface NotesTreeSidebarProps {
   notes: NoteRow[]
+  spaces: SpaceRow[]
   workspaceId: string
   workspaceSlug: string
   currentUserId: string
 }
+
+// Departamento seleccionado en el switcher. 'all' = todo el workspace,
+// 'general' = notas sin departamento, o el id de un departamento concreto.
+type SpaceFilter = 'all' | 'general' | string
 
 interface ContextMenuState {
   noteId: string
@@ -100,7 +115,7 @@ function descendantsOf(noteId: string, notes: NoteRow[]): Set<string> {
 }
 
 export function NotesTreeSidebar({
-  notes, workspaceId, workspaceSlug,
+  notes, spaces, workspaceId, workspaceSlug,
 }: NotesTreeSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -120,6 +135,7 @@ export function NotesTreeSidebar({
   const expandedKey = `notes-expanded-${workspaceId}`
   const recentKey   = `notes-recent-${workspaceId}`
   const favKey      = `notes-favs-${workspaceId}`
+  const spaceKey    = `notes-space-${workspaceId}`
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [recent, setRecent]     = useState<string[]>([])
@@ -128,6 +144,9 @@ export function NotesTreeSidebar({
   const [renaming, setRenaming] = useState<string | null>(null)
   const [creatingUnder, setCreatingUnder] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [spaceFilter, setSpaceFilter] = useState<SpaceFilter>('all')
+  const [spaceMenuOpen, setSpaceMenuOpen] = useState(false)
+  const [creatingSpace, setCreatingSpace] = useState(false)
 
   // Hidratar
   useEffect(() => {
@@ -138,9 +157,17 @@ export function NotesTreeSidebar({
       if (r) setRecent(JSON.parse(r))
       const f = localStorage.getItem(favKey)
       if (f) setFavs(new Set(JSON.parse(f)))
+      const s = localStorage.getItem(spaceKey)
+      if (s) setSpaceFilter(s)
     } catch { /* ignorar */ }
     setMounted(true)
-  }, [expandedKey, recentKey, favKey])
+  }, [expandedKey, recentKey, favKey, spaceKey])
+
+  const selectSpace = useCallback((f: SpaceFilter) => {
+    setSpaceFilter(f)
+    setSpaceMenuOpen(false)
+    try { localStorage.setItem(spaceKey, f) } catch {}
+  }, [spaceKey])
 
   // Recientes + auto-expand al abrir nota
   useEffect(() => {
@@ -223,6 +250,11 @@ export function NotesTreeSidebar({
   async function createSubpage(parentId: string | null) {
     if (creatingUnder) return
     setCreatingUnder(parentId ?? 'root')
+    // Una sub-pagina hereda el departamento del padre. Una pagina raiz se crea
+    // en el departamento seleccionado (null si es 'Todos' o 'General').
+    const parentSpace = parentId ? notes.find(n => n.id === parentId)?.space_id ?? null : null
+    const rootSpace = spaceFilter === 'all' || spaceFilter === 'general' ? null : spaceFilter
+    const space_id = parentId ? parentSpace : rootSpace
     try {
       const res = await fetch('/api/notes', {
         method: 'POST',
@@ -230,6 +262,7 @@ export function NotesTreeSidebar({
         body: JSON.stringify({
           workspace_id: workspaceId,
           parent_note_id: parentId ?? null,
+          space_id,
           title: 'Sin título',
           visibility: 'workspace',
           icon: DEFAULT_NOTE_ICON,
@@ -251,6 +284,30 @@ export function NotesTreeSidebar({
       toast.error(err instanceof Error ? err.message : 'Error al crear')
     } finally {
       setCreatingUnder(null)
+    }
+  }
+
+  async function createSpace() {
+    if (creatingSpace) return
+    setSpaceMenuOpen(false)
+    const name = window.prompt('Nombre del departamento (RH, Marketing, Legal...)')?.trim()
+    if (!name) return
+    setCreatingSpace(true)
+    try {
+      const res = await fetch('/api/spaces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspace_id: workspaceId, name }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Error')
+      toast.success(`Departamento "${name}" creado`)
+      selectSpace(data.id)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al crear departamento')
+    } finally {
+      setCreatingSpace(false)
     }
   }
 
@@ -384,7 +441,27 @@ export function NotesTreeSidebar({
   }
 
   // ── Estructuras derivadas ─────────────────────────────────────────────────
-  const tree = useMemo(() => buildTree(notes), [notes])
+  // Si el departamento seleccionado ya no existe (fue borrado), caer a 'all'.
+  const activeFilter: SpaceFilter = useMemo(() => {
+    if (spaceFilter === 'all' || spaceFilter === 'general') return spaceFilter
+    return spaces.some(s => s.id === spaceFilter) ? spaceFilter : 'all'
+  }, [spaceFilter, spaces])
+
+  const activeSpace = useMemo(
+    () => (activeFilter === 'all' || activeFilter === 'general'
+      ? null
+      : spaces.find(s => s.id === activeFilter) ?? null),
+    [activeFilter, spaces],
+  )
+
+  // Notas visibles en el arbol segun el departamento activo.
+  const treeNotes = useMemo(() => {
+    if (activeFilter === 'all') return notes
+    if (activeFilter === 'general') return notes.filter(n => !n.space_id)
+    return notes.filter(n => n.space_id === activeFilter)
+  }, [notes, activeFilter])
+
+  const tree = useMemo(() => buildTree(treeNotes), [treeNotes])
   const notesById = useMemo(() => new Map(notes.map(n => [n.id, n])), [notes])
 
   const favNotes = useMemo(() =>
@@ -404,15 +481,32 @@ export function NotesTreeSidebar({
         onDragCancel={() => setDraggingId(null)}
       >
       <aside className="w-64 flex-shrink-0 border-r border-border bg-muted/30 flex flex-col">
-        <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Wiki
-          </h2>
+        <div className="relative flex items-center justify-between gap-1 px-2 py-2 border-b border-border">
+          <button
+            onClick={() => setSpaceMenuOpen(o => !o)}
+            className="flex-1 flex items-center gap-1.5 min-w-0 px-1.5 py-1 rounded-md hover:bg-accent transition-colors"
+            title="Cambiar de departamento"
+          >
+            {activeSpace ? (
+              <span
+                className="flex-shrink-0 w-2.5 h-2.5 rounded-sm"
+                style={{ backgroundColor: activeSpace.color ?? 'var(--muted-foreground)' }}
+              />
+            ) : (
+              <Building2 className="flex-shrink-0 w-3.5 h-3.5 text-muted-foreground" />
+            )}
+            <span className="truncate text-sm font-semibold text-foreground">
+              {activeFilter === 'all' ? 'Todos los departamentos'
+                : activeFilter === 'general' ? 'General'
+                : activeSpace?.name ?? 'Departamento'}
+            </span>
+            <ChevronDown className={cn('flex-shrink-0 w-3.5 h-3.5 text-muted-foreground transition-transform', spaceMenuOpen && 'rotate-180')} />
+          </button>
           <button
             onClick={() => createSubpage(null)}
             disabled={creatingUnder !== null}
             title="Nueva nota raíz"
-            className="p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors disabled:opacity-50"
+            className="flex-shrink-0 p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors disabled:opacity-50"
           >
             {creatingUnder === 'root' ? (
               <span className="block w-3 h-3 border border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
@@ -422,6 +516,51 @@ export function NotesTreeSidebar({
               </svg>
             )}
           </button>
+
+          {spaceMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-[70]" onClick={() => setSpaceMenuOpen(false)} />
+              <div className="absolute left-2 right-2 top-full z-[71] mt-1 max-h-80 overflow-y-auto rounded-lg border border-border bg-popover py-1 shadow-2xl animate-in fade-in zoom-in-95 duration-100">
+                <SpaceMenuItem
+                  active={activeFilter === 'all'}
+                  onClick={() => selectSpace('all')}
+                  icon={<Building2 className="w-3.5 h-3.5 text-muted-foreground" />}
+                  label="Todos los departamentos"
+                />
+                <SpaceMenuItem
+                  active={activeFilter === 'general'}
+                  onClick={() => selectSpace('general')}
+                  icon={<Hash className="w-3.5 h-3.5 text-muted-foreground" />}
+                  label="General (sin departamento)"
+                />
+                {spaces.length > 0 && <div className="my-1 h-px bg-border" />}
+                {spaces.map(s => (
+                  <SpaceMenuItem
+                    key={s.id}
+                    active={activeFilter === s.id}
+                    onClick={() => selectSpace(s.id)}
+                    icon={
+                      <span
+                        className="w-2.5 h-2.5 rounded-sm"
+                        style={{ backgroundColor: s.color ?? 'var(--muted-foreground)' }}
+                      />
+                    }
+                    label={s.name}
+                    restricted={s.is_restricted}
+                  />
+                ))}
+                <div className="my-1 h-px bg-border" />
+                <button
+                  onClick={createSpace}
+                  disabled={creatingSpace}
+                  className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-left text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+                >
+                  <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="flex-1">Nuevo departamento</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto py-1.5">
@@ -457,10 +596,12 @@ export function NotesTreeSidebar({
             </Section>
           )}
 
-          <Section title="Todas las páginas">
+          <Section title={activeSpace ? activeSpace.name : activeFilter === 'general' ? 'General' : 'Todas las páginas'}>
             {tree.length === 0 ? (
               <p className="px-3 py-4 text-xs text-muted-foreground/70 italic">
-                Sin notas. Clic + arriba para empezar.
+                {activeSpace
+                  ? `Sin páginas en ${activeSpace.name}. Clic + arriba para empezar.`
+                  : 'Sin notas. Clic + arriba para empezar.'}
               </p>
             ) : (
               tree.map(node => (
@@ -541,6 +682,31 @@ function RootDropZone({ draggingId }: { draggingId: string | null }) {
     >
       Soltar aquí para mover a raíz
     </div>
+  )
+}
+
+// ── Space (departamento) menu item ──────────────────────────────────────────
+function SpaceMenuItem({
+  active, onClick, icon, label, restricted,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: ReactNode
+  label: string
+  restricted?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-left transition-colors',
+        active ? 'bg-accent text-accent-foreground font-medium' : 'text-foreground hover:bg-accent/60',
+      )}
+    >
+      <span className="flex-shrink-0 flex items-center justify-center w-4">{icon}</span>
+      <span className="flex-1 truncate">{label}</span>
+      {restricted && <Lock className="flex-shrink-0 w-3 h-3 text-muted-foreground" />}
+    </button>
   )
 }
 

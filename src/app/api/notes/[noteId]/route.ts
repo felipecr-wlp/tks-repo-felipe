@@ -21,6 +21,7 @@ const patchSchema = z.object({
   visibility:     z.enum(['private', 'project', 'team', 'workspace']).optional(),
   icon:           z.string().max(64).nullable().optional(),
   parent_note_id: z.string().uuid().nullable().optional(),
+  space_id:       z.string().uuid().nullable().optional(),
 }).strict()
 
 interface NoteFull {
