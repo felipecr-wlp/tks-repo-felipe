@@ -8,6 +8,26 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-18: Plantillas WLP + sembrado de departamentos (Confluence real)
+
+Especializacion del Confluence de WLO al negocio de WLP (pavimento), a peticion de Ali.
+
+- **Plantillas de nota especificas de WLP** (`src/lib/note-templates.ts`, +4): `wlp-estimate`
+  (Estimacion de obra: cliente/sitio, alcance asfalto/concreto/sealcoating/striping, tonelaje,
+  precio y margen objetivo ~55%, garantia asfalto 15 años / concreto 5 años), `wlp-job-kickoff`
+  (Arranque de obra: cuadrilla, equipo, materiales, checklist con taskList), `wlp-safety-talk`
+  (Charla de seguridad: peligros, PPE, asistencia), `wlp-closeout` (Cierre de obra: estimado vs
+  real, margen bruto real, punch list, firma del cliente, lecciones aprendidas). Iconos de claves
+  validas del registro lucide (`target`, `clipboard`, `flame`, `chart`), acentos/ñ correctos, sin
+  guiones largos. Commit `1f0f2d2`; merge ff a master; deploy prod `wlo-1hediryn9-developers-pavific.vercel.app`.
+- **Departamentos WLP sembrados** en el workspace activo `General` (`daf8b859`): 7 espacios en la
+  tabla `spaces` via Supabase MCP (org `06618d0f`, `created_by` Ali `5a78b212`, cada uno con su fila
+  owner en `space_members`). Publicos: Operaciones y Campo, Estimación y Ventas, Marketing.
+  Restringidos (`is_restricted=true`, ocultos por la policy `notes_restrict_space` + filtro app-layer):
+  Seguridad, Finanzas, Legal y Contratos, RH y Gente. Cada uno con icono lucide y color de acento.
+
+---
+
 ## 2026-07-18: Pase de UX transversal (modales, robustez, responsive, accesibilidad)
 
 Ronda de mejoras de experiencia sobre toda la app, a peticion de Ali ("mejora todo:
