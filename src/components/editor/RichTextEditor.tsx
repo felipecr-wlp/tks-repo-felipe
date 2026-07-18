@@ -8,14 +8,22 @@
  * `next/dynamic` en el padre para no inflar el bundle inicial.
  */
 import { useEditor, EditorContent } from '@tiptap/react'
+import type { Extension, Node as TiptapNode } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
+import Table from '@tiptap/extension-table'
+import TableRow from '@tiptap/extension-table-row'
+import TableHeader from '@tiptap/extension-table-header'
+import TableCell from '@tiptap/extension-table-cell'
 import { useEffect, useRef } from 'react'
+import { Table2, Megaphone, ListCollapse } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SlashMenu } from './SlashMenu'
+import { Callout } from './extensions/Callout'
+import { Details, DetailsSummary, DetailsContent } from './extensions/Details'
 
 interface RichTextEditorProps {
   /** Contenido inicial (HTML o JSON serializado como string) */
@@ -33,7 +41,46 @@ interface RichTextEditorProps {
   autosaveMs?: number
   /** Se llama en cuanto el contenido cambia (para marcar "sin guardar"). */
   onDirty?: () => void
+  /**
+   * Conjunto de bloques disponibles. 'basic' (default) = formato de texto para
+   * descripciones de tareas. 'full' = wiki Confluence-like: agrega tablas,
+   * callouts y toggles. Se separa para no inflar el editor de tareas.
+   */
+  blocks?: 'basic' | 'full'
 }
+
+// Extensiones extra del modo 'full' (tablas, callouts, toggles). Se definen
+// fuera del componente para no recrearlas en cada render.
+const FULL_BLOCK_EXTENSIONS: (Extension | TiptapNode)[] = [
+  Table.configure({ resizable: true, HTMLAttributes: { class: 'wiki-table' } }),
+  TableRow,
+  TableHeader,
+  TableCell,
+  Callout,
+  Details,
+  DetailsSummary,
+  DetailsContent,
+]
+
+// Selectores de contenedor que estilizan los bloques 'full' sin tocar
+// globals.css (asi no colisiona con el sistema visual global de Fable).
+const FULL_BLOCK_CLASSES = cn(
+  // Tablas
+  '[&_table]:w-full [&_table]:my-3 [&_table]:border-collapse [&_table]:text-sm',
+  '[&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_td]:align-top',
+  '[&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:bg-muted [&_th]:font-semibold [&_th]:text-left',
+  '[&_.selectedCell]:bg-accent/40',
+  // Callouts (color por variante via data-variant)
+  '[&_[data-callout]]:my-3 [&_[data-callout]]:rounded-lg [&_[data-callout]]:border-l-4 [&_[data-callout]]:px-3 [&_[data-callout]]:py-2',
+  '[&_[data-variant=info]]:border-l-sky-400 [&_[data-variant=info]]:bg-sky-50 dark:[&_[data-variant=info]]:bg-sky-950/40',
+  '[&_[data-variant=warn]]:border-l-amber-400 [&_[data-variant=warn]]:bg-amber-50 dark:[&_[data-variant=warn]]:bg-amber-950/40',
+  '[&_[data-variant=success]]:border-l-emerald-400 [&_[data-variant=success]]:bg-emerald-50 dark:[&_[data-variant=success]]:bg-emerald-950/40',
+  '[&_[data-variant=tip]]:border-l-violet-400 [&_[data-variant=tip]]:bg-violet-50 dark:[&_[data-variant=tip]]:bg-violet-950/40',
+  // Toggles (details/summary nativos)
+  '[&_details]:my-3 [&_details]:rounded-lg [&_details]:border [&_details]:border-border [&_details]:px-3 [&_details]:py-2',
+  '[&_summary]:cursor-pointer [&_summary]:font-medium [&_summary]:outline-none [&_summary]:marker:text-muted-foreground',
+  '[&_[data-details-content]]:mt-2 [&_[data-details-content]]:pl-1',
+)
 
 export function RichTextEditor({
   value,
@@ -43,7 +90,9 @@ export function RichTextEditor({
   autoFocus = false,
   autosaveMs = 0,
   onDirty,
+  blocks = 'basic',
 }: RichTextEditorProps) {
+  const full = blocks === 'full'
   // Refs para no capturar closures viejas dentro de los callbacks de Tiptap.
   const onSaveRef = useRef(onSave)
   onSaveRef.current = onSave
@@ -69,6 +118,7 @@ export function RichTextEditor({
       Placeholder.configure({ placeholder }),
       TaskList.configure({ HTMLAttributes: { class: 'space-y-1' } }),
       TaskItem.configure({ nested: true, HTMLAttributes: { class: 'flex items-start gap-2' } }),
+      ...(full ? FULL_BLOCK_EXTENSIONS : []),
     ],
     content: value || '',
     editorProps: {
@@ -78,6 +128,7 @@ export function RichTextEditor({
           'min-h-[80px] px-3 py-2',
           '[&_p]:my-1 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-1',
           '[&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-0.5',
+          full && FULL_BLOCK_CLASSES,
         ),
       },
     },
@@ -132,7 +183,7 @@ export function RichTextEditor({
       'border border-input rounded-lg bg-background focus-within:ring-2 focus-within:ring-ring transition-shadow',
       className,
     )}>
-      <Toolbar editor={editor} />
+      <Toolbar editor={editor} full={full} />
       <EditorContent editor={editor} />
       <SlashMenu editor={editor} />
     </div>
@@ -142,7 +193,7 @@ export function RichTextEditor({
 // ── Toolbar minimalista ─────────────────────────────────────────────────────
 type Editor = ReturnType<typeof useEditor>
 
-function Toolbar({ editor }: { editor: Editor }) {
+function Toolbar({ editor, full = false }: { editor: Editor; full?: boolean }) {
   if (!editor) return null
   const btn = (active: boolean) =>
     cn(
@@ -240,6 +291,36 @@ function Toolbar({ editor }: { editor: Editor }) {
       >
         <LinkIcon />
       </button>
+
+      {full && (
+        <>
+          <div className="w-px h-4 bg-border mx-1" />
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+            className={btn(editor.isActive('table'))}
+            title="Insertar tabla"
+          >
+            <Table2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().toggleCallout({ variant: 'info' }).run()}
+            className={btn(editor.isActive('callout'))}
+            title="Callout / nota destacada"
+          >
+            <Megaphone className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().setDetails().run()}
+            className={btn(editor.isActive('details'))}
+            title="Toggle colapsable"
+          >
+            <ListCollapse className="w-3.5 h-3.5" />
+          </button>
+        </>
+      )}
     </div>
   )
 }

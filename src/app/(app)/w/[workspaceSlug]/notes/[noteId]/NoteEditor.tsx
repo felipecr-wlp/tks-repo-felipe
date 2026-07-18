@@ -360,10 +360,11 @@ export function NoteEditor({
       {/* Editor */}
       <RichTextEditor
         value={initial.content ?? ''}
-        placeholder="Empieza a escribir, o usa la barra de formato arriba…"
+        placeholder="Empieza a escribir, usa la barra de arriba o escribe / para bloques…"
         onSave={(html) => patch({ content: html || null })}
         onDirty={() => setStatus(s => (s === 'saving' ? s : 'dirty'))}
         autosaveMs={1200}
+        blocks="full"
         className="!border-0 [&_.ProseMirror]:px-0 [&_.ProseMirror]:py-2 [&_.ProseMirror]:min-h-[300px]"
       />
 

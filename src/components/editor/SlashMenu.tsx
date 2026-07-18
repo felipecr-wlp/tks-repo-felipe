@@ -21,6 +21,8 @@ interface SlashCommand {
   keywords: string[]
   icon: string
   group: string
+  /** Si se define, el comando solo aparece si el nodo existe en el schema. */
+  requires?: string
   command: (editor: Editor, range: { from: number; to: number }) => void
 }
 
@@ -106,6 +108,46 @@ const COMMANDS: SlashCommand[] = [
     group: 'Bloques',
     command: (e, r) => e.chain().focus().deleteRange(r).setHorizontalRule().run(),
   },
+  {
+    id: 'table',
+    label: 'Tabla',
+    description: 'Tabla 3x3 con encabezado',
+    keywords: ['tabla', 'table', 'grid', 'celda'],
+    icon: '⊞',
+    group: 'Avanzado',
+    requires: 'table',
+    command: (e, r) => e.chain().focus().deleteRange(r).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+  },
+  {
+    id: 'callout-info',
+    label: 'Nota informativa',
+    description: 'Bloque destacado azul',
+    keywords: ['callout', 'nota', 'info', 'destacado', 'aviso'],
+    icon: 'ℹ',
+    group: 'Avanzado',
+    requires: 'callout',
+    command: (e, r) => e.chain().focus().deleteRange(r).setCallout({ variant: 'info' }).run(),
+  },
+  {
+    id: 'callout-warn',
+    label: 'Advertencia',
+    description: 'Bloque destacado ámbar',
+    keywords: ['callout', 'advertencia', 'warn', 'cuidado', 'alerta'],
+    icon: '!',
+    group: 'Avanzado',
+    requires: 'callout',
+    command: (e, r) => e.chain().focus().deleteRange(r).setCallout({ variant: 'warn' }).run(),
+  },
+  {
+    id: 'toggle',
+    label: 'Toggle',
+    description: 'Sección colapsable',
+    keywords: ['toggle', 'colapsable', 'details', 'plegable', 'acordeon'],
+    icon: '▸',
+    group: 'Avanzado',
+    requires: 'details',
+    command: (e, r) => e.chain().focus().deleteRange(r).setDetails().run(),
+  },
 ]
 
 export function SlashMenu({ editor }: SlashMenuProps) {
@@ -115,15 +157,22 @@ export function SlashMenu({ editor }: SlashMenuProps) {
   const [activeIndex, setActiveIndex] = useState(0)
   const slashRangeRef = useRef<{ from: number; to: number } | null>(null)
 
+  // Comandos soportados por este editor (los 'requires' solo si el nodo existe
+  // en el schema, p.ej. tablas/callouts/toggles solo en el editor de notas).
+  const available = useMemo(() => {
+    const nodes = editor?.schema.nodes
+    return COMMANDS.filter(c => !c.requires || (nodes ? c.requires in nodes : false))
+  }, [editor])
+
   // Filtrar commands por query
   const filtered = useMemo(() => {
-    if (!query) return COMMANDS
+    if (!query) return available
     const q = query.toLowerCase()
-    return COMMANDS.filter(c =>
+    return available.filter(c =>
       c.label.toLowerCase().includes(q) ||
       c.keywords.some(k => k.includes(q))
     )
-  }, [query])
+  }, [query, available])
 
   // Agrupar
   const groups = useMemo(() => {
