@@ -248,7 +248,7 @@ function Toolbar({
     )
 
   return (
-    <div className="flex items-center gap-0.5 px-1.5 py-1 border-b border-border">
+    <div className="flex flex-wrap items-center gap-0.5 px-1.5 py-1 border-b border-border">
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleBold().run()}

@@ -487,7 +487,7 @@ export function NotesTreeSidebar({
         onDragEnd={handleDragEnd}
         onDragCancel={() => setDraggingId(null)}
       >
-      <aside className="w-64 flex-shrink-0 border-r border-border bg-muted/30 flex flex-col">
+      <aside className="w-52 sm:w-64 flex-shrink-0 border-r border-border bg-muted/30 flex flex-col">
         <div className="relative flex items-center justify-between gap-1 px-2 py-2 border-b border-border">
           <button
             onClick={() => setSpaceMenuOpen(o => !o)}
