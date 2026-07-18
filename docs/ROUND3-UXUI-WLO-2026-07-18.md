@@ -104,4 +104,15 @@ Archivos de la 3.2: 3 modificados (`KanbanBoard.tsx`, `ScrumWorkspace.tsx`, `p/[
 
 ---
 
+## 7. Deploy ejecutado (rondas 1-3 EN PRODUCCION)
+
+**Actualiza el banner de arriba: ya NO es cierto que "nada esta en produccion".** El 2026-07-18 se ejecuto el redeploy pendiente.
+
+- **Commit:** `8449acd` "fix: ronda 3 UX/UI (R2-A velocidad + accesibilidad U1-U12 + P1-P7)", 25 archivos (+507/-54). Pusheado a `origin/master` (`57fe896..8449acd`) en `github.com/PAVIFIC/tskr`. Rondas 1-2 ya estaban commiteadas/pusheadas antes (57fe896, 029fd5d); este deploy las arrastra.
+- **Deploy Vercel:** proyecto `wlo` (org `developers-pavific`, `prj_3Gw2gm9VaxhiVgTI0sOSotp7Vqb8`). `vercel --prod` -> `readyState: READY`, `target: production`, id `dpl_aeZA5WDMFsW5viar3sYJoSA3Ng43`. Aliased a **`https://wlo.vercel.app`**. La build corrio y paso en Vercel (no se corre en este entorno por timeout del sandbox).
+- **CRON_SECRET:** hallazgo, ya estaba configurado en Production (creado 1h antes del deploy), junto con el resto de env vars (Supabase URL/anon/service_role, Google OAuth id/secret, Gemini, ALLOWED_EMAIL_DOMAINS, NEXT_PUBLIC_APP_URL). El pendiente manual del doc estaba stale.
+- **Pendiente de verificacion:** smoke test en navegador de `wlo.vercel.app` (login + una vista de tareas + una confirmacion destructiva para ver el ConfirmDialog nuevo). No se pudo hacer por API desde el entorno (egress HTTPS del sandbox devuelve error SSL).
+
+---
+
 *Historial: seguridad y bloqueantes en `docs/AUDIT-WLO-2026-07-18.md` (ronda 1); realtime filtrado y fail-fast en `docs/ROUND2-WLO-2026-07-18.md` (ronda 2).*
