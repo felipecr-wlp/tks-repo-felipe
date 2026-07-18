@@ -105,9 +105,19 @@ export interface Database {
         Update: Record<string, never>
       }
       notes: {
-        Row: { id: string; organization_id: string; workspace_id: string; project_id: string | null; task_id: string | null; title: string; content: Json | null; visibility: 'private' | 'project' | 'team' | 'workspace'; is_archived: boolean; created_by: string | null; created_at: string; updated_at: string }
-        Insert: { id?: string; organization_id: string; workspace_id: string; project_id?: string | null; task_id?: string | null; title: string; content?: Json | null; visibility?: 'private' | 'project' | 'team' | 'workspace'; is_archived?: boolean; created_by?: string | null }
-        Update: { title?: string; content?: Json | null; visibility?: 'private' | 'project' | 'team' | 'workspace'; is_archived?: boolean; updated_at?: string }
+        Row: { id: string; organization_id: string; workspace_id: string; project_id: string | null; task_id: string | null; space_id: string | null; title: string; content: Json | null; visibility: 'private' | 'project' | 'team' | 'workspace'; is_archived: boolean; created_by: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; workspace_id: string; project_id?: string | null; task_id?: string | null; space_id?: string | null; title: string; content?: Json | null; visibility?: 'private' | 'project' | 'team' | 'workspace'; is_archived?: boolean; created_by?: string | null }
+        Update: { title?: string; content?: Json | null; space_id?: string | null; visibility?: 'private' | 'project' | 'team' | 'workspace'; is_archived?: boolean; updated_at?: string }
+      }
+      spaces: {
+        Row: { id: string; organization_id: string; workspace_id: string; name: string; description: string | null; icon: string | null; color: string | null; is_restricted: boolean; is_archived: boolean; created_by: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; workspace_id: string; name: string; description?: string | null; icon?: string | null; color?: string | null; is_restricted?: boolean; is_archived?: boolean; created_by?: string | null }
+        Update: { name?: string; description?: string | null; icon?: string | null; color?: string | null; is_restricted?: boolean; is_archived?: boolean; updated_at?: string }
+      }
+      space_members: {
+        Row: { space_id: string; profile_id: string; role: 'owner' | 'admin' | 'member'; added_by: string | null; joined_at: string }
+        Insert: { space_id: string; profile_id: string; role?: 'owner' | 'admin' | 'member'; added_by?: string | null }
+        Update: { role?: 'owner' | 'admin' | 'member' }
       }
       note_versions: {
         Row: { id: string; note_id: string; content: Json; title: string; saved_by: string | null; created_at: string }
