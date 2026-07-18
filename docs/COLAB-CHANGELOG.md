@@ -8,6 +8,32 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-18: Pizarra Excalidraw incrustada en notas (F4)
+
+Robustecimiento estilo Confluence del editor de notas: ahora una nota puede llevar una PIZARRA
+(lienzo Excalidraw) incrustada inline, no solo texto. Diseño por REFERENCIA para no duplicar
+infraestructura: el bloque Tiptap guarda SOLO el `id` de una pizarra real (tabla `whiteboards` +
+API `/api/whiteboards/[id]`), asi el contenido de la nota se mantiene minimo y se reutiliza todo lo
+que ya existe (autosave, permisos, pagina de pantalla completa con colaboracion en vivo).
+
+- Nodo `whiteboardEmbed` (`extensions/WhiteboardEmbed.ts`, nuevo): nodo `atom` (hoja) `draggable`,
+  guarda `id` + `height`. Comando `setWhiteboard({ id })`.
+- NodeView React (`WhiteboardNodeView.tsx`, nuevo): tarjeta ligera con titulo; Excalidraw (~1MB) se
+  monta SOLO al hacer click en "Abrir lienzo" (lazy `dynamic(ssr:false)`), igual que Notion/Confluence
+  cargan embeds pesados bajo demanda. Autosave debounce 1.5s via PATCH (misma ruta que la pizarra full).
+  Header con handle de arrastre, link a pantalla completa (`/w/{slug}/whiteboards/{id}`) y borrar bloque.
+  En modo lectura el lienzo entra en `viewModeEnabled`.
+- Insertable desde la toolbar (boton PenTool) y el slash-menu (`/pizarra`), solo en el editor `full` y
+  cuando hay `workspaceId` (para crear la pizarra real primero). Archivos tocados: `RichTextEditor.tsx`
+  (extension + prop `workspaceId` + `createWhiteboard` + boton), `SlashMenu.tsx` (comando dinamico
+  pizarra), `NoteEditor.tsx` (pasa `workspaceId`).
+- Sin dependencias nuevas (Excalidraw y `@tiptap/react` ya estaban). Verificacion en verde
+  (`tsc --noEmit`, `next lint`, `next build`; ruta `notes/[noteId]` 14.4 kB). Commit `777b9df`, merge ff
+  a master (`7012056..777b9df`), push a `origin/master`, deploy prod por Vercel CLI con token
+  (`dpl_77sY1R4Y4rL5nzTPbopbWhB9rQG2`), alias `wlo.vercel.app`.
+
+---
+
 ## 2026-07-18: Confluence real, vertical Docs por departamentos (F0 a F3)
 
 Vertical de "Confluence de verdad" en el módulo de notas, segmentado por AREAS/DEPARTAMENTOS
