@@ -1,7 +1,9 @@
 /**
  * Cliente de Google Gemini para el asistente de escritura IA.
- * Proveedor: Google Gemini 1.5 Flash (free tier)
- * Límites free tier: 15 RPM, 1M tokens/día
+ * Proveedor: Google Gemini 2.5 Flash (free tier)
+ * Nota: gemini-1.5-flash fue retirado por Google (404 en v1beta desde 2026).
+ * El modelo puede sobreescribirse con la variable de entorno GEMINI_MODEL
+ * sin necesidad de redeploy de código.
  *
  * Usar siempre geminiFlash, no el modelo Pro (es de pago)
  */
@@ -12,10 +14,10 @@ const google = createGoogleGenerativeAI({
 })
 
 /**
- * Modelo principal, Gemini 1.5 Flash (gratuito, rápido)
+ * Modelo principal, Gemini 2.5 Flash (free tier, rápido)
  * Para tasks de escritura: mejorar texto, gramática, resúmenes
  */
-export const geminiFlash = google('gemini-1.5-flash')
+export const geminiFlash = google(process.env.GEMINI_MODEL ?? 'gemini-2.5-flash')
 
 /**
  * Prompts estándar para las acciones de IA

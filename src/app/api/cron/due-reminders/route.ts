@@ -9,10 +9,9 @@
  * mismo tipo+tarea+destinatario creadas en las ultimas 20 horas, para que una
  * corrida repetida (o dos crons el mismo dia) no genere spam.
  *
- * Seguridad: si existe CRON_SECRET en el entorno, se exige el header
- * `Authorization: Bearer <CRON_SECRET>` (Vercel Cron lo envia automaticamente
- * cuando la variable esta configurada). Si no existe, se permite (para que el
- * cron funcione sin configuracion previa) pero se registra una advertencia.
+ * Seguridad: CRON_SECRET es OBLIGATORIO. Sin la variable el endpoint falla
+ * cerrado (503); con ella se exige `Authorization: Bearer <CRON_SECRET>`
+ * (Vercel Cron lo envia automaticamente cuando la variable esta configurada).
  *
  * Se programa en vercel.json. No rompe nada existente: solo lee tasks y escribe
  * en notifications reutilizando el modelo ya presente.
@@ -45,15 +44,22 @@ type TaskRow = {
 type NotifRow = { recipient_id: string; object_id: string | null; type: string }
 
 export async function GET(request: NextRequest) {
-  // ── Auth opcional por secreto ──────────────────────────────────────────────
+  // ── Auth obligatoria por secreto ───────────────────────────────────────────
+  // Antes el secreto era opcional y sin CRON_SECRET el endpoint quedaba abierto
+  // operando con service role. Ahora falla cerrado: sin la variable, 503 con
+  // mensaje claro (configurar CRON_SECRET en Vercel; Vercel Cron manda el
+  // header Authorization automáticamente cuando la variable existe).
   const secret = process.env.CRON_SECRET
-  if (secret) {
-    const auth = request.headers.get('authorization')
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    }
-  } else {
-    console.warn('[due-reminders] CRON_SECRET no configurado; endpoint sin proteccion.')
+  if (!secret) {
+    console.error('[due-reminders] CRON_SECRET no configurado; se rechaza la ejecución.')
+    return NextResponse.json(
+      { error: 'Cron no configurado: falta CRON_SECRET en el entorno.' },
+      { status: 503 }
+    )
+  }
+  const auth = request.headers.get('authorization')
+  if (auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
 
   const supabase = getClient()

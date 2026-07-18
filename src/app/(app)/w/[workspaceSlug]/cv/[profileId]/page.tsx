@@ -38,6 +38,21 @@ export default async function CvPage({ params }: PageProps) {
 
   const admin = createAdminClient()
 
+  // Gate anti-IDOR: el CV es interno a la organización. El perfil consultado
+  // debe compartir al menos una organización con el visitante; si no, 404
+  // (no se revela si el perfil existe). Sin este check, cualquier UUID de
+  // perfil de otra org era legible porque se lee con admin client.
+  if (params.profileId !== user.id) {
+    type OrgRow = { org_id: string }
+    const [{ data: myOrgs }, { data: theirOrgs }] = await Promise.all([
+      admin.from('org_members').select('org_id').eq('profile_id', user.id) as unknown as Promise<{ data: OrgRow[] | null }>,
+      admin.from('org_members').select('org_id').eq('profile_id', params.profileId) as unknown as Promise<{ data: OrgRow[] | null }>,
+    ])
+    const mine = new Set((myOrgs ?? []).map(o => o.org_id))
+    const shared = (theirOrgs ?? []).some(o => mine.has(o.org_id))
+    if (!shared) notFound()
+  }
+
   // Perfil base
   type ProfileRow = { id: string; display_name: string | null; avatar_url: string | null; email: string | null }
   const { data: profile } = await admin
