@@ -29,6 +29,7 @@ interface NoteFull {
   workspace_id: string
   project_id: string | null
   parent_note_id: string | null
+  space_id: string | null
   icon: string | null
   title: string
   content: string | null
@@ -48,7 +49,7 @@ async function loadNoteWithAccess(
   const { data: note } = await admin
     .from('notes')
     .select(`
-      id, workspace_id, project_id, parent_note_id, icon,
+      id, workspace_id, project_id, parent_note_id, space_id, icon,
       title, content, visibility,
       created_by, created_at, updated_at,
       author:profiles ( display_name, avatar_url )
@@ -69,6 +70,36 @@ async function loadNoteWithAccess(
   if (!membership) return { note: null, status: 403 }
   if (note.visibility === 'private' && note.created_by !== userId) {
     return { note: null, status: 403 }
+  }
+
+  // F3: nota dentro de un espacio restringido -> solo admin de org o miembro del
+  // espacio. Cierra el acceso directo por URL (esta ruta usa admin client, que
+  // bypassa el RLS "notes_restrict_space").
+  if (note.space_id) {
+    const { data: space } = await admin
+      .from('spaces')
+      .select('is_restricted')
+      .eq('id', note.space_id)
+      .maybeSingle() as { data: { is_restricted: boolean } | null; error: unknown }
+
+    if (space?.is_restricted) {
+      const { data: prof } = await admin
+        .from('profiles')
+        .select('org_role')
+        .eq('id', userId)
+        .maybeSingle() as { data: { org_role: string | null } | null; error: unknown }
+      const isOrgAdmin = prof?.org_role === 'owner' || prof?.org_role === 'admin'
+
+      if (!isOrgAdmin) {
+        const { data: spaceMember } = await admin
+          .from('space_members')
+          .select('profile_id')
+          .eq('space_id', note.space_id)
+          .eq('profile_id', userId)
+          .maybeSingle() as { data: { profile_id: string } | null; error: unknown }
+        if (!spaceMember) return { note: null, status: 403 }
+      }
+    }
   }
 
   return { note, status: 200 }

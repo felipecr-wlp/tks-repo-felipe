@@ -30,6 +30,7 @@ interface NoteListRow {
   created_by: string | null
   project_id: string | null
   parent_note_id: string | null
+  space_id: string | null
   icon: string | null
   author: { display_name: string; avatar_url: string | null } | null
 }
@@ -67,15 +68,42 @@ export async function GET(request: NextRequest) {
     .from('notes')
     .select(`
       id, title, visibility, created_at, updated_at, created_by, project_id,
-      parent_note_id, icon,
+      parent_note_id, space_id, icon,
       author:profiles ( display_name, avatar_url )
     `)
     .eq('workspace_id', workspace_id)
     .order('updated_at', { ascending: false })
     .limit(200) as { data: NoteListRow[] | null; error: unknown }
 
-  // Filtrar por visibility
+  // F3: notas en espacios restringidos solo para admin de org o miembros del
+  // espacio. Se calculan los espacios restringidos "bloqueados" para este user.
+  const { data: prof } = await admin
+    .from('profiles')
+    .select('org_role')
+    .eq('id', user.id)
+    .maybeSingle() as { data: { org_role: string | null } | null; error: unknown }
+  const isOrgAdmin = prof?.org_role === 'owner' || prof?.org_role === 'admin'
+
+  const { data: myMemberships } = await admin
+    .from('space_members')
+    .select('space_id')
+    .eq('profile_id', user.id) as { data: { space_id: string }[] | null; error: unknown }
+  const mySpaceIds = new Set((myMemberships ?? []).map(m => m.space_id))
+
+  const { data: restrictedSpaces } = await admin
+    .from('spaces')
+    .select('id')
+    .eq('workspace_id', workspace_id)
+    .eq('is_restricted', true) as { data: { id: string }[] | null; error: unknown }
+  const blockedSpaceIds = new Set(
+    (restrictedSpaces ?? [])
+      .filter(s => !isOrgAdmin && !mySpaceIds.has(s.id))
+      .map(s => s.id)
+  )
+
+  // Filtrar por visibility + espacio restringido
   const visible = (notes ?? []).filter(n => {
+    if (n.space_id && blockedSpaceIds.has(n.space_id)) return false
     if (n.visibility === 'workspace') return true
     if (n.visibility === 'private') return n.created_by === user.id
     // project/team, para mantener simple, mostramos todo del workspace por ahora
