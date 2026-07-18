@@ -740,7 +740,7 @@ function GoalTasksPanel({
       {loading ? (
         <div className="flex justify-center py-2"><Loader2 className="w-4 h-4 text-muted-foreground animate-spin" /></div>
       ) : tasks.length === 0 ? (
-        <p className="text-[11px] text-muted-foreground/70">Sin tareas enlazadas.</p>
+        <p className="text-[11px] text-muted-foreground/70">Sin tareas enlazadas. Busca arriba para vincular una.</p>
       ) : (
         <div className="space-y-0.5">
           {tasks.map(t => (

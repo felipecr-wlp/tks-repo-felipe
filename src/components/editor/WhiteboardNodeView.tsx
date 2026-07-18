@@ -17,6 +17,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import '@excalidraw/excalidraw/index.css'
 import { PenTool, Maximize2, Trash2, GripVertical, Loader2 } from 'lucide-react'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 const Excalidraw = dynamic(
   () => import('@excalidraw/excalidraw').then((m) => m.Excalidraw),
@@ -198,13 +199,28 @@ export function WhiteboardNodeView({ node, deleteNode, editor }: NodeViewProps) 
             className="relative w-full min-w-0"
           >
             <div className="absolute inset-0">
-              <Excalidraw
-                excalidrawAPI={handleApi}
-                initialData={initialData}
-                onChange={onChange}
-                viewModeEnabled={!editable}
-                UIOptions={UI_OPTIONS}
-              />
+              <ErrorBoundary
+                fallback={(retry) => (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <span>No se pudo cargar el lienzo.</span>
+                    <button
+                      type="button"
+                      onClick={retry}
+                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                )}
+              >
+                <Excalidraw
+                  excalidrawAPI={handleApi}
+                  initialData={initialData}
+                  onChange={onChange}
+                  viewModeEnabled={!editable}
+                  UIOptions={UI_OPTIONS}
+                />
+              </ErrorBoundary>
             </div>
           </div>
         )}

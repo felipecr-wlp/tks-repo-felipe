@@ -718,9 +718,9 @@ function AttachmentsSection({ taskId, currentUserId }: { taskId: string; current
   useEffect(() => {
     let alive = true
     fetch(`/api/tasks/${taskId}/attachments`)
-      .then(r => r.ok ? r.json() : [])
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('fetch failed')))
       .then((data: Attachment[]) => { if (alive) setItems(data) })
-      .catch(() => {})
+      .catch(() => { if (alive) toast.error('No se pudieron cargar los adjuntos') })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [taskId])
