@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ConfirmDialog'
 // Estilos de Excalidraw: sin esto el toolbar se renderiza gigante y sin layout
 // (los shapes salen como radios enormes apilados). Debe importarse una vez.
 import '@excalidraw/excalidraw/index.css'
@@ -251,7 +252,7 @@ export function WhiteboardEditor({ initial, currentUserId, currentUserName, work
   }, [initial.id, currentUserId, currentUserName])
 
   async function handleDelete() {
-    if (!confirm('¿Eliminar esta pizarra? No se puede deshacer.')) return
+    if (!(await confirmDialog({ message: '¿Eliminar esta pizarra? No se puede deshacer.', destructive: true, confirmLabel: 'Eliminar' }))) return
     setDeleting(true)
     try {
       const res = await fetch(`/api/whiteboards/${initial.id}`, { method: 'DELETE' })

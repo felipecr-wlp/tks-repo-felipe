@@ -16,6 +16,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Pencil, Plus, Copy, Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
@@ -164,11 +165,14 @@ export function NotesTreeSidebar({
   useEffect(() => {
     if (!contextMenu) return
     function close() { setContextMenu(null) }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') close() }
     document.addEventListener('click', close)
     document.addEventListener('contextmenu', close)
+    document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('click', close)
       document.removeEventListener('contextmenu', close)
+      document.removeEventListener('keydown', onKey)
     }
   }, [contextMenu])
 
@@ -287,7 +291,7 @@ export function NotesTreeSidebar({
       ? `¿Eliminar "${title}" y sus ${childrenIds.length} sub-página(s)? No se puede deshacer.`
       : `¿Eliminar "${title}"? No se puede deshacer.`
 
-    if (!confirm(message)) return
+    if (!(await confirmDialog({ message, destructive: true, confirmLabel: 'Eliminar' }))) return
 
     try {
       const res = await fetch(`/api/notes/${id}`, { method: 'DELETE' })

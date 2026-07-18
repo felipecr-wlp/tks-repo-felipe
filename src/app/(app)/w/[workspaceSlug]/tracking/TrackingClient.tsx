@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid,
 } from 'recharts'
@@ -331,7 +332,7 @@ function EntryRow({ entry, now, onChanged }: { entry: TimeEntry; now: number; on
   }
 
   const remove = async () => {
-    if (!confirm('¿Borrar esta entrada de tiempo?')) return
+    if (!(await confirmDialog({ message: '¿Borrar esta entrada de tiempo?', destructive: true, confirmLabel: 'Borrar' }))) return
     setBusy(true)
     try {
       const res = await fetch(`/api/time-entries/${entry.id}`, { method: 'DELETE' })

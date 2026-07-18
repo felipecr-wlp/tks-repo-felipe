@@ -32,6 +32,7 @@ export function CreateTaskInline({ projectId, statusId, onCreated }: CreateTaskI
   }
 
   const handleCreate = async () => {
+    if (isLoading) return // evita doble submit con Enter repetido
     const trimmed = title.trim()
     if (!trimmed) {
       setIsOpen(false)

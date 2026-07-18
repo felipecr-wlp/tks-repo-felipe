@@ -265,12 +265,16 @@ export default async function ProjectPage({
       .limit(100) as { data: ProjectMessageRow[] | null; error: unknown }
     chatMessages = (msgs ?? []).reverse()
 
-    // Reacciones de los mensajes cargados (una sola consulta acotada por proyecto).
-    const { data: reacts } = await admin
-      .from('message_reactions')
-      .select('id, message_id, profile_id, emoji')
-      .eq('project_id', project.id) as { data: ReactionRow[] | null; error: unknown }
-    chatReactions = reacts ?? []
+    // Reacciones SOLO de los mensajes cargados (antes traía todas las del
+    // proyecto, creciendo sin límite con el historial).
+    if (chatMessages.length > 0) {
+      const { data: reacts } = await admin
+        .from('message_reactions')
+        .select('id, message_id, profile_id, emoji')
+        .eq('project_id', project.id)
+        .in('message_id', chatMessages.map(m => m.id)) as { data: ReactionRow[] | null; error: unknown }
+      chatReactions = reacts ?? []
+    }
   }
 
   return (
@@ -361,7 +365,7 @@ export default async function ProjectPage({
       )}
 
       {/* ── Vista de tareas (lista, kanban, calendario) o chat ──────── */}
-      <div className={`flex-1 min-h-0 ${currentView === 'chat' ? 'flex flex-col' : 'overflow-auto'}`}>
+      <div key={currentView} className={`flex-1 min-h-0 animate-in fade-in duration-200 ${currentView === 'chat' ? 'flex flex-col' : 'overflow-auto'}`}>
         {currentView === 'chat' ? (
           <ProjectChat
             projectId={project.id}

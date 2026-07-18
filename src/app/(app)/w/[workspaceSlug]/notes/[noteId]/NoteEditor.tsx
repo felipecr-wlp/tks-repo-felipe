@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import { Globe, Users, Folder, Lock, ChevronDown, Check, AlertTriangle, RotateCw, Loader2 } from 'lucide-react'
 import { cn, timeAgo } from '@/lib/utils'
 import { NoteIcon, NOTE_ICONS, normalizeNoteIconKey } from '@/lib/note-icons'
@@ -155,7 +156,7 @@ export function NoteEditor({
       toast.error('Solo el creador puede eliminar la nota')
       return
     }
-    if (!confirm('¿Eliminar esta nota? Las sub-páginas también se eliminarán. No se puede deshacer.')) return
+    if (!(await confirmDialog({ message: '¿Eliminar esta nota? Las sub-páginas también se eliminarán. No se puede deshacer.', destructive: true, confirmLabel: 'Eliminar' }))) return
     setDeleting(true)
     try {
       const res = await fetch(`/api/notes/${initial.id}`, { method: 'DELETE' })

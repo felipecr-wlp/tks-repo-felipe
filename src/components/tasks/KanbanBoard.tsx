@@ -4,7 +4,7 @@
  * Tablero Kanban, columnas por estado, drag & drop con @dnd-kit.
  * Se carga lazy desde la página del proyecto cuando view=board.
  */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useDeferredValue } from 'react'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import {
   DndContext,
@@ -376,7 +376,10 @@ export function KanbanBoard({
   )
 
   // Filtros client-side: prioridad y asignado. Vacío = mostrar todo.
-  const q = search.trim().toLowerCase()
+  // useDeferredValue difiere el recálculo del filtrado: el input responde al
+  // instante en cada tecla y React procesa el filtro sin bloquear el tecleo.
+  const deferredSearch = useDeferredValue(search)
+  const q = deferredSearch.trim().toLowerCase()
   const filtersActive = priorityFilter.size > 0 || assigneeFilter.size > 0 || q.length > 0
   const visibleTasks = tasks.filter(t => {
     if (priorityFilter.size > 0 && !priorityFilter.has(t.priority)) return false
@@ -487,6 +490,8 @@ export function KanbanBoard({
     if (sameColumn && newKey === moved.sort_order) return
 
     const newStatus = statuses.find(s => s.id === targetStatusId) ?? moved.status
+    const prevStatus = moved.status
+    const prevSort = moved.sort_order
 
     // Optimistic update
     setTasks(prev => prev.map(t =>
@@ -505,7 +510,12 @@ export function KanbanBoard({
       if (!res.ok) throw new Error('Error al mover la tarea')
     } catch {
       toast.error('Error al mover la tarea')
-      setTasks(initialTasks) // revertir
+      // Revertir SOLO la tarea movida a su posición previa. Antes se restauraba
+      // initialTasks completo, lo que pisaba cambios locales posteriores
+      // (tareas creadas o editadas después del último render del servidor).
+      setTasks(prev => prev.map(t =>
+        t.id === taskId ? { ...t, status: prevStatus, sort_order: prevSort } : t
+      ))
     }
   }
 
@@ -706,7 +716,7 @@ export function KanbanBoard({
 
       {/* Columnas */}
       {!(filtersActive && visibleTasks.length === 0) && (
-      <div className="flex gap-3 sm:gap-4 px-3 sm:px-6 py-4 overflow-x-auto pb-8 flex-1 snap-x snap-mandatory sm:snap-none">
+      <div className="flex gap-3 sm:gap-4 px-3 sm:px-6 py-4 overflow-x-auto pb-8 flex-1 snap-x snap-mandatory sm:snap-none scroll-px-3 sm:scroll-px-6">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}

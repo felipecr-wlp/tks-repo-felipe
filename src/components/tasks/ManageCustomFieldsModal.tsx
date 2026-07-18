@@ -10,6 +10,7 @@
  */
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import { X, Loader2, Plus, Trash2, GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CustomField, FieldOption } from './CustomFieldsSection'
@@ -123,7 +124,7 @@ export function ManageCustomFieldsModal({ projectId, onClose, onChanged }: Props
   }
 
   async function deleteField(fieldId: string) {
-    if (!confirm('Borrar este campo elimina su valor en TODAS las tareas del proyecto. Continuar?')) return
+    if (!(await confirmDialog({ title: 'Borrar campo', message: 'Borrar este campo elimina su valor en TODAS las tareas del proyecto. ¿Continuar?', destructive: true, confirmLabel: 'Borrar' }))) return
     setBusy(true)
     try {
       const res = await fetch(`/api/projects/${projectId}/custom-fields/${fieldId}`, { method: 'DELETE' })

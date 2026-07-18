@@ -5,6 +5,7 @@
  */
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import { Lock } from 'lucide-react'
 
 interface Invite {
@@ -80,7 +81,7 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
   }
 
   async function handleRevoke(inviteId: string) {
-    if (!confirm('¿Revocar este invite? Quien tenga el código no podrá unirse.')) return
+    if (!(await confirmDialog({ message: '¿Revocar este invite? Quien tenga el código no podrá unirse.', destructive: true, confirmLabel: 'Revocar' }))) return
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/invites/${inviteId}`, {
         method: 'DELETE',

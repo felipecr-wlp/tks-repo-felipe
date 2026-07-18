@@ -8,9 +8,10 @@
  * Delega la mutacion al endpoint /api/projects/[projectId]/tasks/bulk y avisa al
  * padre para limpiar la seleccion y refrescar.
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import {
   ChevronsUp, ChevronUp, Equal, ChevronDown, Minus,
   CircleDot, User, Trash2, X, Loader2, type LucideIcon,
@@ -81,7 +82,7 @@ export function BulkActionBar({
   }
 
   async function handleDelete() {
-    if (!confirm(`¿Eliminar ${count} ${count === 1 ? 'tarea' : 'tareas'}? Se archivaran.`)) return
+    if (!(await confirmDialog({ message: `¿Eliminar ${count} ${count === 1 ? 'tarea' : 'tareas'}? Se archivarán.`, destructive: true, confirmLabel: 'Eliminar' }))) return
     await apply({ type: 'delete' })
   }
 
@@ -230,6 +231,12 @@ function BarButton({
 }
 
 function FloatMenu({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  // Escape cierra el menú (el overlay solo cubre click/touch).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />

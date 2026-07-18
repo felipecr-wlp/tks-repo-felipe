@@ -38,6 +38,14 @@ export function AssigneesSection({ taskId, members, onChange }: AssigneesSection
     return () => { alive = false }
   }, [taskId])
 
+  // Cierra el menu con Escape (onMouseLeave solo cubre mouse; el overlay, click/touch).
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+
   const assignedIds = new Set(assignees.map(a => a.id))
 
   async function toggle(m: Member) {
@@ -106,6 +114,8 @@ export function AssigneesSection({ taskId, members, onChange }: AssigneesSection
       </div>
 
       {open && (
+        <>
+        <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
         <div
           className="absolute top-7 left-0 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 w-52 max-h-64 overflow-y-auto"
           onMouseLeave={() => setOpen(false)}
@@ -138,6 +148,7 @@ export function AssigneesSection({ taskId, members, onChange }: AssigneesSection
             )
           })}
         </div>
+        </>
       )}
     </div>
   )

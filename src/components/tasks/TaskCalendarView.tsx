@@ -304,7 +304,15 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
       )}
 
       {tasks.length === 0 && (
-        <p className="mt-6 text-center text-sm text-muted-foreground">No hay tareas en este proyecto todavia.</p>
+        <div className="mt-8 rounded-2xl border border-dashed border-border p-10 text-center">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted text-muted-foreground mb-3">
+            <CalendarDays className="w-5 h-5" />
+          </div>
+          <h3 className="text-sm font-medium text-foreground mb-1">Sin tareas en el calendario</h3>
+          <p className="text-sm text-muted-foreground">
+            Crea tareas con fecha de vencimiento desde la vista Lista o Tablero y aparecerán aquí.
+          </p>
+        </div>
       )}
     </div>
   )

@@ -511,6 +511,14 @@ function SprintBar({
               ))}
             </select>
           )}
+          {!isKanban && sprints.length === 0 && (
+            <button
+              onClick={() => setShowNew(true)}
+              className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary transition-colors"
+            >
+              + Crear el primer sprint
+            </button>
+          )}
           {!isKanban && selected && (
             <select
               value={selected.status}
@@ -1081,6 +1089,8 @@ function BoardView({
                   key={m.id}
                   onClick={() => togglePick(m.id)}
                   title={m.display_name}
+                  aria-label={`Filtrar por ${m.display_name}`}
+                  aria-pressed={on}
                   className={cn(
                     'rounded-full transition-transform',
                     on ? 'ring-2 ring-primary scale-110' : 'opacity-50 hover:opacity-100',
@@ -1102,6 +1112,8 @@ function BoardView({
                   key={p.id}
                   onClick={() => togglePickProject(p.id)}
                   title={`Ver solo ${p.name}`}
+                  aria-label={`Ver solo ${p.name}`}
+                  aria-pressed={on}
                   className={cn(
                     'inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border transition-colors max-w-[150px]',
                     on ? 'border-transparent text-foreground' : 'border-border text-muted-foreground hover:text-foreground',
@@ -1117,6 +1129,8 @@ function BoardView({
         )}
         <button
           onClick={() => setOnlyOverdue(v => !v)}
+          aria-label="Filtrar tareas vencidas"
+          aria-pressed={onlyOverdue}
           className={cn(
             'inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border transition-colors',
             onlyOverdue ? 'bg-orange-100 text-orange-700 border-orange-200' : 'border-border text-muted-foreground hover:text-foreground',
@@ -1126,6 +1140,8 @@ function BoardView({
         </button>
         <button
           onClick={() => setOnlyUnassigned(v => !v)}
+          aria-label="Filtrar tareas sin asignar"
+          aria-pressed={onlyUnassigned}
           className={cn(
             'inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border transition-colors',
             onlyUnassigned ? 'bg-primary/10 text-primary border-primary/30' : 'border-border text-muted-foreground hover:text-foreground',
@@ -1505,7 +1521,7 @@ function DashboardView({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ChartCard title="Mix por área (story points)" icon={PieIcon}>
-          {areaData.length === 0 ? <Empty /> : (
+          {areaData.length === 0 ? <Empty hint="Este sprint aún no tiene tareas asignadas." /> : (
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
                 <Pie data={areaData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={86} paddingAngle={2} stroke="hsl(var(--card))" strokeWidth={2}>
@@ -1518,7 +1534,7 @@ function DashboardView({
           )}
         </ChartCard>
         <ChartCard title="Carga por persona (SP)" icon={Users}>
-          {personData.length === 0 ? <Empty /> : (
+          {personData.length === 0 ? <Empty hint="Este sprint aún no tiene tareas asignadas." /> : (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={personData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
@@ -1609,7 +1625,7 @@ function KanbanDashboard({ tasks, members }: { tasks: ScrumTask[]; members: Scru
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ChartCard title="Distribución por columna" icon={Columns3}>
-          {k.total === 0 ? <Empty /> : (
+          {k.total === 0 ? <Empty hint="Este equipo aún no tiene tareas." /> : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={flowData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
@@ -1624,7 +1640,7 @@ function KanbanDashboard({ tasks, members }: { tasks: ScrumTask[]; members: Scru
           )}
         </ChartCard>
         <ChartCard title="Carga por persona (tareas)" icon={Users}>
-          {personData.length === 0 ? <Empty /> : (
+          {personData.length === 0 ? <Empty hint="Este equipo aún no tiene tareas." /> : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={personData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
@@ -1639,7 +1655,7 @@ function KanbanDashboard({ tasks, members }: { tasks: ScrumTask[]; members: Scru
           )}
         </ChartCard>
         <ChartCard title="Mix por área (tareas)" icon={PieIcon} span2>
-          {areaData.length === 0 ? <Empty /> : (
+          {areaData.length === 0 ? <Empty hint="Aún no hay tareas con área asignada." /> : (
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
                 <Pie data={areaData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={86} paddingAngle={2} stroke="hsl(var(--card))" strokeWidth={2}>
@@ -1857,11 +1873,16 @@ function EmptyState() {
   )
 }
 
-function Empty() {
+// Estado vacío de una gráfica. `hint` explica POR QUÉ está vacía (sin tareas, sin
+// story points, sin área) para que no se lea como "cargando" o "roto": los datos
+// del scrum llegan por SSR, así que aquí un vacío SIEMPRE es "no hay datos", nunca
+// "todavía cargando" (la carga fría la cubre el loading.tsx de la ruta).
+function Empty({ hint }: { hint?: string }) {
   return (
-    <div className="h-[220px] flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground rounded-lg bg-muted/30 border border-dashed border-border">
+    <div className="h-[220px] flex flex-col items-center justify-center gap-1.5 px-6 text-center text-xs text-muted-foreground rounded-lg bg-muted/30 border border-dashed border-border">
       <PieIcon className="w-6 h-6 opacity-40" />
-      Sin datos para graficar
+      <span className="font-medium text-foreground/70">Sin datos para graficar</span>
+      {hint && <span className="text-[11px] text-muted-foreground/80">{hint}</span>}
     </div>
   )
 }

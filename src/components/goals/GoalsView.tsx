@@ -13,6 +13,7 @@
  */
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import {
   Target, Plus, X, Loader2, Trash2, Link2, ChevronDown, Calendar, Search, Pencil,
 } from 'lucide-react'
@@ -485,7 +486,7 @@ function GoalCard({
   }
 
   async function remove() {
-    if (!confirm('Borrar esta meta? Se quitaran tambien los enlaces a tareas.')) return
+    if (!(await confirmDialog({ message: '¿Borrar esta meta? Se quitarán también los enlaces a tareas.', destructive: true, confirmLabel: 'Borrar' }))) return
     onDeleted(goal.id)
     try {
       const res = await fetch(`/api/goals/${goal.id}`, { method: 'DELETE' })

@@ -4,9 +4,10 @@
  * Fila de tarea en la vista de lista.
  * Permite edición inline de título, estado y prioridad.
  */
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import { ChevronsUp, ChevronUp, Equal, ChevronDown, Minus, ListChecks, Repeat, type LucideIcon } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { LabelChips } from './TaskLabels'
@@ -58,6 +59,16 @@ interface TaskRowProps {
   customValues?: Record<string, unknown>
 }
 
+// Cierra menús flotantes con Escape (accesibilidad de teclado; onMouseLeave
+// solo cubre mouse y el overlay solo cubre click/touch).
+function useEscapeToClose(onClose: () => void) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+}
+
 const PRIORITY_ICONS: Record<string, { Icon: LucideIcon; label: string; color: string }> = {
   urgent: { Icon: ChevronsUp,  label: 'Urgente', color: 'text-red-500' },
   high:   { Icon: ChevronUp,   label: 'Alta',    color: 'text-orange-500' },
@@ -103,9 +114,32 @@ export function TaskRow({
   const [isLoading, setIsLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // ── Actualizar campo de la tarea ──────────────────────────────────────────
+  // ── Actualizar campo de la tarea (optimista) ──────────────────────────────
+  // La UI refleja el cambio al instante (patrón Linear/ClickUp) y se revierte
+  // con toast si el servidor rechaza. Sin bloqueo visual durante el fetch.
   const updateTask = async (patch: Partial<{ title: string; status_id: string; priority: string; assignee_id: string | null }>) => {
-    setIsLoading(true)
+    const previous = task
+    const optimistic: Task = { ...task }
+    if (patch.title !== undefined) optimistic.title = patch.title
+    if (patch.priority !== undefined) optimistic.priority = patch.priority
+    if (patch.status_id !== undefined) {
+      const s = statuses.find(x => x.id === patch.status_id)
+      if (s) optimistic.status = { id: s.id, name: s.name, color: s.color, category: s.category }
+    }
+    if (patch.assignee_id !== undefined) {
+      if (patch.assignee_id === null) {
+        optimistic.assignee = null
+        optimistic.assignees = []
+      } else {
+        const m = members.find(x => x.id === patch.assignee_id)
+        if (m) {
+          optimistic.assignee = { id: m.id, display_name: m.display_name, avatar_url: m.avatar_url }
+          optimistic.assignees = [{ id: m.id, display_name: m.display_name, avatar_url: m.avatar_url }]
+        }
+      }
+    }
+    onUpdated(optimistic)
+
     try {
       const res = await fetch(`/api/tasks/${task.id}`, {
         method: 'PATCH',
@@ -114,21 +148,22 @@ export function TaskRow({
       })
 
       if (!res.ok) {
-        const err = await res.json()
+        const err = await res.json().catch(() => ({ error: null }))
         throw new Error(err.error ?? 'Error al actualizar')
       }
 
       const updated: Task = await res.json()
-      onUpdated(updated)
+      // Merge sobre el optimista: si el servidor devuelve menos campos
+      // (labels, subtareas), se conservan los que ya estaban en la fila.
+      onUpdated({ ...optimistic, ...updated })
     } catch (err) {
+      onUpdated(previous) // revertir al estado previo a la edición
       toast.error(err instanceof Error ? err.message : 'Error al actualizar la tarea')
-    } finally {
-      setIsLoading(false)
     }
   }
 
   const deleteTask = async () => {
-    if (!confirm('¿Eliminar esta tarea?')) return
+    if (!(await confirmDialog({ message: '¿Eliminar esta tarea?', destructive: true, confirmLabel: 'Eliminar' }))) return
     setIsLoading(true)
     try {
       const res = await fetch(`/api/tasks/${task.id}`, { method: 'DELETE' })
@@ -348,6 +383,7 @@ export function TaskRow({
       <button
         onClick={deleteTask}
         title="Eliminar tarea"
+        aria-label="Eliminar tarea"
         className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-destructive transition-all"
       >
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -370,7 +406,10 @@ function StatusMenu({
   onSelect: (id: string) => void
   onClose: () => void
 }) {
+  useEscapeToClose(onClose)
   return (
+    <>
+    <div className="fixed inset-0 z-40" onClick={onClose} />
     <div
       className="absolute top-6 left-0 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 w-44"
       onMouseLeave={onClose}
@@ -380,7 +419,7 @@ function StatusMenu({
           key={s.id}
           onClick={() => onSelect(s.id)}
           className={cn(
-            'flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent transition-colors',
+            'flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none transition-colors',
             s.id === currentId ? 'text-foreground font-medium' : 'text-muted-foreground'
           )}
         >
@@ -392,6 +431,7 @@ function StatusMenu({
         </button>
       ))}
     </div>
+    </>
   )
 }
 
@@ -406,7 +446,10 @@ function PriorityMenu({
   onClose: () => void
 }) {
   const priorities = ['urgent', 'high', 'medium', 'low', 'none'] as const
+  useEscapeToClose(onClose)
   return (
+    <>
+    <div className="fixed inset-0 z-40" onClick={onClose} />
     <div
       className="absolute top-6 right-0 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 w-40"
       onMouseLeave={onClose}
@@ -418,7 +461,7 @@ function PriorityMenu({
             key={p}
             onClick={() => onSelect(p)}
             className={cn(
-              'flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent transition-colors',
+              'flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none transition-colors',
               p === current ? 'text-foreground font-medium' : 'text-muted-foreground'
             )}
           >
@@ -428,6 +471,7 @@ function PriorityMenu({
         )
       })}
     </div>
+    </>
   )
 }
 
@@ -443,7 +487,10 @@ function AssignMenu({
   onSelect: (id: string | null) => void
   onClose: () => void
 }) {
+  useEscapeToClose(onClose)
   return (
+    <>
+    <div className="fixed inset-0 z-40" onClick={onClose} />
     <div
       className="absolute top-7 right-0 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 w-44"
       onMouseLeave={onClose}
@@ -451,7 +498,7 @@ function AssignMenu({
       <button
         onClick={() => onSelect(null)}
         className={cn(
-          'flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent transition-colors',
+          'flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none transition-colors',
           !currentId ? 'text-foreground font-medium' : 'text-muted-foreground'
         )}
       >
@@ -468,7 +515,7 @@ function AssignMenu({
           key={m.id}
           onClick={() => onSelect(m.id)}
           className={cn(
-            'flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent transition-colors',
+            'flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none transition-colors',
             m.id === currentId ? 'text-foreground font-medium' : 'text-muted-foreground'
           )}
         >
@@ -485,5 +532,6 @@ function AssignMenu({
         </button>
       ))}
     </div>
+    </>
   )
 }

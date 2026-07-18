@@ -9,6 +9,7 @@
 import { useState, useCallback } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import { History, RotateCcw, Loader2, X } from 'lucide-react'
 import { getInitials, timeAgo } from '@/lib/utils'
 
@@ -48,7 +49,7 @@ export function NoteVersions({ noteId }: NoteVersionsProps) {
   }
 
   async function restore(v: Version) {
-    if (!confirm('¿Restaurar esta versión? El estado actual se guardará como una versión más antes de sobrescribir.')) return
+    if (!(await confirmDialog({ title: 'Restaurar versión', message: 'El estado actual se guardará como una versión más antes de sobrescribir. ¿Restaurar esta versión?', confirmLabel: 'Restaurar' }))) return
     setRestoringId(v.id)
     try {
       const res = await fetch(`/api/notes/${noteId}/versions/${v.id}/restore`, { method: 'POST' })

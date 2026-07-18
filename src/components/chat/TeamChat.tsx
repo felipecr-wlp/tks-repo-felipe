@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -242,8 +242,10 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages }: Te
           <button
             onClick={send}
             disabled={sending || draft.trim().length === 0}
-            className="flex-shrink-0 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-40 hover:bg-primary/90 transition-colors"
+            aria-label="Enviar mensaje"
+            className="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-40 hover:bg-primary/90 transition-colors"
           >
+            {sending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             Enviar
           </button>
         </div>

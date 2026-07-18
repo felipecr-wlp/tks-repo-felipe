@@ -8,7 +8,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { toast } from 'sonner'
-import { Check } from 'lucide-react'
+import Link from 'next/link'
+import { Check, Loader2, ArrowRight } from 'lucide-react'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 
@@ -124,6 +125,12 @@ export function InboxList({ initial, workspaceSlug, currentUserId }: InboxListPr
         <p className="text-sm text-muted-foreground">
           Cuando alguien te asigne una tarea o te mencione, aparecerá aquí.
         </p>
+        <Link
+          href={`/w/${workspaceSlug}/my-tasks`}
+          className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-muted transition-colors"
+        >
+          Ver mis tareas <ArrowRight className="w-3 h-3" />
+        </Link>
       </div>
     )
   }
@@ -151,8 +158,9 @@ export function InboxList({ initial, workspaceSlug, currentUserId }: InboxListPr
           <button
             onClick={markAllRead}
             disabled={marking}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           >
+            {marking && <Loader2 className="w-3 h-3 animate-spin" />}
             Marcar todo como leído
           </button>
         )}

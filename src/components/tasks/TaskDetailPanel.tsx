@@ -17,6 +17,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import {
   X, Trash2, Loader2, Paperclip, UploadCloud, Download, AtSign,
   Zap, ChevronsUp, ChevronUp, ChevronDown, Minus, ImageIcon, FileText,
@@ -267,7 +268,7 @@ export function TaskDetailPanel({
   }
 
   const handleDelete = async () => {
-    if (!confirm('¿Eliminar esta tarea? No se puede deshacer.')) return
+    if (!(await confirmDialog({ message: '¿Eliminar esta tarea? No se puede deshacer.', destructive: true, confirmLabel: 'Eliminar' }))) return
     try {
       const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Error al eliminar')

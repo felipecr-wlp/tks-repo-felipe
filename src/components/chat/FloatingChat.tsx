@@ -10,7 +10,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { MessageSquare, X, Maximize2, ChevronDown } from 'lucide-react'
+import { MessageSquare, X, Maximize2, ChevronDown, AlertCircle, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { TeamChat } from './TeamChat'
@@ -50,6 +50,8 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
   const [activeId, setActiveId] = useState(teams[0]?.id ?? '')
   const [loaded, setLoaded] = useState<Record<string, LoadedTeam>>({})
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
+  const [retry, setRetry] = useState(0)
   const [unread, setUnread] = useState(false)
   const openRef = useRef(open)
   openRef.current = open
@@ -61,6 +63,7 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
     if (!open || !active || loaded[active.id]) return
     let cancelled = false
     setLoading(true)
+    setLoadError(false)
     fetch(`/api/messages?team_id=${active.id}&limit=30`)
       .then(res => (res.ok ? res.json() : Promise.reject(new Error('load'))))
       .then((data: { messages: Message[]; members: Member[] }) => {
@@ -70,10 +73,11 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
           [active.id]: { members: data.members ?? [], initialMessages: data.messages ?? [] },
         }))
       })
-      .catch(() => {})
+      // Antes: .catch(() => {}) dejaba "Cargando..." infinito sin feedback.
+      .catch(() => { if (!cancelled) setLoadError(true) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [open, active, loaded])
+  }, [open, active, loaded, retry])
 
   // Indicador de no leídos: escucha INSERT de cualquier equipo del usuario
   // mientras el panel esté cerrado. Ignora los mensajes propios.
@@ -120,6 +124,7 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
                 href={`/w/${workspaceSlug}/t/${active.slug}/chat`}
                 className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 title="Abrir en pantalla completa"
+                aria-label="Abrir chat en pantalla completa"
               >
                 <Maximize2 className="w-3.5 h-3.5" />
               </Link>
@@ -127,6 +132,7 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
                 onClick={() => setOpen(false)}
                 className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 title="Cerrar"
+                aria-label="Cerrar panel de chat"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -162,10 +168,23 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
                 initialMessages={loaded[active.id].initialMessages}
               />
             ) : (
-              <div className="flex-1 flex items-center justify-center">
-                <p className="text-xs text-muted-foreground">
-                  {loading ? 'Cargando conversación…' : 'Preparando chat…'}
-                </p>
+              <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">
+                {loadError ? (
+                  <>
+                    <AlertCircle className="w-5 h-5 text-destructive" />
+                    <p className="text-xs text-muted-foreground">No se pudo cargar la conversación.</p>
+                    <button
+                      onClick={() => setRetry(n => n + 1)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-muted transition-colors"
+                    >
+                      <RotateCcw className="w-3 h-3" /> Reintentar
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {loading ? 'Cargando conversación…' : 'Preparando chat…'}
+                  </p>
+                )}
               </div>
             )}
           </div>

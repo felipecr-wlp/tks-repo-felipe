@@ -54,6 +54,14 @@ export function ProjectChat({ projectId, currentUserId, members, initialMessages
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [pickerFor, setPickerFor] = useState<string | null>(null)
+
+  // Escape cierra el picker de reacciones (el overlay solo cubre click/touch).
+  useEffect(() => {
+    if (!pickerFor) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPickerFor(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [pickerFor])
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Reacciones agrupadas por mensaje, y dentro por emoji (para pintar pills con
