@@ -81,12 +81,15 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
     if (teams.length === 0) return
     const supabase = createClient()
     const ids = new Set(teams.map(t => t.id))
+    // Regla de egress 5: filtrar en el servidor a los teams del usuario
+    // (el check client-side de abajo queda como respaldo).
+    const teamFilter = `team_id=in.(${teams.map(t => t.id).join(',')})`
     const ch = supabase
       .channel('floating-chat-unread')
       .on(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         'postgres_changes' as any,
-        { event: 'INSERT', schema: 'public', table: 'messages' },
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: teamFilter },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (payload: any) => {
           const row = payload.new as { team_id: string; author_id: string }

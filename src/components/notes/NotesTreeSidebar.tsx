@@ -106,7 +106,10 @@ export function NotesTreeSidebar({
 
   // Colaboración en vivo: el árbol de notas se actualiza cuando otro usuario
   // crea, renombra, mueve o borra una nota.
-  useRealtimeRefresh({ channel: `notes-${workspaceId}`, tables: ['notes'] })
+  useRealtimeRefresh({
+    channel: `notes-${workspaceId}`,
+    tables: [{ table: 'notes', filter: `workspace_id=eq.${workspaceId}` }],
+  })
 
   const currentNoteId = useMemo(() => {
     const match = pathname.match(/\/notes\/([^/]+)/)

@@ -26,6 +26,7 @@ interface Notification {
 interface InboxListProps {
   initial: Notification[]
   workspaceSlug: string
+  currentUserId: string
 }
 
 const VERB_LABELS: Record<string, string> = {
@@ -47,14 +48,17 @@ const VERB_LABELS: Record<string, string> = {
   'workspace.member_joined': 'se unió al workspace',
 }
 
-export function InboxList({ initial, workspaceSlug }: InboxListProps) {
+export function InboxList({ initial, workspaceSlug, currentUserId }: InboxListProps) {
   const router = useRouter()
   const [notifications, setNotifications] = useState(initial)
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [marking, setMarking] = useState(false)
 
   // Colaboración en vivo: nuevas notificaciones aparecen sin recargar.
-  useRealtimeRefresh({ channel: `inbox-${workspaceSlug}`, tables: ['notifications'] })
+  useRealtimeRefresh({
+    channel: `inbox-${workspaceSlug}`,
+    tables: [{ table: 'notifications', filter: `recipient_id=eq.${currentUserId}` }],
+  })
   useEffect(() => { setNotifications(initial) }, [initial])
 
   const unreadCount = notifications.filter(n => !n.is_read).length

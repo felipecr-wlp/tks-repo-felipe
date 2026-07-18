@@ -21,9 +21,14 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getLogClient(): any {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    // Fail-fast: sin service role las escrituras fallarían contra RLS de forma
+    // silenciosa y confusa. Mejor tronar con mensaje claro de configuración.
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY no configurada (requerida por logActivity).')
+  }
   return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 }

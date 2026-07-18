@@ -167,6 +167,7 @@ export default async function ScrumPage({ params }: ScrumPageProps) {
       </div>
       <ScrumWorkspace
         teamId={team.id}
+        workspaceId={workspace.id}
         teamName={team.name}
         methodology={team.methodology === 'kanban' ? 'kanban' : 'scrum'}
         sprints={sprintsRaw ?? []}

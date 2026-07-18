@@ -98,7 +98,13 @@ export function TaskListView({
   const [filterValue, setFilterValue] = useState<string>('')
 
   // Colaboración en vivo: sincroniza la lista cuando otro usuario cambia tareas.
-  useRealtimeRefresh({ channel: `proj-list-${projectId}`, tables: ['tasks', 'task_statuses'] })
+  useRealtimeRefresh({
+    channel: `proj-list-${projectId}`,
+    tables: [
+      { table: 'tasks',         filter: `project_id=eq.${projectId}` },
+      { table: 'task_statuses', filter: `project_id=eq.${projectId}` },
+    ],
+  })
   useEffect(() => { setTasks(initialTasks) }, [initialTasks])
 
   // Carga en bloque los campos personalizados y sus valores (una sola llamada).

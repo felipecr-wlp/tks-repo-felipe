@@ -82,7 +82,13 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  useRealtimeRefresh({ channel: `proj-load-${projectId}`, tables: ['tasks', 'task_statuses'] })
+  useRealtimeRefresh({
+    channel: `proj-load-${projectId}`,
+    tables: [
+      { table: 'tasks',         filter: `project_id=eq.${projectId}` },
+      { table: 'task_statuses', filter: `project_id=eq.${projectId}` },
+    ],
+  })
 
   const today = startOfToday()
 

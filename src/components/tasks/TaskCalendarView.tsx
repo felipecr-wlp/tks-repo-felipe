@@ -71,7 +71,13 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [cursor, setCursor] = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1) })
 
-  useRealtimeRefresh({ channel: `proj-cal-${projectId}`, tables: ['tasks', 'task_statuses'] })
+  useRealtimeRefresh({
+    channel: `proj-cal-${projectId}`,
+    tables: [
+      { table: 'tasks',         filter: `project_id=eq.${projectId}` },
+      { table: 'task_statuses', filter: `project_id=eq.${projectId}` },
+    ],
+  })
 
   const today = startOfDay(new Date())
 

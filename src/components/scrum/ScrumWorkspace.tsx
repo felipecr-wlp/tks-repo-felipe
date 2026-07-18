@@ -43,6 +43,7 @@ type Methodology = 'scrum' | 'kanban'
 
 interface Props {
   teamId: string
+  workspaceId: string
   teamName: string
   methodology: Methodology
   sprints: ScrumSprint[]
@@ -115,7 +116,7 @@ function sortTasks(list: ScrumTask[], by: SortKey): ScrumTask[] {
 }
 
 export function ScrumWorkspace({
-  teamId, teamName, methodology: methodologyProp, sprints, tasks, statuses, members, currentUserId,
+  teamId, workspaceId, teamName, methodology: methodologyProp, sprints, tasks, statuses, members, currentUserId,
   soloProject = null,
 }: Props) {
   const router = useRouter()
@@ -131,7 +132,14 @@ export function ScrumWorkspace({
 
   // Colaboración en vivo: si otro miembro mueve tareas o edita sprints, el
   // tablero se actualiza solo para todos.
-  useRealtimeRefresh({ channel: `scrum-${teamId}`, tables: ['tasks', 'sprints'] })
+  useRealtimeRefresh({
+    channel: `scrum-${teamId}`,
+    tables: [
+      // tasks no tiene team_id: se filtra por workspace (denormalizado para RLS).
+      { table: 'tasks',   filter: `workspace_id=eq.${workspaceId}` },
+      { table: 'sprints', filter: `team_id=eq.${teamId}` },
+    ],
+  })
 
   // Presencia en vivo: quién está viendo el scrum del equipo ahora mismo.
   const me = members.find(m => m.id === currentUserId)

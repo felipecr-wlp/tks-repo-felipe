@@ -25,9 +25,13 @@ export const maxDuration = 30
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getClient(): any {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    // Fail-fast: el cron necesita service role; con anon key fallaría contra RLS.
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY no configurada (requerida por el cron).')
+  }
   return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 }

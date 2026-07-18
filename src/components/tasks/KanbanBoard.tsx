@@ -347,7 +347,13 @@ export function KanbanBoard({
 
   // Colaboración en vivo: al cambiar tareas/estados otro usuario, el server
   // component re-renderiza y este efecto sincroniza la copia local del tablero.
-  useRealtimeRefresh({ channel: `proj-tasks-${projectId}`, tables: ['tasks', 'task_statuses'] })
+  useRealtimeRefresh({
+    channel: `proj-tasks-${projectId}`,
+    tables: [
+      { table: 'tasks',         filter: `project_id=eq.${projectId}` },
+      { table: 'task_statuses', filter: `project_id=eq.${projectId}` },
+    ],
+  })
   useEffect(() => { setTasks(initialTasks) }, [initialTasks])
 
   // Atajos de teclado: "/" enfoca la búsqueda (patrón de apps premium tipo Linear).

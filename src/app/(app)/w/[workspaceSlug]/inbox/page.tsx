@@ -67,6 +67,7 @@ export default async function InboxPage({ params }: InboxPageProps) {
       <InboxList
         initial={notifications ?? []}
         workspaceSlug={params.workspaceSlug}
+        currentUserId={user.id}
       />
     </div>
   )
