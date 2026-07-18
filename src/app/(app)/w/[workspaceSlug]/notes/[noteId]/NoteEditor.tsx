@@ -365,6 +365,7 @@ export function NoteEditor({
         onDirty={() => setStatus(s => (s === 'saving' ? s : 'dirty'))}
         autosaveMs={1200}
         blocks="full"
+        workspaceId={workspaceId}
         className="!border-0 [&_.ProseMirror]:px-0 [&_.ProseMirror]:py-2 [&_.ProseMirror]:min-h-[300px]"
       />
 

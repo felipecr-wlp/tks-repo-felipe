@@ -12,6 +12,11 @@ import { cn } from '@/lib/utils'
 
 interface SlashMenuProps {
   editor: Editor | null
+  /**
+   * Si se define, habilita el comando "Pizarra": crea una pizarra real y
+   * devuelve su id, que el bloque incrustado referencia. Solo en notas.
+   */
+  onCreateWhiteboard?: () => Promise<string | null>
 }
 
 interface SlashCommand {
@@ -150,7 +155,7 @@ const COMMANDS: SlashCommand[] = [
   },
 ]
 
-export function SlashMenu({ editor }: SlashMenuProps) {
+export function SlashMenu({ editor, onCreateWhiteboard }: SlashMenuProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
@@ -161,8 +166,27 @@ export function SlashMenu({ editor }: SlashMenuProps) {
   // en el schema, p.ej. tablas/callouts/toggles solo en el editor de notas).
   const available = useMemo(() => {
     const nodes = editor?.schema.nodes
-    return COMMANDS.filter(c => !c.requires || (nodes ? c.requires in nodes : false))
-  }, [editor])
+    const base = COMMANDS.filter(c => !c.requires || (nodes ? c.requires in nodes : false))
+    // Comando dinamico de pizarra: necesita el creador async (closure), por eso
+    // se agrega aqui y no en el arreglo estatico COMMANDS.
+    if (onCreateWhiteboard && nodes && 'whiteboardEmbed' in nodes) {
+      base.push({
+        id: 'whiteboard',
+        label: 'Pizarra',
+        description: 'Lienzo Excalidraw incrustado',
+        keywords: ['pizarra', 'whiteboard', 'excalidraw', 'dibujo', 'diagrama', 'canvas', 'lienzo'],
+        icon: '✎',
+        group: 'Avanzado',
+        command: (e, r) => {
+          e.chain().focus().deleteRange(r).run()
+          onCreateWhiteboard().then(id => {
+            if (id) e.chain().focus().insertContent({ type: 'whiteboardEmbed', attrs: { id } }).run()
+          })
+        },
+      })
+    }
+    return base
+  }, [editor, onCreateWhiteboard])
 
   // Filtrar commands por query
   const filtered = useMemo(() => {

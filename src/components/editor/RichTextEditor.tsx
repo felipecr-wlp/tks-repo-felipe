@@ -18,12 +18,14 @@ import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableHeader from '@tiptap/extension-table-header'
 import TableCell from '@tiptap/extension-table-cell'
-import { useEffect, useRef } from 'react'
-import { Table2, Megaphone, ListCollapse } from 'lucide-react'
+import { useCallback, useEffect, useRef } from 'react'
+import { Table2, Megaphone, ListCollapse, PenTool } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { SlashMenu } from './SlashMenu'
 import { Callout } from './extensions/Callout'
 import { Details, DetailsSummary, DetailsContent } from './extensions/Details'
+import { WhiteboardEmbed } from './extensions/WhiteboardEmbed'
 
 interface RichTextEditorProps {
   /** Contenido inicial (HTML o JSON serializado como string) */
@@ -47,10 +49,16 @@ interface RichTextEditorProps {
    * callouts y toggles. Se separa para no inflar el editor de tareas.
    */
   blocks?: 'basic' | 'full'
+  /**
+   * Workspace de la nota. Requerido para crear pizarras incrustadas (el bloque
+   * de pizarra crea un registro en `whiteboards` de este workspace). Solo lo
+   * pasan las notas; las descripciones de tareas no lo necesitan.
+   */
+  workspaceId?: string
 }
 
-// Extensiones extra del modo 'full' (tablas, callouts, toggles). Se definen
-// fuera del componente para no recrearlas en cada render.
+// Extensiones extra del modo 'full' (tablas, callouts, toggles, pizarra). Se
+// definen fuera del componente para no recrearlas en cada render.
 const FULL_BLOCK_EXTENSIONS: (Extension | TiptapNode)[] = [
   Table.configure({ resizable: true, HTMLAttributes: { class: 'wiki-table' } }),
   TableRow,
@@ -60,6 +68,7 @@ const FULL_BLOCK_EXTENSIONS: (Extension | TiptapNode)[] = [
   Details,
   DetailsSummary,
   DetailsContent,
+  WhiteboardEmbed,
 ]
 
 // Selectores de contenedor que estilizan los bloques 'full' sin tocar
@@ -91,8 +100,29 @@ export function RichTextEditor({
   autosaveMs = 0,
   onDirty,
   blocks = 'basic',
+  workspaceId,
 }: RichTextEditorProps) {
   const full = blocks === 'full'
+
+  // Crea una pizarra real en este workspace y devuelve su id, para que el bloque
+  // de pizarra incrustada la referencie. Reutiliza la API /api/whiteboards.
+  // Solo disponible cuando hay workspaceId (notas), no en descripciones de tarea.
+  const createWhiteboard = useCallback(async (): Promise<string | null> => {
+    if (!workspaceId) return null
+    try {
+      const res = await fetch('/api/whiteboards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspace_id: workspaceId, title: 'Pizarra' }),
+      })
+      if (!res.ok) throw new Error()
+      const j = await res.json()
+      return (j?.id as string) ?? null
+    } catch {
+      toast.error('No se pudo crear la pizarra')
+      return null
+    }
+  }, [workspaceId])
   // Refs para no capturar closures viejas dentro de los callbacks de Tiptap.
   const onSaveRef = useRef(onSave)
   onSaveRef.current = onSave
@@ -183,9 +213,16 @@ export function RichTextEditor({
       'border border-input rounded-lg bg-background focus-within:ring-2 focus-within:ring-ring transition-shadow',
       className,
     )}>
-      <Toolbar editor={editor} full={full} />
+      <Toolbar
+        editor={editor}
+        full={full}
+        onCreateWhiteboard={full && workspaceId ? createWhiteboard : undefined}
+      />
       <EditorContent editor={editor} />
-      <SlashMenu editor={editor} />
+      <SlashMenu
+        editor={editor}
+        onCreateWhiteboard={full && workspaceId ? createWhiteboard : undefined}
+      />
     </div>
   )
 }
@@ -193,7 +230,15 @@ export function RichTextEditor({
 // ── Toolbar minimalista ─────────────────────────────────────────────────────
 type Editor = ReturnType<typeof useEditor>
 
-function Toolbar({ editor, full = false }: { editor: Editor; full?: boolean }) {
+function Toolbar({
+  editor,
+  full = false,
+  onCreateWhiteboard,
+}: {
+  editor: Editor
+  full?: boolean
+  onCreateWhiteboard?: () => Promise<string | null>
+}) {
   if (!editor) return null
   const btn = (active: boolean) =>
     cn(
@@ -319,6 +364,19 @@ function Toolbar({ editor, full = false }: { editor: Editor; full?: boolean }) {
           >
             <ListCollapse className="w-3.5 h-3.5" />
           </button>
+          {onCreateWhiteboard && (
+            <button
+              type="button"
+              onClick={async () => {
+                const id = await onCreateWhiteboard()
+                if (id) editor.chain().focus().setWhiteboard({ id }).run()
+              }}
+              className={btn(false)}
+              title="Insertar pizarra"
+            >
+              <PenTool className="w-3.5 h-3.5" />
+            </button>
+          )}
         </>
       )}
     </div>
