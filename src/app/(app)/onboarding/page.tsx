@@ -7,6 +7,7 @@
  */
 import { redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { attemptDomainAutoJoin } from '@/lib/auto-join'
 import { OnboardingForm } from './OnboardingForm'
 
 export const metadata = { title: 'Configurar espacio de trabajo · WLO' }
@@ -32,6 +33,13 @@ export default async function OnboardingPage() {
 
   if (existing?.workspaces?.slug) {
     redirect(`/w/${existing.workspaces.slug}`)
+  }
+
+  // Auto-unir por dominio antes de ofrecer crear una org nueva (misma logica que
+  // la raiz): si el correo pertenece a una org conocida, se une a ella.
+  const joinedSlug = await attemptDomainAutoJoin(admin, user)
+  if (joinedSlug) {
+    redirect(`/w/${joinedSlug}`)
   }
 
   return (

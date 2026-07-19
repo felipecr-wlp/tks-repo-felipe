@@ -5,6 +5,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/sidebar/Sidebar'
+import { MobileTopBar } from '@/components/sidebar/MobileTopBar'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
 import { FloatingChat } from '@/components/chat/FloatingChat'
 import { GlobalNewTaskModal } from '@/components/tasks/GlobalNewTaskModal'
@@ -197,10 +198,15 @@ export default async function WorkspaceLayout({
         allWorkspaces={allWorkspaces}
       />
 
-      {/* Contenido principal */}
-      <main className="flex-1 overflow-auto min-w-0">
-        {children}
-      </main>
+      {/* Columna de contenido: barra superior movil + main.
+          En movil el Sidebar es `fixed` (fuera del flujo), asi que esta columna
+          ocupa todo el ancho; la hamburguesa vive en la barra superior. */}
+      <div className="flex flex-col flex-1 min-w-0">
+        <MobileTopBar workspaceName={workspace.name} />
+        <main className="flex-1 overflow-auto min-w-0">
+          {children}
+        </main>
+      </div>
 
       {/* Burbuja de chat flotante global (equipos del usuario) */}
       <FloatingChat

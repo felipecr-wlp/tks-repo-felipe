@@ -8,6 +8,147 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-19: Fix alta de usuarios (auto-join por dominio de correo)
+
+Cierra el HALLAZGO ABIERTO de la entrada anterior: quien se registraba SIN invitacion creaba una org
+huerfana y quedaba aislado (paso 2 veces, dos "General"; dejo a Alan invisible). Deploy prod
+`dpl_49z5s5UWMfaYLr5fdLcZHruW2SYW` (alias wlo.vercel.app, READY).
+
+Solucion (auto-join por dominio):
+- La organizacion declara su dominio de correo y su workspace por defecto. Al registrarse alguien con
+  ese dominio y sin org, el app lo une AUTOMATICAMENTE a esa org + workspace (rol member) en vez de
+  crear una org nueva.
+- Migracion `20260719000000_org_domain_autojoin.sql` (aplicada a prod): `organizations.email_domain`
+  (text) + `organizations.default_workspace_id` (uuid -> workspaces) + indice unico por lower(dominio)
+  (un dominio mapea a lo sumo a una org). La config de datos (pavific.com -> org `06618d0f` + workspace
+  activo `daf8b859`) se aplico por SQL aparte, fuera del archivo versionado, para que la migracion sea
+  replayable en una BD limpia.
+- Helper nuevo `src/lib/auto-join.ts` -> `attemptDomainAutoJoin(admin, user)`: resuelve la org por
+  dominio, puebla perfil (solo si no tiene org, sin pisar a nadie), y hace upsert idempotente de
+  org_members + workspace_members con rol member. Devuelve el slug para redirigir o null si no aplica.
+- Cableado en 3 puntos: `src/app/page.tsx` (raiz, antes de mandar a /onboarding), `onboarding/page.tsx`
+  (antes de mostrar el form) y `api/onboarding/route.ts` (defensa: si el dominio ya tiene org, se une
+  a ella en vez de crear una duplicada). El camino de invitacion sigue intacto.
+- Archivos: `auto-join.ts` (nuevo), `page.tsx`, `(app)/onboarding/page.tsx`, `api/onboarding/route.ts`,
+  migracion SQL. Typecheck + build limpios.
+
+---
+
+## 2026-07-19: Asignacion de departamentos (admin) + fix usuario Alan
+
+Ali pidio poder asignar el DEPARTAMENTO a cada persona el mismo (solo admin) y reporto que Alan
+Ambriz se logueo pero no aparecia. Deploy prod `wlo-jobg1zpsb` (alias wlo.vercel.app, READY).
+
+Fix usuario Alan (causa raiz):
+- Alan (alan.af@pavific.com, id e5c825cb) se registro solo y el onboarding le creo su PROPIA org +
+  workspace "General" residual `ecabb511` (quedaba solo ahi). El equipo real vive en el workspace activo
+  `daf8b859`. Por eso Ali no lo veia. Se le agrego a `daf8b859` como member (via SQL,
+  workspace_members). Ya aparece en la lista de miembros.
+- HALLAZGO ABIERTO (bug de onboarding): cualquier persona que se registre SIN invitacion crea una org
+  nueva en vez de unirse a la de la empresa. El unico camino correcto de alta es la invitacion
+  (/settings/invites -> /api/invites/[code]/join, que sí mete a la org del workspace). Falta un
+  auto-join por dominio (@pavific.com) o forzar el flujo por invitacion. Es la 2a vez que pasa (dos
+  workspaces "General": daf8b859 activo vs ecabb511 residual).
+
+Asignacion de departamentos (item 3, parte A):
+- El panel /settings/departments (ya admin-gated por getWorkspaceAdminContext) ahora deja ASIGNAR y
+  QUITAR personas por departamento. La API ya existia (`/api/spaces/[spaceId]/members` GET/POST +
+  `/[profileId]` DELETE, todas isWorkspaceAdminById). Solo faltaba el front-end. Boton "Miembros" por
+  fila que despliega un selector (personas del workspace aun no asignadas) + lista de asignados con
+  "Quitar". Solo admins (Ali) pueden hacerlo, por el gate del area de settings.
+- Archivos: `settings/departments/page.tsx` (pasa workspaceMembers), `DepartmentsPanel.tsx` (gestor de
+  miembros expandible). Sin migraciones.
+
+---
+
+## 2026-07-19: Especializacion, ronda 2 (plantillas de proyecto: obra + marketing)
+
+Ali pidio especializar WLO para la operacion de pavimentacion Y para marketing (se usa mucho para ambos)
+y dejarlo listo para uso real. Deploys prod: `wlo-gxe7dwnaw` (paving) + `wlo-msit0d2wz` (marketing, alias
+wlo.vercel.app, READY).
+
+Plantillas incluidas en `PROJECT_TEMPLATES`:
+- `paving-job` "Obra de pavimentacion": 11 tareas (visita, estimado, propuesta, contrato, permisos,
+  movilizar, base, pavimentar, striping, punch list, cierre) + 6 campos (Direccion, Tipo de superficie,
+  Pies cuadrados, Monto, Garantia 15/5 años, Fecha inicio).
+- `marketing-campaign` "Campaña de marketing": 11 tareas (brief, research, estrategia, creativos, copy,
+  landing, tracking, aprobacion, lanzar, optimizar, reporte) + 6 campos (Canal select 8 opciones,
+  Presupuesto, Publico, KPI, Fecha lanzamiento, Estado de aprobacion).
+- `content-seo` "Contenido / SEO": 10 tareas (keyword, research, outline, redaccion, on-page, multimedia,
+  aprobacion, publicar, indexar, medir) + 6 campos (Keyword, Tipo, Volumen, URL, Fecha, Estado).
+
+Que cambio:
+- Nueva libreria `src/lib/project-templates.ts`: define plantillas de proyecto. Primera plantilla
+  `paving-job` ("Obra de pavimentacion") con (a) 11 tareas del flujo real de un job (visita a sitio,
+  estimado, propuesta, contrato/anticipo, agendar/permisos, movilizar, base/demolicion, pavimentar,
+  striping, punch list, cierre/factura/evaluacion) y (b) 6 campos de obra (Direccion, Tipo de superficie
+  select asfalto/concreto/mixto, Pies cuadrados, Monto del contrato currency, Garantia select 15/5 años,
+  Fecha de inicio). No es tabla nueva: reutiliza tasks + custom_field_definitions existentes.
+- `POST /api/projects` acepta `template?` opcional. Tras crear el proyecto y sus statuses, siembra las
+  tareas en el primer status "por hacer" (sort_order encadenado con fractional-indexing) y los campos
+  personalizados. Best-effort: si la siembra falla, el proyecto ya existe y no bloquea la respuesta.
+- `NewProjectForm.tsx`: selector de plantilla arriba del form (En blanco vs Obra de pavimentacion).
+  Elegir plantilla ajusta el icono automaticamente y manda `template` al POST.
+
+Archivos: `src/lib/project-templates.ts` (nuevo), `src/app/api/projects/route.ts`,
+`src/app/(app)/w/[workspaceSlug]/t/[teamSlug]/projects/new/NewProjectForm.tsx`. Sin migraciones nuevas
+(los custom fields ya existian desde `20260713010000_custom_fields.sql` con su UI en TaskDetailPanel).
+
+---
+
+## 2026-07-19: Auditoria de adopcion, ronda 1 (movil + rendimiento)
+
+Ali pidio auditar WLO y aplicar mejoras reales para empezar a usarlo en la empresa.
+Auditoria completa: la app ya es funcional y rica; los bloqueadores reales de adopcion eran
+movil y un par de N+1. Aplicado en esta ronda (deploy prod `wlo-83xpqjhf9`):
+
+- **BLOQUEADOR movil: la app era inusable en telefono.** El Sidebar era una columna flex fija
+  `w-60` sin hamburguesa ni drawer; en 375px comia ~240px y no se podia cerrar. Las cuadrillas
+  de campo abren estimados y platicas de seguridad desde el celular. Fix: Sidebar ahora es un
+  drawer off-canvas en `< md` (fixed + translate + backdrop, auto-cierre al navegar) y columna
+  estatica en desktop. Nueva `MobileTopBar` (hamburguesa + buscar) y store `useMobileNav`.
+  Archivos: `components/sidebar/Sidebar.tsx`, `MobileTopBar.tsx` (nuevo),
+  `stores/mobile-nav.ts` (nuevo), `w/[slug]/layout.tsx`.
+- **Rendimiento home: 6 round trips secuenciales -> `Promise.all`.** El dashboard esperaba
+  perfil, equipos, tareas, actividad y 2 conteos uno tras otro. Ahora en paralelo.
+  `w/[slug]/page.tsx`.
+- **N+1 en Proyectos.** `computeProjectProgress` disparaba ~4 consultas POR proyecto dentro de
+  un `.map(async)`. Nueva `computeProjectsProgress(admin, ids[])` calcula todo en 2 consultas
+  agregando en memoria. `lib/project-progress.ts`, `w/[slug]/projects/page.tsx`.
+- **Skeletons de carga** para Metas, Pizarras y CV (antes daban nav congelada al abrir).
+
+Pendiente propuesto a Ali (especializacion paving, requiere su visto bueno): departamentos como
+lente de tareas/proyectos, plantillas de "job" (kickoff -> flujo de tareas sembrado),
+campos de proyecto tipo paving (direccion, tipo asfalto/concreto, garantia 15/5), realtime en
+Bandeja, y paginacion en listas con tope duro.
+
+---
+
+## 2026-07-19: Persistencia de notas/pizarra + poder eliminar (fix)
+
+Reporte de Ali: "no esta guardando las notas ni la pizarra... no se pueden eliminar notas ni
+pizarrones". Diagnostico: los datos SI persistian server-side (verificado en la BD: la nota
+"Alan" y la "Pizarra sin titulo" tenian contenido con timestamps frescos). Dos causas reales:
+
+- **Cache del Router (percepcion de "no guarda").** Next 14.2 cachea el RSC de rutas dinamicas
+  30s en el cliente por defecto. Al volver (navegacion suave) a una nota o pizarra recien
+  editada se mostraba la version vieja "vacia". Fix: `staleTimes: { dynamic: 0, static: 180 }`
+  en `next.config.mjs` -> la navegacion siempre re-consulta datos frescos.
+- **No se podia eliminar.** El boton de borrar solo se renderizaba para el CREADOR (`isOwner`),
+  aunque la API ya permite borrar a creador, admin de workspace u owner/admin de la org. Se
+  calcula `canManage` server-side (misma regla que el DELETE) y se pasa al editor; el boton
+  ahora aparece para quien realmente puede borrar. Ademas el `handleDelete` de la nota ya no
+  bloquea localmente: intenta la API y muestra su error real.
+- **Race del embed de pizarra en notas.** `WhiteboardNodeView` montaba Excalidraw aunque la
+  escena guardada aun no cargara; su primer `onChange` podia guardar un lienzo en blanco encima
+  del real. Fix: no montar hasta tener `board` cargado ("Cargando lienzo...").
+
+Archivos: `next.config.mjs`; `w/[slug]/notes/[noteId]/page.tsx` + `NoteEditor.tsx`;
+`w/[slug]/whiteboards/[whiteboardId]/page.tsx` + `WhiteboardEditor.tsx`;
+`components/editor/WhiteboardNodeView.tsx`. Deploy prod `dpl_2a66NQ5mBLJcnuHm9ixrXuoaUfwg`.
+
+---
+
 ## 2026-07-18: Panel de administracion + guia de inicio + pase estetico (F6/F7/F8)
 
 Tres frentes pedidos por Ali sobre las capturas del dashboard: (a) "NO tenemos panel de

@@ -16,7 +16,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Compass } from 'lucide-react'
-import { computeProjectProgress } from '@/lib/project-progress'
+import { computeProjectsProgress } from '@/lib/project-progress'
 import { ProjectsBoard, type MarketProject, type MyProject, type PendingProject } from './ProjectsBoard'
 
 interface PageProps {
@@ -118,28 +118,28 @@ export default async function ProjectsMarketplacePage({ params }: PageProps) {
 
   const myValid = (myRows ?? [])
     .filter(r => r.project && r.project.approval_status !== 'rejected')
-  const myProjects: MyProject[] = await Promise.all(
-    myValid.map(async r => {
-      const pr = r.project!
-      const progress = await computeProjectProgress(admin, pr.id)
-      const isLead = pr.lead_id === user.id
-      const isManager = r.role === 'manager'
-      return {
-        id: pr.id,
-        name: pr.name,
-        icon: pr.icon,
-        description: pr.description,
-        status: pr.status,
-        approval_status: pr.approval_status,
-        my_role: isLead ? 'lider' : r.role,
-        pct: progress.pct,
-        total: progress.total,
-        done: progress.done,
-        is_lead: isLead,
-        can_complete: (isLead || isManager || isAdmin) && pr.status !== 'completed' && progress.pct === 100 && progress.total > 0,
-      }
-    })
-  )
+  // Progreso de todos mis proyectos en 2 consultas (batch), no 4 por proyecto.
+  const progressMap = await computeProjectsProgress(admin, myValid.map(r => r.project!.id))
+  const myProjects: MyProject[] = myValid.map(r => {
+    const pr = r.project!
+    const progress = progressMap.get(pr.id) ?? { total: 0, done: 0, pct: 0 }
+    const isLead = pr.lead_id === user.id
+    const isManager = r.role === 'manager'
+    return {
+      id: pr.id,
+      name: pr.name,
+      icon: pr.icon,
+      description: pr.description,
+      status: pr.status,
+      approval_status: pr.approval_status,
+      my_role: isLead ? 'lider' : r.role,
+      pct: progress.pct,
+      total: progress.total,
+      done: progress.done,
+      is_lead: isLead,
+      can_complete: (isLead || isManager || isAdmin) && pr.status !== 'completed' && progress.pct === 100 && progress.total > 0,
+    }
+  })
   myProjects.sort((a, b) => a.name.localeCompare(b.name))
 
   // ─── Pendientes de aprobacion: solo administradores ───────────────────────────

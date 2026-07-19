@@ -51,6 +51,7 @@ interface NoteEditorProps {
   currentUserAvatar: string | null
   workspaceSlug: string
   workspaceId: string
+  canManage: boolean
   breadcrumbs: Breadcrumb[]
   childNotes: ChildNote[]
 }
@@ -65,7 +66,7 @@ const VISIBILITY_OPTIONS = [
 
 export function NoteEditor({
   initial, currentUserId, currentUserName, currentUserAvatar,
-  workspaceSlug, workspaceId, breadcrumbs, childNotes,
+  workspaceSlug, workspaceId, canManage, breadcrumbs, childNotes,
 }: NoteEditorProps) {
   const router = useRouter()
   const [title, setTitle] = useState(initial.title)
@@ -79,8 +80,6 @@ export function NoteEditor({
   const [showVisMenu, setShowVisMenu] = useState(false)
   const [showIconPicker, setShowIconPicker] = useState(false)
   const [deleting, setDeleting] = useState(false)
-
-  const isOwner = initial.created_by === currentUserId
 
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Último payload que falló, para poder reintentar sin perder el cambio.
@@ -152,15 +151,16 @@ export function NoteEditor({
   }
 
   async function handleDelete() {
-    if (!isOwner) {
-      toast.error('Solo el creador puede eliminar la nota')
-      return
-    }
     if (!(await confirmDialog({ message: '¿Eliminar esta nota? Las sub-páginas también se eliminarán. No se puede deshacer.', destructive: true, confirmLabel: 'Eliminar' }))) return
     setDeleting(true)
     try {
       const res = await fetch(`/api/notes/${initial.id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error()
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        toast.error(body?.error || 'No se pudo eliminar la nota')
+        setDeleting(false)
+        return
+      }
       toast.success('Nota eliminada')
       router.push(`/w/${workspaceSlug}/notes`)
     } catch {
@@ -290,7 +290,7 @@ export function NoteEditor({
             label="Sub-página"
           />
 
-          {isOwner && (
+          {canManage && (
             <button
               onClick={handleDelete}
               disabled={deleting}

@@ -43,7 +43,30 @@ export default async function DepartmentsSettingsPage({
     member_count: counts.get(s.id) ?? 0,
   }))
 
+  // Miembros del workspace (para el selector de asignación por departamento)
+  type WsMemberRow = {
+    profile_id: string
+    profiles: { id: string; display_name: string | null; email: string | null; avatar_url: string | null } | null
+  }
+  const { data: wsMembers } = (await admin
+    .from('workspace_members')
+    .select('profile_id, profiles ( id, display_name, email, avatar_url )')
+    .eq('workspace_id', ctx.workspace.id)) as { data: WsMemberRow[] | null; error: unknown }
+
+  const workspaceMembers = (wsMembers ?? [])
+    .map((m) => ({
+      profile_id: m.profile_id,
+      display_name: m.profiles?.display_name ?? 'Usuario',
+      email: m.profiles?.email ?? '',
+      avatar_url: m.profiles?.avatar_url ?? null,
+    }))
+    .sort((a, b) => a.display_name.localeCompare(b.display_name))
+
   return (
-    <DepartmentsPanel workspaceId={ctx.workspace.id} initialSpaces={initialSpaces} />
+    <DepartmentsPanel
+      workspaceId={ctx.workspace.id}
+      initialSpaces={initialSpaces}
+      workspaceMembers={workspaceMembers}
+    />
   )
 }

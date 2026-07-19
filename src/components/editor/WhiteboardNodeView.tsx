@@ -188,6 +188,16 @@ export function WhiteboardNodeView({ node, deleteNode, editor }: NodeViewProps) 
             </span>
             <span className="text-[11px]">Excalidraw incrustado</span>
           </button>
+        ) : !board ? (
+          // Aun cargando la escena guardada. NO montar Excalidraw todavia: si se
+          // monta con initialData vacio, su primer onChange guardaria un lienzo
+          // en blanco encima del contenido real (clobber). Esperar a tener datos.
+          <div
+            className="flex items-center justify-center text-sm text-muted-foreground"
+            style={{ height }}
+          >
+            Cargando lienzo...
+          </div>
         ) : (
           // Contenedor del lienzo. stopPropagation en pointer/mouse para que
           // Excalidraw maneje sus propios eventos y ProseMirror no interfiera.

@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
-import { FolderKanban, Plus, Pencil, Check, X, Lock, Globe } from 'lucide-react'
+import { FolderKanban, Plus, Pencil, Check, X, Lock, Globe, Users, UserPlus } from 'lucide-react'
 
 interface Space {
   id: string
@@ -18,18 +18,107 @@ interface Space {
   member_count: number
 }
 
+interface WorkspaceMember {
+  profile_id: string
+  display_name: string
+  email: string
+  avatar_url: string | null
+}
+
+interface SpaceMember {
+  profile_id: string
+  role: string
+  display_name: string
+  email: string
+  avatar_url: string | null
+}
+
 export function DepartmentsPanel({
   workspaceId,
   initialSpaces,
+  workspaceMembers,
 }: {
   workspaceId: string
   initialSpaces: Space[]
+  workspaceMembers: WorkspaceMember[]
 }) {
   const router = useRouter()
   const [spaces, setSpaces] = useState<Space[]>(initialSpaces)
   const [editing, setEditing] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
+
+  // Gestión de miembros por departamento
+  const [membersOpen, setMembersOpen] = useState<string | null>(null)
+  const [memberList, setMemberList] = useState<SpaceMember[]>([])
+  const [loadingMembers, setLoadingMembers] = useState(false)
+  const [addingId, setAddingId] = useState('')
+
+  async function toggleMembers(s: Space) {
+    if (membersOpen === s.id) { setMembersOpen(null); return }
+    setMembersOpen(s.id)
+    setMemberList([])
+    setAddingId('')
+    setLoadingMembers(true)
+    try {
+      const res = await fetch(`/api/spaces/${s.id}/members`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Error al cargar miembros')
+      setMemberList(data.members ?? [])
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al cargar miembros')
+      setMembersOpen(null)
+    } finally {
+      setLoadingMembers(false)
+    }
+  }
+
+  function bumpCount(spaceId: string, delta: number) {
+    setSpaces((prev) => prev.map((x) => (x.id === spaceId ? { ...x, member_count: Math.max(0, x.member_count + delta) } : x)))
+  }
+
+  async function addMember(spaceId: string, profileId: string) {
+    if (!profileId) return
+    setLoadingMembers(true)
+    try {
+      const res = await fetch(`/api/spaces/${spaceId}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile_id: profileId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Error al agregar')
+      const wm = workspaceMembers.find((m) => m.profile_id === profileId)
+      if (wm) setMemberList((prev) => [...prev, { ...wm, role: 'member' }])
+      setAddingId('')
+      bumpCount(spaceId, 1)
+      toast.success('Asignado al departamento')
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al agregar')
+    } finally {
+      setLoadingMembers(false)
+    }
+  }
+
+  async function removeMember(spaceId: string, profileId: string) {
+    setLoadingMembers(true)
+    try {
+      const res = await fetch(`/api/spaces/${spaceId}/members/${profileId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error ?? 'Error al quitar')
+      }
+      setMemberList((prev) => prev.filter((m) => m.profile_id !== profileId))
+      bumpCount(spaceId, -1)
+      toast.success('Quitado del departamento')
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al quitar')
+    } finally {
+      setLoadingMembers(false)
+    }
+  }
 
   // Crear
   const [showCreate, setShowCreate] = useState(false)
@@ -192,7 +281,8 @@ export function DepartmentsPanel({
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
           {spaces.map((s) => (
-            <div key={s.id} className="px-4 py-3 flex items-center gap-3">
+            <div key={s.id}>
+            <div className="px-4 py-3 flex items-center gap-3">
               <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
                 <FolderKanban size={15} className="text-muted-foreground" />
               </div>
@@ -259,6 +349,16 @@ export function DepartmentsPanel({
               </div>
 
               <button
+                onClick={() => toggleMembers(s)}
+                disabled={busy === s.id}
+                className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded disabled:opacity-40 ${
+                  membersOpen === s.id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Users size={13} /> Miembros
+              </button>
+
+              <button
                 onClick={() => patch(s, { is_restricted: !s.is_restricted }, s.is_restricted ? 'Ahora es público' : 'Ahora es restringido')}
                 disabled={busy === s.id}
                 className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground rounded disabled:opacity-40"
@@ -281,6 +381,76 @@ export function DepartmentsPanel({
               >
                 Eliminar
               </button>
+            </div>
+
+            {membersOpen === s.id && (
+              <div className="px-4 pb-4 pt-1 bg-muted/20 border-t border-border">
+                {/* Selector para asignar */}
+                {(() => {
+                  const assignedIds = new Set(memberList.map((m) => m.profile_id))
+                  const available = workspaceMembers.filter((m) => !assignedIds.has(m.profile_id))
+                  return (
+                    <div className="flex items-center gap-2 py-3">
+                      <UserPlus size={15} className="text-muted-foreground flex-shrink-0" />
+                      <select
+                        value={addingId}
+                        onChange={(e) => setAddingId(e.target.value)}
+                        disabled={loadingMembers || available.length === 0}
+                        className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-input rounded-lg bg-background disabled:opacity-50"
+                      >
+                        <option value="">
+                          {available.length === 0 ? 'Todos ya están asignados' : 'Elegir persona para asignar...'}
+                        </option>
+                        {available.map((m) => (
+                          <option key={m.profile_id} value={m.profile_id}>
+                            {m.display_name} {m.email ? `(${m.email})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => addMember(s.id, addingId)}
+                        disabled={loadingMembers || !addingId}
+                        className="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90 disabled:opacity-50 flex-shrink-0"
+                      >
+                        Asignar
+                      </button>
+                    </div>
+                  )
+                })()}
+
+                {/* Lista de asignados */}
+                {loadingMembers && memberList.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2">Cargando...</p>
+                ) : memberList.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2">
+                    Nadie asignado aún. Usa el selector de arriba para agregar a tu equipo.
+                  </p>
+                ) : (
+                  <ul className="space-y-1">
+                    {memberList.map((m) => (
+                      <li key={m.profile_id} className="flex items-center gap-2 py-1">
+                        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground flex-shrink-0">
+                          {m.display_name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm text-foreground">{m.display_name}</span>
+                          {m.role === 'owner' && (
+                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">Owner</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => removeMember(s.id, m.profile_id)}
+                          disabled={loadingMembers}
+                          className="text-xs px-2 py-0.5 text-muted-foreground hover:text-destructive rounded disabled:opacity-40"
+                        >
+                          Quitar
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
             </div>
           ))}
         </div>

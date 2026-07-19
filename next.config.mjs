@@ -53,6 +53,11 @@ const nextConfig = {
   // Supabase Realtime needs websockets
   experimental: {
     serverComponentsExternalPackages: ['@supabase/ssr'],
+    // Router Cache: por defecto Next 14.2 cachea el RSC de rutas dinamicas 30s
+    // en el cliente. Eso hacia que al volver (navegacion suave) a una nota o
+    // pizarra recien editada se mostrara la version vieja "vacia", como si no
+    // se hubiera guardado. Con 0 la navegacion siempre re-consulta datos frescos.
+    staleTimes: { dynamic: 0, static: 180 },
   },
 
   // Exclude Excalidraw from server bundle (browser-only)

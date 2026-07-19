@@ -66,59 +66,73 @@ export default async function WorkspaceDashboardPage({
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
 
-  // ── Cargar perfil para mostrar nombre ─────────────────────────────────────
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('display_name, avatar_url')
-    .eq('id', user.id)
-    .maybeSingle() as { data: { display_name: string | null; avatar_url: string | null } | null; error: unknown }
+  // ── Cargas independientes en paralelo ─────────────────────────────────────
+  // Perfil, equipos, tareas, actividad y conteos no dependen entre si: una vez
+  // que tenemos el workspace, los pedimos de un solo golpe (antes eran 6 round
+  // trips secuenciales, la home tardaba de mas al abrir).
+  const [
+    { data: profile },
+    { data: teams },
+    { data: myTasks },
+    { data: recentActivity },
+    { count: memberCount },
+    { count: notesCount },
+  ] = await Promise.all([
+    admin
+      .from('profiles')
+      .select('display_name, avatar_url')
+      .eq('id', user.id)
+      .maybeSingle() as Promise<{ data: { display_name: string | null; avatar_url: string | null } | null }>,
+    admin
+      .from('teams')
+      .select(`
+        id, name, slug,
+        team_members!inner ( profile_id ),
+        projects ( id )
+      `)
+      .eq('workspace_id', workspace.id)
+      .eq('team_members.profile_id', user.id)
+      .order('name', { ascending: true }) as Promise<{ data: TeamCard[] | null }>,
+    admin
+      .from('tasks')
+      .select(`
+        id,
+        title,
+        due_date,
+        priority,
+        status:task_statuses ( name, color ),
+        project:projects ( name, slug, team:teams ( slug ) )
+      `)
+      .eq('workspace_id', workspace.id)
+      .eq('assignee_id', user.id)
+      .eq('is_archived', false)
+      .order('due_date', { ascending: true, nullsFirst: false })
+      .limit(6) as Promise<{ data: TaskSummary[] | null }>,
+    admin
+      .from('activity_events')
+      .select(`
+        id,
+        verb,
+        created_at,
+        subject:profiles ( display_name, avatar_url ),
+        project:projects ( name, slug )
+      `)
+      .eq('workspace_id', workspace.id)
+      .order('created_at', { ascending: false })
+      .limit(8) as Promise<{ data: ActivityEvent[] | null }>,
+    admin
+      .from('workspace_members')
+      .select('profile_id', { count: 'exact', head: true })
+      .eq('workspace_id', workspace.id) as Promise<{ count: number | null }>,
+    admin
+      .from('notes')
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', workspace.id) as Promise<{ count: number | null }>,
+  ])
 
   const userName = profile?.display_name?.split(' ')[0] ??
     user.email?.split('@')[0] ?? 'allá'
   const userAvatar = profile?.avatar_url ?? null
-
-  // ── Cargar teams del usuario en este workspace ────────────────────────────
-  const { data: teams } = await admin
-    .from('teams')
-    .select(`
-      id, name, slug,
-      team_members!inner ( profile_id ),
-      projects ( id )
-    `)
-    .eq('workspace_id', workspace.id)
-    .eq('team_members.profile_id', user.id)
-    .order('name', { ascending: true }) as { data: TeamCard[] | null; error: unknown }
-
-  // ── Mis tareas pendientes ─────────────────────────────────────────────────
-  const { data: myTasks } = await admin
-    .from('tasks')
-    .select(`
-      id,
-      title,
-      due_date,
-      priority,
-      status:task_statuses ( name, color ),
-      project:projects ( name, slug, team:teams ( slug ) )
-    `)
-    .eq('workspace_id', workspace.id)
-    .eq('assignee_id', user.id)
-    .eq('is_archived', false)
-    .order('due_date', { ascending: true, nullsFirst: false })
-    .limit(6) as { data: TaskSummary[] | null; error: unknown }
-
-  // ── Actividad reciente del workspace ──────────────────────────────────────
-  const { data: recentActivity } = await admin
-    .from('activity_events')
-    .select(`
-      id,
-      verb,
-      created_at,
-      subject:profiles ( display_name, avatar_url ),
-      project:projects ( name, slug )
-    `)
-    .eq('workspace_id', workspace.id)
-    .order('created_at', { ascending: false })
-    .limit(8) as { data: ActivityEvent[] | null; error: unknown }
 
   // Indicador de prioridad con color (sin emojis): un punto por nivel.
   const priorityColor: Record<string, string> = {
@@ -133,16 +147,6 @@ export default async function WorkspaceDashboardPage({
 
   // ── Progreso de onboarding (checklist de primeros pasos) ──────────────────
   const projectsCount = (teams ?? []).reduce((acc, t) => acc + (t.projects?.length ?? 0), 0)
-
-  const { count: memberCount } = (await admin
-    .from('workspace_members')
-    .select('profile_id', { count: 'exact', head: true })
-    .eq('workspace_id', workspace.id)) as { count: number | null }
-
-  const { count: notesCount } = (await admin
-    .from('notes')
-    .select('id', { count: 'exact', head: true })
-    .eq('workspace_id', workspace.id)) as { count: number | null }
 
   const onboardingSteps = {
     teams: !!hasTeams,

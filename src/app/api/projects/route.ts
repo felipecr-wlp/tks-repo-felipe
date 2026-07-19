@@ -8,12 +8,14 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { slugify } from '@/lib/utils'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
+import { getProjectTemplate } from '@/lib/project-templates'
 
 const schema = z.object({
   team_id:     z.string().uuid(),
   name:        z.string().min(2).max(80).trim(),
   description: z.string().max(500).trim().optional(),
   icon:        z.string().max(24).optional().default('clipboard'),
+  template:    z.string().max(40).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -33,7 +35,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 422 })
   }
 
-  const { team_id, name, description, icon } = parsed.data
+  const { team_id, name, description, icon, template } = parsed.data
 
   const admin = createAdminClient()
 
@@ -117,6 +119,66 @@ export async function POST(request: NextRequest) {
   // Crear statuses por defecto
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (admin as any).rpc('create_default_statuses', { p_project_id: project.id })
+
+  // ─── Siembra de plantilla (opcional) ─────────────────────────────────────────
+  // Si el proyecto se creó desde una plantilla (ej. "Obra de pavimentación"),
+  // sembramos el flujo de tareas en el primer status "por hacer" y los campos
+  // personalizados de la obra. Best-effort: si algo falla, el proyecto ya existe
+  // y no bloqueamos la respuesta.
+  const tpl = getProjectTemplate(template)
+  if (tpl) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = admin as any
+
+      // Status inicial (posición 0, categoría todo)
+      type StatusRow = { id: string }
+      const { data: firstStatus } = await db
+        .from('task_statuses')
+        .select('id')
+        .eq('project_id', project.id)
+        .order('position', { ascending: true })
+        .limit(1)
+        .maybeSingle() as { data: StatusRow | null }
+
+      // Tareas: sort_order encadenado con fractional-indexing
+      if (tpl.tasks.length > 0) {
+        const { generateKeyBetween } = await import('fractional-indexing')
+        let prevKey: string | null = null
+        const taskRows = tpl.tasks.map(t => {
+          const key = generateKeyBetween(prevKey, null)
+          prevKey = key
+          return {
+            project_id: project.id,
+            workspace_id: team.workspace_id,
+            title: t.title,
+            description: t.description ?? null,
+            status_id: firstStatus?.id ?? null,
+            priority: t.priority ?? 'none',
+            created_by: user.id,
+            sort_order: key,
+          }
+        })
+        await db.from('tasks').insert(taskRows)
+      }
+
+      // Campos personalizados de la obra
+      if (tpl.fields.length > 0) {
+        const fieldRows = tpl.fields.map((f, i) => ({
+          project_id: project.id,
+          workspace_id: team.workspace_id,
+          name: f.name,
+          field_type: f.field_type,
+          options: f.options ?? [],
+          position: i,
+          created_by: user.id,
+        }))
+        await db.from('custom_field_definitions').insert(fieldRows)
+      }
+    } catch (seedErr) {
+      console.error('[projects POST] template seed error:', seedErr)
+    }
+  }
 
   logActivity({
     verb: ActivityVerbs.PROJECT_CREATED,

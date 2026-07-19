@@ -17,6 +17,7 @@ import { NavSection } from './NavSection'
 import { UserMenu } from './UserMenu'
 import { useCommandPalette } from '@/stores/command-palette'
 import { useNewTask } from '@/stores/new-task'
+import { useMobileNav } from '@/stores/mobile-nav'
 import {
   Home,
   CheckSquare,
@@ -32,6 +33,7 @@ import {
   ChevronLeft,
   ChevronDown,
   Plus,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -69,6 +71,15 @@ export function Sidebar({
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const base = `/w/${workspaceSlug}`
+
+  // Drawer movil: estado compartido con la barra superior (hamburguesa).
+  const mobileOpen = useMobileNav(s => s.open)
+  const setMobileOpen = useMobileNav(s => s.setOpen)
+
+  // Al navegar (cambia la ruta), cerrar el drawer en movil.
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname, setMobileOpen])
 
   // Estado de grupos colapsables, persistido en localStorage.
   const [openGroups, setOpenGroups] = useState<Record<GroupKey, boolean>>({
@@ -122,12 +133,26 @@ export function Sidebar({
     exact ? pathname === href : pathname.startsWith(href)
 
   return (
-    <aside
-      className={cn(
-        'flex flex-col h-full bg-sidebar border-r border-border transition-all duration-200',
-        collapsed ? 'w-14' : 'w-60'
+    <>
+      {/* Backdrop del drawer (solo movil, cuando esta abierto) */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/40"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
       )}
-    >
+      <aside
+        className={cn(
+          'flex flex-col h-full bg-sidebar border-r border-border',
+          // Movil: drawer off-canvas fijo, siempre ancho completo.
+          'fixed inset-y-0 left-0 z-50 w-64 max-w-[80vw] transition-transform duration-200',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          // Desktop: columna estatica dentro del flujo flex, con colapso.
+          'md:static md:z-auto md:max-w-none md:translate-x-0 md:transition-all',
+          collapsed ? 'md:w-14' : 'md:w-60'
+        )}
+      >
       {/* ── Header: workspace switcher ─────────────────────────── */}
       <div className="flex items-center justify-between px-3 py-3 border-b border-border min-h-[52px]">
         {!collapsed && (
@@ -138,15 +163,24 @@ export function Sidebar({
             workspaces={allWorkspaces}
           />
         )}
+        {/* Colapsar/expandir: solo desktop */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="flex-shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className="hidden md:inline-flex flex-shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
         >
           <ChevronLeft
             size={16}
             className={cn('transition-transform', collapsed && 'rotate-180')}
           />
+        </button>
+        {/* Cerrar drawer: solo movil */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="md:hidden flex-shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          aria-label="Cerrar menú"
+        >
+          <X size={18} />
         </button>
       </div>
 
@@ -254,7 +288,8 @@ export function Sidebar({
       <div className="border-t border-border p-2">
         <UserMenu profile={userProfile} collapsed={collapsed} workspaceSlug={workspaceSlug} />
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }
 

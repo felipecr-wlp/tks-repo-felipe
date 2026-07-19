@@ -51,15 +51,29 @@ export default async function WhiteboardPage({ params }: PageProps) {
   if (board.visibility === 'private' && board.created_by !== user.id) notFound()
 
   // Nombre para la presencia ("quién está viendo") en la pizarra colaborativa.
-  type ProfileRow = { display_name: string | null } | null
+  type ProfileRow = { display_name: string | null; org_role: string | null } | null
   const { data: profile } = await admin
     .from('profiles')
-    .select('display_name')
+    .select('display_name, org_role')
     .eq('id', user.id)
     .maybeSingle() as { data: ProfileRow; error: unknown }
 
   const currentUserName =
     profile?.display_name || user.email?.split('@')[0] || 'Miembro'
+
+  // Quien puede ELIMINAR: creador, admin de workspace, u owner/admin de la org.
+  // Refleja la regla del DELETE en /api/whiteboards/[id].
+  const { data: wsMember } = await admin
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspace.id)
+    .eq('profile_id', user.id)
+    .maybeSingle() as { data: { role: string } | null; error: unknown }
+
+  const canManage =
+    board.created_by === user.id ||
+    profile?.org_role === 'owner' || profile?.org_role === 'admin' ||
+    wsMember?.role === 'admin'
 
   return (
     <WhiteboardEditor
@@ -67,6 +81,7 @@ export default async function WhiteboardPage({ params }: PageProps) {
       currentUserId={user.id}
       currentUserName={currentUserName}
       workspaceSlug={params.workspaceSlug}
+      canManage={canManage}
     />
   )
 }

@@ -92,12 +92,26 @@ export default async function NotePage({ params }: NotePageProps) {
     .order('updated_at', { ascending: false }) as { data: ChildNote[] | null; error: unknown }
 
   // Identidad del usuario actual para presencia en vivo (A5).
-  type SelfProfile = { display_name: string | null; avatar_url: string | null }
+  type SelfProfile = { display_name: string | null; avatar_url: string | null; org_role: string | null }
   const { data: self } = await admin
     .from('profiles')
-    .select('display_name, avatar_url')
+    .select('display_name, avatar_url, org_role')
     .eq('id', user.id)
     .maybeSingle() as { data: SelfProfile | null; error: unknown }
+
+  // Quien puede ELIMINAR: creador, admin de workspace, u owner/admin de la org.
+  // Debe reflejar exactamente la regla del DELETE en /api/notes/[noteId].
+  const { data: wsMember } = await admin
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspace.id)
+    .eq('profile_id', user.id)
+    .maybeSingle() as { data: { role: string } | null; error: unknown }
+
+  const canManage =
+    note.created_by === user.id ||
+    self?.org_role === 'owner' || self?.org_role === 'admin' ||
+    wsMember?.role === 'admin'
 
   return (
     <div className="h-full overflow-y-auto">
@@ -108,6 +122,7 @@ export default async function NotePage({ params }: NotePageProps) {
         currentUserAvatar={self?.avatar_url ?? null}
         workspaceSlug={params.workspaceSlug}
         workspaceId={workspace.id}
+        canManage={canManage}
         breadcrumbs={breadcrumbs}
         childNotes={children ?? []}
       />

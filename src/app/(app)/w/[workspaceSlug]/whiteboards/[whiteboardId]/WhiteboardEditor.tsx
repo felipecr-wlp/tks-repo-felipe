@@ -55,6 +55,7 @@ interface Props {
   currentUserId: string
   currentUserName: string
   workspaceSlug: string
+  canManage: boolean
 }
 
 // Otro usuario presente en la pizarra (para el indicador "quién está viendo").
@@ -63,7 +64,7 @@ interface Viewer {
   name: string
 }
 
-export function WhiteboardEditor({ initial, currentUserId, currentUserName, workspaceSlug }: Props) {
+export function WhiteboardEditor({ initial, currentUserId, currentUserName, workspaceSlug, canManage }: Props) {
   const router = useRouter()
   const [title, setTitle] = useState(initial.title)
   const [updatedAt, setUpdatedAt] = useState(initial.updated_at)
@@ -84,8 +85,6 @@ export function WhiteboardEditor({ initial, currentUserId, currentUserName, work
   const lastContentRef = useRef<string | null>(initial.content)
   // Hay una edición local en vuelo (debounce pendiente): no aplicar remoto encima.
   const localDirtyRef = useRef(false)
-
-  const isOwner = initial.created_by === currentUserId
 
   // Parsear contenido inicial UNA sola vez (memoizado). Si se recalcula en cada
   // render, <Excalidraw> recibe un initialData nuevo al togglear "Guardando…" y
@@ -323,7 +322,7 @@ export function WhiteboardEditor({ initial, currentUserId, currentUserName, work
             </span>
           )}
 
-          {isOwner && (
+          {canManage && (
             <button
               onClick={handleDelete}
               disabled={deleting}

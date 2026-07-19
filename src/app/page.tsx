@@ -5,6 +5,7 @@
  */
 import { redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { attemptDomainAutoJoin } from '@/lib/auto-join'
 
 export default async function RootPage() {
   const supabase = createClient()
@@ -29,6 +30,14 @@ export default async function RootPage() {
     redirect(`/w/${membership.workspaces.slug}`)
   }
 
-  // Sin workspace, ir a onboarding
+  // Sin workspace: antes de mandar a crear una org nueva, intentar auto-unir por
+  // dominio de correo (ej. @pavific.com -> org + workspace por defecto). Evita
+  // que cada alta sin invitacion cree una org huerfana y aislada.
+  const joinedSlug = await attemptDomainAutoJoin(admin, user)
+  if (joinedSlug) {
+    redirect(`/w/${joinedSlug}`)
+  }
+
+  // Sin workspace ni dominio conocido, ir a onboarding
   redirect('/onboarding')
 }
