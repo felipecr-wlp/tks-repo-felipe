@@ -8,6 +8,30 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Robustecer SOPs Nivel 1, Paso 2: acuse de lectura
+
+Deploy de producción: alias `wlo.vercel.app`, Ready. Typecheck EXIT=0, build OK.
+
+"Leído y entendido" por empleado sobre cada documento operativo. Cada acuse
+sella la `sop_version` reconocida: si el SOP publica una versión nueva, el acuse
+queda "desactualizado" y la UI pide re-confirmar.
+
+- Nueva tabla `note_acknowledgements` (migración
+  `20260720100000_note_acknowledgements.sql`, aplicada a prod): un acuse por
+  `(note_id, profile_id)`, con `sop_version` y `acknowledged_at`. Aditiva, FKs
+  unidireccionales a notes/workspaces/profiles (sin ciclos), RLS anclada en
+  `workspace_members` (sin recursión). Índices por note/profile/workspace.
+- Nueva API `src/app/api/notes/[noteId]/ack/route.ts` (GET estado + lista,
+  POST marca leído con upsert `onConflict: note_id,profile_id`, DELETE retira).
+  Acceso vía helper `loadNote` (workspace_members + visibilidad private), espejo
+  de la ruta de comentarios.
+- Nuevo componente `.../notes/[noteId]/SopAcknowledge.tsx`: botón "Leído y
+  entendido" (toggle), contador de quién confirmó y aviso de "desactualizado"
+  cuando cambió la versión. Se renderiza en `NoteEditor.tsx` solo si
+  `doc_kind !== 'note'`.
+
+---
+
 ## 2026-07-20 — Robustecer SOPs Nivel 1, Paso 1: recordatorio de revisión
 
 Deploy de producción: `wlo-acam41mkz-developers-pavific.vercel.app` (alias
