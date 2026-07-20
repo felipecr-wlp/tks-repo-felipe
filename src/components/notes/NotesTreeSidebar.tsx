@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Pencil, Plus, Copy, Star, Trash2, Building2, ChevronDown, Hash, Lock, FileText } from 'lucide-react'
+import { Pencil, Plus, Copy, Star, Trash2, Building2, ChevronDown, Hash, Lock, FileText, ClipboardList } from 'lucide-react'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { promptDialog } from '@/components/PromptDialog'
@@ -568,6 +568,22 @@ export function NotesTreeSidebar({
               </div>
             </>
           )}
+        </div>
+
+        {/* Lente transversal: todos los procesos y SOPs del workspace */}
+        <div className="px-1 pt-1.5">
+          <Link
+            href={`/w/${workspaceSlug}/notes/sops`}
+            className={cn(
+              'flex items-center gap-2 px-2.5 py-1.5 mx-1 rounded-md text-sm font-medium transition-colors',
+              pathname.endsWith('/notes/sops')
+                ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                : 'text-foreground hover:bg-accent/60'
+            )}
+          >
+            <ClipboardList className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">Procesos y SOPs</span>
+          </Link>
         </div>
 
         <div className="flex-1 overflow-y-auto py-1.5">

@@ -22,6 +22,11 @@ const patchSchema = z.object({
   icon:           z.string().max(64).nullable().optional(),
   parent_note_id: z.string().uuid().nullable().optional(),
   space_id:       z.string().uuid().nullable().optional(),
+  // SOP como objeto de primera clase (nullable = limpiar el campo).
+  doc_kind:       z.enum(['note', 'sop', 'sop_flow', 'sop_index', 'training']).optional(),
+  sop_status:     z.enum(['draft', 'review', 'active', 'obsolete']).nullable().optional(),
+  sop_version:    z.string().max(32).trim().nullable().optional(),
+  review_due:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida (YYYY-MM-DD)').nullable().optional(),
 }).strict()
 
 interface NoteFull {
@@ -34,6 +39,10 @@ interface NoteFull {
   title: string
   content: string | null
   visibility: string
+  doc_kind: string
+  sop_status: string | null
+  sop_version: string | null
+  review_due: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -51,6 +60,7 @@ async function loadNoteWithAccess(
     .select(`
       id, workspace_id, project_id, parent_note_id, space_id, icon,
       title, content, visibility,
+      doc_kind, sop_status, sop_version, review_due,
       created_by, created_at, updated_at,
       author:profiles ( display_name, avatar_url )
     `)
@@ -150,8 +160,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.noteId)
     .select(`
-      id, workspace_id, project_id, parent_note_id, icon,
+      id, workspace_id, project_id, parent_note_id, space_id, icon,
       title, content, visibility,
+      doc_kind, sop_status, sop_version, review_due,
       created_by, created_at, updated_at,
       author:profiles ( display_name, avatar_url )
     `)

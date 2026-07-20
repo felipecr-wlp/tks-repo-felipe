@@ -13,6 +13,10 @@ export interface NoteTemplate {
   description: string
   defaultTitle: string
   content: string
+  // Clasificacion como documento operativo. Si se define, la nota creada desde
+  // esta plantilla aparece directamente en la lente "Procesos y SOPs".
+  docKind?: 'sop' | 'sop_flow' | 'sop_index' | 'training'
+  sopStatus?: 'draft' | 'review' | 'active' | 'obsolete'
 }
 
 export const NOTE_TEMPLATES: NoteTemplate[] = [
@@ -30,38 +34,145 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
     icon: 'clipboard',
     description: 'Procedimiento operativo estándar paso a paso',
     defaultTitle: 'SOP: [Nombre del proceso]',
+    docKind: 'sop',
+    sopStatus: 'draft',
     content: `
+<div data-callout data-variant="info">
+<p><strong>Ficha del SOP</strong></p>
+<ul>
+  <li><strong>Código:</strong> SOP-[ÁREA]-000</li>
+  <li><strong>Versión:</strong> 1.0</li>
+  <li><strong>Departamento:</strong> [Operaciones y Campo / Estimación y Ventas / Marketing / Seguridad / Finanzas / Legal / RH]</li>
+  <li><strong>Dueño del proceso:</strong> [Nombre / Rol]</li>
+  <li><strong>Ejecuta:</strong> [Nombre / Rol]</li>
+  <li><strong>Revisa y aprueba:</strong> [Nombre / Rol]</li>
+  <li><strong>Estatus:</strong> Borrador / En revisión / Activo / Obsoleto</li>
+  <li><strong>Última revisión:</strong> [Fecha]</li>
+  <li><strong>Próxima revisión:</strong> [Fecha]</li>
+</ul>
+</div>
+
 <h2>Objetivo</h2>
-<p>Describir brevemente el propósito de este procedimiento y a quién aplica.</p>
+<p>Qué logra este procedimiento y por qué existe.</p>
 
 <h2>Alcance</h2>
-<p>Especificar a qué equipos, áreas o situaciones aplica este SOP.</p>
+<p>A qué equipos, áreas o situaciones aplica. Qué queda fuera.</p>
 
-<h2>Responsables</h2>
-<ul>
-  <li><strong>Owner:</strong> [Nombre / Rol]</li>
-  <li><strong>Ejecuta:</strong> [Nombre / Rol]</li>
-  <li><strong>Revisa:</strong> [Nombre / Rol]</li>
-</ul>
+<h2>Disparador</h2>
+<p>Qué evento inicia este proceso (ej. se gana un job, entra un lead, se agenda una obra).</p>
 
 <h2>Pre-requisitos</h2>
 <ul>
-  <li>[Recurso, acceso o herramienta necesaria]</li>
+  <li>[Acceso, recurso o herramienta necesaria]</li>
   <li>[Otro pre-requisito]</li>
 </ul>
 
-<h2>Procedimiento</h2>
+<h2>Procedimiento paso a paso</h2>
 <ol>
-  <li>Paso 1: describir la acción concreta.</li>
-  <li>Paso 2: describir la acción concreta.</li>
-  <li>Paso 3: describir la acción concreta.</li>
+  <li><strong>[Rol]</strong>: Paso 1, acción concreta y resultado esperado.</li>
+  <li><strong>[Rol]</strong>: Paso 2, acción concreta y resultado esperado.</li>
+  <li><strong>[Rol]</strong>: Paso 3, acción concreta y resultado esperado.</li>
 </ol>
 
-<h2>Validación</h2>
-<p>¿Cómo sabemos que el procedimiento se ejecutó correctamente?</p>
+<h2>Puntos de control</h2>
+<p>Cómo sabemos que cada paso quedó bien. Qué se verifica antes de avanzar.</p>
 
-<h2>Notas y excepciones</h2>
-<p>Casos especiales o consideraciones importantes.</p>
+<div data-callout data-variant="warn">
+<p><strong>Seguridad y riesgos</strong></p>
+<ul>
+  <li>[Riesgo del proceso y cómo se mitiga]</li>
+  <li>[PPE o precaución obligatoria]</li>
+</ul>
+</div>
+
+<h2>Excepciones y escalamiento</h2>
+<p>Qué hacer cuando algo se sale del flujo normal. A quién escalar.</p>
+
+<h2>Registro de cambios</h2>
+<ul>
+  <li><strong>1.0</strong>: [Fecha], versión inicial. [Autor]</li>
+</ul>
+    `.trim(),
+  },
+  {
+    id: 'sop-flow',
+    name: 'SOP: Flujo de proceso',
+    icon: 'tools',
+    description: 'Mapa de un proceso con roles, handoffs y diagrama de pizarra',
+    defaultTitle: 'Flujo: [Nombre del proceso]',
+    docKind: 'sop_flow',
+    sopStatus: 'draft',
+    content: `
+<div data-callout data-variant="info">
+<p><strong>Ficha del proceso</strong></p>
+<ul>
+  <li><strong>Proceso:</strong> </li>
+  <li><strong>Departamento:</strong> </li>
+  <li><strong>Dueño:</strong> </li>
+  <li><strong>Disparador:</strong> qué lo inicia</li>
+  <li><strong>Resultado final:</strong> qué entrega cuando termina</li>
+</ul>
+</div>
+
+<h2>Diagrama del flujo</h2>
+<p>Inserta una pizarra con el comando <strong>/pizarra</strong> y dibuja el flujo (cajas, decisiones, flechas). El diagrama vive dentro de esta nota.</p>
+
+<h2>Etapas y responsables</h2>
+<p>Una fila por etapa: quién la hace, qué recibe y qué entrega al siguiente.</p>
+<table>
+<tbody>
+  <tr><th>Etapa</th><th>Responsable</th><th>Entrada</th><th>Salida / handoff</th></tr>
+  <tr><td>1. </td><td></td><td></td><td></td></tr>
+  <tr><td>2. </td><td></td><td></td><td></td></tr>
+  <tr><td>3. </td><td></td><td></td><td></td></tr>
+</tbody>
+</table>
+
+<h2>Puntos de decisión</h2>
+<ul>
+  <li><strong>Si [condición]:</strong> [camino A]</li>
+  <li><strong>Si no:</strong> [camino B]</li>
+</ul>
+
+<h2>Indicadores (KPIs)</h2>
+<ul>
+  <li>[Métrica del proceso: tiempo de ciclo, tasa de error, retrabajo]</li>
+</ul>
+
+<h2>SOPs relacionados</h2>
+<ul>
+  <li>[Enlazar el SOP de detalle de cada etapa]</li>
+</ul>
+    `.trim(),
+  },
+  {
+    id: 'sop-index',
+    name: 'Índice de SOPs (departamento)',
+    icon: 'books',
+    description: 'Portada de un departamento que lista sus SOPs y su estatus',
+    defaultTitle: 'SOPs de [Departamento]',
+    docKind: 'sop_index',
+    sopStatus: 'active',
+    content: `
+<h2>SOPs de [Departamento]</h2>
+<p>Portada del departamento. Aquí viven los procedimientos del área. Cada SOP es una sub-página de esta nota.</p>
+
+<div data-callout data-variant="tip">
+<p>Para crear un SOP nuevo: botón <strong>Sub-página</strong> arriba y elige la plantilla <strong>SOP: Procedimiento</strong> o <strong>SOP: Flujo de proceso</strong>.</p>
+</div>
+
+<h2>Directorio</h2>
+<table>
+<tbody>
+  <tr><th>SOP</th><th>Dueño</th><th>Estatus</th><th>Última revisión</th></tr>
+  <tr><td>[Nombre del SOP]</td><td></td><td>Activo</td><td></td></tr>
+</tbody>
+</table>
+
+<h2>Pendientes de documentar</h2>
+<ul data-type="taskList">
+  <li data-type="taskItem" data-checked="false"><label><input type="checkbox"></label><div><p>[Proceso que falta capturar]</p></div></li>
+</ul>
     `.trim(),
   },
   {
@@ -206,6 +317,48 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
 <ul>
   <li>[Enlaces, fuentes, documentos relacionados]</li>
 </ul>
+    `.trim(),
+  },
+  {
+    id: 'training',
+    name: 'Capacitación / Onboarding',
+    icon: 'graduation',
+    description: 'Guía de capacitación de un rol, proceso o herramienta',
+    defaultTitle: 'Capacitación: [Rol o tema]',
+    docKind: 'training',
+    sopStatus: 'draft',
+    content: `
+<div data-callout data-variant="info">
+<p><strong>Ficha</strong></p>
+<ul>
+  <li><strong>Rol o tema:</strong> </li>
+  <li><strong>Departamento:</strong> </li>
+  <li><strong>Responsable de la capacitación:</strong> </li>
+  <li><strong>Duración estimada:</strong> </li>
+</ul>
+</div>
+
+<h2>Objetivo de la capacitación</h2>
+<p>Qué debe saber o poder hacer la persona al terminar.</p>
+
+<h2>Ruta de aprendizaje</h2>
+<ol>
+  <li>[Módulo 1: tema y SOP relacionado]</li>
+  <li>[Módulo 2: tema y SOP relacionado]</li>
+</ol>
+
+<h2>Recursos</h2>
+<ul>
+  <li>[SOPs, videos, documentos, accesos]</li>
+</ul>
+
+<h2>Checklist de dominio</h2>
+<ul data-type="taskList">
+  <li data-type="taskItem" data-checked="false"><label><input type="checkbox"></label><div><p>[Habilidad o tarea que debe demostrar]</p></div></li>
+</ul>
+
+<h2>Evaluación</h2>
+<p>Cómo se confirma que quedó capacitado. Quién lo valida.</p>
     `.trim(),
   },
   {

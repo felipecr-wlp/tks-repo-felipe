@@ -8,6 +8,161 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — SOPs de primera clase + plantillas WLP enriquecidas (Fase A + Fase B)
+
+Deploy de producción final: `wlo-qrmfeo2kj-developers-pavific.vercel.app` (alias
+`wlo.vercel.app`), estado Ready. Typecheck limpio (`tsc --noEmit` EXIT=0) y build OK
+antes de desplegar. Objetivo: que NOE pueda ir metiendo flujos de procesos, SOPs y
+capacitaciones dentro de WLO, con estatus, versión y control de revisión.
+
+### Fase A — plantillas de nota WLP enriquecidas
+- Editado: `src/lib/note-templates.ts`.
+- Las 4 plantillas WLP (Estimate, Job Kickoff, Safety Talk, Closeout) traen contenido
+  operativo real (garantía 15 años asfalto / 5 años concreto, margen ~55%). Iconos
+  lucide válidos.
+
+### Fase B — SOP como objeto de primera clase
+
+**T1 — Esquema (migración sin FK ni RLS nueva).**
+- Nuevo: `supabase/migrations/20260720000000_notes_sop_metadata.sql`. Aplicada a prod
+  (ref `cmskiyypeujcgikbvyoz`) vía apply_migration, verificada.
+- Agrega columnas nullable a `notes`: `doc_kind` (NOT NULL DEFAULT 'note'),
+  `sop_status`, `sop_version`, `review_due` (date). CHECK en `doc_kind`
+  (note/sop/sop_flow/sop_index/training) y `sop_status`
+  (draft/review/active/obsolete). Índices parciales `notes_doc_kind_idx`
+  (WHERE doc_kind<>'note') y `notes_review_due_idx`. RESPETA landmines: sin FK
+  (no cierra ciclo, no HTTP 300) y sin policy RLS nueva (la seguridad de un SOP =
+  la de una nota normal, ya cubierta por F3).
+
+**T2 — API.**
+- Editado: `src/app/api/notes/route.ts` (POST) y `src/app/api/notes/[noteId]/route.ts`
+  (GET/PATCH). createSchema y patchSchema (`.strict()`) extendidos con los 4 campos
+  (`review_due` valida regex `^\d{4}-\d{2}-\d{2}$`); los 4 campos añadidos a los
+  bloques `select` e `insert`. Fix colateral: el select del PATCH había perdido
+  `space_id`, reañadido.
+
+**T3 — Barra de metadatos en el editor.**
+- Nuevo: `.../notes/[noteId]/SopMetaBar.tsx` (client). Editado: `NoteEditor.tsx`,
+  `.../notes/[noteId]/page.tsx`.
+- Selector de tipo de documento (nota / SOP / flujo / índice / capacitación, iconos
+  lucide FileText/ClipboardList/GitBranch/Library/GraduationCap). Al convertir una
+  nota en documento, revela chips de estatus, input de versión e input de fecha de
+  revisión, y auto-setea `sop_status='draft'` la primera vez. `review_due` vencido
+  se marca visualmente. Cada cambio llama `onPatch()` (PATCH /api/notes/[id]).
+
+**T4 — Lente "Procesos y SOPs".**
+- Nuevo: `.../notes/sops/page.tsx` (server) + `.../notes/sops/SopsLens.tsx` (client).
+- Vista transversal en `/w/[slug]/notes/sops` de todos los documentos operativos
+  (`doc_kind <> 'note'`), filtrable por departamento / tipo / estatus. Cabecera con
+  conteos (activos / en revisión / borradores / vencidos) y resaltado de revisiones
+  vencidas. Replica el gating de espacios restringidos (blockedSpaceIds). Ruta
+  estática, gana sobre `notes/[noteId]`; hereda el layout de notas (árbol lateral).
+
+**T5 — Nav en el sidebar.**
+- Editado: `src/components/notes/NotesTreeSidebar.tsx`. Enlace "Procesos y SOPs"
+  (icono ClipboardList) entre el switcher de departamento y el árbol, resaltado
+  cuando la ruta termina en `/notes/sops`.
+
+**T6 — Plantillas SOP auto-clasificadas.**
+- Editado: `note-templates.ts` (campos `docKind`/`sopStatus` en 4 plantillas SOP),
+  `NotesActionsBar.tsx` (los pasa en el POST). Las notas creadas desde plantillas
+  SOP/flujo/índice/training nacen ya clasificadas y aparecen solas en la lente.
+
+---
+
+## 2026-07-19: INCIDENTE + FIX — caida total "Pagina no encontrada" (404 para TODOS)
+
+Sintoma: `wlo.vercel.app/w/general` daba "Pagina no encontrada" a TODOS los usuarios
+(Ali y Alan confirmados), recien logueados. No era sesion ni cache ni cuenta: era
+servidor, multiusuario. Se arreglo a nivel de BASE DE DATOS (sin redeploy; el fix vive
+en la BD que el app en vivo consulta). Verificado 200 en las 3 formas de query.
+
+CAUSA RAIZ (la introdujo la migracion de auto-join de esta misma fecha,
+`20260719000000_org_domain_autojoin`): agregar `organizations.default_workspace_id`
+como FK a `workspaces` creo un CICLO de foreign keys
+(`workspaces.org_id -> organizations` Y `organizations.default_workspace_id -> workspaces`).
+Con dos relaciones entre las mismas tablas, PostgREST responde **HTTP 300 "Multiple
+Choices"** en CUALQUIER embed `organizations(...)` bajo `workspaces` (no sabe cual usar).
+supabase-js trata el 300 como error -> `data = null`. El layout del workspace
+(`(app)/w/[workspaceSlug]/layout.tsx`, query gate con admin client) recibia null y
+disparaba `notFound()` para todos. Confirmado en logs de la API de Supabase: 300 en la
+query con embed, 200 en la que no lo tiene.
+
+BUG SECUNDARIO destapado al arreglar el 300: recursion infinita de RLS (Postgres
+`42P17`) en la policy `workspace_members_select`, cuya 3a clausula hacia subquery a la
+MISMA tabla `workspace_members`. Existia desde abril (`20260423100000_fix_rls_circular_dep`),
+enmascarada porque el app usa el admin client (service role, bypassa RLS) para TODA
+lectura critica; solo se manifestaba como switcher de workspaces vacio en silencio.
+
+Fixes (2 migraciones nuevas, aplicadas a prod + versionadas):
+- `20260719010000_drop_circular_org_default_workspace_fk.sql`: `ALTER TABLE organizations
+  DROP CONSTRAINT organizations_default_workspace_id_fkey`. La COLUMNA `default_workspace_id`
+  y sus datos quedan intactos (auto-join la usa solo como columna, nunca como embed), asi
+  que soltar el FK no rompe nada y elimina la ambiguedad. El FK legitimo
+  `workspaces_org_id_fkey` se mantiene.
+- `20260719020000_fix_workspace_members_select_recursion.sql`: helper `SECURITY DEFINER`
+  `public.user_workspace_ids()` (mismo patron que `auth_org_id()`) que lee
+  workspace_members SIN re-disparar RLS; la policy usa ese helper en vez del self-subquery.
+  Arreglar la policy raiz tambien resuelve la recursion indirecta en `workspaces_select` y
+  en la policy DELETE de workspace_members. Tras aplicar DDL: `NOTIFY pgrst, 'reload schema'`.
+- Hints defensivos de FK en codigo (no requeridos tras soltar el FK, pero mas robustos):
+  `layout.tsx` y `api/invites/[code]/route.ts` cambian `organizations(...)` por
+  `organizations!workspaces_org_id_fkey(...)`. Se van con el proximo deploy.
+
+LANDMINE (regla dura, cada migracion futura de TSKR):
+- **NUNCA crear un FK que cierre un CICLO entre dos tablas ya relacionadas** (ej. agregar
+  `A.x -> B` cuando ya existe `B.y -> A`). PostgREST devuelve HTTP 300 en TODO embed entre
+  esas dos tablas y tumba cualquier ruta que las embeba. Si de veras se necesita la columna,
+  dejarla SIN constraint FK (como quedo `default_workspace_id`), o desambiguar con hint de
+  FK (`tabla!nombre_del_fkey(...)`) en TODOS los embeds afectados (buscar con Grep antes).
+- **NUNCA escribir una policy RLS que haga subquery a su PROPIA tabla** (auto-referencia ->
+  Postgres `42P17` recursion infinita). Usar un helper `SECURITY DEFINER STABLE SET
+  search_path=public` que lea la tabla sin re-disparar RLS. Patron canonico ya en la BD:
+  `auth_org_id()`, `user_workspace_ids()`.
+- Sintoma-guia: si una ruta autenticada da "Pagina no encontrada" a TODOS de golpe tras una
+  migracion, sospechar `notFound()` por query nula, y revisar logs de la API de Supabase
+  buscando `300` (ambiguedad de embed) o `42P17` (recursion RLS) ANTES de tocar sesion/cache.
+
+Dato aparte (no era la falla): Alan esta en DOS workspaces con slug `general` (activo
+`daf8b859` + residual `ecabb511`); ambos cargan ya. Sigue pendiente consolidar el "general"
+residual.
+
+---
+
+## 2026-07-19: Emails transaccionales (andamiaje gateado, invitaciones + notificaciones)
+
+`resend` + `@react-email` estaban en package.json pero SIN una sola linea que los usara ni API key.
+Se construyo el andamiaje completo GATEADO por configuracion: si no hay `RESEND_API_KEY` + `EMAIL_FROM`,
+todo es no-op silencioso; el dia que se pongan esas env en Vercel + dominio verificado, empieza a enviar
+solo sin tocar codigo. Deploy prod `dpl_7HCTp2yB9FdeoJxoX6tKB867AHVQ` (alias wlo.vercel.app, READY).
+
+Modulo nuevo `src/lib/email.ts`:
+- `isEmailConfigured()` (gate), `sendEmail({to,subject,html})` best effort (nunca lanza, import perezoso
+  del SDK de Resend solo si esta prendido).
+- Plantillas de marca (Inter, acento azul #2563EB, sin emojis, ñ/tildes): `renderNotificationEmail`
+  (asignacion/mencion/comentario/postulacion/proyecto) y `renderInviteEmail` (invitacion con link).
+
+Notificaciones por correo (cobertura total sin tocar 8 call sites):
+- Cableado en el corazon: `src/lib/activity.ts` -> `createNotification` y `notifyTaskWatchers` ahora
+  llaman `maybeSendNotificationEmail` (best effort). Un mapa `EMAIL_NOTIFY` filtra a tipos de ALTO valor
+  (task_mentioned, note_mentioned, task_commented, application_*, project_approved/rejected/pending);
+  los ruidosos/de sistema (task_updated, overdue, due_soon, recurrence, review_requested) NO mandan
+  correo. No auto-correo al propio actor. Enlace: tareas -> /w/{slug}/task/{id}, resto -> /w/{slug}/inbox.
+
+Invitaciones por correo (opcional):
+- `POST /api/workspaces/[id]/invites` acepta `email` opcional; si se da (y el email esta configurado),
+  manda la invitacion con el link `/join/{code}`. El flujo por codigo compartible sigue intacto.
+- UI `InvitesPanel.tsx`: campo "Enviar por correo (opcional)"; el toast avisa si se envio.
+
+Archivos: `email.ts` (nuevo), `activity.ts`, `workspaces/[workspaceId]/invites/route.ts`,
+`InvitesPanel.tsx`. Sin migraciones. Typecheck + build limpios.
+
+PENDIENTE (solo Ali): poner en Vercel `RESEND_API_KEY` + `EMAIL_FROM` (remitente verificado, ej.
+"WLO <notificaciones@pavific.com>") y verificar el dominio en Resend (registros DNS). Hasta entonces
+el envio queda apagado a proposito, sin romper nada.
+
+---
+
 ## 2026-07-19: Fix alta de usuarios (auto-join por dominio de correo)
 
 Cierra el HALLAZGO ABIERTO de la entrada anterior: quien se registraba SIN invitacion creaba una org

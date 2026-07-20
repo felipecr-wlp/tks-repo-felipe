@@ -20,6 +20,10 @@ type NoteFull = {
   title: string
   content: string | null
   visibility: string
+  doc_kind: 'note' | 'sop' | 'sop_flow' | 'sop_index' | 'training'
+  sop_status: 'draft' | 'review' | 'active' | 'obsolete' | null
+  sop_version: string | null
+  review_due: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -55,6 +59,7 @@ export default async function NotePage({ params }: NotePageProps) {
     .select(`
       id, workspace_id, parent_note_id, icon,
       title, content, visibility,
+      doc_kind, sop_status, sop_version, review_due,
       created_by, created_at, updated_at,
       author:profiles ( display_name, avatar_url )
     `)

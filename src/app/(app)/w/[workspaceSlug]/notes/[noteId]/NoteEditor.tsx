@@ -18,6 +18,7 @@ import { NoteComments } from './NoteComments'
 import { NoteBacklinks } from './NoteBacklinks'
 import { NoteVersions } from './NoteVersions'
 import { NotePresence } from './NotePresence'
+import { SopMetaBar, type DocKind, type SopStatus } from './SopMetaBar'
 
 const RichTextEditor = dynamic(
   () => import('@/components/editor/RichTextEditor').then(m => m.RichTextEditor),
@@ -36,6 +37,10 @@ interface NoteData {
   title: string
   content: string | null
   visibility: string
+  doc_kind: DocKind
+  sop_status: SopStatus | null
+  sop_version: string | null
+  review_due: string | null
   created_by: string | null
   updated_at: string
   author: { display_name: string; avatar_url: string | null } | null
@@ -353,9 +358,18 @@ export function NoteEditor({
       </div>
 
       {/* Author + meta */}
-      <p className="text-xs text-muted-foreground mb-6 ml-1">
+      <p className="text-xs text-muted-foreground mb-3 ml-1">
         {initial.author?.display_name ?? 'Usuario'} · creada {timeAgo(updatedAt)}
       </p>
+
+      {/* Barra de SOP: tipo de documento + ciclo de vida (estatus/versión/revisión) */}
+      <SopMetaBar
+        docKind={initial.doc_kind}
+        sopStatus={initial.sop_status}
+        sopVersion={initial.sop_version}
+        reviewDue={initial.review_due}
+        onPatch={patch}
+      />
 
       {/* Editor */}
       <RichTextEditor

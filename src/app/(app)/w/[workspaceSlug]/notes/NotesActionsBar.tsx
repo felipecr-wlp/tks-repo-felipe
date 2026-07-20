@@ -58,6 +58,8 @@ export function NotesActionsBar({
           content: template.content || null,
           icon: template.icon,
           visibility: 'workspace',
+          ...(template.docKind ? { doc_kind: template.docKind } : {}),
+          ...(template.sopStatus ? { sop_status: template.sopStatus } : {}),
         }),
       })
       const data = await res.json()

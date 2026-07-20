@@ -19,6 +19,8 @@ const createSchema = z.object({
   parent_note_id: z.string().uuid().nullable().optional(),
   space_id:       z.string().uuid().nullable().optional(),
   icon:           z.string().max(64).nullable().optional(),
+  doc_kind:       z.enum(['note', 'sop', 'sop_flow', 'sop_index', 'training']).optional(),
+  sop_status:     z.enum(['draft', 'review', 'active', 'obsolete']).nullable().optional(),
 })
 
 interface NoteListRow {
@@ -131,7 +133,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 422 })
   }
 
-  const { workspace_id, title, content, visibility, project_id, parent_note_id, space_id, icon } = parsed.data
+  const { workspace_id, title, content, visibility, project_id, parent_note_id, space_id, icon, doc_kind, sop_status } = parsed.data
 
   const admin = createAdminClient()
 
@@ -167,6 +169,8 @@ export async function POST(request: NextRequest) {
       content:        content ?? null,
       visibility,
       icon:           icon ?? null,
+      doc_kind:       doc_kind ?? 'note',
+      sop_status:     sop_status ?? null,
       created_by:     user.id,
     })
     .select('id, title, visibility, created_at, updated_at, parent_note_id, icon')
