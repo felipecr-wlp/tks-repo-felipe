@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { isWorkspaceAdminById } from '@/lib/workspace-admin'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { slugify } from '@/lib/utils'
 
@@ -34,14 +35,12 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient()
 
-  // Verificar membresía al workspace (admin client)
-  const { data: membership } = await admin
-    .from('workspace_members')
-    .select('role')
-    .eq('workspace_id', workspace_id)
-    .eq('profile_id', user.id)
-    .maybeSingle() as { data: { role: string } | null; error: unknown }
-  if (!membership) return NextResponse.json({ error: 'Sin acceso al workspace' }, { status: 403 })
+  // Solo los administradores del workspace pueden crear equipos. Los miembros
+  // regulares no pueden generarlos: la asignación de equipos es potestad del admin.
+  const adminCtx = await isWorkspaceAdminById(workspace_id)
+  if (!adminCtx?.isAdmin) {
+    return NextResponse.json({ error: 'Solo un administrador puede crear equipos' }, { status: 403 })
+  }
 
   // Generar slug único dentro del workspace
   let slug = slugify(name)

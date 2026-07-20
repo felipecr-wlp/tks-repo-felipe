@@ -2,6 +2,7 @@
  * Crear nuevo equipo en el workspace.
  */
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { isWorkspaceAdminById } from '@/lib/workspace-admin'
 import { redirect } from 'next/navigation'
 import { NewTeamForm } from './NewTeamForm'
 
@@ -36,6 +37,10 @@ export default async function NewTeamPage({ params }: NewTeamPageProps) {
 
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
+
+  // Solo los administradores del workspace pueden crear equipos.
+  const adminCtx = await isWorkspaceAdminById(workspace.id)
+  if (!adminCtx?.isAdmin) redirect(`/w/${params.workspaceSlug}`)
 
   return (
     <div className="min-h-screen bg-background flex items-start justify-center p-6 pt-16">

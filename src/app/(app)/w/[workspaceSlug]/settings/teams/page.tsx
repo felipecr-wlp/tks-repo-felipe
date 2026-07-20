@@ -12,6 +12,7 @@ interface TeamRow {
   slug: string
   description: string | null
   methodology: string
+  is_archived: boolean
 }
 
 export default async function TeamsSettingsPage({
@@ -27,7 +28,7 @@ export default async function TeamsSettingsPage({
 
   const { data: teams } = (await admin
     .from('teams')
-    .select('id, name, slug, description, methodology')
+    .select('id, name, slug, description, methodology, is_archived')
     .eq('workspace_id', ctx.workspace.id)
     .order('name', { ascending: true })) as { data: TeamRow[] | null; error: unknown }
 

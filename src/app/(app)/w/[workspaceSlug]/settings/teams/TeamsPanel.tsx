@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { getInitials } from '@/lib/utils'
-import { UsersRound, Plus, Pencil, Check, X, ChevronDown, ChevronRight, UserPlus } from 'lucide-react'
+import { UsersRound, Plus, Pencil, Check, X, ChevronDown, ChevronRight, UserPlus, Archive, ArchiveRestore } from 'lucide-react'
 
 interface Team {
   id: string
@@ -21,6 +21,7 @@ interface Team {
   description: string | null
   methodology: string
   member_count: number
+  is_archived: boolean
 }
 
 interface TeamMember {
@@ -101,6 +102,27 @@ export function TeamsPanel({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Error al guardar')
       setTeams((prev) => prev.map((x) => (x.id === t.id ? { ...x, methodology } : x)))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function toggleArchived(t: Team) {
+    const next = !t.is_archived
+    setBusy(t.id)
+    try {
+      const res = await fetch(`/api/teams/${t.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_archived: next }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Error al actualizar')
+      setTeams((prev) => prev.map((x) => (x.id === t.id ? { ...x, is_archived: next } : x)))
+      toast.success(next ? 'Equipo desactivado' : 'Equipo activado')
+      router.refresh()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error desconocido')
     } finally {
@@ -337,10 +359,15 @@ export function TeamsPanel({
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => toggleMembers(t)}
-                          className="text-sm font-medium text-foreground truncate hover:underline text-left"
+                          className={`text-sm font-medium truncate hover:underline text-left ${t.is_archived ? 'text-muted-foreground/60 italic' : 'text-foreground'}`}
                         >
                           {t.name}
                         </button>
+                        {t.is_archived && (
+                          <span className="flex-shrink-0 text-[10px] font-normal px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                            Inactivo
+                          </span>
+                        )}
                         <button
                           onClick={() => startEdit(t)}
                           className="p-0.5 text-muted-foreground hover:text-foreground"
@@ -364,6 +391,17 @@ export function TeamsPanel({
                     <option value="scrum">Scrum</option>
                     <option value="kanban">Kanban</option>
                   </select>
+
+                  <button
+                    onClick={() => toggleArchived(t)}
+                    disabled={busy === t.id}
+                    title={t.is_archived ? 'Activar equipo' : 'Desactivar equipo'}
+                    aria-label={t.is_archived ? 'Activar equipo' : 'Desactivar equipo'}
+                    className="inline-flex items-center gap-1 text-xs px-2 py-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded disabled:opacity-40"
+                  >
+                    {t.is_archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
+                    {t.is_archived ? 'Activar' : 'Desactivar'}
+                  </button>
 
                   <button
                     onClick={() => removeTeam(t)}

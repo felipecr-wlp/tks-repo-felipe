@@ -8,6 +8,55 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Solo el admin crea equipos + Activar/Desactivar equipos
+
+Deploy de producción: alias `wlo.vercel.app`. Build OK, tsc limpio.
+
+Petición del usuario (Ali): "no dejes que otros usuarios generen equipos, solo el
+admin puede asignar" + "Activar o desactivar equipos".
+
+### 1. Crear equipos es exclusivo del admin
+
+Antes, cualquier miembro del workspace podía crear equipos (el POST solo validaba
+membresía). Ahora la creación es potestad del administrador del workspace, en
+tres capas:
+
+- Servidor (garantía dura): `POST /api/teams/route.ts` ahora exige
+  `isWorkspaceAdminById(workspace_id)`; devuelve 403 "Solo un administrador puede
+  crear equipos" a los no-admin.
+- Ruta de creación: `/w/[workspaceSlug]/teams/new/page.tsx` redirige a
+  `/w/[slug]` si el usuario no es admin (no ve el formulario).
+- UI oculta el punto de entrada "Nuevo equipo" a los no-admin: sidebar
+  (`Sidebar.tsx`, nuevo prop `isAdmin`), command palette (`CommandPalette.tsx`,
+  acción "Crear equipo" solo admin), home del workspace (`page.tsx`, botón
+  "+ Nuevo equipo") y la guía de inicio (`OnboardingGuide.tsx`, el paso "equipos"
+  cambia a "Espera a que un admin te asigne un equipo" para el resto).
+
+### 2. Activar / Desactivar equipos (archivado suave)
+
+- Migración `20260720120000_teams_is_archived.sql`: columna
+  `is_archived boolean NOT NULL DEFAULT false` + índice parcial de equipos
+  activos. Sin FK ni RLS nueva (respeta landmines). Aplicada a prod.
+- `PATCH /api/teams/[teamId]` acepta `is_archived` y su gate se amplió: además
+  del admin del equipo, ahora también puede editar el admin del workspace
+  (consistente con DELETE y con el panel de settings).
+- Panel `settings/teams/TeamsPanel.tsx`: botón Activar/Desactivar por equipo
+  (iconos Archive/ArchiveRestore) + badge "Inactivo". `settings/teams/page.tsx`
+  carga `is_archived`.
+- Sidebar (`layout.tsx`): los equipos archivados se OCULTAN a los miembros
+  regulares (filtro `is_archived=false` en su query). Los admins los siguen
+  viendo atenuados con etiqueta "Inactivo" (`NavSection.tsx`) para poder
+  reactivarlos. No se borra nada: tareas, proyectos e historial se preservan.
+
+Archivos: `api/teams/route.ts`, `api/teams/[teamId]/route.ts`,
+`teams/new/page.tsx`, `layout.tsx`, `page.tsx`, `OnboardingGuide.tsx`,
+`components/sidebar/Sidebar.tsx`, `components/sidebar/NavSection.tsx`,
+`components/command-palette/CommandPalette.tsx`,
+`settings/teams/TeamsPanel.tsx`, `settings/teams/page.tsx`,
+`supabase/migrations/20260720120000_teams_is_archived.sql`.
+
+---
+
 ## 2026-07-20 — El admin ya puede ENTRAR a cualquier equipo/proyecto (fix 404)
 
 Deploy de producción: alias `wlo.vercel.app`. Build OK, tsc limpio.

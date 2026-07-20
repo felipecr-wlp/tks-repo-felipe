@@ -28,6 +28,7 @@ type TeamWithProjects = {
   id: string
   name: string
   slug: string
+  is_archived: boolean
   projects: Array<{
     id: string
     name: string
@@ -121,6 +122,7 @@ export default async function WorkspaceLayout({
     id: string
     name: string
     slug: string
+    is_archived: boolean
     team_members: Array<{ profile_id: string }>
     projects: Array<{
       id: string
@@ -132,8 +134,9 @@ export default async function WorkspaceLayout({
   }
 
   // Admin: TODOS los equipos y proyectos del workspace (admin client, sin filtro
-  // de membresía). No-admin: solo equipos/proyectos donde el user participa
-  // (inner joins con su profile_id).
+  // de membresía). Incluye equipos archivados para poder reactivarlos (se
+  // muestran atenuados en el sidebar). No-admin: solo equipos/proyectos donde el
+  // user participa (inner joins con su profile_id) y NUNCA los archivados.
   const { data: rawTeams } = isWorkspaceAdmin
     ? (await admin
         .from('teams')
@@ -141,6 +144,7 @@ export default async function WorkspaceLayout({
           id,
           name,
           slug,
+          is_archived,
           projects (
             id,
             name,
@@ -156,6 +160,7 @@ export default async function WorkspaceLayout({
           id,
           name,
           slug,
+          is_archived,
           team_members!inner ( profile_id ),
           projects (
             id,
@@ -166,6 +171,7 @@ export default async function WorkspaceLayout({
           )
         `)
         .eq('workspace_id', workspace.id)
+        .eq('is_archived', false)
         .eq('team_members.profile_id', user.id)
         .eq('projects.project_members.profile_id', user.id)
         .order('name', { ascending: true })) as { data: RawTeam[] | null; error: unknown }
@@ -175,6 +181,7 @@ export default async function WorkspaceLayout({
     id: t.id,
     name: t.name,
     slug: t.slug,
+    is_archived: t.is_archived ?? false,
     projects: (t.projects ?? []).map(p => ({
       id: p.id,
       name: p.name,
@@ -207,7 +214,7 @@ export default async function WorkspaceLayout({
     // superior (~135px) y el canvas salía diminuto. flex-1 lo fuerza a viewport.
     <div className="flex h-screen overflow-hidden flex-1 min-w-0 w-full">
       {/* Command palette global (Cmd+K) */}
-      <CommandPalette workspaceSlug={workspace.slug} workspaceId={workspace.id} />
+      <CommandPalette workspaceSlug={workspace.slug} workspaceId={workspace.id} isAdmin={isWorkspaceAdmin} />
 
       {/* Modal global "Nueva tarea" (atajo C) */}
       <GlobalNewTaskModal teams={teams} />
@@ -218,6 +225,7 @@ export default async function WorkspaceLayout({
         workspaceName={workspace.name}
         orgName={workspace.organizations?.name ?? 'Mi organización'}
         teams={teams}
+        isAdmin={isWorkspaceAdmin}
         userProfile={{
           id: user.id,
           display_name: profile?.display_name ?? user.email?.split('@')[0] ?? 'Usuario',

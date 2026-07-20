@@ -20,6 +20,7 @@ import { useCommandPalette } from '@/stores/command-palette'
 interface CommandPaletteProps {
   workspaceSlug: string
   workspaceId: string
+  isAdmin?: boolean
 }
 
 interface SearchResult {
@@ -62,7 +63,7 @@ interface FlatItem {
   group: string
 }
 
-export function CommandPalette({ workspaceSlug, workspaceId }: CommandPaletteProps) {
+export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: CommandPaletteProps) {
   const router = useRouter()
   const { open, setOpen, toggle } = useCommandPalette()
 
@@ -155,14 +156,15 @@ export function CommandPalette({ workspaceSlug, workspaceId }: CommandPalettePro
           icon: <InboxIcon />,
           group: 'Navegación',
         },
-        {
+        // Crear equipo: solo administradores del workspace.
+        ...(isAdmin ? [{
           id: 'a-newteam',
-          type: 'action',
+          type: 'action' as const,
           label: 'Crear equipo',
           href: `/w/${workspaceSlug}/teams/new`,
           icon: <PlusIcon />,
           group: 'Acciones',
-        },
+        }] : []),
         {
           id: 'a-newws',
           type: 'action',
@@ -214,7 +216,7 @@ export function CommandPalette({ workspaceSlug, workspaceId }: CommandPalettePro
       group: 'Personas',
     }))
     return flat
-  }, [results, query, workspaceSlug])
+  }, [results, query, workspaceSlug, isAdmin])
 
   // ── Agrupar para render ───────────────────────────────────────────────────
   const groups = useMemo(() => {

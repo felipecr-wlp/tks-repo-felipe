@@ -38,6 +38,7 @@ interface OnboardingGuideProps {
   workspaceId: string
   userId: string
   steps: OnboardingSteps
+  isAdmin?: boolean
 }
 
 const TOUR: Array<{ icon: LucideIcon; title: string; desc: string; path: (b: string, uid: string) => string }> = [
@@ -49,7 +50,7 @@ const TOUR: Array<{ icon: LucideIcon; title: string; desc: string; path: (b: str
   { icon: Compass, title: 'Marketplace', desc: 'Oportunidades internas y tu CV de colaborador.', path: (b, uid) => `${b}/cv/${uid}` },
 ]
 
-export function OnboardingGuide({ workspaceSlug, workspaceId, userId, steps }: OnboardingGuideProps) {
+export function OnboardingGuide({ workspaceSlug, workspaceId, userId, steps, isAdmin = false }: OnboardingGuideProps) {
   const base = `/w/${workspaceSlug}`
   const storageKey = `wlo-onboarding-${workspaceId}`
 
@@ -94,7 +95,11 @@ export function OnboardingGuide({ workspaceSlug, workspaceId, userId, steps }: O
   if (open === null) return null
 
   const checklist: Array<{ key: keyof OnboardingSteps; label: string; cta: string; href: string }> = [
-    { key: 'teams', label: 'Crea tu primer equipo', cta: 'Crear equipo', href: `${base}/teams/new` },
+    // Crear equipos es exclusivo del admin; para el resto, el paso apunta a la
+    // vista del workspace (esperan a que el admin les asigne un equipo).
+    isAdmin
+      ? { key: 'teams', label: 'Crea tu primer equipo', cta: 'Crear equipo', href: `${base}/teams/new` }
+      : { key: 'teams', label: 'Espera a que un admin te asigne un equipo', cta: 'Ver workspace', href: base },
     { key: 'projects', label: 'Crea un proyecto y su tablero', cta: 'Ir a equipos', href: base },
     { key: 'members', label: 'Invita a tu equipo', cta: 'Invitar', href: `${base}/settings/invites` },
     { key: 'notes', label: 'Escribe tu primera nota', cta: 'Nueva nota', href: `${base}/notes` },

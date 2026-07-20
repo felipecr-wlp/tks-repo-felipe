@@ -45,8 +45,10 @@ interface SidebarProps {
     id: string
     name: string
     slug: string
+    is_archived?: boolean
     projects: Array<{ id: string; name: string; slug: string; icon: string | null }>
   }>
+  isAdmin?: boolean
   userProfile: {
     id: string
     display_name: string
@@ -65,6 +67,7 @@ export function Sidebar({
   workspaceName,
   orgName,
   teams,
+  isAdmin = false,
   userProfile,
   allWorkspaces,
 }: SidebarProps) {
@@ -251,7 +254,7 @@ export function Sidebar({
           open={openGroups.equipos}
           onToggle={() => toggleGroup('equipos')}
           action={
-            !collapsed ? (
+            !collapsed && isAdmin ? (
               <Link
                 href={`${base}/teams/new`}
                 title="Nuevo equipo"
@@ -272,7 +275,7 @@ export function Sidebar({
             />
           ))}
 
-          {!collapsed && teams.length === 0 && (
+          {!collapsed && teams.length === 0 && isAdmin && (
             <Link
               href={`${base}/teams/new`}
               className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors rounded-md"
@@ -280,6 +283,12 @@ export function Sidebar({
               <Plus size={12} />
               Crear primer equipo
             </Link>
+          )}
+
+          {!collapsed && teams.length === 0 && !isAdmin && (
+            <p className="px-2 py-1.5 text-xs text-muted-foreground/60">
+              Aún no tienes equipos asignados.
+            </p>
           )}
         </NavGroup>
       </nav>

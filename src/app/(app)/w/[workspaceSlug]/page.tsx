@@ -7,6 +7,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { isWorkspaceAdminById } from '@/lib/workspace-admin'
 import { redirect } from 'next/navigation'
 import { formatDate, timeAgo, getInitials } from '@/lib/utils'
 import { LayoutDashboard, CheckSquare, Activity } from 'lucide-react'
@@ -145,6 +146,10 @@ export default async function WorkspaceDashboardPage({
 
   const hasTeams = teams && teams.length > 0
 
+  // Solo los administradores del workspace pueden crear equipos.
+  const adminCtx = await isWorkspaceAdminById(workspace.id)
+  const isAdmin = !!adminCtx?.isAdmin
+
   // ── Progreso de onboarding (checklist de primeros pasos) ──────────────────
   const projectsCount = (teams ?? []).reduce((acc, t) => acc + (t.projects?.length ?? 0), 0)
 
@@ -194,6 +199,7 @@ export default async function WorkspaceDashboardPage({
         workspaceId={workspace.id}
         userId={user.id}
         steps={onboardingSteps}
+        isAdmin={isAdmin}
       />
 
       {/* ── Mi día (agenda de Google Calendar) ───────────────────────────── */}
@@ -319,12 +325,14 @@ export default async function WorkspaceDashboardPage({
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Equipos
             </h2>
-            <Link
-              href={`/w/${params.workspaceSlug}/teams/new`}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              + Nuevo equipo
-            </Link>
+            {isAdmin && (
+              <Link
+                href={`/w/${params.workspaceSlug}/teams/new`}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                + Nuevo equipo
+              </Link>
+            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {teams!.map(team => (

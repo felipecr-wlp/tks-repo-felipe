@@ -11,6 +11,7 @@ const patchSchema = z.object({
   name:        z.string().min(2).max(80).trim().optional(),
   description: z.string().max(300).trim().nullable().optional(),
   methodology: z.enum(['scrum', 'kanban']).optional(),
+  is_archived: z.boolean().optional(),
 }).strict()
 
 export async function PATCH(
@@ -35,24 +36,36 @@ export async function PATCH(
 
   const admin = createAdminClient()
 
-  // Solo admins del equipo
+  // Obtener el workspace del equipo para permitir tanto a admins del equipo
+  // como a administradores del workspace (los que activan/desactivan equipos).
+  const { data: team } = await admin
+    .from('teams')
+    .select('workspace_id')
+    .eq('id', params.teamId)
+    .maybeSingle() as { data: { workspace_id: string } | null; error: unknown }
+  if (!team) return NextResponse.json({ error: 'Equipo no encontrado' }, { status: 404 })
+
   const { data: membership } = await admin
     .from('team_members')
     .select('role')
     .eq('team_id', params.teamId)
     .eq('profile_id', user.id)
     .maybeSingle() as { data: { role: string } | null; error: unknown }
-  if (!membership || membership.role !== 'admin') {
-    return NextResponse.json({ error: 'Se requiere rol admin' }, { status: 403 })
+  const isTeamAdmin = membership?.role === 'admin'
+  if (!isTeamAdmin) {
+    const adminCtx = await isWorkspaceAdminById(team.workspace_id)
+    if (!adminCtx?.isAdmin) {
+      return NextResponse.json({ error: 'Se requiere rol admin' }, { status: 403 })
+    }
   }
 
-  type TeamResult = { id: string; name: string; slug: string }
+  type TeamResult = { id: string; name: string; slug: string; is_archived: boolean }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: updated, error } = await (admin as any)
     .from('teams')
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.teamId)
-    .select('id, name, slug')
+    .select('id, name, slug, is_archived')
     .single() as { data: TeamResult | null; error: unknown }
 
   if (error || !updated) return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 })

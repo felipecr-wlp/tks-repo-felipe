@@ -13,6 +13,7 @@ interface Team {
   id: string
   name: string
   slug: string
+  is_archived?: boolean
   projects: Array<{ id: string; name: string; slug: string; icon: string | null }>
 }
 
@@ -76,12 +77,19 @@ export function NavSection({ team, workspaceSlug, collapsed, pathname }: NavSect
         <Link
           href={teamBase}
           className={cn(
-            'flex-1 min-w-0 truncate px-1.5 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide transition-colors',
+            'flex-1 min-w-0 truncate px-1.5 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide transition-colors flex items-center gap-1.5',
             'hover:text-foreground hover:bg-accent',
-            pathname === teamBase ? 'text-foreground bg-accent' : 'text-muted-foreground'
+            team.is_archived
+              ? 'text-muted-foreground/50 italic'
+              : pathname === teamBase ? 'text-foreground bg-accent' : 'text-muted-foreground'
           )}
         >
-          {team.name}
+          <span className="truncate">{team.name}</span>
+          {team.is_archived && (
+            <span className="flex-shrink-0 text-[9px] font-normal normal-case tracking-normal px-1 py-0.5 rounded bg-muted text-muted-foreground/70">
+              Inactivo
+            </span>
+          )}
         </Link>
 
         {/* Botón agregar proyecto */}
