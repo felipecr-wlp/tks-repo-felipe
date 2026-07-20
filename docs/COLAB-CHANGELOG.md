@@ -8,6 +8,29 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Robustecer SOPs Nivel 1, Paso 1: recordatorio de revisión
+
+Deploy de producción: `wlo-acam41mkz-developers-pavific.vercel.app` (alias
+`wlo.vercel.app`), Ready. Typecheck EXIT=0, build OK.
+
+Cierra el ciclo que en Fase B quedó como MVP visual (la revisión vencida solo se
+pintaba en rojo en la lente). Ahora hay un cron diario que crea una notificación
+al OWNER del SOP (`created_by`) cuando `review_due` está vencida
+(`sop_review_overdue`) o vence dentro de 7 días (`sop_review_due_soon`).
+
+- Nuevo: `src/app/api/cron/sop-reviews/route.ts`. Copia el patrón de
+  `due-reminders` (auth por `CRON_SECRET` obligatorio, service-role client,
+  dedup por tipo+nota+destinatario en las últimas 20h). Consulta `notes` con
+  `doc_kind <> 'note'`, `review_due` no nula y `<= hoy+7d`, excluye
+  `sop_status = 'obsolete'`. Idempotente por día.
+- Editado: `vercel.json` (segundo cron `/api/cron/sop-reviews` a las 16:00 UTC).
+- Editado: `src/lib/activity.ts` (`NotificationTypes.SOP_REVIEW_OVERDUE` y
+  `SOP_REVIEW_DUE_SOON`).
+- Editado: `.../inbox/InboxList.tsx` (etiquetas de los 2 tipos nuevos; el
+  deep-link a `object_type='note'` ya existía y abre el SOP).
+
+---
+
 ## 2026-07-20 — Admin gestiona miembros de equipos + ve todos los equipos
 
 **Qué cambió**

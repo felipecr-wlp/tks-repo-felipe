@@ -291,4 +291,6 @@ export const NotificationTypes = {
   TASK_OVERDUE:          'task_overdue',          // al asignado: tarea vencida (recordatorio diario, sistema)
   TASK_DUE_SOON:         'task_due_soon',         // al asignado: tarea vence hoy (recordatorio diario, sistema)
   TASK_RECURRENCE_CREATED: 'task_recurrence_created', // al asignado: se genero la siguiente ocurrencia recurrente
+  SOP_REVIEW_OVERDUE:    'sop_review_overdue',    // al owner del SOP: la fecha de revision ya paso (recordatorio diario, sistema)
+  SOP_REVIEW_DUE_SOON:   'sop_review_due_soon',   // al owner del SOP: la revision vence dentro de 7 dias (recordatorio diario, sistema)
 } as const
