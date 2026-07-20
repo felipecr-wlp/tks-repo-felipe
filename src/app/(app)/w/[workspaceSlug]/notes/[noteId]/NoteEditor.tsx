@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
-import { Globe, Users, Folder, Lock, ChevronDown, Check, AlertTriangle, RotateCw, Loader2 } from 'lucide-react'
+import { Globe, Users, Folder, Lock, ChevronDown, Check, AlertTriangle, RotateCw, Loader2, FileDown } from 'lucide-react'
 import { cn, timeAgo } from '@/lib/utils'
 import { NoteIcon, NOTE_ICONS, normalizeNoteIconKey } from '@/lib/note-icons'
 import { NotesActionsBar } from '../NotesActionsBar'
@@ -286,6 +286,15 @@ export function NoteEditor({
 
           {/* Historial de versiones (A4) */}
           <NoteVersions noteId={initial.id} />
+
+          {/* Exportar a PDF (via vista de impresión del navegador) */}
+          <button
+            onClick={() => window.open(`/print/notes/${initial.id}`, '_blank', 'noopener')}
+            title="Exportar a PDF"
+            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+          >
+            <FileDown className="w-3.5 h-3.5" />
+          </button>
 
           {/* Sub-página */}
           <NotesActionsBar

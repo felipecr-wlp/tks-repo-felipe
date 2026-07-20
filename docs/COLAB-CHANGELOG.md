@@ -8,6 +8,28 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Robustecer SOPs Nivel 1, Paso 3: exportar a PDF
+
+Deploy de producción: alias `wlo.vercel.app`, Ready. Build OK, `next lint` limpio.
+
+Cierra el Nivel 1 de robustecimiento de SOPs. Botón "Exportar a PDF" en el editor
+de nota que abre una vista de impresión limpia; el usuario elige "Guardar como
+PDF" en el diálogo del navegador (sin dependencias nuevas ni chromium en Vercel).
+
+- Nueva ruta `src/app/print/notes/[noteId]/page.tsx` FUERA del layout de la app
+  (sin sidebar ni chrome). Auth + acceso propios (sesión + membresía de workspace
+  + visibilidad private). Renderiza título, ficha de gobernanza (tipo/estatus/
+  versión/próxima revisión) y el contenido (HTML de Tiptap en contenedor `prose`).
+- Para documentos operativos (`doc_kind != 'note'`) incluye el REGISTRO DE ACUSES
+  de lectura como tabla (persona, fecha, versión reconocida + marca
+  "desactualizado"), volviendo el PDF una constancia de capacitación imprimible.
+- Nuevo `PrintTrigger.tsx` (cliente): dispara `window.print()` al abrir y ofrece
+  botón manual; los controles se ocultan en impresión (`print:hidden`).
+- Editado: `NoteEditor.tsx` (botón `FileDown` en la barra de acciones que abre la
+  vista de impresión en pestaña nueva).
+
+---
+
 ## 2026-07-20 — Tablero de Rendimiento mensual (evaluación por persona y por canal)
 
 Deploy de producción: `dpl_Gh4oNKd36hUupgS3bXwHuMvjCXgM`, alias `wlo.vercel.app`,
