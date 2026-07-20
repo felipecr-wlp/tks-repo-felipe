@@ -8,6 +8,30 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Pizarra en notas: pasar de inline a MODAL (arregla el dibujo corrido)
+
+Deploy de producción: alias `wlo.vercel.app`, Ready. Build OK.
+
+Síntoma reportado (con captura): al incrustar una pizarra en un SOP, el lienzo se
+veía desalineado y las figuras salían corridas/recortadas fuera del área visible;
+no se podía dibujar bien. La causa raíz es que Excalidraw mapea las coordenadas
+del puntero contra el `getBoundingClientRect` de su contenedor, y montado INLINE
+dentro del editor (contenedor con `overflow-y-auto`, layout que se asienta tarde,
+nodos `contentEditable` alrededor) esa caja se desalineaba. El `ResizeObserver`
+del intento previo no bastó porque el problema no era el ancho sino el offset.
+
+Fix: el lienzo ya NO se monta inline. La nota muestra una tarjeta ligera y el
+Excalidraw se abre en un MODAL `fixed inset-0` montado por portal sobre
+`document.body`. Anclado al viewport, con caja estable y grande, el mapeo de
+coordenadas es correcto: se ve y se dibuja bien. Cierra con Esc o clic en el
+backdrop; bloquea el scroll del body mientras está abierto; respeta modo lectura
+(`viewModeEnabled`) y el autosave 1.5s por `PATCH /api/whiteboards/[id]`.
+
+- Editado: `src/components/editor/WhiteboardNodeView.tsx` (reescrito a patrón
+  tarjeta + modal por portal; se elimina el montaje inline y su ResizeObserver).
+
+---
+
 ## 2026-07-20 — Robustecer SOPs Nivel 1, Paso 3: exportar a PDF
 
 Deploy de producción: alias `wlo.vercel.app`, Ready. Build OK, `next lint` limpio.

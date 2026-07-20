@@ -1,22 +1,30 @@
 'use client'
 
 /**
- * NodeView de la pizarra incrustada. Renderiza inline el lienzo Excalidraw de la
- * pizarra referenciada por `id`. Excalidraw es pesado (~1MB), asi que el lienzo
- * se monta SOLO cuando el usuario activa el bloque (click en "Abrir lienzo"),
- * igual que Notion/Confluence cargan embeds pesados bajo demanda. Antes de eso se
- * muestra una tarjeta ligera con el titulo de la pizarra.
+ * NodeView de la pizarra incrustada.
+ *
+ * Inline, la nota muestra solo una TARJETA ligera (titulo + boton). El lienzo
+ * Excalidraw (~1MB) se monta EN UN MODAL a pantalla casi completa, montado via
+ * portal sobre `document.body`.
+ *
+ * Por que modal y no inline: Excalidraw mapea las coordenadas del puntero contra
+ * el `getBoundingClientRect` de su contenedor. Dentro del editor de la nota (un
+ * contenedor con scroll `overflow-y-auto`, layout que se asienta tarde y nodos
+ * `contentEditable` alrededor) esa caja se desalineaba y las figuras salian
+ * corridas/recortadas. En un modal `fixed inset-0` anclado al viewport el lienzo
+ * tiene una caja estable y grande, asi que dibujar y ver funcionan bien.
  *
  * Guardado: debounce 1.5s al cambiar la escena, reutilizando PATCH
  * /api/whiteboards/[id] (misma ruta que la pizarra de pantalla completa).
  */
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react'
 import dynamic from 'next/dynamic'
+import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import '@excalidraw/excalidraw/index.css'
-import { PenTool, Maximize2, Trash2, GripVertical, Loader2 } from 'lucide-react'
+import { PenTool, Maximize2, Trash2, GripVertical, Loader2, X } from 'lucide-react'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 const Excalidraw = dynamic(
@@ -58,16 +66,16 @@ export function WhiteboardNodeView({ node, deleteNode, editor }: NodeViewProps) 
   const height = (node.attrs.height as number) || 460
   const editable = editor.isEditable
 
-  const [active, setActive] = useState(false)
   const [board, setBoard] = useState<BoardMeta | null>(null)
   const [notFound, setNotFound] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const apiRef = useRef<any>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const wrapRef = useRef<HTMLDivElement>(null)
-  // Contenedor real del lienzo: observado para re-medir Excalidraw cuando su caja
-  // cambia (layout de la nota asentándose, scroll, sidebar, resize de ventana).
-  const canvasWrapRef = useRef<HTMLDivElement>(null)
+
+  // El portal necesita document.body: solo tras montar en cliente.
+  useEffect(() => { setMounted(true) }, [])
 
   // Cargar metadata de la pizarra (titulo + escena) una vez.
   useEffect(() => {
@@ -105,14 +113,17 @@ export function WhiteboardNodeView({ node, deleteNode, editor }: NodeViewProps) 
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: serialized }),
-      }).catch(() => toast.error('No se pudo guardar la pizarra'))
+      })
+        .then((r) => { if (!r.ok) throw new Error() })
+        .catch(() => toast.error('No se pudo guardar la pizarra'))
     }, 1500)
   }, [id, editable])
 
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current) }, [])
 
-  // Al montar Excalidraw, re-medir el canvas (el contenedor puede asentarse tras
-  // hidratacion/fuentes y quedar con ancho viejo).
+  // Al montar Excalidraw en el modal, re-medir el canvas para que ocupe la caja
+  // completa del modal (el primer frame puede llegar antes de que el modal tenga
+  // su tamaño final).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleApi = useCallback((api: any) => {
     apiRef.current = api
@@ -122,37 +133,93 @@ export function WhiteboardNodeView({ node, deleteNode, editor }: NodeViewProps) 
     setTimeout(refresh, 400)
   }, [])
 
-  // ResizeObserver sobre el contenedor del lienzo (igual que la pizarra de
-  // pantalla completa). Ataca la raiz del "canvas recortado / figuras corridas":
-  // dentro de una nota larga la caja se asienta despues del primer render, y sin
-  // esto Excalidraw se quedaba con un ancho viejo y las coordenadas del puntero
-  // quedaban desalineadas. Solo activo cuando el lienzo esta montado.
+  // Bloquear scroll del body y cerrar con Escape mientras el modal esta abierto.
   useEffect(() => {
-    if (!active || !board) return
-    const el = canvasWrapRef.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    let raf = 0
-    const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => apiRef.current?.refresh?.())
-    })
-    ro.observe(el)
-    return () => { cancelAnimationFrame(raf); ro.disconnect() }
-  }, [active, board])
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open])
 
   const slug = workspaceSlugFromPath()
 
+  const modal = open && board && mounted
+    ? createPortal(
+        <div
+          className="fixed inset-0 z-[200] flex flex-col bg-black/60 backdrop-blur-sm"
+          onPointerDown={(e) => { if (e.target === e.currentTarget) setOpen(false) }}
+        >
+          {/* Panel */}
+          <div className="m-auto flex h-[92vh] w-[94vw] max-w-[1400px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+            {/* Cabecera del modal */}
+            <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2.5">
+              <PenTool className="h-4 w-4 flex-shrink-0 text-primary" />
+              <span className="flex-1 truncate text-sm font-medium text-foreground">
+                {board.title}
+                {!editable && <span className="ml-2 text-[11px] text-muted-foreground">(solo lectura)</span>}
+              </span>
+              {id && slug && (
+                <Link
+                  href={`/w/${slug}/whiteboards/${id}`}
+                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  title="Abrir en pantalla completa"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                title="Cerrar (Esc)"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Lienzo: contenedor con tamaño explicito (flex-1) + Excalidraw absoluto */}
+            <div className="relative min-h-0 flex-1">
+              <div className="absolute inset-0">
+                <ErrorBoundary
+                  fallback={(retry) => (
+                    <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <span>No se pudo cargar el lienzo.</span>
+                      <button
+                        type="button"
+                        onClick={retry}
+                        className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                      >
+                        Reintentar
+                      </button>
+                    </div>
+                  )}
+                >
+                  <Excalidraw
+                    excalidrawAPI={handleApi}
+                    initialData={initialData}
+                    onChange={onChange}
+                    viewModeEnabled={!editable}
+                    UIOptions={UI_OPTIONS}
+                  />
+                </ErrorBoundary>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )
+    : null
+
   return (
-    <NodeViewWrapper
-      className="my-3"
-      data-whiteboard-embed=""
-    >
-      <div
-        ref={wrapRef}
-        className="rounded-xl border border-border bg-card overflow-hidden shadow-sm"
-      >
-        {/* Cabecera */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/40">
+    <NodeViewWrapper className="my-3" data-whiteboard-embed="">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        {/* Cabecera de la tarjeta */}
+        <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
           {editable && (
             <span
               data-drag-handle
@@ -160,35 +227,35 @@ export function WhiteboardNodeView({ node, deleteNode, editor }: NodeViewProps) 
               className="cursor-grab text-muted-foreground hover:text-foreground"
               title="Arrastrar"
             >
-              <GripVertical className="w-4 h-4" />
+              <GripVertical className="h-4 w-4" />
             </span>
           )}
-          <PenTool className="w-4 h-4 text-primary flex-shrink-0" />
-          <span className="text-sm font-medium text-foreground truncate flex-1">
+          <PenTool className="h-4 w-4 flex-shrink-0 text-primary" />
+          <span className="flex-1 truncate text-sm font-medium text-foreground">
             {board?.title ?? (notFound ? 'Pizarra no disponible' : 'Pizarra')}
           </span>
           {id && slug && (
             <Link
               href={`/w/${slug}/whiteboards/${id}`}
-              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               title="Abrir en pantalla completa"
             >
-              <Maximize2 className="w-4 h-4" />
+              <Maximize2 className="h-4 w-4" />
             </Link>
           )}
           {editable && (
             <button
               type="button"
               onClick={() => deleteNode()}
-              className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors"
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-red-500"
               title="Quitar pizarra de la nota"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="h-4 w-4" />
             </button>
           )}
         </div>
 
-        {/* Cuerpo */}
+        {/* Cuerpo: tarjeta ligera que abre el modal */}
         {notFound ? (
           <div
             className="flex items-center justify-center text-sm text-muted-foreground"
@@ -196,67 +263,36 @@ export function WhiteboardNodeView({ node, deleteNode, editor }: NodeViewProps) 
           >
             Esta pizarra ya no existe o no tienes acceso.
           </div>
-        ) : !active ? (
+        ) : (
           <button
             type="button"
-            onClick={() => setActive(true)}
-            className="w-full flex flex-col items-center justify-center gap-2 text-muted-foreground hover:bg-accent/40 transition-colors"
-            style={{ height }}
-          >
-            <PenTool className="w-7 h-7" />
-            <span className="text-sm font-medium">
-              {editable ? 'Abrir lienzo para dibujar' : 'Abrir lienzo'}
-            </span>
-            <span className="text-[11px]">Excalidraw incrustado</span>
-          </button>
-        ) : !board ? (
-          // Aun cargando la escena guardada. NO montar Excalidraw todavia: si se
-          // monta con initialData vacio, su primer onChange guardaria un lienzo
-          // en blanco encima del contenido real (clobber). Esperar a tener datos.
-          <div
-            className="flex items-center justify-center text-sm text-muted-foreground"
-            style={{ height }}
-          >
-            Cargando lienzo...
-          </div>
-        ) : (
-          // Contenedor del lienzo. stopPropagation en pointer/mouse para que
-          // Excalidraw maneje sus propios eventos y ProseMirror no interfiera.
-          <div
-            ref={canvasWrapRef}
-            style={{ height }}
             contentEditable={false}
-            onPointerDownCapture={(e) => e.stopPropagation()}
-            onMouseDownCapture={(e) => e.stopPropagation()}
-            className="relative w-full min-w-0"
+            onClick={() => setOpen(true)}
+            disabled={!board}
+            className="flex w-full flex-col items-center justify-center gap-2 text-muted-foreground transition-colors hover:bg-accent/40 disabled:opacity-60"
+            style={{ height }}
           >
-            <div className="absolute inset-0">
-              <ErrorBoundary
-                fallback={(retry) => (
-                  <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
-                    <span>No se pudo cargar el lienzo.</span>
-                    <button
-                      type="button"
-                      onClick={retry}
-                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent transition-colors"
-                    >
-                      Reintentar
-                    </button>
-                  </div>
-                )}
-              >
-                <Excalidraw
-                  excalidrawAPI={handleApi}
-                  initialData={initialData}
-                  onChange={onChange}
-                  viewModeEnabled={!editable}
-                  UIOptions={UI_OPTIONS}
-                />
-              </ErrorBoundary>
-            </div>
-          </div>
+            {!board ? (
+              <>
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span className="text-sm">Cargando pizarra…</span>
+              </>
+            ) : (
+              <>
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <PenTool className="h-7 w-7" />
+                </span>
+                <span className="text-sm font-medium text-foreground">
+                  {editable ? 'Abrir pizarra para ver o dibujar' : 'Abrir pizarra'}
+                </span>
+                <span className="text-[11px]">Se abre en un lienzo grande (Excalidraw)</span>
+              </>
+            )}
+          </button>
         )}
       </div>
+
+      {modal}
     </NodeViewWrapper>
   )
 }
