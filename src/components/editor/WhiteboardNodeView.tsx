@@ -65,6 +65,9 @@ export function WhiteboardNodeView({ node, deleteNode, editor }: NodeViewProps) 
   const apiRef = useRef<any>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
+  // Contenedor real del lienzo: observado para re-medir Excalidraw cuando su caja
+  // cambia (layout de la nota asentándose, scroll, sidebar, resize de ventana).
+  const canvasWrapRef = useRef<HTMLDivElement>(null)
 
   // Cargar metadata de la pizarra (titulo + escena) una vez.
   useEffect(() => {
@@ -118,6 +121,24 @@ export function WhiteboardNodeView({ node, deleteNode, editor }: NodeViewProps) 
     setTimeout(refresh, 120)
     setTimeout(refresh, 400)
   }, [])
+
+  // ResizeObserver sobre el contenedor del lienzo (igual que la pizarra de
+  // pantalla completa). Ataca la raiz del "canvas recortado / figuras corridas":
+  // dentro de una nota larga la caja se asienta despues del primer render, y sin
+  // esto Excalidraw se quedaba con un ancho viejo y las coordenadas del puntero
+  // quedaban desalineadas. Solo activo cuando el lienzo esta montado.
+  useEffect(() => {
+    if (!active || !board) return
+    const el = canvasWrapRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    let raf = 0
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => apiRef.current?.refresh?.())
+    })
+    ro.observe(el)
+    return () => { cancelAnimationFrame(raf); ro.disconnect() }
+  }, [active, board])
 
   const slug = workspaceSlugFromPath()
 
@@ -202,6 +223,7 @@ export function WhiteboardNodeView({ node, deleteNode, editor }: NodeViewProps) 
           // Contenedor del lienzo. stopPropagation en pointer/mouse para que
           // Excalidraw maneje sus propios eventos y ProseMirror no interfiera.
           <div
+            ref={canvasWrapRef}
             style={{ height }}
             contentEditable={false}
             onPointerDownCapture={(e) => e.stopPropagation()}

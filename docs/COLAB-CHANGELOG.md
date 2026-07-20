@@ -8,6 +8,30 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — FIX pizarra incrustada en notas/SOP (canvas recortado / figuras corridas)
+
+Deploy de producción: `wlo-ftjhzyqt8-developers-pavific.vercel.app` (alias
+`wlo.vercel.app`), Ready. Typecheck EXIT=0 y build OK.
+
+Síntoma (reportado por Ali con screenshot en un SOP): al abrir el lienzo dentro
+de una nota, el canvas quedaba mal medido; las figuras aparecían corridas y
+recortadas a la derecha, se sentía "no funciona".
+
+CAUSA RAÍZ: la pizarra de pantalla completa (`WhiteboardEditor.tsx`) ya tenía un
+`ResizeObserver` que re-mide Excalidraw cada vez que su caja cambia; el embed en
+notas (`WhiteboardNodeView.tsx`) NO lo tenía, solo refrescaba a 0/120/400 ms.
+Dentro de una nota larga (SOP) la caja se asienta DESPUÉS del primer render
+(fuentes, tablas, imágenes, scroll), así que Excalidraw se quedaba con un ancho
+viejo y las coordenadas del puntero quedaban desalineadas.
+
+FIX: se replicó el mismo `ResizeObserver` en `WhiteboardNodeView.tsx` (nuevo
+`canvasWrapRef` sobre el contenedor real del lienzo; se re-llama
+`api.refresh()` en cada resize vía requestAnimationFrame). Solo activo cuando el
+lienzo está montado (`active && board`). Archivo:
+`src/components/editor/WhiteboardNodeView.tsx`.
+
+---
+
 ## 2026-07-20 — SOPs de primera clase + plantillas WLP enriquecidas (Fase A + Fase B)
 
 Deploy de producción final: `wlo-qrmfeo2kj-developers-pavific.vercel.app` (alias
