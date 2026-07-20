@@ -13,6 +13,13 @@ interface TeamRow {
   description: string | null
   methodology: string
   is_archived: boolean
+  space_id: string | null
+}
+
+interface DeptRow {
+  id: string
+  name: string
+  is_restricted: boolean
 }
 
 export default async function TeamsSettingsPage({
@@ -28,13 +35,20 @@ export default async function TeamsSettingsPage({
 
   const { data: teams } = (await admin
     .from('teams')
-    .select('id, name, slug, description, methodology, is_archived')
+    .select('id, name, slug, description, methodology, is_archived, space_id')
     .eq('workspace_id', ctx.workspace.id)
     .order('name', { ascending: true })) as { data: TeamRow[] | null; error: unknown }
 
   const { data: memberRows } = (await admin
     .from('team_members')
     .select('team_id')) as { data: { team_id: string }[] | null; error: unknown }
+
+  const { data: departments } = (await admin
+    .from('spaces')
+    .select('id, name, is_restricted')
+    .eq('workspace_id', ctx.workspace.id)
+    .eq('is_archived', false)
+    .order('name', { ascending: true })) as { data: DeptRow[] | null; error: unknown }
 
   const counts = new Map<string, number>()
   for (const r of memberRows ?? []) counts.set(r.team_id, (counts.get(r.team_id) ?? 0) + 1)
@@ -49,6 +63,7 @@ export default async function TeamsSettingsPage({
       workspaceSlug={params.workspaceSlug}
       workspaceId={ctx.workspace.id}
       initialTeams={initialTeams}
+      departments={departments ?? []}
     />
   )
 }

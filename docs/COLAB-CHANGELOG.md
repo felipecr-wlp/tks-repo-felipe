@@ -8,6 +8,61 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Jerarquía Departamento > Equipo + aislamiento duro (F2/F3)
+
+Deploy de producción: `wlo-f5488z6fk` (Ready). Build OK, tsc limpio.
+
+Petición del usuario (Ali): "hazlo como dpto management por favor para tener
+varios departamentos y dentro de ese departamento que existan equipos y dentro
+de esos equipos hay miembros" + "damelo bien planificado para que nunca en un
+bug haya cruce de fronteras" + "si es necesario haz departamentos aislados y si
+el admin puede verlo todo pls".
+
+Jerarquía: Workspace > Departamento (space) > Equipo (team) > Miembros. Los
+departamentos restringidos quedan sellados; el admin del workspace/org (Ali) lo
+ve todo (supervisión).
+
+### F1. Fundamento con fronteras seguras (migración `20260720200000`)
+
+- `teams.space_id uuid NULLABLE` (equipos legacy quedan NULL = visibles a todo
+  el workspace, sin cambio). FK COMPUESTA `(space_id, workspace_id)` ->
+  `spaces(id, workspace_id)` clava el depto al mismo workspace. Es un ÁRBOL
+  (teams -> spaces -> workspaces), NO un ciclo, así que no dispara el HTTP 300
+  de PostgREST (landmine 1).
+- Helpers `SECURITY DEFINER STABLE`: `is_team_member`, `is_team_admin`,
+  `can_see_team`. Evitan la recursión 42P17 (landmine 2) porque bypassa la RLS
+  de su propia tabla internamente.
+- Policies `teams_select` / `team_members_select`: admin org (owner/admin) O
+  `can_see_team(id)`. Defensa en profundidad (RLS + app-code).
+
+### F2. UI de la jerarquía
+
+- Crear equipo dentro de un departamento: `POST /api/teams` acepta `space_id`
+  (valida que el depto pertenezca al workspace, 422 si no). Formulario
+  `NewTeamForm` con `<select>` de departamentos ("Sin departamento" = visible a
+  todo el workspace).
+- Reasignar equipo de departamento: `PATCH /api/teams/[teamId]` acepta
+  `space_id` (solo admin del workspace, 403 a admins de equipo). Panel
+  `settings/teams` agrupa equipos por departamento con encabezado (icono Lock si
+  restringido, badge "Aislado", conteo) y un `<select>` por fila para mover.
+- Sidebar agrupa equipos por departamento (encabezado con Lock/Building2); los
+  equipos sin depto quedan sueltos.
+
+### F3. Aislamiento a nivel de ruta (URL)
+
+- `src/lib/team-access.ts`: para NO-admin, si el equipo está archivado ->
+  not-found; si su departamento es restringido y el usuario no es miembro del
+  departamento (`space_members`) -> not-found. Misma reja para proyectos vía su
+  equipo padre. El admin bypassa (supervisión).
+
+Archivos: migración `20260720200000_teams_departments_isolation.sql`,
+`api/teams/route.ts`, `api/teams/[teamId]/route.ts`, `teams/new/page.tsx`,
+`teams/new/NewTeamForm.tsx`, `w/[workspaceSlug]/layout.tsx`,
+`sidebar/Sidebar.tsx`, `settings/teams/page.tsx`, `settings/teams/TeamsPanel.tsx`,
+`lib/team-access.ts`.
+
+---
+
 ## 2026-07-20 — Solo el admin crea equipos + Activar/Desactivar equipos
 
 Deploy de producción: alias `wlo.vercel.app`. Build OK, tsc limpio.

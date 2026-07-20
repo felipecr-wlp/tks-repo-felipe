@@ -22,6 +22,8 @@ export interface TeamViewerContext {
     description: string | null
     workspace_id: string
     methodology: string | null
+    is_archived: boolean
+    space_id: string | null
   }
   role: string | null // rol en el equipo si es miembro, si no null
   isAdmin: boolean // admin del workspace/org
@@ -98,7 +100,7 @@ export async function resolveTeamForViewer(
 
   const { data: team } = (await admin
     .from('teams')
-    .select('id, name, slug, description, workspace_id, methodology')
+    .select('id, name, slug, description, workspace_id, methodology, is_archived, space_id')
     .eq('slug', teamSlug)
     .eq('workspace_id', workspace.id)
     .limit(1)
@@ -117,6 +119,31 @@ export async function resolveTeamForViewer(
   const isMember = tm != null
 
   if (!isMember && !isAdmin) return { ok: false, reason: 'not-found' }
+
+  // Aislamiento a nivel URL (defensa en profundidad, igual que la RLS
+  // can_see_team). Los administradores del workspace/org lo saltan (supervisión).
+  if (!isAdmin) {
+    // Equipo desactivado (archivado): invisible para miembros regulares.
+    if (team.is_archived) return { ok: false, reason: 'not-found' }
+
+    // Departamento restringido: exige membresía del departamento.
+    if (team.space_id) {
+      const { data: dept } = (await admin
+        .from('spaces')
+        .select('is_restricted')
+        .eq('id', team.space_id)
+        .maybeSingle()) as { data: { is_restricted: boolean } | null; error: unknown }
+      if (dept?.is_restricted) {
+        const { data: sm } = (await admin
+          .from('space_members')
+          .select('profile_id')
+          .eq('space_id', team.space_id)
+          .eq('profile_id', user.id)
+          .maybeSingle()) as { data: { profile_id: string } | null; error: unknown }
+        if (!sm) return { ok: false, reason: 'not-found' }
+      }
+    }
+  }
 
   return {
     ok: true,
@@ -172,6 +199,32 @@ export async function resolveProjectForViewer(
   const isMember = pm != null
 
   if (!isMember && !isAdmin) return { ok: false, reason: 'not-found' }
+
+  // Mismo aislamiento por departamento/archivo que el equipo contenedor.
+  if (!isAdmin) {
+    const { data: parentTeam } = (await admin
+      .from('teams')
+      .select('is_archived, space_id')
+      .eq('id', project.team_id)
+      .maybeSingle()) as { data: { is_archived: boolean; space_id: string | null } | null; error: unknown }
+    if (parentTeam?.is_archived) return { ok: false, reason: 'not-found' }
+    if (parentTeam?.space_id) {
+      const { data: dept } = (await admin
+        .from('spaces')
+        .select('is_restricted')
+        .eq('id', parentTeam.space_id)
+        .maybeSingle()) as { data: { is_restricted: boolean } | null; error: unknown }
+      if (dept?.is_restricted) {
+        const { data: sm } = (await admin
+          .from('space_members')
+          .select('profile_id')
+          .eq('space_id', parentTeam.space_id)
+          .eq('profile_id', user.id)
+          .maybeSingle()) as { data: { profile_id: string } | null; error: unknown }
+        if (!sm) return { ok: false, reason: 'not-found' }
+      }
+    }
+  }
 
   return {
     ok: true,

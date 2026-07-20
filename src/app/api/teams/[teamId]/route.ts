@@ -12,6 +12,8 @@ const patchSchema = z.object({
   description: z.string().max(300).trim().nullable().optional(),
   methodology: z.enum(['scrum', 'kanban']).optional(),
   is_archived: z.boolean().optional(),
+  // Reasignar departamento (space) o soltarlo (null).
+  space_id:    z.string().uuid().nullable().optional(),
 }).strict()
 
 export async function PATCH(
@@ -56,6 +58,26 @@ export async function PATCH(
     const adminCtx = await isWorkspaceAdminById(team.workspace_id)
     if (!adminCtx?.isAdmin) {
       return NextResponse.json({ error: 'Se requiere rol admin' }, { status: 403 })
+    }
+  }
+
+  // Reasignar departamento: solo administradores del workspace (no un team admin
+  // regular) y el departamento debe vivir en el mismo workspace.
+  if ('space_id' in parsed.data) {
+    const adminCtx = await isWorkspaceAdminById(team.workspace_id)
+    if (!adminCtx?.isAdmin) {
+      return NextResponse.json({ error: 'Solo un administrador del workspace puede mover el equipo de departamento' }, { status: 403 })
+    }
+    if (parsed.data.space_id) {
+      const { data: dept } = await admin
+        .from('spaces')
+        .select('id')
+        .eq('id', parsed.data.space_id)
+        .eq('workspace_id', team.workspace_id)
+        .maybeSingle() as { data: { id: string } | null; error: unknown }
+      if (!dept) {
+        return NextResponse.json({ error: 'El departamento no pertenece a este workspace' }, { status: 422 })
+      }
     }
   }
 

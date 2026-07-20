@@ -29,6 +29,7 @@ type TeamWithProjects = {
   name: string
   slug: string
   is_archived: boolean
+  department: { id: string; name: string; is_restricted: boolean } | null
   projects: Array<{
     id: string
     name: string
@@ -123,6 +124,7 @@ export default async function WorkspaceLayout({
     name: string
     slug: string
     is_archived: boolean
+    space_id: string | null
     team_members: Array<{ profile_id: string }>
     projects: Array<{
       id: string
@@ -145,6 +147,7 @@ export default async function WorkspaceLayout({
           name,
           slug,
           is_archived,
+          space_id,
           projects (
             id,
             name,
@@ -161,6 +164,7 @@ export default async function WorkspaceLayout({
           name,
           slug,
           is_archived,
+          space_id,
           team_members!inner ( profile_id ),
           projects (
             id,
@@ -176,12 +180,23 @@ export default async function WorkspaceLayout({
         .eq('projects.project_members.profile_id', user.id)
         .order('name', { ascending: true })) as { data: RawTeam[] | null; error: unknown }
 
+  // Etiquetas de departamento para agrupar en el sidebar. Se leen aparte (no via
+  // embed PostgREST) para evitar los quirks de la FK compuesta teams->spaces.
+  type DeptRow = { id: string; name: string; is_restricted: boolean }
+  const { data: deptRows } = await admin
+    .from('spaces')
+    .select('id, name, is_restricted')
+    .eq('workspace_id', workspace.id)
+    .eq('is_archived', false) as { data: DeptRow[] | null; error: unknown }
+  const deptById = new Map<string, DeptRow>((deptRows ?? []).map((d) => [d.id, d]))
+
   // Limpiar data para el sidebar (sin datos de membresía)
   const teams: TeamWithProjects[] = (rawTeams ?? []).map(t => ({
     id: t.id,
     name: t.name,
     slug: t.slug,
     is_archived: t.is_archived ?? false,
+    department: t.space_id ? (deptById.get(t.space_id) ?? null) : null,
     projects: (t.projects ?? []).map(p => ({
       id: p.id,
       name: p.name,

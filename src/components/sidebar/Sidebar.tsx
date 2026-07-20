@@ -34,6 +34,8 @@ import {
   ChevronDown,
   Plus,
   X,
+  Lock,
+  Building2,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -46,6 +48,7 @@ interface SidebarProps {
     name: string
     slug: string
     is_archived?: boolean
+    department?: { id: string; name: string; is_restricted: boolean } | null
     projects: Array<{ id: string; name: string; slug: string; icon: string | null }>
   }>
   isAdmin?: boolean
@@ -134,6 +137,32 @@ export function Sidebar({
 
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname.startsWith(href)
+
+  // Agrupar equipos por departamento para el sidebar. Los que no tienen
+  // departamento (legacy / workspace General) van al final, sueltos.
+  const deptGroups: Array<{
+    id: string
+    name: string
+    is_restricted: boolean
+    teams: typeof teams
+  }> = []
+  const looseTeams: typeof teams = []
+  const groupIndex = new Map<string, number>()
+  for (const team of teams) {
+    const dept = team.department
+    if (!dept) {
+      looseTeams.push(team)
+      continue
+    }
+    let idx = groupIndex.get(dept.id)
+    if (idx === undefined) {
+      idx = deptGroups.length
+      groupIndex.set(dept.id, idx)
+      deptGroups.push({ id: dept.id, name: dept.name, is_restricted: dept.is_restricted, teams: [] })
+    }
+    deptGroups[idx].teams.push(team)
+  }
+  deptGroups.sort((a, b) => a.name.localeCompare(b.name, 'es'))
 
   return (
     <>
@@ -265,7 +294,35 @@ export function Sidebar({
             ) : undefined
           }
         >
-          {teams.map((team) => (
+          {/* Equipos agrupados por departamento */}
+          {deptGroups.map((group) => (
+            <div key={group.id} className="pt-1">
+              {!collapsed && (
+                <div className="flex items-center gap-1 px-2 pb-0.5 pt-1">
+                  {group.is_restricted ? (
+                    <Lock size={10} className="text-muted-foreground/70 flex-shrink-0" />
+                  ) : (
+                    <Building2 size={10} className="text-muted-foreground/70 flex-shrink-0" />
+                  )}
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70 truncate">
+                    {group.name}
+                  </span>
+                </div>
+              )}
+              {group.teams.map((team) => (
+                <NavSection
+                  key={team.id}
+                  team={team}
+                  workspaceSlug={workspaceSlug}
+                  collapsed={collapsed}
+                  pathname={pathname}
+                />
+              ))}
+            </div>
+          ))}
+
+          {/* Equipos sin departamento (sueltos) */}
+          {looseTeams.map((team) => (
             <NavSection
               key={team.id}
               team={team}

@@ -42,6 +42,15 @@ export default async function NewTeamPage({ params }: NewTeamPageProps) {
   const adminCtx = await isWorkspaceAdminById(workspace.id)
   if (!adminCtx?.isAdmin) redirect(`/w/${params.workspaceSlug}`)
 
+  // Departamentos activos del workspace, para colocar el equipo dentro de uno.
+  type DeptRow = { id: string; name: string; icon: string | null; is_restricted: boolean }
+  const { data: departments } = await admin
+    .from('spaces')
+    .select('id, name, icon, is_restricted')
+    .eq('workspace_id', workspace.id)
+    .eq('is_archived', false)
+    .order('name', { ascending: true }) as { data: DeptRow[] | null; error: unknown }
+
   return (
     <div className="min-h-screen bg-background flex items-start justify-center p-6 pt-16">
       <div className="w-full max-w-lg">
@@ -55,6 +64,7 @@ export default async function NewTeamPage({ params }: NewTeamPageProps) {
         <NewTeamForm
           workspaceId={workspace.id}
           workspaceSlug={params.workspaceSlug}
+          departments={departments ?? []}
         />
       </div>
     </div>

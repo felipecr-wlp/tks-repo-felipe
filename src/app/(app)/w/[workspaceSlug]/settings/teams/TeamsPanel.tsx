@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { getInitials } from '@/lib/utils'
-import { UsersRound, Plus, Pencil, Check, X, ChevronDown, ChevronRight, UserPlus, Archive, ArchiveRestore } from 'lucide-react'
+import { UsersRound, Plus, Pencil, Check, X, ChevronDown, ChevronRight, UserPlus, Archive, ArchiveRestore, Lock, Building2 } from 'lucide-react'
 
 interface Team {
   id: string
@@ -22,6 +22,13 @@ interface Team {
   methodology: string
   member_count: number
   is_archived: boolean
+  space_id: string | null
+}
+
+interface Department {
+  id: string
+  name: string
+  is_restricted: boolean
 }
 
 interface TeamMember {
@@ -43,13 +50,16 @@ export function TeamsPanel({
   workspaceSlug,
   workspaceId,
   initialTeams,
+  departments,
 }: {
   workspaceSlug: string
   workspaceId: string
   initialTeams: Team[]
+  departments: Department[]
 }) {
   const router = useRouter()
   const [teams, setTeams] = useState<Team[]>(initialTeams)
+  const deptById = new Map(departments.map((d) => [d.id, d]))
   const [editing, setEditing] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
@@ -102,6 +112,27 @@ export function TeamsPanel({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Error al guardar')
       setTeams((prev) => prev.map((x) => (x.id === t.id ? { ...x, methodology } : x)))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function changeDepartment(t: Team, rawValue: string) {
+    const space_id = rawValue === '' ? null : rawValue
+    setBusy(t.id)
+    try {
+      const res = await fetch(`/api/teams/${t.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ space_id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Error al mover de departamento')
+      setTeams((prev) => prev.map((x) => (x.id === t.id ? { ...x, space_id } : x)))
+      toast.success('Departamento actualizado')
+      router.refresh()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error desconocido')
     } finally {
@@ -284,28 +315,33 @@ export function TeamsPanel({
     return (wsPool ?? []).filter((p) => !current.has(p.profile_id))
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {teams.length} {teams.length === 1 ? 'equipo' : 'equipos'} en el workspace.
-        </p>
-        <Link
-          href={`/w/${workspaceSlug}/teams/new`}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90"
-        >
-          <Plus size={14} /> Nuevo equipo
-        </Link>
-      </div>
+  // Agrupar por departamento: cada grupo con su encabezado. Los equipos sin
+  // departamento van al final en el grupo "Sin departamento".
+  const groups: Array<{ key: string; label: string; is_restricted: boolean; hasDept: boolean; items: Team[] }> = []
+  const idxByKey = new Map<string, number>()
+  for (const t of teams) {
+    const dept = t.space_id ? deptById.get(t.space_id) : undefined
+    const key = dept ? dept.id : '__none__'
+    let idx = idxByKey.get(key)
+    if (idx === undefined) {
+      idx = groups.length
+      idxByKey.set(key, idx)
+      groups.push({
+        key,
+        label: dept ? dept.name : 'Sin departamento',
+        is_restricted: dept?.is_restricted ?? false,
+        hasDept: !!dept,
+        items: [],
+      })
+    }
+    groups[idx].items.push(t)
+  }
+  groups.sort((a, b) => {
+    if (a.hasDept !== b.hasDept) return a.hasDept ? -1 : 1
+    return a.label.localeCompare(b.label, 'es')
+  })
 
-      {teams.length === 0 ? (
-        <div className="bg-muted/30 border border-border rounded-lg px-4 py-10 text-center">
-          <UsersRound className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Aún no hay equipos.</p>
-        </div>
-      ) : (
-        <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
-          {teams.map((t) => {
+  const renderTeamRow = (t: Team) => {
             const isOpen = expanded === t.id
             const members = membersByTeam[t.id] ?? []
             const pool = availableToAdd(t.id)
@@ -381,6 +417,21 @@ export function TeamsPanel({
                       {t.member_count} {t.member_count === 1 ? 'miembro' : 'miembros'} · /{t.slug}
                     </p>
                   </div>
+
+                  <select
+                    value={t.space_id ?? ''}
+                    onChange={(e) => changeDepartment(t, e.target.value)}
+                    disabled={busy === t.id}
+                    title="Departamento del equipo"
+                    className="px-2 py-1 text-sm border border-input rounded-lg bg-background disabled:opacity-50 max-w-[10rem]"
+                  >
+                    <option value="">Sin departamento</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}{d.is_restricted ? ' (restringido)' : ''}
+                      </option>
+                    ))}
+                  </select>
 
                   <select
                     value={t.methodology}
@@ -494,7 +545,58 @@ export function TeamsPanel({
                 )}
               </div>
             )
-          })}
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {teams.length} {teams.length === 1 ? 'equipo' : 'equipos'} en el workspace.
+        </p>
+        <Link
+          href={`/w/${workspaceSlug}/teams/new`}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90"
+        >
+          <Plus size={14} /> Nuevo equipo
+        </Link>
+      </div>
+
+      {teams.length === 0 ? (
+        <div className="bg-muted/30 border border-border rounded-lg px-4 py-10 text-center">
+          <UsersRound className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Aún no hay equipos.</p>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {groups.map((g) => (
+            <div key={g.key}>
+              <div className="flex items-center gap-1.5 px-1 pb-1.5">
+                {g.hasDept ? (
+                  g.is_restricted ? (
+                    <Lock size={13} className="text-muted-foreground flex-shrink-0" />
+                  ) : (
+                    <Building2 size={13} className="text-muted-foreground flex-shrink-0" />
+                  )
+                ) : (
+                  <UsersRound size={13} className="text-muted-foreground/70 flex-shrink-0" />
+                )}
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {g.label}
+                </h3>
+                {g.is_restricted && (
+                  <span className="text-[10px] font-normal px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                    Aislado
+                  </span>
+                )}
+                <span className="text-[11px] text-muted-foreground/60">
+                  · {g.items.length}
+                </span>
+              </div>
+              <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
+                {g.items.map((t) => renderTeamRow(t))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -12,6 +12,9 @@ const schema = z.object({
   workspace_id: z.string().uuid(),
   name:         z.string().min(2).max(80).trim(),
   description:  z.string().max(300).trim().optional(),
+  // Departamento (space) al que pertenece el equipo. Opcional: null = equipo
+  // suelto a nivel workspace (comportamiento legacy).
+  space_id:     z.string().uuid().nullable().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -31,7 +34,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 422 })
   }
 
-  const { workspace_id, name, description } = parsed.data
+  const { workspace_id, name, description, space_id } = parsed.data
 
   const admin = createAdminClient()
 
@@ -40,6 +43,20 @@ export async function POST(request: NextRequest) {
   const adminCtx = await isWorkspaceAdminById(workspace_id)
   if (!adminCtx?.isAdmin) {
     return NextResponse.json({ error: 'Solo un administrador puede crear equipos' }, { status: 403 })
+  }
+
+  // Si se asigna departamento, debe vivir en el MISMO workspace (coherencia con
+  // la FK compuesta teams_space_workspace_fkey y con el aislamiento por depto).
+  if (space_id) {
+    const { data: dept } = await admin
+      .from('spaces')
+      .select('id')
+      .eq('id', space_id)
+      .eq('workspace_id', workspace_id)
+      .maybeSingle() as { data: { id: string } | null; error: unknown }
+    if (!dept) {
+      return NextResponse.json({ error: 'El departamento no pertenece a este workspace' }, { status: 422 })
+    }
   }
 
   // Generar slug único dentro del workspace
@@ -62,6 +79,7 @@ export async function POST(request: NextRequest) {
       name,
       slug,
       description: description ?? null,
+      space_id: space_id ?? null,
       created_by: user.id,
     })
     .select('id, name, slug')
