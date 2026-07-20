@@ -8,6 +8,36 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — SOP Nivel 2, Paso 2: aprobación / firma de la versión vigente
+
+Un SOP "Activo" ahora lleva una firma responsable, no solo un cambio de estatus:
+quién lo aprobó, cuándo, y qué versión se selló. Si después se publica una versión
+nueva (cambia `sop_version`), la firma queda "desactualizada" y debe re-firmarse.
+
+Qué cambió:
+- Migración `20260720400000_sop_approval.sql` (aplicada a prod): columnas nullable
+  `approved_by` / `approved_at` / `approved_version` en `notes`. LANDMINE: `approved_by`
+  es uuid SIN FK a propósito. notes ya referencia profiles via created_by; un 2do FK
+  notes->profiles haría AMBIGUO el embed `author:profiles(...)` de page.tsx y otras
+  rutas (PostgREST HTTP 300 -> notFound() para TODAS las notas). El perfil del
+  aprobador se resuelve en la API.
+- API `src/app/api/notes/[noteId]/approve/route.ts`: GET (estado: aprobado, quién,
+  fecha, versión firmada, desactualizada), POST (admin firma la versión vigente:
+  sella approved_by/at/version y pone `sop_status='active'`), DELETE (revoca: limpia
+  el sello y regresa a `review`). Admin = org_role owner/admin O rol de workspace
+  owner/admin.
+- Componente `SopApproval.tsx` montado en `NoteEditor` bajo la barra de metadatos
+  (solo doc_kind != note): muestra el estado de la firma con tono verde (firmado) /
+  ámbar (desactualizado) / neutro (sin firmar) y, para admins, botones Aprobar y
+  activar / Revocar / Re-firmar. Tras firmar hace `router.refresh()` para que la
+  barra de estatus (Activo/En revisión) refleje el cambio server-side.
+
+Diseño: iconos lucide, acento azul #2563EB, ñ/tildes correctas, sin guiones largos.
+tsc limpio + `next build` OK.
+Deploy prod: `dpl_FXC74N8YQoZYCkgazSXEvTre3Nsj` (wlo.vercel.app, READY).
+
+---
+
 ## 2026-07-20 — SOP Nivel 2, Paso 1: cumplimiento obligatorio (lectores requeridos)
 
 Sube el acuse de lectura de SOPs de VOLUNTARIO (Nivel 1: cualquiera confirma, sin

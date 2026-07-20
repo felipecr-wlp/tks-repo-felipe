@@ -21,6 +21,7 @@ import { NotePresence } from './NotePresence'
 import { SopMetaBar, type DocKind, type SopStatus } from './SopMetaBar'
 import { SopAcknowledge } from './SopAcknowledge'
 import { SopCompliance } from './SopCompliance'
+import { SopApproval } from './SopApproval'
 
 const RichTextEditor = dynamic(
   () => import('@/components/editor/RichTextEditor').then(m => m.RichTextEditor),
@@ -381,6 +382,9 @@ export function NoteEditor({
         reviewDue={initial.review_due}
         onPatch={patch}
       />
+
+      {/* Aprobación / firma de la versión vigente (solo documentos operativos) */}
+      {initial.doc_kind !== 'note' && <SopApproval noteId={initial.id} />}
 
       {/* Editor */}
       <RichTextEditor
