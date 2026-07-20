@@ -8,6 +8,29 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Admin gestiona miembros de equipos + ve todos los equipos
+
+**Qué cambió**
+- **Gestión de miembros en el panel de equipos** (`/w/[slug]/settings/teams`): cada
+  equipo es expandible y permite agregar personas del pool del workspace, cambiar
+  su rol de equipo (admin/member) y quitarlas. Cablea las APIs ya existentes
+  `/api/teams/[id]/members` (GET/POST) y `/[profileId]` (PATCH/DELETE), gateadas a
+  admin, con el guard "debe quedar al menos un admin".
+- **Visibilidad total para el admin**: en el layout del workspace, un org
+  owner/admin (o admin del workspace) ahora ve TODOS los equipos y proyectos del
+  workspace en el sidebar (modo supervisión, vía admin client), no solo donde es
+  miembro. El resto de usuarios sigue viendo únicamente lo suyo (inner joins por
+  profile_id). No se tocó Kanban/drag-and-drop, Fable ni los espacios restringidos.
+
+**Archivos**
+- `src/app/(app)/w/[workspaceSlug]/settings/teams/TeamsPanel.tsx` (member mgmt UI)
+- `src/app/(app)/w/[workspaceSlug]/settings/teams/page.tsx` (pasa workspaceId)
+- `src/app/(app)/w/[workspaceSlug]/layout.tsx` (org_role + branch admin ve todo)
+
+**Deploy**: commit `99bcff0` -> prod `dpl_GFH4s3MRUjt97GyNvAwQxvP9ZNST` (wlo.vercel.app). tsc + next lint limpios.
+
+---
+
 ## 2026-07-20 — FIX pizarra incrustada en notas/SOP (canvas recortado / figuras corridas)
 
 Deploy de producción: `wlo-ftjhzyqt8-developers-pavific.vercel.app` (alias
