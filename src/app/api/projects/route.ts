@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { isWorkspaceAdminById } from '@/lib/workspace-admin'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { slugify } from '@/lib/utils'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
@@ -39,15 +40,6 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient()
 
-  // Verificar membresía al equipo (admin client bypass RLS)
-  const { data: teamMembership } = await admin
-    .from('team_members')
-    .select('role')
-    .eq('team_id', team_id)
-    .eq('profile_id', user.id)
-    .maybeSingle() as { data: { role: string } | null; error: unknown }
-  if (!teamMembership) return NextResponse.json({ error: 'Sin acceso al equipo' }, { status: 403 })
-
   // Obtener workspace_id del equipo
   type TeamRow = { workspace_id: string }
   const { data: team } = await admin
@@ -56,6 +48,22 @@ export async function POST(request: NextRequest) {
     .eq('id', team_id)
     .maybeSingle() as { data: TeamRow | null; error: unknown }
   if (!team) return NextResponse.json({ error: 'Equipo no encontrado' }, { status: 404 })
+
+  // Acceso: miembro del equipo O admin del workspace. El sidebar les muestra a
+  // los admins todos los equipos (con su botón "Nuevo proyecto"), así que la
+  // creación debe permitirse aunque el admin no sea miembro del equipo.
+  const { data: teamMembership } = await admin
+    .from('team_members')
+    .select('role')
+    .eq('team_id', team_id)
+    .eq('profile_id', user.id)
+    .maybeSingle() as { data: { role: string } | null; error: unknown }
+  if (!teamMembership) {
+    const adminCtx = await isWorkspaceAdminById(team.workspace_id)
+    if (!adminCtx?.isAdmin) {
+      return NextResponse.json({ error: 'Sin acceso al equipo' }, { status: 403 })
+    }
+  }
 
   // Generar slug único
   let slug = slugify(name)

@@ -6,9 +6,10 @@
  * cliente ScrumWorkspace (tablero, backlog, daily, dashboard). No reinventa
  * el task engine: lee de las mismas tablas (tasks / task_statuses).
  */
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
+import { resolveTeamForViewer } from '@/lib/team-access'
 import { ScrumWorkspace } from '@/components/scrum/ScrumWorkspace'
 import type { ScrumTask, ScrumSprint, ScrumMember, ScrumStatus } from '@/components/scrum/types'
 
@@ -19,41 +20,12 @@ interface ScrumPageProps {
 export const metadata = { title: 'Scrum · WLO' }
 
 export default async function ScrumPage({ params }: ScrumPageProps) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+  const res = await resolveTeamForViewer(params.workspaceSlug, params.teamSlug)
+  if (!res.ok && res.reason === 'no-auth') redirect('/auth/login')
+  if (!res.ok) notFound()
+  const { userId, workspace, team } = res.ctx
 
   const admin = createAdminClient()
-
-  // ── Workspace desde membership ────────────────────────────────────────────
-  type WsFromMember = { workspaces: { id: string; name: string } | null }
-  const { data: wsRow } = await admin
-    .from('workspace_members')
-    .select('workspaces!inner ( id, name )')
-    .eq('profile_id', user.id)
-    .eq('workspaces.slug', params.workspaceSlug)
-    .limit(1)
-    .maybeSingle() as { data: WsFromMember | null; error: unknown }
-
-  const workspace = wsRow?.workspaces
-  if (!workspace) redirect('/')
-
-  // ── Team desde membership ─────────────────────────────────────────────────
-  type TeamFromMember = {
-    role: string
-    teams: { id: string; name: string; workspace_id: string; methodology: string | null } | null
-  }
-  const { data: teamRow } = await admin
-    .from('team_members')
-    .select('role, teams!inner ( id, name, workspace_id, methodology )')
-    .eq('profile_id', user.id)
-    .eq('teams.slug', params.teamSlug)
-    .eq('teams.workspace_id', workspace.id)
-    .limit(1)
-    .maybeSingle() as { data: TeamFromMember | null; error: unknown }
-
-  if (!teamRow || !teamRow.teams) notFound()
-  const team = teamRow.teams
 
   // ── Proyectos del equipo ──────────────────────────────────────────────────
   type ProjRow = { id: string; name: string; slug: string; icon: string | null }
@@ -174,7 +146,7 @@ export default async function ScrumPage({ params }: ScrumPageProps) {
         tasks={tasks}
         statuses={statuses}
         members={members}
-        currentUserId={user.id}
+        currentUserId={userId}
         soloProject={soloProject}
       />
     </div>

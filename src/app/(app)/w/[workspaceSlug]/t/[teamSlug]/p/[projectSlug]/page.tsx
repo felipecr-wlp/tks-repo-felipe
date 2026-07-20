@@ -1,10 +1,11 @@
 /**
  * Página del proyecto, vista de lista y kanban de tareas.
  */
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import { resolveProjectForViewer } from '@/lib/team-access'
 import { LayoutDashboard } from 'lucide-react'
 import { ProjectIcon } from '@/lib/project-icons'
 import { TaskListView } from '@/components/tasks/TaskListView'
@@ -41,18 +42,6 @@ interface ProjectPageProps {
     projectSlug: string
   }
   searchParams: { view?: string; status?: string; assignee?: string; priority?: string; task?: string }
-}
-
-type ProjectData = {
-  id: string
-  name: string
-  slug: string
-  icon: string | null
-  description: string | null
-  workspace_id: string
-  team_id: string
-  team: { id: string; name: string; slug: string } | null
-  workspace: { id: string; name: string } | null
 }
 
 type StatusRow = {
@@ -95,45 +84,17 @@ export default async function ProjectPage({
   params,
   searchParams,
 }: ProjectPageProps) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect('/auth/login')
+  // Acceso: miembro del proyecto O admin del workspace (empareja el sidebar).
+  const res = await resolveProjectForViewer(
+    params.workspaceSlug,
+    params.teamSlug,
+    params.projectSlug,
+  )
+  if (!res.ok && res.reason === 'no-auth') redirect('/auth/login')
+  if (!res.ok) notFound()
+  const { userId, project } = res.ctx
 
   const admin = createAdminClient()
-
-  // ── Lookup atómico: proyecto desde la membership del usuario ──────────────
-  // Mismo patrón que workspace layout, evita loops de RLS y ambigüedad de slug.
-  type ProjectFromMember = {
-    role: string
-    projects: ProjectData | null
-  }
-
-  const { data: row } = await admin
-    .from('project_members')
-    .select(`
-      role,
-      projects!inner (
-        id, name, slug, icon, description, workspace_id, team_id,
-        team:teams ( id, name, slug ),
-        workspace:workspaces ( id, name )
-      )
-    `)
-    .eq('profile_id', user.id)
-    .eq('projects.slug', params.projectSlug)
-    .limit(1)
-    .maybeSingle() as { data: ProjectFromMember | null; error: unknown }
-
-  if (!row || !row.projects) notFound()
-
-  const project = row.projects
-
-  // Verificar coherencia con team de la URL
-  if (project.team?.slug !== params.teamSlug) {
-    notFound()
-  }
 
   // ── Cargar estados, tareas y miembros (admin client, acceso ya validado) ─
   const { data: statuses } = await admin
@@ -245,7 +206,7 @@ export default async function ProjectPage({
     .from('task_saved_views')
     .select('id, name, filters')
     .eq('project_id', project.id)
-    .eq('profile_id', user.id)
+    .eq('profile_id', userId)
     .order('created_at', { ascending: true }) as { data: SavedViewRow[] | null; error: unknown }
 
   const currentView = searchParams.view ?? 'list'
@@ -344,7 +305,7 @@ export default async function ProjectPage({
         {currentView === 'chat' ? (
           <ProjectChat
             projectId={project.id}
-            currentUserId={user.id}
+            currentUserId={userId}
             members={memberProfiles}
             initialMessages={chatMessages}
             initialReactions={chatReactions}
@@ -355,7 +316,7 @@ export default async function ProjectPage({
             tasks={tasks ?? []}
             statuses={statuses ?? []}
             members={memberProfiles}
-            currentUserId={user.id}
+            currentUserId={userId}
             initialTaskId={searchParams.task}
           />
         ) : currentView === 'calendar' ? (
@@ -364,7 +325,7 @@ export default async function ProjectPage({
             tasks={tasks ?? []}
             statuses={statuses ?? []}
             members={memberProfiles}
-            currentUserId={user.id}
+            currentUserId={userId}
           />
         ) : currentView === 'workload' ? (
           <TaskWorkloadView
@@ -372,7 +333,7 @@ export default async function ProjectPage({
             tasks={tasks ?? []}
             statuses={statuses ?? []}
             members={memberProfiles}
-            currentUserId={user.id}
+            currentUserId={userId}
           />
         ) : (
           <TaskListView
@@ -383,7 +344,7 @@ export default async function ProjectPage({
             tasks={tasks ?? []}
             statuses={statuses ?? []}
             members={memberProfiles}
-            currentUserId={user.id}
+            currentUserId={userId}
             initialTaskId={searchParams.task}
           />
         )}

@@ -8,6 +8,36 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — El admin ya puede ENTRAR a cualquier equipo/proyecto (fix 404)
+
+Deploy de producción: alias `wlo.vercel.app`. Build OK, tsc limpio.
+
+Síntoma reportado: el usuario (admin) abría un equipo desde la sidebar y recibía
+"No encontramos eso" (404). Causa: el Punto 1 hizo que la sidebar les muestre a
+los admins TODOS los equipos y proyectos del workspace, pero las rutas de
+equipo/proyecto seguían llamando a `notFound()` salvo que el usuario fuera
+MIEMBRO de ese equipo/proyecto. Un admin que no era miembro veía el equipo pero
+no podía entrar.
+
+Fix: helper compartido `src/lib/team-access.ts` con `resolveTeamForViewer` y
+`resolveProjectForViewer`. Regla: se puede VER un equipo/proyecto del workspace
+si eres miembro de él O admin del workspace (org owner/admin, o
+`workspace_members.role` owner/admin). Usa admin client con checks explícitos de
+membresía (patrón anti-RLS-loop del resto del app) y verifica coherencia del
+`team` de la URL en proyectos. Las 5 rutas de equipo/proyecto quedan cableadas a
+este helper (equipo, chat, scrum, proyecto, nuevo proyecto), reemplazando el
+lookup por membresía y usando `userId` del contexto.
+
+Además, `POST /api/projects` ya permite crear proyecto a un admin del workspace
+aunque no sea miembro del equipo (antes devolvía 403 "Sin acceso al equipo"), vía
+`isWorkspaceAdminById`. El creador queda como manager del proyecto (la siembra de
+`project_members` ya cubría al creador ausente de `team_members`).
+
+- Nuevo: `src/lib/team-access.ts`.
+- Editados: `.../t/[teamSlug]/page.tsx`, `.../chat/page.tsx`, `.../scrum/page.tsx`,
+  `.../p/[projectSlug]/page.tsx`, `.../projects/new/page.tsx`,
+  `src/app/api/projects/route.ts`.
+
 ## 2026-07-20 — Las pizarras incrustadas ahora SÍ salen en el PDF
 
 Deploy de producción: alias `wlo.vercel.app`, Ready. Build OK.

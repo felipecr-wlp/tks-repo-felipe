@@ -5,9 +5,10 @@
  * mensajes (admin client, anti-RLS-loop) + los miembros para resolver autores,
  * y delega al cliente TeamChat que hace realtime (append en vivo) + envío.
  */
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
+import { resolveTeamForViewer } from '@/lib/team-access'
 import { TeamChat } from '@/components/chat/TeamChat'
 
 interface ChatPageProps {
@@ -17,41 +18,12 @@ interface ChatPageProps {
 export const metadata = { title: 'Chat · WLO' }
 
 export default async function ChatPage({ params }: ChatPageProps) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+  const res = await resolveTeamForViewer(params.workspaceSlug, params.teamSlug)
+  if (!res.ok && res.reason === 'no-auth') redirect('/auth/login')
+  if (!res.ok) notFound()
+  const { userId, workspace, team } = res.ctx
 
   const admin = createAdminClient()
-
-  // ── Workspace desde membership ────────────────────────────────────────────
-  type WsFromMember = { workspaces: { id: string; name: string } | null }
-  const { data: wsRow } = await admin
-    .from('workspace_members')
-    .select('workspaces!inner ( id, name )')
-    .eq('profile_id', user.id)
-    .eq('workspaces.slug', params.workspaceSlug)
-    .limit(1)
-    .maybeSingle() as { data: WsFromMember | null; error: unknown }
-
-  const workspace = wsRow?.workspaces
-  if (!workspace) redirect('/')
-
-  // ── Team desde membership ─────────────────────────────────────────────────
-  type TeamFromMember = {
-    role: string
-    teams: { id: string; name: string; workspace_id: string } | null
-  }
-  const { data: teamRow } = await admin
-    .from('team_members')
-    .select('role, teams!inner ( id, name, workspace_id )')
-    .eq('profile_id', user.id)
-    .eq('teams.slug', params.teamSlug)
-    .eq('teams.workspace_id', workspace.id)
-    .limit(1)
-    .maybeSingle() as { data: TeamFromMember | null; error: unknown }
-
-  if (!teamRow || !teamRow.teams) notFound()
-  const team = teamRow.teams
 
   // ── Miembros del equipo (para resolver autores en el cliente) ─────────────
   type MemberRow = {
@@ -96,7 +68,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
       </div>
       <TeamChat
         teamId={team.id}
-        currentUserId={user.id}
+        currentUserId={userId}
         members={members}
         initialMessages={messages}
       />

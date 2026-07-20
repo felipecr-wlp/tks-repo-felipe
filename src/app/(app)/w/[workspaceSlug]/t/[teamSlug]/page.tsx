@@ -1,9 +1,10 @@
 /**
  * Página del equipo, lista proyectos del equipo y acceso rápido.
  */
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
+import { resolveTeamForViewer } from '@/lib/team-access'
 import { LayoutDashboard, FolderKanban, Plus, ListChecks, MessageSquare, Maximize2 } from 'lucide-react'
 import { ProjectIcon } from '@/lib/project-icons'
 import { TeamChat } from '@/components/chat/TeamChat'
@@ -23,49 +24,12 @@ type ProjectRow = {
 }
 
 export default async function TeamPage({ params }: TeamPageProps) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect('/auth/login')
+  const res = await resolveTeamForViewer(params.workspaceSlug, params.teamSlug)
+  if (!res.ok && res.reason === 'no-auth') redirect('/auth/login')
+  if (!res.ok) notFound()
+  const { userId, workspace, team } = res.ctx
 
   const admin = createAdminClient()
-
-  // ── Workspace + team desde membership (anti-RLS-loop) ────────────────────
-  type WsFromMember = { workspaces: { id: string; name: string } | null }
-  const { data: wsRow } = await admin
-    .from('workspace_members')
-    .select('workspaces!inner ( id, name )')
-    .eq('profile_id', user.id)
-    .eq('workspaces.slug', params.workspaceSlug)
-    .limit(1)
-    .maybeSingle() as { data: WsFromMember | null; error: unknown }
-
-  const workspace = wsRow?.workspaces
-  if (!workspace) redirect('/')
-
-  // ── Team desde membership ─────────────────────────────────────────────────
-  type TeamFromMember = {
-    role: string
-    teams: { id: string; name: string; description: string | null; workspace_id: string } | null
-  }
-  const { data: teamRow } = await admin
-    .from('team_members')
-    .select(`
-      role,
-      teams!inner ( id, name, description, workspace_id )
-    `)
-    .eq('profile_id', user.id)
-    .eq('teams.slug', params.teamSlug)
-    .eq('teams.workspace_id', workspace.id)
-    .limit(1)
-    .maybeSingle() as { data: TeamFromMember | null; error: unknown }
-
-  if (!teamRow || !teamRow.teams) {
-    notFound()
-  }
-  const team = teamRow.teams
 
   // ── Cargar proyectos del equipo (admin, acceso ya validado) ─────────────
   const { data: projects } = await admin
@@ -233,7 +197,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
           <div className="flex flex-col bg-card border border-border rounded-xl overflow-hidden h-[520px]">
             <TeamChat
               teamId={team.id}
-              currentUserId={user.id}
+              currentUserId={userId}
               members={members}
               initialMessages={messages}
             />
