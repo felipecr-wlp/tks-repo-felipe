@@ -7,7 +7,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Settings, Users, UsersRound, FolderKanban, Ticket, Gauge } from 'lucide-react'
+import { Settings, Users, UsersRound, FolderKanban, Ticket, Gauge, Clock } from 'lucide-react'
 
 export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
   const pathname = usePathname()
@@ -15,6 +15,7 @@ export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
 
   const tabs = [
     { href: base, label: 'General', icon: Settings, exact: true },
+    { href: `${base}/lobby`, label: 'Sala de espera', icon: Clock },
     { href: `${base}/members`, label: 'Miembros', icon: Users },
     { href: `${base}/teams`, label: 'Equipos', icon: UsersRound },
     { href: `${base}/departments`, label: 'Departamentos', icon: FolderKanban },

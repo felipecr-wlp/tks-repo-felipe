@@ -7,7 +7,7 @@
  */
 import { redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { attemptDomainAutoJoin } from '@/lib/auto-join'
+import { attemptDomainOrgJoin } from '@/lib/auto-join'
 import { OnboardingForm } from './OnboardingForm'
 
 export const metadata = { title: 'Configurar espacio de trabajo · WLO' }
@@ -35,11 +35,19 @@ export default async function OnboardingPage() {
     redirect(`/w/${existing.workspaces.slug}`)
   }
 
-  // Auto-unir por dominio antes de ofrecer crear una org nueva (misma logica que
-  // la raiz): si el correo pertenece a una org conocida, se une a ella.
-  const joinedSlug = await attemptDomainAutoJoin(admin, user)
-  if (joinedSlug) {
-    redirect(`/w/${joinedSlug}`)
+  // Adherir por dominio a la org conocida antes de ofrecer crear una nueva. Si
+  // ya pertenece a una org (por dominio o invitacion) pero no tiene workspace,
+  // va a la sala de espera: no puede crear una org paralela.
+  await attemptDomainOrgJoin(admin, user)
+
+  const { data: prof } = await admin
+    .from('profiles')
+    .select('org_id')
+    .eq('id', user.id)
+    .maybeSingle() as { data: { org_id: string | null } | null; error: unknown }
+
+  if (prof?.org_id) {
+    redirect('/lobby')
   }
 
   return (

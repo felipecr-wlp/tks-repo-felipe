@@ -1,18 +1,19 @@
 /**
- * Auto-join por dominio de correo.
+ * Auto-adhesion por dominio de correo (nivel ORGANIZACION, no workspace).
  *
- * Problema que resuelve: un usuario que se registra SIN invitacion caia en
+ * Problema historico: un usuario que se registraba SIN invitacion caia en
  * /onboarding y creaba una organizacion nueva, quedando aislado en un workspace
- * propio (ya paso 2 veces: dos "General", + Alan Ambriz invisible). El unico
- * camino correcto de alta era la invitacion.
+ * propio (paso 2 veces: dos "General" + Alan Ambriz invisible).
  *
- * Fix: si el dominio del correo del usuario mapea a una organizacion que declara
- * su workspace por defecto (organizations.email_domain + default_workspace_id),
- * lo unimos automaticamente a esa org + workspace con rol member, en lugar de
- * mandarlo a crear una org nueva.
+ * Modelo actual (SALA DE ESPERA / LOBBY): al registrarse, si el dominio del
+ * correo mapea a una organizacion conocida (organizations.email_domain), se une
+ * a esa ORG con rol member, pero NO se le da acceso a ningun workspace todavia.
+ * Queda en la sala de espera hasta que un administrador lo ubique en un
+ * workspace, departamento y equipo. Asi "los miembros no entran a todo" de
+ * golpe: el admin decide donde va cada quien.
  *
- * Idempotente: si el usuario ya tiene org, o si no hay match de dominio, no hace
- * nada y devuelve null. Se puede llamar en cada carga de la raiz / onboarding.
+ * Idempotente: si no hay match de dominio devuelve null. Nunca pisa el org_id de
+ * quien ya tiene organizacion.
  */
 import type { createAdminClient } from '@/lib/supabase/server'
 
@@ -24,14 +25,22 @@ interface AutoJoinUser {
   user_metadata?: Record<string, unknown>
 }
 
+export interface DomainOrgResult {
+  orgId: string
+  orgName: string
+}
+
 /**
- * Intenta unir al usuario a la org de su dominio. Devuelve el slug del workspace
- * al que se unio (para redirigir), o null si no aplica.
+ * Une al usuario a la ORGANIZACION de su dominio (sin workspace). Devuelve la
+ * org a la que se unio (o a la que ya pertenecia por dominio), o null si el
+ * dominio no mapea a ninguna org conocida.
+ *
+ * NO crea membresia de workspace: eso lo hace el admin desde la sala de espera.
  */
-export async function attemptDomainAutoJoin(
+export async function attemptDomainOrgJoin(
   admin: Admin,
   user: AutoJoinUser
-): Promise<string | null> {
+): Promise<DomainOrgResult | null> {
   const email = user.email?.trim().toLowerCase()
   if (!email || !email.includes('@')) return null
   const domain = email.split('@')[1]
@@ -40,25 +49,16 @@ export async function attemptDomainAutoJoin(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = admin as any
 
-  // 1. Buscar org por dominio (unica por indice) que tenga workspace por defecto.
+  // 1. Buscar org por dominio (unica por indice).
   const { data: org } = await db
     .from('organizations')
-    .select('id, default_workspace_id')
+    .select('id, name')
     .eq('email_domain', domain)
     .maybeSingle()
 
-  if (!org?.id || !org.default_workspace_id) return null
+  if (!org?.id) return null
 
-  // 2. Resolver el workspace por defecto (necesitamos su slug para redirigir).
-  const { data: ws } = await db
-    .from('workspaces')
-    .select('id, slug')
-    .eq('id', org.default_workspace_id)
-    .maybeSingle()
-
-  if (!ws?.id || !ws.slug) return null
-
-  // 3. Poblar perfil (solo si aun no tiene org, para no pisar a nadie existente).
+  // 2. Poblar perfil con la org (solo si aun no tiene org, para no pisar a nadie).
   const { data: profile } = await db
     .from('profiles')
     .select('org_id, display_name, avatar_url')
@@ -84,7 +84,7 @@ export async function attemptDomainAutoJoin(
       .eq('id', user.id)
   }
 
-  // 4. Membresia de org (idempotente).
+  // 3. Membresia de org (idempotente). NO se toca workspace_members.
   await db
     .from('org_members')
     .upsert(
@@ -92,13 +92,5 @@ export async function attemptDomainAutoJoin(
       { onConflict: 'org_id,profile_id', ignoreDuplicates: true }
     )
 
-  // 5. Membresia del workspace por defecto (idempotente).
-  await db
-    .from('workspace_members')
-    .upsert(
-      { workspace_id: ws.id, profile_id: user.id, role: 'member' },
-      { onConflict: 'workspace_id,profile_id', ignoreDuplicates: true }
-    )
-
-  return ws.slug as string
+  return { orgId: org.id as string, orgName: (org.name as string) ?? 'tu organización' }
 }

@@ -8,6 +8,54 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Sala de espera (Lobby) para nuevos registros
+
+Deploy de producción: `wlo-iaoiajrsm` (Ready). Build OK, tsc limpio.
+
+Petición del usuario (Ali): "los miembros aún no entran todo, metelos a un lobby
+cuando se registren y una vez registrados yo pueda ver el lobby y ubicarlos".
+
+Antes, quien se registraba con un dominio conocido (@pavific.com) entraba
+automáticamente al workspace por defecto como member. Ahora se detiene en una
+sala de espera hasta que un admin lo ubique.
+
+### Cambio de flujo de alta
+
+- `src/lib/auto-join.ts`: `attemptDomainAutoJoin` (org + workspace) se reemplaza
+  por `attemptDomainOrgJoin`, que adhiere el perfil a la ORGANIZACION por
+  dominio (profiles.org_id + org_members) pero NO crea `workspace_members`. Los
+  miembros existentes no se tocan (ya tienen su fila de workspace).
+- Raíz (`page.tsx`) y `onboarding/page.tsx`: sin membresía de workspace ->
+  adherir a la org por dominio -> si el perfil ya tiene org_id, va a `/lobby`;
+  solo quien no tiene org va a `/onboarding` a crear una.
+- `POST /api/onboarding` y `OnboardingForm`: si el dominio ya mapea a una org,
+  responde `{ lobby: true }` y el cliente redirige a `/lobby` en vez de crear una
+  org paralela.
+
+### Sala de espera del usuario
+
+- `src/app/(app)/lobby/page.tsx` + `LobbyWaiting.tsx`: pantalla de espera con su
+  nombre, correo y organización; sondea cada 15s (router.refresh) y, cuando un
+  admin lo ubica, el server component lo redirige solo al workspace. Botón de
+  revisar y de cerrar sesión.
+
+### Panel de admin para ubicarlos
+
+- Nueva pestaña "Sala de espera" en Configuración (`SettingsNav.tsx`).
+- `settings/lobby/page.tsx` + `LobbyPanel.tsx`: lista los perfiles de la org sin
+  acceso a ningún workspace; por cada uno el admin elige rol, departamento
+  (opcional) y equipo (opcional, filtrado por depto) y lo ubica.
+- `POST /api/workspaces/[workspaceId]/lobby` (+ GET): gateado a admin; valida que
+  el perfil sea de la misma org, que el depto/equipo vivan en el workspace y que
+  el equipo pertenezca al depto elegido; hace upsert idempotente de
+  `workspace_members` (+ `space_members` + `team_members` si aplica).
+
+Sin migración: la sala de espera es derivada (perfiles con org_id y sin
+`workspace_members`). Las invitaciones por código siguen ubicando directo (no
+pasan por el lobby).
+
+---
+
 ## 2026-07-20 — Jerarquía Departamento > Equipo + aislamiento duro (F2/F3)
 
 Deploy de producción: `wlo-f5488z6fk` (Ready). Build OK, tsc limpio.

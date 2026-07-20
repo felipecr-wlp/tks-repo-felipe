@@ -5,7 +5,7 @@
  */
 import { redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { attemptDomainAutoJoin } from '@/lib/auto-join'
+import { attemptDomainOrgJoin } from '@/lib/auto-join'
 
 export default async function RootPage() {
   const supabase = createClient()
@@ -30,14 +30,23 @@ export default async function RootPage() {
     redirect(`/w/${membership.workspaces.slug}`)
   }
 
-  // Sin workspace: antes de mandar a crear una org nueva, intentar auto-unir por
-  // dominio de correo (ej. @pavific.com -> org + workspace por defecto). Evita
-  // que cada alta sin invitacion cree una org huerfana y aislada.
-  const joinedSlug = await attemptDomainAutoJoin(admin, user)
-  if (joinedSlug) {
-    redirect(`/w/${joinedSlug}`)
+  // Sin workspace: adherir por dominio a la ORGANIZACION conocida (ej.
+  // @pavific.com). NO entra a ningun workspace: queda en la sala de espera hasta
+  // que un admin lo ubique. Asi los miembros no entran a todo de golpe.
+  await attemptDomainOrgJoin(admin, user)
+
+  // Si pertenece a una org (por dominio o por invitacion previa) pero aun no
+  // tiene workspace, va a la sala de espera. Solo quien no tiene org va a crear
+  // una nueva en onboarding.
+  const { data: prof } = await admin
+    .from('profiles')
+    .select('org_id')
+    .eq('id', user.id)
+    .maybeSingle() as { data: { org_id: string | null } | null; error: unknown }
+
+  if (prof?.org_id) {
+    redirect('/lobby')
   }
 
-  // Sin workspace ni dominio conocido, ir a onboarding
   redirect('/onboarding')
 }

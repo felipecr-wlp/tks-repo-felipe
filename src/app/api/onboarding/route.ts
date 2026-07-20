@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { slugify } from '@/lib/utils'
-import { attemptDomainAutoJoin } from '@/lib/auto-join'
+import { attemptDomainOrgJoin } from '@/lib/auto-join'
 
 const schema = z.object({
   orgName: z.string().min(2).max(80).trim(),
@@ -67,12 +67,13 @@ export async function POST(request: NextRequest) {
   // (necesitamos service_role para saltear RLS en la creación inicial)
   const admin = createAdminClient()
 
-  // ── Defensa: si el dominio del correo ya tiene org, unirse a ella ───────────
+  // ── Defensa: si el dominio del correo ya tiene org, adherir a ella ──────────
   // Evita que dos personas de la misma empresa creen orgs paralelas (el bug que
-  // dejo a Alan aislado). Gana la org existente sobre crear una nueva.
-  const joinedSlug = await attemptDomainAutoJoin(admin, user)
-  if (joinedSlug) {
-    return NextResponse.json({ workspaceSlug: joinedSlug }, { status: 200 })
+  // dejo a Alan aislado). Gana la org existente sobre crear una nueva: el usuario
+  // queda en la sala de espera hasta que un admin lo ubique en un workspace.
+  const domainOrg = await attemptDomainOrgJoin(admin, user)
+  if (domainOrg) {
+    return NextResponse.json({ lobby: true }, { status: 200 })
   }
 
   // 1. Crear organización

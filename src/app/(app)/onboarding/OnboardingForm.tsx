@@ -123,6 +123,11 @@ function CreateForm({
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error ?? 'Error al crear el espacio de trabajo')
+      if (result.lobby) {
+        toast.success('Ya perteneces a esta organización')
+        router.push('/lobby')
+        return
+      }
       toast.success('¡Espacio de trabajo creado!')
       router.push(`/w/${result.workspaceSlug}`)
     } catch (err) {
