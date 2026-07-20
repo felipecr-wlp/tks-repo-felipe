@@ -111,5 +111,5 @@ export default async function SopsPage({ params }: SopsPageProps) {
       }
     })
 
-  return <SopsLens sops={sops} workspaceSlug={params.workspaceSlug} />
+  return <SopsLens sops={sops} workspaceSlug={params.workspaceSlug} workspaceId={workspace.id} />
 }

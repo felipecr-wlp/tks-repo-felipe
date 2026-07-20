@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { NoteIcon } from '@/lib/note-icons'
 import { cn, timeAgo } from '@/lib/utils'
+import { SopComplianceRollup } from './SopComplianceRollup'
 
 type DocKind = 'sop' | 'sop_flow' | 'sop_index' | 'training'
 type SopStatus = 'draft' | 'review' | 'active' | 'obsolete'
@@ -33,6 +34,7 @@ export interface SopRow {
 interface SopsLensProps {
   sops: SopRow[]
   workspaceSlug: string
+  workspaceId: string
 }
 
 const KIND_META: Record<DocKind, { label: string; Icon: typeof FileText }> = {
@@ -54,7 +56,7 @@ function isOverdue(reviewDue: string | null): boolean {
   return reviewDue < new Date().toISOString().slice(0, 10)
 }
 
-export function SopsLens({ sops, workspaceSlug }: SopsLensProps) {
+export function SopsLens({ sops, workspaceSlug, workspaceId }: SopsLensProps) {
   const [deptFilter, setDeptFilter] = useState<string>('all')
   const [kindFilter, setKindFilter] = useState<DocKind | 'all'>('all')
   const [statusFilter, setStatusFilter] = useState<SopStatus | 'all'>('all')
@@ -109,6 +111,9 @@ export function SopsLens({ sops, workspaceSlug }: SopsLensProps) {
           )}
         </div>
       </div>
+
+      {/* Cumplimiento (solo admins; se auto-oculta para lectores) */}
+      <SopComplianceRollup workspaceId={workspaceId} />
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2 mb-5 text-xs">

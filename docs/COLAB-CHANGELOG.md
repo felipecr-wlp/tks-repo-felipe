@@ -8,6 +8,36 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — SOP Nivel 2, Paso 3: rollup de cumplimiento exportable por departamento
+
+Cierre del Nivel 2. Un panel para admins encima de la lente "Procesos y SOPs" que
+agrega el cumplimiento de todos los SOPs del workspace: cuánta gente requerida ya
+confirmó su lectura, cuántas firmas quedaron desactualizadas y cuántas revisiones
+están vencidas, con desglose por departamento y export CSV.
+
+Qué cambió:
+- API `src/app/api/workspaces/[workspaceId]/sop-compliance/route.ts` (sin migración):
+  admin-gated via `isWorkspaceAdminById`. Une notes (doc_kind != note) + spaces +
+  sop_assignments + note_acknowledgements, expande equipos/departamentos a personas
+  (target polimórfico sin FK, se resuelve en la capa app) y calcula por documento
+  {requeridos, confirmados, desactualizados, pendientes, cumplimiento %, aprobado,
+  firma desactualizada, revisión vencida}, más totales y agregado por departamento.
+  `?format=csv` devuelve el mismo dato por documento con BOM UTF-8 (Excel muestra
+  bien ñ/tildes) y `Content-Disposition attachment`.
+- Componente `SopComplianceRollup.tsx` montado en `SopsLens` (arriba de los filtros):
+  se auto-consulta la API; si el usuario no es admin la API responde 403 y el panel
+  no renderiza nada (sin ruido para lectores). Muestra barra de cumplimiento global,
+  4 totales (aprobados, firmas viejas, pendientes, revisiones vencidas), tabla por
+  departamento y botón Exportar CSV. `SopsLens` recibe ahora `workspaceId` desde
+  page.tsx.
+
+Diseño: iconos lucide (ShieldCheck, Download, BadgeCheck, ShieldAlert, Clock,
+CalendarX2), acento azul #2563EB, tonos verde/ámbar/rojo por umbral, ñ/tildes
+correctas, sin guiones largos. tsc limpio + `next build` OK.
+Deploy prod: `dpl_2TpuvuDagb2eGyGpYfqwBwneQCL2` (wlo.vercel.app, READY).
+
+---
+
 ## 2026-07-20 — SOP Nivel 2, Paso 2: aprobación / firma de la versión vigente
 
 Un SOP "Activo" ahora lleva una firma responsable, no solo un cambio de estatus:
