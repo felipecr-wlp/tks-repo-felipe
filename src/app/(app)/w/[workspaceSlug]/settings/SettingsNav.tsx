@@ -7,7 +7,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Settings, Users, UsersRound, FolderKanban, Ticket } from 'lucide-react'
+import { Settings, Users, UsersRound, FolderKanban, Ticket, Gauge } from 'lucide-react'
 
 export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
   const pathname = usePathname()
@@ -19,6 +19,7 @@ export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
     { href: `${base}/teams`, label: 'Equipos', icon: UsersRound },
     { href: `${base}/departments`, label: 'Departamentos', icon: FolderKanban },
     { href: `${base}/invites`, label: 'Invitaciones', icon: Ticket },
+    { href: `${base}/performance`, label: 'Rendimiento', icon: Gauge },
   ]
 
   return (
