@@ -8,6 +8,42 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Tablero de Rendimiento mensual (evaluación por persona y por canal)
+
+Deploy de producción: `dpl_Gh4oNKd36hUupgS3bXwHuMvjCXgM`, alias `wlo.vercel.app`,
+Ready. Typecheck EXIT=0, `next lint` limpio, build OK. Commit `eb8cb87`.
+
+Punto 2 (algoritmo de evaluación) + Punto 3 (visibilidad de "cada quien ataca un
+proyecto") del pedido de mejora de WLO. Nueva pestaña Configuración -> Rendimiento
+(solo admin, gateada por `getWorkspaceAdminContext`).
+
+- Fundamento de datos: columna `tasks.completed_at` + trigger
+  `tasks_set_completed_at()` (BEFORE INSERT OR UPDATE OF status_id) que la fija a
+  `now()` al entrar a un status `category='done'` (si venía NULL) y la limpia al
+  salir. Lee `task_statuses` solo para resolver la categoría (no es policy RLS, sin
+  riesgo de recursión 42P17). Backfill conservador de tareas ya cerradas desde
+  `updated_at`. Índice `tasks_completed_at_idx(workspace_id, completed_at)`.
+  Migración `20260720000000_task_completed_at.sql` (aplicada a prod, verificado).
+- Score 0-100 **mensual** por persona sobre tareas cerradas en el mes (por
+  `completed_at`): Throughput 25% (volumen), Velocity 30% (`story_points_done`),
+  On-time 25% (cerradas en/antes de `due_date`), Estimación 20% (precisión
+  `story_points` vs `story_points_done`). Throughput y Velocity son RELATIVOS al
+  mejor del mes (normaliza volúmenes distintos entre equipos); On-time y Estimación
+  son absolutos 0-100. Los pesos se renormalizan sobre las métricas disponibles
+  (si a alguien le falta due_date o puntos, no lo penaliza). Un responsable se
+  cuenta desde `tasks.assignee_id` UNION `task_assignees` (multi-asignación).
+- Desglose por CANAL/PROYECTO atribuido a su manager (`projects.lead_id` o
+  respaldo `project_members.role='manager'`): hace visible quién lleva cada frente
+  (ej. Meta, Paid Search) aunque compartan equipo. Resuelve el Punto 3 sin tocar el
+  modelo de datos (ya lo soportaba).
+- Selector de mes prev/next vía query param `?month=YYYY-MM` (el server component
+  recomputa). Empty-states cuando no hay tareas cerradas con responsable.
+- Archivos: `.../settings/performance/page.tsx` (server: fetch + cómputo con admin
+  client) + `PerformancePanel.tsx` (cliente: tablas + navegación de mes) nuevos;
+  `SettingsNav.tsx` editado (pestaña "Rendimiento", icono `Gauge`).
+
+---
+
 ## 2026-07-20 — Robustecer SOPs Nivel 1, Paso 2: acuse de lectura
 
 Deploy de producción: alias `wlo.vercel.app`, Ready. Typecheck EXIT=0, build OK.
