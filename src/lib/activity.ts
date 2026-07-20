@@ -293,4 +293,5 @@ export const NotificationTypes = {
   TASK_RECURRENCE_CREATED: 'task_recurrence_created', // al asignado: se genero la siguiente ocurrencia recurrente
   SOP_REVIEW_OVERDUE:    'sop_review_overdue',    // al owner del SOP: la fecha de revision ya paso (recordatorio diario, sistema)
   SOP_REVIEW_DUE_SOON:   'sop_review_due_soon',   // al owner del SOP: la revision vence dentro de 7 dias (recordatorio diario, sistema)
+  SOP_ASSIGNED:          'sop_assigned',          // al lector requerido: debes leer y confirmar este documento
 } as const

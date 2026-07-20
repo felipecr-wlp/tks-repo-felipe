@@ -8,6 +8,42 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — SOP Nivel 2, Paso 1: cumplimiento obligatorio (lectores requeridos)
+
+Sube el acuse de lectura de SOPs de VOLUNTARIO (Nivel 1: cualquiera confirma, sin
+exigencia ni visibilidad de faltantes) a OBLIGATORIO: el admin ASIGNA lectores
+requeridos (persona, equipo o departamento) y ve el cumplimiento (quién confirmó
+la versión vigente vs. quién está desactualizado o pendiente).
+
+Qué cambió:
+- Migración `20260720300000_sop_assignments.sql` (aplicada a prod): tabla
+  `sop_assignments` (note_id, workspace_id, target_type profile/team/space,
+  target_id polimórfico SIN FK por landmine de ciclos PostgREST, assigned_by,
+  UNIQUE(note_id, target_type, target_id)). RLS anclada en workspace_members
+  (select para miembros, insert/delete solo admins); subqueries solo a OTRAS
+  tablas (sin recursión 42P17).
+- API `src/app/api/notes/[noteId]/assignments/route.ts`: GET (estado de
+  cumplimiento: objetivos con etiqueta y conteo, roster expandido de personas
+  requeridas con estatus done/outdated/pending vs `sop_version` vigente, y pools
+  de asignación solo para admins), POST (asigna, valida pertenencia al workspace,
+  upsert idempotente, notifica `sop_assigned` a cada persona requerida menos a
+  quien asigna), DELETE por query. Admin = org_role owner/admin O rol de
+  workspace owner/admin.
+- Nuevo tipo de notificación `SOP_ASSIGNED = 'sop_assigned'` en
+  `src/lib/activity.ts` + etiqueta "debes leer y confirmar:" en el mapa
+  VERB_LABELS del inbox (`InboxList.tsx`), para que no rompa la bandeja.
+- Componente `SopCompliance.tsx` montado en `NoteEditor` (solo doc_kind != note),
+  arriba del acuse voluntario: barra de progreso, chips de objetivos, selector
+  personas/equipos/departamentos (admin) y roster con badges de estatus. Se
+  autoabastece del GET (`can_assign` decide si muestra el selector), sin props
+  extra desde page.tsx.
+
+Diseño: iconos lucide, acento azul #2563EB, ñ/tildes correctas, sin guiones largos.
+tsc limpio + `next build` OK.
+Deploy prod: `dpl_xsgCJ3fWvkHLDKxiijmUdcz5f6br` (wlo.vercel.app, READY).
+
+---
+
 ## 2026-07-20 — Siembra de 6 equipos en WPAV-WORKSPACE
 
 Petición del usuario (Ali): crear en WPAV-WORKSPACE los equipos "WEB UI / UX

@@ -20,6 +20,7 @@ import { NoteVersions } from './NoteVersions'
 import { NotePresence } from './NotePresence'
 import { SopMetaBar, type DocKind, type SopStatus } from './SopMetaBar'
 import { SopAcknowledge } from './SopAcknowledge'
+import { SopCompliance } from './SopCompliance'
 
 const RichTextEditor = dynamic(
   () => import('@/components/editor/RichTextEditor').then(m => m.RichTextEditor),
@@ -414,8 +415,13 @@ export function NoteEditor({
         </div>
       )}
 
-      {/* Acuse de lectura "Leído y entendido" (solo documentos operativos) */}
-      {initial.doc_kind !== 'note' && <SopAcknowledge noteId={initial.id} />}
+      {/* Cumplimiento obligatorio + acuse de lectura (solo documentos operativos) */}
+      {initial.doc_kind !== 'note' && (
+        <>
+          <SopCompliance noteId={initial.id} />
+          <SopAcknowledge noteId={initial.id} />
+        </>
+      )}
 
       {/* Backlinks (A3): notas que enlazan a esta */}
       <NoteBacklinks noteId={initial.id} workspaceSlug={workspaceSlug} />
