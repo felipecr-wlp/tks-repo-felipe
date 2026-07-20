@@ -83,7 +83,7 @@ export default async function WorkspaceLayout({
       role,
       workspaces!inner (
         id, name, slug, org_id,
-        organizations ( id, name )
+        organizations!workspaces_org_id_fkey ( id, name )
       )
     `)
     .eq('profile_id', user.id)

@@ -51,7 +51,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       expires_at,
       revoked_at,
       password_hash,
-      workspaces ( id, name, slug, org_id, organizations ( name ) )
+      workspaces ( id, name, slug, org_id, organizations!workspaces_org_id_fkey ( name ) )
     `)
     .eq('code', params.code)
     .single() as { data: InviteWithWs | null; error: unknown }

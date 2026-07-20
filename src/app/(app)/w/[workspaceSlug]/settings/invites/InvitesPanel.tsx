@@ -35,6 +35,7 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
   const [role, setRole] = useState<'admin' | 'manager' | 'member' | 'viewer'>('member')
   const [maxUses, setMaxUses] = useState<string>('')
   const [expiresInDays, setExpiresInDays] = useState<string>('30')
+  const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   async function load() {
@@ -64,13 +65,15 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
           role,
           max_uses: maxUses ? parseInt(maxUses, 10) : null,
           expires_in_days: expiresInDays ? parseInt(expiresInDays, 10) : null,
+          email: email.trim() || null,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Error al crear invite')
-      toast.success('Invite creado')
+      toast.success(email.trim() ? 'Invite creado y enviado por correo' : 'Invite creado')
       setPassword('')
       setMaxUses('')
+      setEmail('')
       setShowCreate(false)
       await load()
     } catch (err) {
@@ -173,6 +176,24 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
                 disabled={submitting}
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="inviteEmail" className="text-xs font-medium text-foreground">
+              Enviar por correo (opcional)
+            </label>
+            <input
+              id="inviteEmail"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="persona@pavific.com"
+              className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background"
+              disabled={submitting}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Si escribes un correo, se manda la invitacion con el link. Si no, solo se genera el codigo para compartir.
+            </p>
           </div>
 
           <div className="flex items-center gap-2 pt-1">

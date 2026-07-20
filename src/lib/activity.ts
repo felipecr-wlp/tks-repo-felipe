@@ -14,6 +14,7 @@
  *   })
  */
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { sendEmail, renderNotificationEmail, isEmailConfigured } from './email'
 
 /**
  * Cliente sin genérico Database para operaciones de logging (service_role).
@@ -74,6 +75,69 @@ export async function logActivity(params: LogActivityParams): Promise<void> {
   }
 }
 
+/**
+ * Tipos de notificacion que MERECEN correo (eventos de alto valor accionados por
+ * una persona). Se excluyen los ruidosos / de sistema (task_updated, overdue,
+ * due_soon, recurrence, review_requested). Cada uno mapea a la frase del asunto
+ * y una etiqueta generica del objeto.
+ */
+const EMAIL_NOTIFY: Record<string, { phrase: string; objectLabel: string }> = {
+  task_mentioned:        { phrase: 'te menciono en',            objectLabel: 'una tarea' },
+  note_mentioned:        { phrase: 'te menciono en',            objectLabel: 'una nota' },
+  task_commented:        { phrase: 'comento en',               objectLabel: 'una tarea' },
+  application_submitted: { phrase: 'se postulo a',             objectLabel: 'tu proyecto' },
+  application_accepted:  { phrase: 'acepto tu postulacion a',  objectLabel: 'un proyecto' },
+  application_rejected:  { phrase: 'actualizo tu postulacion a', objectLabel: 'un proyecto' },
+  project_approved:      { phrase: 'aprobo tu proyecto',       objectLabel: 'un proyecto' },
+  project_rejected:      { phrase: 'reviso tu proyecto',       objectLabel: 'un proyecto' },
+  project_pending_approval: { phrase: 'propuso un proyecto por aprobar', objectLabel: 'un proyecto' },
+}
+
+/**
+ * Envia (best effort, gateado) el correo de una notificacion. No-op si el email
+ * no esta configurado o el tipo no amerita correo. Nunca lanza.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function maybeSendNotificationEmail(supabase: any, params: NotifyParams): Promise<void> {
+  try {
+    if (!isEmailConfigured()) return
+    const spec = EMAIL_NOTIFY[params.type]
+    if (!spec) return
+    if (params.recipient_id === params.subject_id) return // no auto-correo
+
+    const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? ''
+
+    const [{ data: recipient }, { data: actor }, { data: ws }] = await Promise.all([
+      supabase.from('profiles').select('email, display_name').eq('id', params.recipient_id).maybeSingle(),
+      supabase.from('profiles').select('display_name').eq('id', params.subject_id).maybeSingle(),
+      supabase.from('workspaces').select('slug').eq('id', params.workspace_id).maybeSingle(),
+    ])
+
+    if (!recipient?.email) return
+
+    const slug = ws?.slug as string | undefined
+    const url =
+      params.object_type === 'task' && params.object_id && slug
+        ? `${base}/w/${slug}/task/${params.object_id}`
+        : slug
+          ? `${base}/w/${slug}/inbox`
+          : base || '#'
+
+    const { subject, html } = renderNotificationEmail({
+      recipientName: (recipient.display_name as string | null) ?? 'Hola',
+      actorName: (actor?.display_name as string | null) ?? 'Alguien',
+      phrase: spec.phrase,
+      objectLabel: spec.objectLabel,
+      objectTitle: params.object_title ?? null,
+      url,
+    })
+
+    await sendEmail({ to: recipient.email as string, subject, html })
+  } catch (error) {
+    console.error('[maybeSendNotificationEmail] Error:', error)
+  }
+}
+
 export async function createNotification(params: NotifyParams): Promise<void> {
   try {
     const supabase = getLogClient()
@@ -87,6 +151,9 @@ export async function createNotification(params: NotifyParams): Promise<void> {
       object_id:    params.object_id ?? null,
       object_title: params.object_title ?? null,
     })
+
+    // Correo best effort (gateado por config). No bloquea si falla.
+    await maybeSendNotificationEmail(supabase, params)
   } catch (error) {
     console.error('[createNotification] Error:', error)
   }
@@ -132,6 +199,25 @@ export async function notifyTaskWatchers(params: {
     }))
 
     await supabase.from('notifications').insert(rows)
+
+    // Correo best effort a cada seguidor (gateado por config). El tipo por
+    // defecto (task_updated) no esta en EMAIL_NOTIFY, asi que solo dispara
+    // correo cuando se pasa un tipo emailable (ej. task_commented).
+    if (isEmailConfigured()) {
+      await Promise.all(
+        recipients.map(recipient_id =>
+          maybeSendNotificationEmail(supabase, {
+            recipient_id,
+            subject_id:   params.actorId,
+            type:         params.notifType ?? NotificationTypes.TASK_UPDATED,
+            object_type:  'task',
+            object_id:    params.taskId,
+            object_title: params.taskTitle,
+            workspace_id: params.workspaceId,
+          })
+        )
+      )
+    }
   } catch (error) {
     console.error('[notifyTaskWatchers] Error:', error)
   }

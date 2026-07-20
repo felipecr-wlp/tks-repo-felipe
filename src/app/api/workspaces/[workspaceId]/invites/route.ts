@@ -17,6 +17,7 @@ import { applyRateLimit } from '@/lib/rate-limit'
 import { hashPassword } from '@/lib/password'
 import { generateInviteCode } from '@/lib/invite-code'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
+import { sendEmail, renderInviteEmail, isEmailConfigured } from '@/lib/email'
 
 interface RouteParams {
   params: { workspaceId: string }
@@ -27,6 +28,9 @@ const createSchema = z.object({
   role:            z.enum(['admin', 'manager', 'member', 'viewer']).default('member'),
   max_uses:        z.number().int().min(1).max(10_000).optional().nullable(),
   expires_in_days: z.number().int().min(1).max(365).optional().nullable(),
+  // Opcional: si se da un correo, se envia la invitacion por email (gateado por
+  // config; si el email no esta configurado, simplemente no se manda nada).
+  email:           z.string().email().max(200).optional().nullable(),
 })
 
 // ── Helper: verifica admin del workspace o de la org ─────────────────────────
@@ -133,7 +137,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     )
   }
 
-  const { password, role, max_uses, expires_in_days } = parsed.data
+  const { password, role, max_uses, expires_in_days, email } = parsed.data
 
   const code = generateInviteCode(16)
   const expires_at = expires_in_days
@@ -188,10 +192,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Error al crear invite' }, { status: 500 })
     }
 
-    return await respondWithInvite(retry, user.id, params.workspaceId, password != null)
+    return await respondWithInvite(retry, user.id, params.workspaceId, password != null, email ?? null)
   }
 
-  return await respondWithInvite(invite, user.id, params.workspaceId, password != null)
+  return await respondWithInvite(invite, user.id, params.workspaceId, password != null, email ?? null)
 }
 
 async function respondWithInvite(
@@ -201,7 +205,8 @@ async function respondWithInvite(
   },
   userId: string,
   workspaceId: string,
-  hasPassword: boolean
+  hasPassword: boolean,
+  email: string | null
 ): Promise<NextResponse> {
   await logActivity({
     verb: ActivityVerbs.WORKSPACE_INVITE_CREATED,
@@ -210,6 +215,29 @@ async function respondWithInvite(
     object_id: invite.id,
     workspace_id: workspaceId,
   })
+
+  // Envio opcional de la invitacion por correo (best effort, gateado por config).
+  if (email && isEmailConfigured()) {
+    try {
+      const admin = createAdminClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = admin as any
+      const [{ data: ws }, { data: inviter }] = await Promise.all([
+        db.from('workspaces').select('name').eq('id', workspaceId).maybeSingle(),
+        db.from('profiles').select('display_name').eq('id', userId).maybeSingle(),
+      ])
+      const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? ''
+      const { subject, html } = renderInviteEmail({
+        inviterName: (inviter?.display_name as string | null) ?? 'Un administrador',
+        workspaceName: (ws?.name as string | null) ?? 'un espacio de trabajo',
+        joinUrl: `${base}/join/${invite.code}`,
+        hasPassword,
+      })
+      await sendEmail({ to: email, subject, html })
+    } catch (err) {
+      console.error('[invites POST] email error:', err)
+    }
+  }
 
   return NextResponse.json(
     { ...invite, has_password: hasPassword },
