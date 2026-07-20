@@ -47,6 +47,7 @@ type UserProfile = {
   display_name: string
   avatar_url: string | null
   org_id: string | null
+  org_role: string | null
 }
 
 export default async function WorkspaceLayout({
@@ -101,9 +102,18 @@ export default async function WorkspaceLayout({
   // ── Cargar perfil del usuario ──────────────────────────────────────────────
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, display_name, avatar_url, org_id')
+    .select('id, display_name, avatar_url, org_id, org_role')
     .eq('id', user.id)
     .single() as { data: UserProfile | null; error: unknown }
+
+  // ── Admin del workspace: org owner/admin O rol owner/admin en la membership ──
+  // Los admins "ven equipos" completos (supervisión) aunque no sean miembros de
+  // cada equipo/proyecto. El resto ve solo aquello donde participa.
+  const isWorkspaceAdmin =
+    profile?.org_role === 'owner' ||
+    profile?.org_role === 'admin' ||
+    row.role === 'owner' ||
+    row.role === 'admin'
 
   // ── Cargar equipos del workspace (con proyectos) ───────────────────────────
   // Egress optimizado: solo columnas necesarias para el sidebar
@@ -121,25 +131,44 @@ export default async function WorkspaceLayout({
     }>
   }
 
-  const { data: rawTeams } = await supabase
-    .from('teams')
-    .select(`
-      id,
-      name,
-      slug,
-      team_members!inner ( profile_id ),
-      projects (
-        id,
-        name,
-        slug,
-        icon,
-        project_members!inner ( profile_id )
-      )
-    `)
-    .eq('workspace_id', workspace.id)
-    .eq('team_members.profile_id', user.id)
-    .eq('projects.project_members.profile_id', user.id)
-    .order('name', { ascending: true }) as { data: RawTeam[] | null; error: unknown }
+  // Admin: TODOS los equipos y proyectos del workspace (admin client, sin filtro
+  // de membresía). No-admin: solo equipos/proyectos donde el user participa
+  // (inner joins con su profile_id).
+  const { data: rawTeams } = isWorkspaceAdmin
+    ? (await admin
+        .from('teams')
+        .select(`
+          id,
+          name,
+          slug,
+          projects (
+            id,
+            name,
+            slug,
+            icon
+          )
+        `)
+        .eq('workspace_id', workspace.id)
+        .order('name', { ascending: true })) as { data: RawTeam[] | null; error: unknown }
+    : (await supabase
+        .from('teams')
+        .select(`
+          id,
+          name,
+          slug,
+          team_members!inner ( profile_id ),
+          projects (
+            id,
+            name,
+            slug,
+            icon,
+            project_members!inner ( profile_id )
+          )
+        `)
+        .eq('workspace_id', workspace.id)
+        .eq('team_members.profile_id', user.id)
+        .eq('projects.project_members.profile_id', user.id)
+        .order('name', { ascending: true })) as { data: RawTeam[] | null; error: unknown }
 
   // Limpiar data para el sidebar (sin datos de membresía)
   const teams: TeamWithProjects[] = (rawTeams ?? []).map(t => ({

@@ -44,6 +44,10 @@ export default async function TeamsSettingsPage({
   }))
 
   return (
-    <TeamsPanel workspaceSlug={params.workspaceSlug} initialTeams={initialTeams} />
+    <TeamsPanel
+      workspaceSlug={params.workspaceSlug}
+      workspaceId={ctx.workspace.id}
+      initialTeams={initialTeams}
+    />
   )
 }
