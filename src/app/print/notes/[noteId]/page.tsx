@@ -14,7 +14,7 @@
  */
 import { notFound, redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { PrintTrigger } from './PrintTrigger'
+import { PrintController } from './PrintController'
 
 interface PrintPageProps {
   params: { noteId: string }
@@ -115,7 +115,7 @@ export default async function PrintNotePage({ params }: PrintPageProps) {
 
   return (
     <div className="mx-auto max-w-3xl bg-white px-10 py-8 text-black print:px-0 print:py-0">
-      <PrintTrigger />
+      <PrintController />
 
       {/* Encabezado */}
       <header className="mb-6 border-b border-gray-300 pb-4">

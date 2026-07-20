@@ -8,6 +8,32 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Las pizarras incrustadas ahora SÍ salen en el PDF
+
+Deploy de producción: alias `wlo.vercel.app`, Ready. Build OK.
+
+Pregunta del usuario: "lo que dibuje en la pizarra no se imprimirá como PDF?".
+En efecto no salía: en el contenido de la nota cada pizarra es solo un
+`<div data-whiteboard data-id="...">` vacío (guarda una REFERENCIA a la pizarra,
+no la imagen), así que la vista de impresión imprimía un hueco.
+
+Fix: en la vista `/print/notes/[noteId]` un controlador cliente nuevo, tras
+montar, busca esos divs, trae la escena de cada pizarra por
+`/api/whiteboards/[id]` y la convierte a SVG con `exportToSvg` de Excalidraw,
+inyectándola en el div antes de disparar `window.print()`. Fondo blanco forzado
+(`exportWithDarkMode:false`, `viewBackgroundColor:#ffffff`) para que imprima
+bien. Una pizarra vacía muestra "Pizarra sin contenido"; si una falla no tumba el
+resto del PDF (cada una en try/catch). El botón "Guardar como PDF" queda
+deshabilitado con estado "Preparando…" hasta que los SVG están pintados.
+
+- Nuevo: `src/app/print/notes/[noteId]/PrintController.tsx` (render de pizarras +
+  disparo de impresión).
+- Editado: `src/app/print/notes/[noteId]/page.tsx` (usa `PrintController` en vez
+  de `PrintTrigger`).
+- Eliminado: `src/app/print/notes/[noteId]/PrintTrigger.tsx` (reemplazado).
+
+---
+
 ## 2026-07-20 — Pizarra en notas: pasar de inline a MODAL (arregla el dibujo corrido)
 
 Deploy de producción: alias `wlo.vercel.app`, Ready. Build OK.
