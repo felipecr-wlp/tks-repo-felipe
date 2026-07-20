@@ -8,6 +8,27 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Siembra de 6 equipos en WPAV-WORKSPACE
+
+Petición del usuario (Ali): crear en WPAV-WORKSPACE los equipos "WEB UI / UX
+TEAM", "SEO TEAM", "GOOGLE ADS TEAM", "SOCIAL MEDIA TEAM", "EMAIL MARKETING TEAM"
+y "XTRA MARKETING TEAM", con un panel de control para asignar miembros después.
+
+- Seed directo en producción (tabla `teams`, workspace
+  `ee091249-14f8-42b9-a0ae-ce2c7e42ec1b`): 6 equipos sueltos (space_id null, sin
+  departamento; reasignables luego desde el panel). Ali queda como admin de cada
+  uno (fila en `team_members`). Slugs: web-ui-ux, seo, google-ads, social-media,
+  email-marketing, xtra-marketing. Sin deploy de código (los equipos son datos y
+  quedan vivos al instante).
+- Panel de control para asignar miembros: YA existía y está en producción. En
+  `/w/wpav/settings/teams` (TeamsPanel) cada equipo se expande y permite agregar
+  o quitar personas del pool del workspace y fijar su rol (admin/miembro), vía
+  las APIs `/api/teams/[teamId]/members[/[profileId]]`. Requisito: la persona
+  debe ser antes miembro del workspace WPAV (se logra por Sala de espera o
+  Invitaciones); solo entonces aparece en el selector para asignarla a un equipo.
+
+---
+
 ## 2026-07-20 — Sala de espera (Lobby) para nuevos registros
 
 Deploy de producción: `wlo-iaoiajrsm` (Ready). Build OK, tsc limpio.
