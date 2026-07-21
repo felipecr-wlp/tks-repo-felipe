@@ -62,6 +62,30 @@ interface PendingFile {
 
 const MAX_ATTACHMENTS = 5
 
+// Marca interna para distinguir un fallo de red (la petición nunca llegó al
+// servidor) de un rechazo HTTP (el servidor respondió con error).
+const NETWORK_ERR = '__network__'
+
+// POST del mensaje con reintento SEGURO: solo reintenta cuando fetch se rechaza
+// (fallo de red antes de tocar el servidor), nunca ante un HTTP no-ok, porque en
+// ese caso el mensaje pudo haberse insertado y reintentar lo duplicaría. Backoff
+// 300ms, 900ms; tras 2 reintentos lanza NETWORK_ERR.
+async function postMessage(payload: unknown, attempt = 0): Promise<Response> {
+  try {
+    return await fetch('/api/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  } catch {
+    if (attempt < 2) {
+      await new Promise(r => setTimeout(r, 300 * Math.pow(3, attempt)))
+      return postMessage(payload, attempt + 1)
+    }
+    throw new Error(NETWORK_ERR)
+  }
+}
+
 interface Message {
   id: string
   author_id: string
@@ -90,6 +114,14 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const prependingRef = useRef(false)
+
+  // Presencia y "escribiendo…" sobre el mismo canal Realtime del chat.
+  // channelRef expone el canal para poder emitir broadcasts de tecleo.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const channelRef = useRef<any>(null)
+  const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set())
+  const [typingIds, setTypingIds] = useState<Record<string, number>>({}) // id -> última señal (ms)
+  const lastTypingSentRef = useRef(0)
 
   // Adjuntos de tarea: cola pendiente (antes de enviar) y buscador abierto.
   const [pendingTasks, setPendingTasks] = useState<PickerTask[]>([])
@@ -307,11 +339,13 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
     })
   }
 
-  // ── Realtime: nuevos mensajes del equipo ──────────────────────────────────
+  // ── Realtime: mensajes + reacciones + presencia + tecleo ──────────────────
   useEffect(() => {
     const supabase = createClient()
     const ch = supabase
-      .channel(`chat-${teamId}`)
+      .channel(`chat-${teamId}`, {
+        config: { presence: { key: currentUserId }, broadcast: { self: false } },
+      })
       .on(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         'postgres_changes' as any,
@@ -320,6 +354,13 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
         (payload: any) => {
           const row = payload.new as Message
           upsertMessage(row)
+          // Al llegar un mensaje del autor, deja de mostrarlo como "escribiendo".
+          setTypingIds(prev => {
+            if (!(row.author_id in prev)) return prev
+            const next = { ...prev }
+            delete next[row.author_id]
+            return next
+          })
         }
       )
       .on(
@@ -336,10 +377,70 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (payload: any) => { if (payload.old?.id) removeReaction(payload.old.id as string) }
       )
-      .subscribe()
+      // Tecleo en vivo: cada emisor difunde su id; se registra con timestamp y
+      // caduca solo (efecto de poda). No toca la base de datos.
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'broadcast' as any,
+        { event: 'typing' },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (payload: any) => {
+          const id = payload?.payload?.id as string | undefined
+          if (!id || id === currentUserId) return
+          setTypingIds(prev => ({ ...prev, [id]: Date.now() }))
+        }
+      )
+      // Presencia: quién está mirando el chat ahora mismo.
+      .on('presence', { event: 'sync' }, () => {
+        const state = ch.presenceState() as Record<string, unknown[]>
+        setOnlineIds(new Set(Object.keys(state)))
+      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') ch.track({ id: currentUserId, at: Date.now() })
+      })
 
-    return () => { supabase.removeChannel(ch) }
-  }, [teamId])
+    channelRef.current = ch
+    return () => {
+      channelRef.current = null
+      supabase.removeChannel(ch)
+    }
+  }, [teamId, currentUserId])
+
+  // Poda de señales de tecleo: quita las mayores a 4s. El intervalo también
+  // fuerza el re-render que refresca el indicador cuando alguien deja de teclear.
+  useEffect(() => {
+    const t = setInterval(() => {
+      setTypingIds(prev => {
+        const now = Date.now()
+        const next: Record<string, number> = {}
+        let changed = false
+        for (const [id, ts] of Object.entries(prev)) {
+          if (now - ts < 4000) next[id] = ts
+          else changed = true
+        }
+        return changed ? next : prev
+      })
+    }, 1500)
+    return () => clearInterval(t)
+  }, [])
+
+  // Difunde "escribiendo…" a lo sumo cada 1.5s mientras el usuario teclea.
+  function broadcastTyping() {
+    const now = Date.now()
+    if (now - lastTypingSentRef.current < 1500) return
+    lastTypingSentRef.current = now
+    channelRef.current?.send({ type: 'broadcast', event: 'typing', payload: { id: currentUserId } })
+  }
+
+  // Nombres de quienes están escribiendo ahora (excluye al propio usuario).
+  const typingNames = useMemo(
+    () =>
+      Object.keys(typingIds)
+        .filter(id => id !== currentUserId)
+        .map(id => memberById.get(id)?.display_name ?? 'Alguien'),
+    [typingIds, currentUserId, memberById]
+  )
 
   // Auto-scroll al fondo cuando llega o se envía un mensaje. Al prepender
   // historia antigua NO saltamos al fondo (se preserva la posición de lectura).
@@ -432,21 +533,36 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
       ...tasks.map(t => ({ type: 'task' as const, task_id: t.id })),
       ...files.map(f => ({ type: 'file' as const, path: f.path, name: f.name, mime: f.mime, size: f.size })),
     ]
+    const payload = {
+      team_id: teamId,
+      body,
+      ...(attachments.length > 0 ? { attachments } : {}),
+    }
     try {
-      const res = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          team_id: teamId,
-          body,
-          ...(attachments.length > 0 ? { attachments } : {}),
-        }),
-      })
-      if (!res.ok) throw new Error('send failed')
+      const res = await postMessage(payload)
+      if (!res.ok) {
+        // Superamos el genérico: mostramos el motivo real que reporta la API
+        // (p. ej. "Sin acceso al equipo", "Datos inválidos") para no dejar al
+        // usuario a ciegas cuando algo falla de verdad.
+        let serverMsg = ''
+        try {
+          const data = (await res.json()) as { error?: unknown }
+          if (typeof data?.error === 'string') serverMsg = data.error
+        } catch { /* respuesta sin JSON */ }
+        throw new Error(serverMsg || 'No se pudo enviar el mensaje')
+      }
       const msg = (await res.json()) as Message
       upsertMessage(msg)
-    } catch {
-      toast.error('No se pudo enviar el mensaje')
+    } catch (err) {
+      const msg =
+        err instanceof Error && err.message === NETWORK_ERR
+          ? 'Sin conexión: no se pudo enviar tras reintentar. Revisa tu red.'
+          : err instanceof Error && err.message
+            ? err.message
+            : 'No se pudo enviar el mensaje'
+      toast.error(msg)
+      // Restaurar el borrador y los adjuntos para que el usuario reintente sin
+      // reescribir ni re-subir nada.
       setDraft(body)
       setPendingTasks(tasks)
       setPendingFiles(files)
@@ -495,19 +611,28 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
             <div key={msg.id} className={cn('flex gap-2.5', mine && 'flex-row-reverse')}>
               <div className="flex-shrink-0 w-7">
                 {!grouped && (
-                  author?.avatar_url ? (
-                    <Image
-                      src={author.avatar_url}
-                      alt={author.display_name}
-                      width={28}
-                      height={28}
-                      className="rounded-full"
-                    />
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center text-xs font-medium text-accent-foreground">
-                      {(author?.display_name ?? '?').charAt(0).toUpperCase()}
-                    </div>
-                  )
+                  <div className="relative w-7 h-7">
+                    {author?.avatar_url ? (
+                      <Image
+                        src={author.avatar_url}
+                        alt={author.display_name}
+                        width={28}
+                        height={28}
+                        className="rounded-full"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center text-xs font-medium text-accent-foreground">
+                        {(author?.display_name ?? '?').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    {/* Punto de presencia: el autor está viendo el chat ahora. */}
+                    {!mine && onlineIds.has(msg.author_id) && (
+                      <span
+                        title="En línea"
+                        className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-background"
+                      />
+                    )}
+                  </div>
                 )}
               </div>
               <div className={cn('max-w-[75%] min-w-0', mine && 'items-end flex flex-col')}>
@@ -633,6 +758,23 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
 
       {/* Composer */}
       <div className="border-t border-border px-4 py-3">
+        {/* Indicador de tecleo en vivo (no ocupa espacio si nadie escribe). */}
+        {typingNames.length > 0 && (
+          <div className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="flex gap-0.5">
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60" />
+            </span>
+            <span className="truncate">
+              {typingNames.length === 1
+                ? `${typingNames[0]} está escribiendo…`
+                : typingNames.length === 2
+                  ? `${typingNames[0]} y ${typingNames[1]} están escribiendo…`
+                  : 'Varios están escribiendo…'}
+            </span>
+          </div>
+        )}
         {/* Adjuntos pendientes de enviar (tareas + archivos) */}
         {(pendingTasks.length > 0 || pendingFiles.length > 0) && (
           <div className="mb-2 flex flex-wrap gap-1.5">
@@ -723,7 +865,10 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
           </div>
           <textarea
             value={draft}
-            onChange={e => setDraft(e.target.value)}
+            onChange={e => {
+              setDraft(e.target.value)
+              if (e.target.value.trim()) broadcastTyping()
+            }}
             onKeyDown={onKeyDown}
             rows={1}
             placeholder="Escribe un mensaje…  (Enter para enviar, Shift+Enter salto de línea)"

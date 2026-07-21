@@ -8,6 +8,50 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-21 — Mejoras post-v2: chat en vivo, command palette y no leídos
+
+Cuatro mejoras sobre el chat y la búsqueda global (una quinta ya estaba lista).
+Deploy único `wlo-857b604bh` aliaseado a `wlo.vercel.app`. tsc y build en 0.
+
+### 1. Blindaje de errores al enviar mensaje
+Antes, cualquier fallo mostraba el genérico "No se pudo enviar el mensaje". Ahora
+el envío (`send()` en `TeamChat.tsx`) muestra el motivo real que reporta la API
+(p. ej. "Sin acceso al equipo", "Datos inválidos"). Además, ante un fallo de RED
+(la petición nunca llegó al servidor) se reintenta de forma segura con backoff
+(300ms, 900ms) vía el helper `postMessage`; nunca se reintenta un HTTP no-ok para
+no arriesgar duplicar el mensaje. Si tras reintentar sigue sin red, avisa claro y
+restaura borrador y adjuntos para reintento manual.
+
+### 2. Preview de adjuntos (ya estaba)
+Verificado: `FileAttachmentView` + endpoint `/chat-files/sign` ya renderizan las
+imágenes como miniatura clicable con signed URL. Con el fix de ayer (poder enviar
+solo-adjunto) ya se aprecia. Sin cambios de código.
+
+### 3. Command palette: crear nota desde Ctrl+K
+`CommandPalette.tsx` gana acciones in situ (nuevo campo `onSelect` en los items,
+que ejecuta en vez de navegar): "Crear nota" en el menú sin query, y "Crear nota
+«texto»" arriba de los resultados cuando hay query (usa el texto como título).
+Reutiliza `POST /api/notes` y salta al editor. Tareas se dejan fuera aposta:
+requieren proyecto destino (no hay creación global sin contexto).
+
+### 4. Presencia + "escribiendo…" en el chat de equipo
+Sobre el MISMO canal Realtime (`chat-<teamId>`), ahora con `presence` y
+`broadcast`. Punto verde en el avatar de quien está viendo el chat; línea
+"X está escribiendo…" sobre el composer (throttle 1.5s, caduca a 4s, se poda
+sola). Todo efímero: no toca la base de datos. Archivo: `TeamChat.tsx`.
+
+### 5. No leídos por canal en el chat flotante
+`FloatingChat.tsx` pasa del booleano global `unread` a conteo por equipo
+(`unreadByTeam`). La burbuja muestra un badge numérico con el total (99+ tope);
+el selector de equipo muestra el conteo por canal ("Marketing  (3)"). Se limpia
+el canal al abrir el panel o cambiar a él; un mensaje que llega al canal ya
+visible no cuenta como no leído. El listener usa refs (`activeIdRef`) para no
+re-suscribirse al cambiar de canal.
+
+Archivos: `TeamChat.tsx`, `CommandPalette.tsx`, `FloatingChat.tsx`.
+
+---
+
 ## 2026-07-21 — Fix: no se podían enviar mensajes de chat solo con adjunto
 
 Bug reportado: al adjuntar un archivo en el chat de equipo (la subida al bucket

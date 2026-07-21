@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { toast } from 'sonner'
 import { cn, getInitials } from '@/lib/utils'
 import { ProjectIcon } from '@/lib/project-icons'
 import { useCommandPalette } from '@/stores/command-palette'
@@ -65,6 +66,8 @@ interface FlatItem {
   label: string
   sublabel?: string
   href?: string
+  // Acción in situ (crear nota…): si está, se ejecuta en vez de navegar.
+  onSelect?: () => void | Promise<void>
   icon?: React.ReactNode
   avatarUrl?: string | null
   initials?: string
@@ -78,9 +81,36 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult | null>(null)
   const [loading, setLoading] = useState(false)
+  const [creating, setCreating] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+
+  // Crea una nota rápida (en blanco o con el texto tecleado como título) y salta
+  // al editor. Reutiliza POST /api/notes, el mismo endpoint del botón "Nueva nota".
+  const createNote = useCallback(async (title: string) => {
+    if (creating) return
+    setCreating(true)
+    try {
+      const res = await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspace_id: workspaceId,
+          title: title.trim() || 'Sin título',
+          visibility: 'workspace',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error ?? 'Error')
+      setOpen(false)
+      router.push(`/w/${workspaceSlug}/notes/${data.id}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo crear la nota')
+    } finally {
+      setCreating(false)
+    }
+  }, [creating, workspaceId, workspaceSlug, router, setOpen])
 
   // ── Hotkey global (Cmd+K / Ctrl+K) ────────────────────────────────────────
   useEffect(() => {
@@ -164,6 +194,14 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
           icon: <InboxIcon />,
           group: 'Navegación',
         },
+        {
+          id: 'a-newnote',
+          type: 'action',
+          label: 'Crear nota',
+          onSelect: () => createNote('Sin título'),
+          icon: <NoteIcon />,
+          group: 'Acciones',
+        },
         // Crear equipo: solo administradores del workspace.
         ...(isAdmin ? [{
           id: 'a-newteam',
@@ -187,6 +225,15 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
     if (!results) return []
 
     const flat: FlatItem[] = []
+    // Acción contextual arriba de todo: crear una nota con el texto tecleado.
+    flat.push({
+      id: 'a-createnote-q',
+      type: 'action',
+      label: `Crear nota «${query.trim()}»`,
+      onSelect: () => createNote(query.trim()),
+      icon: <PlusIcon />,
+      group: 'Crear',
+    })
     results.tasks.forEach(t => flat.push({
       id: `t-${t.id}`,
       type: 'task',
@@ -233,7 +280,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
       group: 'Personas',
     }))
     return flat
-  }, [results, query, workspaceSlug, isAdmin])
+  }, [results, query, workspaceSlug, isAdmin, createNote])
 
   // ── Agrupar para render ───────────────────────────────────────────────────
   const groups = useMemo(() => {
@@ -247,6 +294,11 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
 
   // ── Selection navegation ──────────────────────────────────────────────────
   const select = useCallback((item: FlatItem) => {
+    // Acción in situ (crear nota): se encarga de cerrar/navegar por su cuenta.
+    if (item.onSelect) {
+      item.onSelect()
+      return
+    }
     setOpen(false)
     if (item.href) {
       router.push(item.href)
@@ -307,7 +359,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
               placeholder="Busca tareas, notas, proyectos, equipos o personas…"
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
             />
-            {loading && (
+            {(loading || creating) && (
               <span className="w-3 h-3 border border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
             )}
             <kbd className="text-[10px] font-mono px-1.5 py-0.5 bg-muted text-muted-foreground rounded border border-border">

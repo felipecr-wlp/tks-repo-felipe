@@ -65,11 +65,29 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const [retry, setRetry] = useState(0)
-  const [unread, setUnread] = useState(false)
+  // No leídos por canal (team_id -> conteo). Reemplaza el booleano global para
+  // saber en QUÉ equipo hay actividad, no solo que "hay algo".
+  const [unreadByTeam, setUnreadByTeam] = useState<Record<string, number>>({})
   const openRef = useRef(open)
   openRef.current = open
 
   const active = teams.find(t => t.id === activeId) ?? teams[0]
+  // Ref del equipo visible para que el listener realtime (suscrito una sola vez)
+  // sepa cuál se está leyendo sin re-suscribirse en cada cambio de canal.
+  const activeIdRef = useRef(active?.id ?? '')
+  activeIdRef.current = active?.id ?? ''
+
+  const totalUnread = Object.values(unreadByTeam).reduce((a, b) => a + b, 0)
+
+  // Marca un equipo como leído (limpia su conteo).
+  function clearUnread(teamId: string) {
+    setUnreadByTeam(prev => {
+      if (!prev[teamId]) return prev
+      const next = { ...prev }
+      delete next[teamId]
+      return next
+    })
+  }
 
   // Cargar mensajes + miembros del equipo activo la primera vez que se abre.
   useEffect(() => {
@@ -116,12 +134,22 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
           const row = payload.new as { team_id: string; author_id: string }
           if (!ids.has(row.team_id)) return
           if (row.author_id === currentUserId) return
-          if (!openRef.current) setUnread(true)
+          // Si el panel está abierto en ESE equipo, se está leyendo en vivo: no
+          // cuenta como no leído. En cualquier otro caso, incrementa su badge.
+          if (openRef.current && activeIdRef.current === row.team_id) return
+          setUnreadByTeam(prev => ({ ...prev, [row.team_id]: (prev[row.team_id] ?? 0) + 1 }))
         }
       )
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [teams, currentUserId])
+
+  // Al abrir el panel, o al cambiar de canal con el panel abierto, marca el
+  // equipo visible como leído.
+  useEffect(() => {
+    if (open && active) clearUnread(active.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, activeId])
 
   if (teams.length === 0) return null
 
@@ -166,7 +194,9 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
                   className="w-full appearance-none text-xs font-medium bg-background border border-border rounded-lg pl-3 pr-8 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   {teams.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
+                    <option key={t.id} value={t.id}>
+                      {t.name}{unreadByTeam[t.id] ? `  (${unreadByTeam[t.id]})` : ''}
+                    </option>
                   ))}
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-muted-foreground absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -211,17 +241,25 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
 
       {/* Burbuja */}
       <button
-        onClick={() => { setOpen(o => !o); setUnread(false) }}
+        onClick={() => setOpen(o => !o)}
         className={cn(
           'fixed bottom-[5.5rem] right-6 z-50 w-14 h-14 rounded-full shadow-raised flex items-center justify-center transition-all',
           'bg-primary text-primary-foreground hover:scale-105 active:scale-95'
         )}
         title={open ? 'Cerrar chat' : 'Abrir chat de equipo'}
-        aria-label={open ? 'Cerrar chat de equipo' : 'Abrir chat de equipo'}
+        aria-label={
+          open
+            ? 'Cerrar chat de equipo'
+            : totalUnread > 0
+              ? `Abrir chat de equipo, ${totalUnread} sin leer`
+              : 'Abrir chat de equipo'
+        }
       >
         {open ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
-        {!open && unread && (
-          <span className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-background" />
+        {!open && totalUnread > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-semibold flex items-center justify-center border-2 border-background tabular-nums">
+            {totalUnread > 99 ? '99+' : totalUnread}
+          </span>
         )}
       </button>
     </>
