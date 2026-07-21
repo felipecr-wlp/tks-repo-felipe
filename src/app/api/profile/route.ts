@@ -15,6 +15,7 @@ import { AVATAR_PATHS, ADMIN_ONLY_AVATARS, ADMIN_ROLES } from '@/lib/avatars'
 const patchSchema = z.object({
   display_name: z.string().min(2).max(80).trim().optional(),
   avatar_url: z.string().nullable().optional(),
+  email_notifications: z.boolean().optional(),
 }).strict()
 
 export async function PATCH(request: NextRequest) {
@@ -55,19 +56,25 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  const patch: { display_name?: string; avatar_url?: string | null; updated_at: string } = {
+  const patch: {
+    display_name?: string
+    avatar_url?: string | null
+    email_notifications?: boolean
+    updated_at: string
+  } = {
     updated_at: new Date().toISOString(),
   }
   if (parsed.data.display_name !== undefined) patch.display_name = parsed.data.display_name
   if (avatar !== undefined) patch.avatar_url = avatar
+  if (parsed.data.email_notifications !== undefined) patch.email_notifications = parsed.data.email_notifications
 
-  type ProfileResult = { id: string; display_name: string; avatar_url: string | null }
+  type ProfileResult = { id: string; display_name: string; avatar_url: string | null; email_notifications: boolean }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: updated, error } = await (admin as any)
     .from('profiles')
     .update(patch)
     .eq('id', user.id)
-    .select('id, display_name, avatar_url')
+    .select('id, display_name, avatar_url, email_notifications')
     .single() as { data: ProfileResult | null; error: unknown }
 
   if (error || !updated) return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 })

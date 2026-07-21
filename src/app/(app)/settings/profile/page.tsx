@@ -15,10 +15,10 @@ export default async function ProfilePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  type ProfileRow = { display_name: string; avatar_url: string | null; org_role: string | null; email: string }
+  type ProfileRow = { display_name: string; avatar_url: string | null; org_role: string | null; email: string; email_notifications: boolean | null }
   const { data: profile } = await supabase
     .from('profiles')
-    .select('display_name, avatar_url, org_role, email')
+    .select('display_name, avatar_url, org_role, email, email_notifications')
     .eq('id', user.id)
     .single() as { data: ProfileRow | null; error: unknown }
 
@@ -38,6 +38,7 @@ export default async function ProfilePage() {
         <ProfileForm
           initialName={profile.display_name}
           initialAvatar={profile.avatar_url}
+          initialEmailNotifications={profile.email_notifications ?? true}
           email={profile.email}
           isAdmin={isAdmin}
         />

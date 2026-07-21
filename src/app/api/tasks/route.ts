@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
-import { logActivity, ActivityVerbs } from '@/lib/activity'
+import { logActivity, notify, ActivityVerbs, NotificationTypes } from '@/lib/activity'
 import { autoWatch } from '@/lib/watchers'
 
 const createSchema = z.object({
@@ -174,6 +174,16 @@ export async function POST(request: NextRequest) {
   autoWatch(admin, newTask.id, project_id, user.id).catch(console.error)
   if (assignee_id && assignee_id !== user.id) {
     autoWatch(admin, newTask.id, project_id, assignee_id).catch(console.error)
+    // Avisar al asignado inicial (Bandeja + correo opt-out). Circuito 2.A.
+    notify({
+      recipient_id: assignee_id,
+      subject_id:   user.id,
+      type:         NotificationTypes.TASK_ASSIGNED,
+      object_type:  'task',
+      object_id:    newTask.id,
+      object_title: newTask.title,
+      workspace_id: project.workspace_id,
+    }).catch(console.error)
   }
 
   return NextResponse.json(newTask, { status: 201 })

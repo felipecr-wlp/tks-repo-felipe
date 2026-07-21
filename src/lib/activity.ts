@@ -85,6 +85,7 @@ const EMAIL_NOTIFY: Record<string, { phrase: string; objectLabel: string }> = {
   task_mentioned:        { phrase: 'te menciono en',            objectLabel: 'una tarea' },
   note_mentioned:        { phrase: 'te menciono en',            objectLabel: 'una nota' },
   task_commented:        { phrase: 'comento en',               objectLabel: 'una tarea' },
+  task_assigned:         { phrase: 'te asigno',                objectLabel: 'una tarea' },
   application_submitted: { phrase: 'se postulo a',             objectLabel: 'tu proyecto' },
   application_accepted:  { phrase: 'acepto tu postulacion a',  objectLabel: 'un proyecto' },
   application_rejected:  { phrase: 'actualizo tu postulacion a', objectLabel: 'un proyecto' },
@@ -108,12 +109,16 @@ async function maybeSendNotificationEmail(supabase: any, params: NotifyParams): 
     const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? ''
 
     const [{ data: recipient }, { data: actor }, { data: ws }] = await Promise.all([
-      supabase.from('profiles').select('email, display_name').eq('id', params.recipient_id).maybeSingle(),
+      supabase.from('profiles').select('email, display_name, email_notifications').eq('id', params.recipient_id).maybeSingle(),
       supabase.from('profiles').select('display_name').eq('id', params.subject_id).maybeSingle(),
       supabase.from('workspaces').select('slug').eq('id', params.workspace_id).maybeSingle(),
     ])
 
     if (!recipient?.email) return
+    // Preferencia por usuario (Circuito 2.B): si opto por NO recibir correos, se
+    // respeta. La notificacion in-app (Bandeja) siempre se crea; solo el correo
+    // es opt-out. La columna es DEFAULT true, asi que null/undefined = enviar.
+    if (recipient.email_notifications === false) return
 
     const slug = ws?.slug as string | undefined
     const url =
@@ -158,6 +163,14 @@ export async function createNotification(params: NotifyParams): Promise<void> {
     console.error('[createNotification] Error:', error)
   }
 }
+
+/**
+ * notify(), helper unico canonico de notificacion (Circuito 2.A). Escribe la
+ * notificacion in-app (Bandeja) y, si el tipo lo amerita y el usuario no opto por
+ * salirse, dispara el correo. Es el nombre preferido; createNotification queda
+ * como alias por compatibilidad con las rutas ya existentes.
+ */
+export const notify = createNotification
 
 /**
  * Notifica a los SEGUIDORES (watchers) de una tarea que se actualizo, excepto al
@@ -285,6 +298,7 @@ export const NotificationTypes = {
   PROJECT_REJECTED:      'project_rejected',      // al proponente: su proyecto fue rechazado
   PROJECT_PENDING_APPROVAL: 'project_pending_approval', // a admins: hay un proyecto por aprobar
   TASK_MENTIONED:        'task_mentioned',        // al mencionado: te nombraron en una tarea
+  TASK_ASSIGNED:         'task_assigned',         // al asignado: te asignaron una tarea (Circuito 2.A)
   NOTE_MENTIONED:        'note_mentioned',        // al mencionado: te nombraron en un comentario de nota
   TASK_UPDATED:          'task_updated',          // al seguidor: se actualizo una tarea que sigues
   TASK_COMMENTED:        'task_commented',        // al seguidor: alguien comento en una tarea que sigues

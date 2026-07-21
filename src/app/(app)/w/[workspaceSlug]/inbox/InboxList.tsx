@@ -39,6 +39,7 @@ const VERB_LABELS: Record<string, string> = {
   'comment.added':        'comentó en',
   'comment.mention':      'te mencionó en',
   'task_mentioned':       'te mencionó en',
+  'task_assigned':        'te asignó la tarea',
   'note_mentioned':       'te mencionó en la nota',
   'task_updated':         'actualizó la tarea que sigues',
   'task_commented':       'comentó en la tarea que sigues',

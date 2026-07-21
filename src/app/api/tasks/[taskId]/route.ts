@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
-import { logActivity, ActivityVerbs, NotificationTypes, notifyTaskWatchers } from '@/lib/activity'
+import { logActivity, notify, ActivityVerbs, NotificationTypes, notifyTaskWatchers } from '@/lib/activity'
 import { autoWatch } from '@/lib/watchers'
 import { nextRecurrenceDate, type RecurrenceRule } from '@/lib/recurrence'
 
@@ -183,6 +183,27 @@ export async function PATCH(
     taskTitle: updated.title,
     workspaceId: existing.workspace_id,
   }).catch(console.error)
+
+  // ── Asignacion (Circuito 2.A) ─────────────────────────────────────────────
+  // Si este PATCH cambio el asignado a una persona distinta (y no es el propio
+  // actor), avisarle directo a su Bandeja + correo (opt-out). Ademas lo pone a
+  // seguir la tarea para futuros cambios. Best effort, no bloquea la respuesta.
+  const assigneeChanged =
+    parsed.data.assignee_id !== undefined &&
+    parsed.data.assignee_id !== existing.assignee_id
+  const newAssignee = parsed.data.assignee_id
+  if (assigneeChanged && newAssignee && newAssignee !== user.id) {
+    autoWatch(admin, updated.id, existing.project_id, newAssignee).catch(console.error)
+    notify({
+      recipient_id: newAssignee,
+      subject_id:   user.id,
+      type:         NotificationTypes.TASK_ASSIGNED,
+      object_type:  'task',
+      object_id:    updated.id,
+      object_title: updated.title,
+      workspace_id: existing.workspace_id,
+    }).catch(console.error)
+  }
 
   // ── Recurrencia (Circuito B26) ────────────────────────────────────────────
   // Si esta PATCH movio la tarea a un estado categoria 'done' y la tarea (o

@@ -10,24 +10,29 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Check, Lock, User, Home } from 'lucide-react'
+import { Check, Lock, User, Home, Mail } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { AVATARS } from '@/lib/avatars'
 
 interface ProfileFormProps {
   initialName: string
   initialAvatar: string | null
+  initialEmailNotifications: boolean
   email: string
   isAdmin: boolean
 }
 
-export function ProfileForm({ initialName, initialAvatar, email, isAdmin }: ProfileFormProps) {
+export function ProfileForm({ initialName, initialAvatar, initialEmailNotifications, email, isAdmin }: ProfileFormProps) {
   const router = useRouter()
   const [name, setName] = useState(initialName)
   const [selected, setSelected] = useState<string | null>(initialAvatar)
+  const [emailNotif, setEmailNotif] = useState(initialEmailNotifications)
   const [saving, setSaving] = useState(false)
 
-  const dirty = name.trim() !== initialName || selected !== initialAvatar
+  const dirty =
+    name.trim() !== initialName ||
+    selected !== initialAvatar ||
+    emailNotif !== initialEmailNotifications
   const nameValid = name.trim().length >= 2
 
   const save = async () => {
@@ -37,7 +42,7 @@ export function ProfileForm({ initialName, initialAvatar, email, isAdmin }: Prof
       const res = await fetch('/api/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ display_name: name.trim(), avatar_url: selected }),
+        body: JSON.stringify({ display_name: name.trim(), avatar_url: selected, email_notifications: emailNotif }),
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error ?? 'Error al guardar')
@@ -157,6 +162,41 @@ export function ProfileForm({ initialName, initialAvatar, email, isAdmin }: Prof
             <Lock className="w-3 h-3" /> El husky está reservado para el Admin.
           </p>
         )}
+      </div>
+
+      {/* Notificaciones por correo (Circuito 2.B): opt-out por usuario */}
+      <div className="space-y-2.5 border-t border-border pt-5">
+        <p className="text-sm font-medium text-foreground">Notificaciones</p>
+        <button
+          type="button"
+          onClick={() => setEmailNotif(v => !v)}
+          disabled={saving}
+          className="w-full flex items-center gap-3 text-left rounded-lg border border-border p-3 hover:bg-muted/40 transition-colors disabled:opacity-50"
+        >
+          <span className="flex-shrink-0 w-9 h-9 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+            <Mail className="w-4 h-4" />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-medium text-foreground">Correos de menciones y asignaciones</span>
+            <span className="block text-xs text-muted-foreground mt-0.5">
+              Recibe un correo cuando te mencionen o te asignen una tarea. La Bandeja siempre te avisa dentro de la app.
+            </span>
+          </span>
+          <span
+            className={cn(
+              'flex-shrink-0 w-10 h-6 rounded-full p-0.5 transition-colors',
+              emailNotif ? 'bg-primary' : 'bg-muted-foreground/30'
+            )}
+            aria-hidden="true"
+          >
+            <span
+              className={cn(
+                'block w-5 h-5 rounded-full bg-background shadow-sm transition-transform',
+                emailNotif ? 'translate-x-4' : 'translate-x-0'
+              )}
+            />
+          </span>
+        </button>
       </div>
 
       {/* Acciones, sticky abajo para que el botón Guardar siempre se vea */}

@@ -8,6 +8,38 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Track 2: notificaciones confiables (asignaciones, correo opt-out, badge)
+
+Cierre de los huecos de notificación para que menciones y asignaciones SIEMPRE
+lleguen: a la Bandeja (in-app) y, si el usuario lo permite, por correo. Se agrega
+un badge de no leídos en el sidebar. Auditoría previa: menciones de tarea/nota y
+respuestas a comentarios ya escribían al inbox; el hueco real era la ASIGNACIÓN
+de tarea (el nuevo asignado no recibía nada) y la falta de preferencia de correo
+y de un indicador visible de pendientes.
+
+Qué cambió:
+- Migración `20260720600000` (aplicada a prod): columna aditiva
+  `profiles.email_notifications boolean NOT NULL DEFAULT true` (opt-out por
+  usuario, sin tocar RLS ni FKs).
+- `src/lib/activity.ts`: helper único canónico `notify()` (alias de
+  `createNotification`, el nombre preferido de aquí en adelante); nuevo tipo
+  `TASK_ASSIGNED`; `maybeSendNotificationEmail` respeta la preferencia del
+  usuario (si `email_notifications === false`, no manda correo; la Bandeja
+  siempre se escribe). `EMAIL_NOTIFY` incluye `task_assigned`.
+- Circuito 2.A (cerrar el hueco de asignación): `POST /api/tasks` y
+  `PATCH /api/tasks/[taskId]` avisan al nuevo asignado (Bandeja + correo opt-out)
+  y lo ponen a seguir la tarea. Nunca se auto-notifica el propio actor.
+- Circuito 2.C (badge): nuevo `GET /api/notifications/count?workspace=<slug>`
+  (cuenta exacta sin traer filas, scoping por workspace anti-IDOR) +
+  `src/components/sidebar/InboxBadge.tsx` (conteo inicial + realtime sobre
+  `notifications` del propio usuario + revalida al navegar y al enfocar la
+  pestaña). `Sidebar.tsx` inyecta el badge en el ítem Bandeja (pastilla azul
+  expandido, punto colapsado). `InboxList` mapea el label `task_assigned`.
+- Circuito 2.B (UI de preferencia): toggle "Correos de menciones y asignaciones"
+  en `/settings/profile` (ProfileForm + page + `PATCH /api/profile` aceptan
+  `email_notifications`).
+- tsc y build EXIT 0. Deploy prod `dpl_2G1Avjgfa8FNGT6aRDZvur8aZrq8`.
+
 ## 2026-07-20 — Chat V2, Circuito 1.B: adjuntar archivos al chat de equipo
 
 Segundo superpoder del chat: subir archivos desde el compositor. Las imágenes se

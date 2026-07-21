@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { WorkspaceSwitcher } from './WorkspaceSwitcher'
 import { NavSection } from './NavSection'
 import { UserMenu } from './UserMenu'
+import { InboxBadge } from './InboxBadge'
 import { useCommandPalette } from '@/stores/command-palette'
 import { useNewTask } from '@/stores/new-task'
 import { useMobileNav } from '@/stores/mobile-nav'
@@ -236,6 +237,15 @@ export function Sidebar({
               label={item.label}
               collapsed={collapsed}
               active={isActive(item.href, item.exact)}
+              badge={
+                item.href === `${base}/inbox` ? (
+                  <InboxBadge
+                    workspaceSlug={workspaceSlug}
+                    currentUserId={userProfile.id}
+                    collapsed={collapsed}
+                  />
+                ) : undefined
+              }
             />
           ))}
         </div>
@@ -415,19 +425,21 @@ function NavItem({
   label,
   collapsed,
   active,
+  badge,
 }: {
   href: string
   icon: React.ReactNode
   label: string
   collapsed: boolean
   active: boolean
+  badge?: React.ReactNode
 }) {
   return (
     <Link
       href={href}
       title={collapsed ? label : undefined}
       className={cn(
-        'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors',
+        'relative flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors',
         'hover:bg-accent hover:text-accent-foreground',
         collapsed && 'justify-center',
         active
@@ -437,6 +449,7 @@ function NavItem({
     >
       <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">{icon}</span>
       {!collapsed && <span className="truncate">{label}</span>}
+      {badge}
     </Link>
   )
 }
