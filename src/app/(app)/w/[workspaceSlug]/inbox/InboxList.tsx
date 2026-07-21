@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import Link from 'next/link'
-import { Check, Loader2, ArrowRight } from 'lucide-react'
+import { Check, Loader2, ArrowRight, Clock } from 'lucide-react'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 
@@ -21,7 +21,32 @@ interface Notification {
   object_title: string | null
   is_read: boolean
   created_at: string
+  snoozed_until?: string | null
   subject: { id: string; display_name: string; avatar_url: string | null } | null
+}
+
+// Presets de snooze. Se calculan al vuelo respecto a "ahora".
+function snoozePresets(): { label: string; at: Date }[] {
+  const now = new Date()
+  const inHours = (h: number) => new Date(now.getTime() + h * 3600_000)
+  // Esta tarde = hoy a las 17:00 si aun no pasa; si no, en 3 horas.
+  const thisAfternoon = new Date(now)
+  thisAfternoon.setHours(17, 0, 0, 0)
+  const afternoon = thisAfternoon > now ? thisAfternoon : inHours(3)
+  // Mañana a las 9:00.
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setHours(9, 0, 0, 0)
+  // Próxima semana: lunes a las 9:00.
+  const nextWeek = new Date(now)
+  nextWeek.setDate(nextWeek.getDate() + ((8 - nextWeek.getDay()) % 7 || 7))
+  nextWeek.setHours(9, 0, 0, 0)
+  return [
+    { label: 'En 1 hora', at: inHours(1) },
+    { label: 'Esta tarde', at: afternoon },
+    { label: 'Mañana', at: tomorrow },
+    { label: 'Próxima semana', at: nextWeek },
+  ]
 }
 
 interface InboxListProps {
@@ -60,6 +85,7 @@ export function InboxList({ initial, workspaceSlug, currentUserId }: InboxListPr
   const [notifications, setNotifications] = useState(initial)
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [marking, setMarking] = useState(false)
+  const [snoozeMenu, setSnoozeMenu] = useState<string | null>(null)
 
   // Colaboración en vivo: nuevas notificaciones aparecen sin recargar.
   useRealtimeRefresh({
@@ -68,10 +94,33 @@ export function InboxList({ initial, workspaceSlug, currentUserId }: InboxListPr
   })
   useEffect(() => { setNotifications(initial) }, [initial])
 
+  // Cerrar el menu de snooze al hacer clic fuera o con Escape.
+  useEffect(() => {
+    if (!snoozeMenu) return
+    const close = () => setSnoozeMenu(null)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSnoozeMenu(null) }
+    document.addEventListener('click', close)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('click', close); document.removeEventListener('keydown', onKey) }
+  }, [snoozeMenu])
+
   const unreadCount = notifications.filter(n => !n.is_read).length
   const filtered = filter === 'unread'
     ? notifications.filter(n => !n.is_read)
     : notifications
+
+  // Marca is_read en el servidor para un id (usado por markRead y por Deshacer).
+  async function setRead(id: string, value: boolean) {
+    try {
+      await fetch(`/api/notifications/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_read: value }),
+      })
+    } catch {
+      // silencioso: el estado optimista ya se revirtio o se dejo segun el flujo.
+    }
+  }
 
   async function markRead(id: string) {
     // Optimistic
@@ -81,6 +130,15 @@ export function InboxList({ initial, workspaceSlug, currentUserId }: InboxListPr
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_read: true }),
+      })
+      toast.success('Marcada como leída', {
+        action: {
+          label: 'Deshacer',
+          onClick: () => {
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: false } : n))
+            setRead(id, false)
+          },
+        },
       })
     } catch {
       // Revert
@@ -92,16 +150,61 @@ export function InboxList({ initial, workspaceSlug, currentUserId }: InboxListPr
     if (unreadCount === 0 || marking) return
     setMarking(true)
     const before = notifications
+    // Ids que realmente cambian (estaban sin leer): son los que Deshacer revierte.
+    const affected = before.filter(n => !n.is_read).map(n => n.id)
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
     try {
       const res = await fetch(`/api/notifications/mark-all-read`, { method: 'POST' })
       if (!res.ok) throw new Error()
-      toast.success(`${unreadCount} notificación(es) marcadas como leídas`)
+      toast.success(`${affected.length} notificación(es) marcadas como leídas`, {
+        action: {
+          label: 'Deshacer',
+          onClick: () => {
+            setNotifications(prev => prev.map(n => affected.includes(n.id) ? { ...n, is_read: false } : n))
+            // No hay endpoint bulk de "no leído": se revierte una por una.
+            affected.forEach(id => setRead(id, false))
+          },
+        },
+      })
     } catch {
       setNotifications(before)
       toast.error('Error al marcar todo como leído')
     } finally {
       setMarking(false)
+    }
+  }
+
+  // Posponer: oculta la notificacion de la bandeja hasta la hora elegida y deja
+  // un toast con Deshacer que la revive de inmediato.
+  async function snooze(notif: Notification, at: Date, label: string) {
+    const before = notifications
+    setNotifications(prev => prev.filter(n => n.id !== notif.id))
+    try {
+      const res = await fetch(`/api/notifications/${notif.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ snoozed_until: at.toISOString() }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success(`Pospuesta: ${label.toLowerCase()}`, {
+        action: {
+          label: 'Deshacer',
+          onClick: () => {
+            setNotifications(before)
+            setSnoozeMenu(null)
+            fetch(`/api/notifications/${notif.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ snoozed_until: null }),
+            }).catch(() => {})
+          },
+        },
+      })
+    } catch {
+      setNotifications(before)
+      toast.error('No se pudo posponer')
+    } finally {
+      setSnoozeMenu(null)
     }
   }
 
@@ -180,11 +283,14 @@ export function InboxList({ initial, workspaceSlug, currentUserId }: InboxListPr
           </p>
         ) : (
           filtered.map(notif => (
-            <button
+            <div
               key={notif.id}
+              role="button"
+              tabIndex={0}
               onClick={() => handleClick(notif)}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(notif) } }}
               className={cn(
-                'w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-accent/50 transition-colors group relative',
+                'w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-accent/50 transition-colors group relative cursor-pointer',
                 !notif.is_read && 'bg-primary/[0.03]'
               )}
             >
@@ -235,17 +341,52 @@ export function InboxList({ initial, workspaceSlug, currentUserId }: InboxListPr
                 </p>
               </div>
 
-              {/* Mark as read button (hover) */}
-              {!notif.is_read && (
+              {/* Acciones (hover): posponer + marcar leído */}
+              <div className="flex-shrink-0 flex items-center gap-0.5 relative">
                 <button
-                  onClick={e => { e.stopPropagation(); markRead(notif.id) }}
-                  className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-all p-1 rounded hover:bg-background"
-                  title="Marcar como leído"
+                  onClick={e => { e.stopPropagation(); setSnoozeMenu(snoozeMenu === notif.id ? null : notif.id) }}
+                  className={cn(
+                    'text-muted-foreground hover:text-foreground transition-all p-1 rounded hover:bg-background',
+                    snoozeMenu === notif.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  )}
+                  title="Posponer"
+                  aria-label="Posponer"
                 >
-                  <Check className="w-3.5 h-3.5" />
+                  <Clock className="w-3.5 h-3.5" />
                 </button>
-              )}
-            </button>
+
+                {snoozeMenu === notif.id && (
+                  <div
+                    className="absolute right-0 top-8 z-20 w-40 bg-popover border border-border rounded-lg shadow-lg py-1"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <p className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Posponer hasta
+                    </p>
+                    {snoozePresets().map(p => (
+                      <button
+                        key={p.label}
+                        onClick={e => { e.stopPropagation(); snooze(notif, p.at, p.label) }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!notif.is_read && (
+                  <button
+                    onClick={e => { e.stopPropagation(); markRead(notif.id) }}
+                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-all p-1 rounded hover:bg-background"
+                    title="Marcar como leído"
+                    aria-label="Marcar como leído"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
           ))
         )}
       </div>

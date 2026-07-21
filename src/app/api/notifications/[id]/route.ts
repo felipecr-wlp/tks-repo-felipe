@@ -1,5 +1,5 @@
 /**
- * PATCH  /api/notifications/[id], marcar como leído/no leído
+ * PATCH  /api/notifications/[id], marcar como leído/no leído o posponer (snooze)
  * DELETE /api/notifications/[id], eliminar notificación
  */
 import { NextRequest, NextResponse } from 'next/server'
@@ -11,9 +11,14 @@ interface RouteParams {
   params: { id: string }
 }
 
+// Se acepta is_read, snoozed_until, o ambos. Al menos uno debe venir.
 const patchSchema = z.object({
-  is_read: z.boolean(),
-})
+  is_read:       z.boolean().optional(),
+  snoozed_until: z.string().datetime().nullable().optional(),
+}).refine(
+  v => v.is_read !== undefined || v.snoozed_until !== undefined,
+  { message: 'Nada que actualizar' },
+)
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const limited = await applyRateLimit(request, 'api')
@@ -34,10 +39,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   const admin = createAdminClient()
 
+  const update: Record<string, unknown> = {}
+  if (parsed.data.is_read !== undefined) update.is_read = parsed.data.is_read
+  if (parsed.data.snoozed_until !== undefined) {
+    update.snoozed_until = parsed.data.snoozed_until
+    // Al posponer, se marca leída para que no cuente como pendiente mientras
+    // duerme (a menos que el cliente pida explícitamente is_read).
+    if (parsed.data.snoozed_until && parsed.data.is_read === undefined) update.is_read = true
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (admin as any)
     .from('notifications')
-    .update({ is_read: parsed.data.is_read })
+    .update(update)
     .eq('id', params.id)
     .eq('recipient_id', user.id)  // solo el destinatario puede modificar
 
