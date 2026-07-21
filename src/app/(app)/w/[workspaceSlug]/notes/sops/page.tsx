@@ -60,6 +60,11 @@ export default async function SopsPage({ params }: SopsPageProps) {
     `)
     .eq('workspace_id', workspace.id)
     .neq('doc_kind', 'note')
+    // Privadas ajenas fuera en la consulta (antes del limit), para no gastar
+    // slots del tope con documentos que igual se ocultarian. El gating de
+    // departamentos restringidos si queda en JS: depende de las membresias que
+    // se calculan mas abajo.
+    .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
     .order('updated_at', { ascending: false })
     .limit(500) as { data: RawSop[] | null; error: unknown }
 
@@ -91,7 +96,8 @@ export default async function SopsPage({ params }: SopsPageProps) {
 
   const sops: SopRow[] = (rawSops ?? [])
     .filter(n => {
-      if (n.visibility === 'private' && n.created_by !== user.id) return false
+      // La visibilidad privada ya se filtro en la consulta; aqui solo queda el
+      // gating de departamentos restringidos (necesita las membresias de arriba).
       if (n.space_id && blockedSpaceIds.has(n.space_id)) return false
       return true
     })

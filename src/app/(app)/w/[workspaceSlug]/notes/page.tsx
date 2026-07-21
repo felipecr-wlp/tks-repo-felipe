@@ -42,7 +42,10 @@ export default async function NotesPage({ params }: NotesPageProps) {
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
 
-  // Recientes (top 6, sin privadas de otros)
+  // Recientes (top 6, sin privadas de otros). El filtro de privadas va en la
+  // consulta (antes del limit), no en JS despues: si se filtrara despues, una
+  // nota privada ajena entre las mas recientes gastaria un slot y podria
+  // esconder una nota visible mas nueva del propio usuario.
   const { data: recent } = await admin
     .from('notes')
     .select(`
@@ -50,12 +53,11 @@ export default async function NotesPage({ params }: NotesPageProps) {
       author:profiles ( display_name )
     `)
     .eq('workspace_id', workspace.id)
+    .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
     .order('updated_at', { ascending: false })
-    .limit(20) as { data: (RecentNote & { visibility: string; created_by: string | null })[] | null; error: unknown }
+    .limit(6) as { data: (RecentNote & { visibility: string; created_by: string | null })[] | null; error: unknown }
 
-  const visibleRecent = (recent ?? []).filter(n =>
-    n.visibility !== 'private' || n.created_by === user.id
-  ).slice(0, 6)
+  const visibleRecent = recent ?? []
 
   const hasNotes = visibleRecent.length > 0
 
