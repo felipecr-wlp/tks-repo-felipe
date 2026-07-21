@@ -14,6 +14,13 @@ const patchSchema = z.object({
   is_archived: z.boolean().optional(),
   // Reasignar departamento (space) o soltarlo (null).
   space_id:    z.string().uuid().nullable().optional(),
+  // Limites WIP por categoria de columna (Kanban). null en una categoria =
+  // usar el limite sano derivado. Enteros 1..99.
+  wip_limits:  z.object({
+    todo:        z.number().int().min(1).max(99).nullable().optional(),
+    in_progress: z.number().int().min(1).max(99).nullable().optional(),
+    done:        z.number().int().min(1).max(99).nullable().optional(),
+  }).strict().nullable().optional(),
 }).strict()
 
 export async function PATCH(

@@ -12,7 +12,7 @@
  * Las mutaciones reusan la API existente (PATCH /api/tasks/[id] extendido con
  * la capa scrum) + /api/sprints. Tras cada cambio se hace router.refresh().
  */
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -29,7 +29,7 @@ import {
   Timer, Columns3, Target, Flame, UserX, X, Search,
   Users, Flag, ArrowDownUp, AlertTriangle, Rocket,
   Gauge, TrendingUp, CalendarClock, Layers, PieChart as PieIcon,
-  Play, ClipboardList, ArrowUpRight,
+  Play, ClipboardList, ArrowUpRight, SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -46,6 +46,7 @@ interface Props {
   workspaceId: string
   teamName: string
   methodology: Methodology
+  wipLimits?: Record<string, number | null> | null
   sprints: ScrumSprint[]
   tasks: ScrumTask[]
   statuses: ScrumStatus[]
@@ -116,7 +117,7 @@ function sortTasks(list: ScrumTask[], by: SortKey): ScrumTask[] {
 }
 
 export function ScrumWorkspace({
-  teamId, workspaceId, teamName, methodology: methodologyProp, sprints, tasks, statuses, members, currentUserId,
+  teamId, workspaceId, teamName, methodology: methodologyProp, wipLimits = null, sprints, tasks, statuses, members, currentUserId,
   soloProject = null,
 }: Props) {
   const router = useRouter()
@@ -129,6 +130,28 @@ export function ScrumWorkspace({
   const [methodology, setMethodology] = useState<Methodology>(methodologyProp)
   useEffect(() => { setMethodology(methodologyProp) }, [methodologyProp])
   const isKanban = methodology === 'kanban'
+
+  // Limites WIP por columna, configurables por el admin y persistidos en el
+  // equipo. Ausente/null en una categoria = usar el limite sano derivado (solo
+  // aplica a "en curso"). Optimista: se refleja al instante y revierte si falla.
+  const [wipCfg, setWipCfg] = useState<Record<string, number | null>>(wipLimits ?? {})
+  useEffect(() => { setWipCfg(wipLimits ?? {}) }, [wipLimits])
+  async function saveWip(next: Record<string, number | null>) {
+    const prev = wipCfg
+    setWipCfg(next)
+    try {
+      const res = await fetch(`/api/teams/${teamId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wip_limits: next }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Límites WIP actualizados')
+    } catch {
+      setWipCfg(prev)
+      toast.error('No se pudieron guardar los límites WIP')
+    }
+  }
 
   // Colaboración en vivo: si otro miembro mueve tareas o edita sprints, el
   // tablero se actualiza solo para todos.
@@ -406,7 +429,7 @@ export function ScrumWorkspace({
       <div className="flex-1 overflow-auto px-6 py-5">
         {isKanban ? (
           view === 'board' ? (
-            <BoardView tasks={localTasks} onMove={moveToCategory} onPoints={setPoints} onOpen={setOpenTaskId} statusFor={statusFor} members={members} teamId={teamId} kanban soloProject={soloProject} />
+            <BoardView tasks={localTasks} onMove={moveToCategory} onPoints={setPoints} onOpen={setOpenTaskId} statusFor={statusFor} members={members} teamId={teamId} kanban soloProject={soloProject} wipCfg={wipCfg} canConfigureWip={isAdmin} onSaveWip={saveWip} />
           ) : view === 'standup' ? (
             <StandupView sprint={null} tasks={localTasks} members={members} onOpen={setOpenTaskId} />
           ) : (
@@ -828,6 +851,7 @@ function SprintHeaderCard({ sprint, summary }: { sprint: ScrumSprint; summary: S
 /* ════════════════════════════════════════════════════════════════════════ */
 function BoardView({
   tasks, onMove, onPoints, onOpen, statusFor, members, teamId, kanban, soloProject = null,
+  wipCfg = {}, canConfigureWip = false, onSaveWip,
 }: {
   tasks: ScrumTask[]
   onMove: (t: ScrumTask, cat: string) => void
@@ -838,6 +862,9 @@ function BoardView({
   teamId: string
   kanban?: boolean
   soloProject?: { name: string; href: string } | null
+  wipCfg?: Record<string, number | null>
+  canConfigureWip?: boolean
+  onSaveWip?: (next: Record<string, number | null>) => void
 }) {
   // Drag-and-drop nativo: arrastrar entre columnas es el gesto que la gente
   // espera de un tablero. Los botones de icono mueven la tarjeta como respaldo
@@ -846,6 +873,7 @@ function BoardView({
   // Resalte de drop acotado por carril: `${laneId}:${category}`, para no
   // iluminar la misma categoría en todos los carriles a la vez.
   const [overKey, setOverKey] = useState<string | null>(null)
+  const [wipOpen, setWipOpen] = useState(false)
 
   // ── Barra de control (más gobernable): filtra el tablero por texto, persona,
   // vencidas y sin dueño; agrupa en carriles; ordena dentro de cada columna.
@@ -924,7 +952,16 @@ function BoardView({
   }, [tasks, query, pick, pickProject, onlyOverdue, onlyUnassigned])
 
   const dragTask = dragId ? visible.find(t => t.id === dragId) ?? null : null
-  const wipLimit = Math.max(members.length * 2, 3)
+  // Limite sano derivado (2 por miembro) como respaldo cuando no hay config.
+  const derivedWip = Math.max(members.length * 2, 3)
+  // Limite efectivo por columna: el configurado gana; si no, solo "en curso"
+  // usa el derivado (las demas columnas no tienen tope salvo que se configure).
+  const effWip = (cat: string): number | null => {
+    const v = wipCfg[cat]
+    if (typeof v === 'number') return v
+    return cat === 'in_progress' ? derivedWip : null
+  }
+  const wipLimit = effWip('in_progress') as number
   const filtering = query.trim() !== '' || pick.size > 0 || pickProject.size > 0 || onlyOverdue || onlyUnassigned
 
   // Resumen de salud del tablero: lectura rápida de qué tan sano está el flujo.
@@ -1016,7 +1053,8 @@ function BoardView({
           // Alerta de WIP: solo tiene sentido sin carriles (el límite es del
           // equipo, no por persona). En Kanban la columna "en curso" no debería
           // rebasar el límite sano (2 por persona); si lo hace, se atasca.
-          const wipWarn = kanban && groupBy === 'none' && col.category === 'in_progress' && colTasks.length > wipLimit
+          const colLimit = effWip(col.category)
+          const wipWarn = kanban && groupBy === 'none' && colLimit != null && colTasks.length > colLimit
           return (
             <div
               key={col.category}
@@ -1034,16 +1072,17 @@ function BoardView({
                   <h3 className={cn('text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5', cm.header)}>
                     <ColIcon className={cn('w-3.5 h-3.5', col.category === 'in_progress' && 'animate-spin [animation-duration:3s]')} />
                     {col.label}
-                    {wipWarn && <AlertTriangle className="w-3.5 h-3.5 text-orange-500" aria-label={`WIP alto: ${colTasks.length} en curso (sano ${wipLimit})`} />}
+                    {wipWarn && <AlertTriangle className="w-3.5 h-3.5 text-orange-500" aria-label={`WIP alto: ${colTasks.length} (límite ${colLimit})`} />}
                   </h3>
                   {kanban ? (
                     // Kanban se rige por límite WIP (conteo), no por story points.
-                    col.category === 'in_progress' ? (
+                    // Muestra el tope en cualquier columna que tenga uno efectivo.
+                    colLimit != null ? (
                       <span className={cn(
                         'text-[11px] tabular-nums px-1.5 py-0.5 rounded-full font-medium',
-                        colTasks.length > wipLimit ? 'bg-orange-100 text-orange-700' : 'bg-blue-500/10 text-blue-600',
+                        colTasks.length > colLimit ? 'bg-orange-100 text-orange-700' : 'bg-blue-500/10 text-blue-600',
                       )}>
-                        {colTasks.length} / {wipLimit} WIP
+                        {colTasks.length} / {colLimit} WIP
                       </span>
                     ) : (
                       <span className="text-[11px] text-muted-foreground tabular-nums">{colTasks.length}</span>
@@ -1151,12 +1190,32 @@ function BoardView({
       {kanban ? (
         <div className="flex items-start gap-2.5 rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2">
           <Columns3 className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-blue-700">Flujo continuo (Kanban)</p>
             <p className="text-[11px] text-muted-foreground">
               Sin sprints: las tareas fluyen de izquierda a derecha. Vigila el límite WIP para no saturar &quot;En curso&quot;.
             </p>
           </div>
+          {canConfigureWip && (
+            <div className="relative flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setWipOpen(o => !o)}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:text-blue-800 px-2 py-1 rounded-md hover:bg-blue-500/10 transition-colors"
+                aria-haspopup="dialog"
+                aria-expanded={wipOpen}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" /> Límites WIP
+              </button>
+              {wipOpen && (
+                <WipConfigMenu
+                  current={wipCfg}
+                  onClose={() => setWipOpen(false)}
+                  onSave={next => { onSaveWip?.(next); setWipOpen(false) }}
+                />
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
@@ -1359,6 +1418,103 @@ function BoardView({
             ))}
           </div>
         )}
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* Configurador de límites WIP por columna (Kanban, solo admin)               */
+/* ════════════════════════════════════════════════════════════════════════ */
+function WipConfigMenu({
+  current, onClose, onSave,
+}: {
+  current: Record<string, number | null>
+  onClose: () => void
+  onSave: (next: Record<string, number | null>) => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const toStr = (v: number | null | undefined) => (typeof v === 'number' ? String(v) : '')
+  const [draft, setDraft] = useState<Record<string, string>>({
+    todo:        toStr(current.todo),
+    in_progress: toStr(current.in_progress),
+    done:        toStr(current.done),
+  })
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+
+  function commit() {
+    const parseOne = (s: string): number | null => {
+      const n = parseInt(s, 10)
+      if (!Number.isFinite(n)) return null
+      return Math.min(99, Math.max(1, n))
+    }
+    onSave({
+      todo:        parseOne(draft.todo),
+      in_progress: parseOne(draft.in_progress),
+      done:        parseOne(draft.done),
+    })
+  }
+
+  return (
+    <div
+      ref={ref}
+      role="dialog"
+      className="absolute right-0 top-full mt-1 z-30 w-64 rounded-xl border border-border bg-popover shadow-lg p-3"
+    >
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-semibold text-foreground">Límites WIP por columna</p>
+        <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Cerrar">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <p className="text-[11px] text-muted-foreground mb-3">
+        Máximo de tarjetas por columna. Vacío = automático (2 por miembro en &quot;En progreso&quot;).
+      </p>
+      <div className="space-y-2">
+        {SCRUM_COLUMNS.map(col => (
+          <div key={col.category} className="flex items-center justify-between gap-2">
+            <label htmlFor={`wip-${col.category}`} className="text-xs text-foreground">{col.label}</label>
+            <input
+              id={`wip-${col.category}`}
+              type="number"
+              min={1}
+              max={99}
+              inputMode="numeric"
+              placeholder="Auto"
+              value={draft[col.category] ?? ''}
+              onChange={e => setDraft(d => ({ ...d, [col.category]: e.target.value }))}
+              className="w-16 text-xs tabular-nums px-2 py-1 rounded-md border border-border bg-background text-right focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-between gap-2 mt-3">
+        <button
+          type="button"
+          onClick={() => setDraft({ todo: '', in_progress: '', done: '' })}
+          className="text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          Restablecer
+        </button>
+        <button
+          type="button"
+          onClick={commit}
+          className="text-xs font-medium px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+        >
+          Guardar
+        </button>
+      </div>
     </div>
   )
 }

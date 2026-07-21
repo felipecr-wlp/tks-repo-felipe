@@ -24,6 +24,7 @@ export interface TeamViewerContext {
     methodology: string | null
     is_archived: boolean
     space_id: string | null
+    wip_limits: Record<string, number | null> | null
   }
   role: string | null // rol en el equipo si es miembro, si no null
   isAdmin: boolean // admin del workspace/org
@@ -194,7 +195,7 @@ export async function resolveTeamForViewer(
 
   const { data: team } = (await admin
     .from('teams')
-    .select('id, name, slug, description, workspace_id, methodology, is_archived, space_id')
+    .select('id, name, slug, description, workspace_id, methodology, is_archived, space_id, wip_limits')
     .eq('slug', teamSlug)
     .eq('workspace_id', workspace.id)
     .limit(1)
