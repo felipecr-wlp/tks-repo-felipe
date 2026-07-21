@@ -23,6 +23,8 @@ import {
   Compass,
   Ticket,
   Settings,
+  GraduationCap,
+  ArrowRight,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -257,6 +259,20 @@ export function OnboardingGuide({ workspaceSlug, workspaceId, userId, steps, isA
             </Link>
           </div>
         )}
+      </div>
+
+      {/* Enlace al curso completo */}
+      <div className="border-t border-border/60 px-6 py-3">
+        <Link
+          href={`${base}/guia`}
+          className="flex items-center justify-between gap-2 rounded-xl bg-primary/5 px-4 py-3 text-sm transition-colors hover:bg-primary/10"
+        >
+          <span className="flex items-center gap-2 font-medium text-foreground">
+            <GraduationCap size={16} className="text-primary" />
+            ¿Nuevo por aquí? Toma el curso de uso completo
+          </span>
+          <ArrowRight size={15} className="flex-shrink-0 text-primary" />
+        </Link>
       </div>
     </div>
   )

@@ -29,6 +29,7 @@ import {
   PenTool,
   Compass,
   IdCard,
+  GraduationCap,
   Search,
   ChevronLeft,
   ChevronDown,
@@ -123,6 +124,7 @@ export function Sidebar({
 
   const workspaceItems: Array<{ href: string; icon: LucideIcon; label: string; exact?: boolean }> = [
     { href: base, icon: Home, label: 'Inicio', exact: true },
+    { href: `${base}/guia`, icon: GraduationCap, label: 'Guía' },
     { href: `${base}/calendar`, icon: CalendarDays, label: 'Calendario' },
     { href: `${base}/notes`, icon: FileText, label: 'Notas' },
     { href: `${base}/whiteboards`, icon: PenTool, label: 'Pizarras' },
