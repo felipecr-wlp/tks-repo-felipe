@@ -18,7 +18,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import { NotificationTypes } from '@/lib/activity'
+import { NotificationTypes, notify } from '@/lib/activity'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -47,6 +47,57 @@ type TaskRow = {
 
 type NotifRow = { recipient_id: string; object_id: string | null; type: string }
 
+type ReminderRow = {
+  id: string
+  workspace_id: string | null
+  creator_id: string
+  target_id: string
+  body: string | null
+  remind_at: string
+}
+
+/**
+ * Segundo barrido del cron: recordatorios programados desde el chat (Circuito
+ * 1.C). Entrega los que ya vencieron (status 'pending' y remind_at <= now) al
+ * inbox via notify() (y por correo si el tipo lo amerita y el destinatario no
+ * opto por salirse), luego los marca 'sent'. Best effort; nunca lanza.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function deliverReminders(supabase: any, nowIso: string): Promise<number> {
+  const { data: due } = await supabase
+    .from('reminders')
+    .select('id, workspace_id, creator_id, target_id, body, remind_at')
+    .eq('status', 'pending')
+    .lte('remind_at', nowIso)
+    .limit(500) as { data: ReminderRow[] | null; error: unknown }
+
+  const list = due ?? []
+  if (list.length === 0) return 0
+
+  const deliveredIds: string[] = []
+  for (const r of list) {
+    if (!r.workspace_id) { deliveredIds.push(r.id); continue } // sin workspace: solo sella
+    await notify({
+      recipient_id: r.target_id,
+      subject_id:   r.creator_id,
+      type:         NotificationTypes.REMINDER,
+      object_type:  'reminder',
+      object_id:    r.id,
+      object_title: (r.body && r.body.trim().length > 0) ? r.body.trim() : 'Recordatorio',
+      workspace_id: r.workspace_id,
+    })
+    deliveredIds.push(r.id)
+  }
+
+  if (deliveredIds.length > 0) {
+    await supabase
+      .from('reminders')
+      .update({ status: 'sent', sent_at: nowIso })
+      .in('id', deliveredIds)
+  }
+  return deliveredIds.length
+}
+
 export async function GET(request: NextRequest) {
   // ── Auth obligatoria por secreto ───────────────────────────────────────────
   // Antes el secreto era opcional y sin CRON_SECRET el endpoint quedaba abierto
@@ -70,6 +121,15 @@ export async function GET(request: NextRequest) {
   const now = new Date()
   const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)
 
+  // ── Recordatorios del chat (Circuito 1.C) ───────────────────────────────────
+  // Corre siempre, independiente de las tareas por vencer.
+  let remindersSent = 0
+  try {
+    remindersSent = await deliverReminders(supabase, now.toISOString())
+  } catch (e) {
+    console.error('[due-reminders] error entregando recordatorios:', e)
+  }
+
   // ── Tareas activas, con asignado y fecha, que vencen dentro de 24h o antes ──
   const { data: tasks, error } = await supabase
     .from('tasks')
@@ -89,7 +149,7 @@ export async function GET(request: NextRequest) {
   )
 
   if (candidates.length === 0) {
-    return NextResponse.json({ ok: true, scanned: 0, created: 0 })
+    return NextResponse.json({ ok: true, scanned: 0, created: 0, remindersSent })
   }
 
   // ── Dedup: notificaciones recordatorio de las ultimas 20h ───────────────────
@@ -132,5 +192,5 @@ export async function GET(request: NextRequest) {
     created = rows.length
   }
 
-  return NextResponse.json({ ok: true, scanned: candidates.length, created })
+  return NextResponse.json({ ok: true, scanned: candidates.length, created, remindersSent })
 }

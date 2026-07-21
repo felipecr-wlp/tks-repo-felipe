@@ -86,6 +86,7 @@ const EMAIL_NOTIFY: Record<string, { phrase: string; objectLabel: string }> = {
   note_mentioned:        { phrase: 'te menciono en',            objectLabel: 'una nota' },
   task_commented:        { phrase: 'comento en',               objectLabel: 'una tarea' },
   task_assigned:         { phrase: 'te asigno',                objectLabel: 'una tarea' },
+  reminder:              { phrase: 'te recuerda',              objectLabel: 'algo' },
   application_submitted: { phrase: 'se postulo a',             objectLabel: 'tu proyecto' },
   application_accepted:  { phrase: 'acepto tu postulacion a',  objectLabel: 'un proyecto' },
   application_rejected:  { phrase: 'actualizo tu postulacion a', objectLabel: 'un proyecto' },
@@ -308,4 +309,5 @@ export const NotificationTypes = {
   SOP_REVIEW_OVERDUE:    'sop_review_overdue',    // al owner del SOP: la fecha de revision ya paso (recordatorio diario, sistema)
   SOP_REVIEW_DUE_SOON:   'sop_review_due_soon',   // al owner del SOP: la revision vence dentro de 7 dias (recordatorio diario, sistema)
   SOP_ASSIGNED:          'sop_assigned',          // al lector requerido: debes leer y confirmar este documento
+  REMINDER:              'reminder',              // recordatorio programado desde el chat (Circuito 1.C)
 } as const

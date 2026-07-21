@@ -8,6 +8,43 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Circuito 1.C: recordatorios desde el chat
+
+Desde cualquier mensaje del chat de equipo se puede crear un recordatorio (para
+uno mismo o para otro miembro del equipo) con fecha y hora. Llega a la Bandeja
+(in-app) cuando toca, y por correo si el destinatario no optó por salirse. Se
+engancha al cron `due-reminders` ya existente (un segundo barrido), sin agregar
+otro cron.
+
+Qué cambió:
+- Migración `20260720700000` (aplicada a prod): tabla aditiva `reminders`
+  (`workspace_id`, `team_id`, `creator_id`, `target_id`, `message_id` nullable,
+  `body`, `remind_at`, `status` con CHECK pending/sent/canceled, `sent_at`).
+  Landmine-safe: todos los FK apuntan hacia afuera (sin ciclo, evita HTTP 300);
+  RLS habilitada con SELECT por dueño/destinatario SIN subquery a la propia tabla
+  (evita 42P17); las escrituras van solo por el service/admin client. Índices
+  `reminders_due_idx (status, remind_at)` y `reminders_target_idx`.
+- `src/lib/activity.ts`: nuevo tipo `REMINDER` + entrada en `EMAIL_NOTIFY`
+  (`reminder` -> "te recuerda").
+- `POST /api/teams/[teamId]/reminders` (nuevo): gateado por `canAccessTeamById`;
+  valida que `target_id` (si viene) sea miembro del equipo y que `message_id`
+  pertenezca al equipo (anti-IDOR); `creator_id` del usuario autenticado; exige
+  `remind_at` futuro y a menos de 1 año.
+- `src/app/api/cron/due-reminders/route.ts`: segundo barrido `deliverReminders`
+  que entrega los recordatorios `pending` con `remind_at <= now` vía `notify()`
+  (Bandeja + correo opt-out) y los marca `sent`. Corre siempre, independiente de
+  las tareas por vencer; la respuesta incluye `remindersSent`.
+- UI: `src/components/chat/ReminderButton.tsx` (nuevo), botón de reloj que aparece
+  al hover del mensaje junto al de reacciones; popover con opciones rápidas (en
+  1h, en 3h, mañana 9:00, próx. lunes), selector de destinatario (solo para mí /
+  miembro) y fecha/hora personalizada. Cableado en `TeamChat.tsx` (acciones del
+  mensaje agrupadas).
+- `InboxList.tsx`: etiqueta `reminder` -> "te recuerda:".
+
+tsc EXIT 0, build EXIT 0. Deploy prod `dpl_GbNETUMkyceFbg2BjSCZrto8rWcr`.
+
+---
+
 ## 2026-07-20 — Track 2: notificaciones confiables (asignaciones, correo opt-out, badge)
 
 Cierre de los huecos de notificación para que menciones y asignaciones SIEMPRE

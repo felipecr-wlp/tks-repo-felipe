@@ -17,6 +17,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { TaskAttachPicker, type PickerTask } from './TaskAttachPicker'
 import { TaskCardChip, type ResolvedTaskCard } from './TaskCardChip'
+import { ReminderButton } from './ReminderButton'
 
 // Set de emojis del picker. Debe coincidir con el whitelist del endpoint
 // /api/teams/[teamId]/messages/[messageId]/reactions para que el toggle sea
@@ -552,7 +553,17 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
                     )}
                   </div>
 
-                  {/* Disparador del picker (aparece al hover del mensaje). */}
+                  {/* Acciones del mensaje (aparecen al hover): recordatorio + reaccion. */}
+                  <div className={cn('flex items-center gap-0.5', mine && 'flex-row-reverse')}>
+                  <ReminderButton
+                    teamId={teamId}
+                    messageId={msg.id}
+                    messageBody={msg.body}
+                    members={members}
+                    currentUserId={currentUserId}
+                    mine={mine}
+                    hoverClass="opacity-0 group-hover/msg:opacity-100"
+                  />
                   <div className="relative flex-shrink-0">
                     <button
                       onClick={() => setPickerFor(pickerFor === msg.id ? null : msg.id)}
@@ -584,6 +595,7 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
                         </div>
                       </>
                     )}
+                  </div>
                   </div>
                 </div>
 
