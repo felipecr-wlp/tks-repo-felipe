@@ -45,6 +45,13 @@ interface MemberJoinRow {
   profile: { id: string; display_name: string; avatar_url: string | null } | null
 }
 
+interface ReactionRow {
+  id: string
+  message_id: string
+  profile_id: string
+  emoji: string
+}
+
 // Filtra los adjuntos de tarea dejando solo los que pertenecen al equipo (una
 // tarea es del equipo si su proyecto tiene team_id = team_id). Anti-IDOR: nunca
 // confiamos en el task_id del body sin validar la pertenencia al equipo.
@@ -125,7 +132,18 @@ export async function GET(request: NextRequest) {
     members = (memberRows ?? []).filter(m => m.profile != null).map(m => m.profile!)
   }
 
-  return NextResponse.json({ messages: page, hasMore, members })
+  // Reacciones de los mensajes de esta página (para pintar pills al abrir).
+  let reactions: ReactionRow[] = []
+  const pageIds = page.map(m => m.id)
+  if (pageIds.length > 0) {
+    const { data: rxRows } = await admin
+      .from('team_message_reactions')
+      .select('id, message_id, profile_id, emoji')
+      .in('message_id', pageIds) as { data: ReactionRow[] | null; error: unknown }
+    reactions = rxRows ?? []
+  }
+
+  return NextResponse.json({ messages: page, hasMore, members, reactions })
 }
 
 export async function POST(request: NextRequest) {

@@ -55,6 +55,18 @@ export default async function ChatPage({ params }: ChatPageProps) {
 
   const messages = (msgRows ?? []).slice().reverse()
 
+  // ── Reacciones de los mensajes cargados (para pintar pills al entrar) ──────
+  type ReactionRow = { id: string; message_id: string; profile_id: string; emoji: string }
+  const messageIds = messages.map(m => m.id)
+  let reactions: ReactionRow[] = []
+  if (messageIds.length > 0) {
+    const { data: rxRows } = await admin
+      .from('team_message_reactions')
+      .select('id, message_id, profile_id, emoji')
+      .in('message_id', messageIds) as { data: ReactionRow[] | null; error: unknown }
+    reactions = rxRows ?? []
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 pt-4 pb-2 border-b border-border">
@@ -77,6 +89,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
         currentUserId={userId}
         members={members}
         initialMessages={messages}
+        initialReactions={reactions}
       />
     </div>
   )

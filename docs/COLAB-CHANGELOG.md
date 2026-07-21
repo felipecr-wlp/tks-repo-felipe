@@ -8,6 +8,34 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Chat V2, Circuito 1.D: reacciones emoji en mensajes de equipo
+
+El chat de equipo gana reacciones emoji en vivo (el chat de proyecto ya las tenía
+sobre `message_reactions`). Al pasar el cursor sobre un mensaje aparece un
+disparador (SmilePlus) con el set fijo de 8 emojis; al reaccionar se pinta una
+pill con conteo agregado por emoji y se resalta la propia. El conteo se sincroniza
+entre sesiones por realtime. Aplica al chat completo y a la burbuja flotante
+(ambos reusan `TeamChat`).
+
+Qué cambió:
+- Migración `20260720510000_team_message_reactions.sql` (aplicada a prod): tabla
+  nueva `team_message_reactions` (message_id/team_id/profile_id/emoji, UNIQUE por
+  persona+emoji+mensaje, FKs con `ON DELETE CASCADE`, `REPLICA IDENTITY FULL` para
+  que el DELETE de realtime traiga team_id). Espeja `message_reactions` sin tocarla.
+  RLS con policies select/insert/delete (miembro del equipo o del workspace o
+  admin). Sin ciclos de FK ni subqueries a la propia tabla: inmune a los landmines.
+  Se agrega a la publicación `supabase_realtime`.
+- Nuevo endpoint `POST /api/teams/[teamId]/messages/[messageId]/reactions`: toggle
+  con whitelist de emojis, gateado por `canAccessTeamById`, valida que el mensaje
+  pertenezca al equipo (anti-IDOR) y toma `profile_id` del usuario autenticado.
+- `src/app/api/messages/route.ts` (GET) y el server component del chat devuelven
+  ahora `reactions` de los mensajes cargados para pintar las pills al entrar.
+- Cliente `TeamChat.tsx`: estado de reacciones, agregación por mensaje/emoji,
+  toggle optimista con reversión, picker con Escape/overlay y pills; dos handlers
+  realtime nuevos (INSERT/DELETE de `team_message_reactions`) en el mismo canal
+  `chat-${teamId}`. `FloatingChat` propaga `initialReactions` por equipo cacheado.
+- tsc y build EXIT 0. Deploy prod `dpl_7Edj9zPveovEUkQZytrf7wsgKwuL`.
+
 ## 2026-07-20 — Chat V2, Circuito 1.A: adjuntar una tarea al mensaje
 
 Primer superpoder del chat de equipo. Desde el compositor se abre un buscador de

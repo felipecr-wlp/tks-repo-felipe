@@ -35,9 +35,17 @@ interface Message {
   attachments?: { type: 'task'; task_id: string }[] | null
 }
 
+interface Reaction {
+  id: string
+  message_id: string
+  profile_id: string
+  emoji: string
+}
+
 interface LoadedTeam {
   members: Member[]
   initialMessages: Message[]
+  initialReactions: Reaction[]
 }
 
 interface FloatingChatProps {
@@ -67,11 +75,15 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
     setLoadError(false)
     fetch(`/api/messages?team_id=${active.id}&limit=30`)
       .then(res => (res.ok ? res.json() : Promise.reject(new Error('load'))))
-      .then((data: { messages: Message[]; members: Member[] }) => {
+      .then((data: { messages: Message[]; members: Member[]; reactions?: Reaction[] }) => {
         if (cancelled) return
         setLoaded(prev => ({
           ...prev,
-          [active.id]: { members: data.members ?? [], initialMessages: data.messages ?? [] },
+          [active.id]: {
+            members: data.members ?? [],
+            initialMessages: data.messages ?? [],
+            initialReactions: data.reactions ?? [],
+          },
         }))
       })
       // Antes: .catch(() => {}) dejaba "Cargando..." infinito sin feedback.
@@ -167,6 +179,7 @@ export function FloatingChat({ workspaceSlug, currentUserId, teams }: FloatingCh
                 currentUserId={currentUserId}
                 members={loaded[active.id].members}
                 initialMessages={loaded[active.id].initialMessages}
+                initialReactions={loaded[active.id].initialReactions}
               />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">

@@ -12,16 +12,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
-import { MessageSquare, Loader2, ListChecks, X } from 'lucide-react'
+import { MessageSquare, Loader2, ListChecks, X, SmilePlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { TaskAttachPicker, type PickerTask } from './TaskAttachPicker'
 import { TaskCardChip, type ResolvedTaskCard } from './TaskCardChip'
 
+// Set de emojis del picker. Debe coincidir con el whitelist del endpoint
+// /api/teams/[teamId]/messages/[messageId]/reactions para que el toggle sea
+// consistente entre cliente y servidor.
+const EMOJIS = ['👍', '❤️', '😄', '🎉', '🙌', '👀', '🔥', '✅'] as const
+
 interface Member {
   id: string
   display_name: string
   avatar_url: string | null
+}
+
+interface Reaction {
+  id: string
+  message_id: string
+  profile_id: string
+  emoji: string
 }
 
 interface TaskAttachment {
@@ -43,10 +55,13 @@ interface TeamChatProps {
   currentUserId: string
   members: Member[]
   initialMessages: Message[]
+  initialReactions?: Reaction[]
 }
 
-export function TeamChat({ teamId, currentUserId, members, initialMessages }: TeamChatProps) {
+export function TeamChat({ teamId, currentUserId, members, initialMessages, initialReactions = [] }: TeamChatProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages)
+  const [reactions, setReactions] = useState<Reaction[]>(initialReactions)
+  const [pickerFor, setPickerFor] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   // Historial: asumimos que hay más si la carga inicial vino "llena".
@@ -68,6 +83,70 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages }: Te
     for (const mem of members) m.set(mem.id, mem)
     return m
   }, [members])
+
+  // Reacciones agrupadas por mensaje, y dentro por emoji (pills con conteo y si
+  // la persona actual ya reaccionó).
+  const reactionsByMessage = useMemo(() => {
+    const map = new Map<string, { emoji: string; count: number; mine: boolean; who: string[] }[]>()
+    const nested = new Map<string, Map<string, { count: number; mine: boolean; who: string[] }>>()
+    for (const r of reactions) {
+      if (!nested.has(r.message_id)) nested.set(r.message_id, new Map())
+      const byEmoji = nested.get(r.message_id)!
+      const cur = byEmoji.get(r.emoji) ?? { count: 0, mine: false, who: [] }
+      cur.count += 1
+      if (r.profile_id === currentUserId) cur.mine = true
+      cur.who.push(r.profile_id)
+      byEmoji.set(r.emoji, cur)
+    }
+    for (const [msgId, byEmoji] of nested) {
+      map.set(msgId, [...byEmoji.entries()].map(([emoji, v]) => ({ emoji, ...v })))
+    }
+    return map
+  }, [reactions, currentUserId])
+
+  // Dedupe de reacciones por id (INSERT propio + realtime pueden coincidir).
+  function upsertReaction(r: Reaction) {
+    setReactions(prev => (prev.some(x => x.id === r.id) ? prev : [...prev, r]))
+  }
+  function removeReaction(id: string) {
+    setReactions(prev => prev.filter(x => x.id !== id))
+  }
+
+  // Escape cierra el picker de reacciones (el overlay solo cubre click/touch).
+  useEffect(() => {
+    if (!pickerFor) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPickerFor(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [pickerFor])
+
+  // Alterna una reacción con update optimista; el realtime confirma o corrige.
+  async function toggleReaction(messageId: string, emoji: string) {
+    setPickerFor(null)
+    const existing = reactions.find(
+      r => r.message_id === messageId && r.profile_id === currentUserId && r.emoji === emoji
+    )
+    const tempId = `temp-${messageId}-${emoji}`
+    if (existing) {
+      removeReaction(existing.id)
+    } else {
+      upsertReaction({ id: tempId, message_id: messageId, profile_id: currentUserId, emoji })
+    }
+    try {
+      const res = await fetch(`/api/teams/${teamId}/messages/${messageId}/reactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji }),
+      })
+      if (!res.ok) throw new Error('reaction failed')
+      // Quitar el placeholder; el registro real llega por realtime.
+      removeReaction(tempId)
+    } catch {
+      removeReaction(tempId)
+      if (existing) upsertReaction(existing)
+      toast.error('No se pudo actualizar la reacción')
+    }
+  }
 
   // Resuelve en lote las tarjetas de tarea que aparecen en los mensajes y aún no
   // están en cache. Cubre tanto el historial como los mensajes que llegan por
@@ -143,6 +222,20 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages }: Te
           upsertMessage(row)
         }
       )
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'INSERT', schema: 'public', table: 'team_message_reactions', filter: `team_id=eq.${teamId}` },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (payload: any) => { upsertReaction(payload.new as Reaction) }
+      )
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'postgres_changes' as any,
+        { event: 'DELETE', schema: 'public', table: 'team_message_reactions', filter: `team_id=eq.${teamId}` },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (payload: any) => { if (payload.old?.id) removeReaction(payload.old.id as string) }
+      )
       .subscribe()
 
     return () => { supabase.removeChannel(ch) }
@@ -170,13 +263,20 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages }: Te
       if (oldest) params.set('before', oldest)
       const res = await fetch(`/api/messages?${params.toString()}`)
       if (!res.ok) throw new Error('load failed')
-      const data = (await res.json()) as { messages: Message[]; hasMore: boolean }
+      const data = (await res.json()) as { messages: Message[]; hasMore: boolean; reactions?: Reaction[] }
       prependingRef.current = true
       setMessages(prev => {
         const seen = new Set(prev.map(m => m.id))
         const older = data.messages.filter(m => !seen.has(m.id))
         return [...older, ...prev]
       })
+      if (data.reactions?.length) {
+        setReactions(prev => {
+          const seen = new Set(prev.map(r => r.id))
+          const extra = data.reactions!.filter(r => !seen.has(r.id))
+          return extra.length ? [...prev, ...extra] : prev
+        })
+      }
       setHasMore(data.hasMore)
       // Preservar posición: mantener el mismo mensaje bajo la vista.
       requestAnimationFrame(() => {
@@ -306,27 +406,91 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages }: Te
                     </span>
                   </div>
                 )}
-                {msg.body && (
-                  <div
-                    className={cn(
-                      'px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words',
-                      mine
-                        ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                        : 'bg-muted text-foreground rounded-tl-sm'
+                <div className={cn('group/msg relative flex items-end gap-1', mine && 'flex-row-reverse')}>
+                  <div className={cn('flex flex-col gap-1 min-w-0', mine && 'items-end')}>
+                    {msg.body && (
+                      <div
+                        className={cn(
+                          'px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words',
+                          mine
+                            ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                            : 'bg-muted text-foreground rounded-tl-sm'
+                        )}
+                      >
+                        {msg.body}
+                      </div>
                     )}
-                  >
-                    {msg.body}
+                    {(msg.attachments ?? []).map(att =>
+                      att.type === 'task' ? (
+                        <TaskCardChip
+                          key={att.task_id}
+                          card={taskCards[att.task_id]}
+                          onMine={mine}
+                        />
+                      ) : null
+                    )}
                   </div>
-                )}
-                {(msg.attachments ?? []).map(att =>
-                  att.type === 'task' ? (
-                    <TaskCardChip
-                      key={att.task_id}
-                      card={taskCards[att.task_id]}
-                      onMine={mine}
-                    />
-                  ) : null
-                )}
+
+                  {/* Disparador del picker (aparece al hover del mensaje). */}
+                  <div className="relative flex-shrink-0">
+                    <button
+                      onClick={() => setPickerFor(pickerFor === msg.id ? null : msg.id)}
+                      title="Reaccionar"
+                      aria-label="Reaccionar al mensaje"
+                      className={cn(
+                        'p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-all',
+                        pickerFor === msg.id ? 'opacity-100' : 'opacity-0 group-hover/msg:opacity-100'
+                      )}
+                    >
+                      <SmilePlus className="w-3.5 h-3.5" />
+                    </button>
+                    {pickerFor === msg.id && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setPickerFor(null)} />
+                        <div className={cn(
+                          'absolute z-50 bottom-full mb-1 flex items-center gap-0.5 p-1 rounded-full border border-border bg-popover shadow-raised',
+                          mine ? 'right-0' : 'left-0'
+                        )}>
+                          {EMOJIS.map(e => (
+                            <button
+                              key={e}
+                              onClick={() => toggleReaction(msg.id, e)}
+                              className="w-7 h-7 flex items-center justify-center rounded-full text-base hover:bg-muted transition-colors"
+                            >
+                              {e}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Pills de reacciones agregadas. */}
+                {(() => {
+                  const pills = reactionsByMessage.get(msg.id)
+                  if (!pills || pills.length === 0) return null
+                  return (
+                    <div className={cn('flex flex-wrap gap-1 mt-1', mine && 'justify-end')}>
+                      {pills.map(p => (
+                        <button
+                          key={p.emoji}
+                          onClick={() => toggleReaction(msg.id, p.emoji)}
+                          title={p.who.map(id => memberById.get(id)?.display_name ?? 'Miembro').join(', ')}
+                          className={cn(
+                            'flex items-center gap-1 px-1.5 h-6 rounded-full border text-xs transition-colors',
+                            p.mine
+                              ? 'border-primary/40 bg-primary/10 text-foreground'
+                              : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted'
+                          )}
+                        >
+                          <span className="text-sm leading-none">{p.emoji}</span>
+                          <span className="tabular-nums">{p.count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           )
