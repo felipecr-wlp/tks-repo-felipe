@@ -306,7 +306,7 @@ export default async function ProjectPage({
         </div>
 
         {/* Tabs de vista con subrayado */}
-        <nav className="flex items-center gap-1 mt-1" aria-label="Vistas del proyecto">
+        <nav className="flex items-center gap-1 mt-1 overflow-x-auto scrollbar-none" aria-label="Vistas del proyecto">
           <ViewToggle href={`${basePath}?view=list`} active={currentView === 'list'} label="Lista" icon={<ListIcon />} />
           <ViewToggle href={`${basePath}?view=board`} active={currentView === 'board'} label="Tablero" icon={<BoardIcon />} />
           <ViewToggle href={`${basePath}?view=calendar`} active={currentView === 'calendar'} label="Calendario" icon={<CalIcon />} />
@@ -428,7 +428,7 @@ function ViewToggle({
       href={href}
       title={label}
       aria-current={active ? 'page' : undefined}
-      className={`flex items-center gap-1.5 px-3 py-2 text-xs border-b-2 transition-colors ${
+      className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs border-b-2 transition-colors whitespace-nowrap ${
         active
           ? 'border-primary text-foreground font-medium'
           : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'

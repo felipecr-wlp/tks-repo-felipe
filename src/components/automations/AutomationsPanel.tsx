@@ -13,6 +13,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Plus, Trash2, Zap, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 type TriggerKind = 'status_changed' | 'assigned' | 'task_created' | 'due'
 type ActionKind = 'assign' | 'move_status' | 'move_sprint' | 'notify' | 'chat_post'
@@ -154,13 +155,12 @@ export function AutomationsPanel({ projectId, statuses, members, sprints, initia
       )}
 
       {rules.length === 0 && !creating ? (
-        <div className="mt-4 rounded-xl border border-dashed border-border p-8 text-center">
-          <Zap className="w-6 h-6 text-muted-foreground/50 mx-auto mb-2" />
-          <p className="text-sm text-foreground">Aún no hay reglas</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Ejemplo: al mover a «En revisión», asignar a QA y avisar en el chat.
-          </p>
-        </div>
+        <EmptyState
+          className="mt-4"
+          icon={<Zap className="w-5 h-5" />}
+          title="Aún no hay reglas"
+          description="Ejemplo: al mover a «En revisión», asignar a QA y avisar en el chat."
+        />
       ) : (
         <ul className="mt-4 space-y-2">
           {rules.map(rule => (

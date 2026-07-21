@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { ErrorState } from '@/components/ui/ErrorState'
 
 interface Member { id: string; display_name: string | null; avatar_url: string | null }
 interface Goal {
@@ -80,6 +82,8 @@ export function GoalsView({
 }) {
   const [goals, setGoals] = useState<Goal[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+  const [retrying, setRetrying] = useState(false)
   const [creating, setCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [filter, setFilter] = useState<string>('all')
@@ -87,10 +91,12 @@ export function GoalsView({
   const loadGoals = useCallback(async () => {
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/goals`)
-      const data = res.ok ? await res.json() : { goals: [] }
+      if (!res.ok) throw new Error()
+      const data = await res.json()
       setGoals(data.goals ?? [])
+      setError(false)
     } catch {
-      toast.error('Error al cargar las metas')
+      setError(true)
     }
   }, [workspaceId])
 
@@ -100,6 +106,12 @@ export function GoalsView({
     setLoading(true)
     loadGoals().finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
+  }, [loadGoals])
+
+  const retry = useCallback(async () => {
+    setRetrying(true)
+    await loadGoals()
+    setRetrying(false)
   }, [loadGoals])
 
   // Realtime: re-carga (con debounce) ante cualquier cambio de metas o enlaces.
@@ -235,12 +247,21 @@ export function GoalsView({
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 text-muted-foreground animate-spin" /></div>
+      ) : error ? (
+        <ErrorState
+          className="my-4"
+          title="No pudimos cargar las metas"
+          description="Revisa tu conexión e inténtalo de nuevo."
+          onRetry={retry}
+          retrying={retrying}
+        />
       ) : goals.length === 0 && !creating ? (
-        <div className="text-center py-16">
-          <Target className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
-          <h3 className="text-sm font-medium text-foreground mb-1">Sin metas todavia</h3>
-          <p className="text-sm text-muted-foreground">Crea la primera meta para dar seguimiento a tus objetivos.</p>
-        </div>
+        <EmptyState
+          className="my-4"
+          icon={<Target className="w-5 h-5" />}
+          title="Sin metas todavía"
+          description="Crea la primera meta para dar seguimiento a tus objetivos."
+        />
       ) : visible.length === 0 ? (
         <p className="text-center py-12 text-sm text-muted-foreground">Ninguna meta con este estado.</p>
       ) : (

@@ -13,6 +13,7 @@ import { formatDate, timeAgo, getInitials } from '@/lib/utils'
 import { LayoutDashboard, CheckSquare, Activity } from 'lucide-react'
 import MiDia from './MiDia'
 import { OnboardingGuide } from './OnboardingGuide'
+import { DashboardWidgets, type DashboardWidgetsData } from './DashboardWidgets'
 
 interface WorkspaceDashboardProps {
   params: { workspaceSlug: string }
@@ -150,6 +151,75 @@ export default async function WorkspaceDashboardPage({
   const adminCtx = await isWorkspaceAdminById(workspace.id)
   const isAdmin = !!adminCtx?.isAdmin
 
+  // ── Widgets del resumen (tareas por estado, vencidas, carga por persona) ──
+  // Alcance: los admins ven todo el workspace; el resto, solo las tareas de los
+  // proyectos de sus equipos (los que ya cargamos arriba). Nunca se cuenta una
+  // tarea de un proyecto al que el usuario no tiene acceso.
+  const accessibleProjectIds = Array.from(
+    new Set((teams ?? []).flatMap(t => (t.projects ?? []).map(p => p.id)))
+  )
+
+  type WidgetTaskRow = {
+    due_date: string | null
+    assignee_id: string | null
+    status: { category: string } | null
+    assignee: { id: string; display_name: string | null; avatar_url: string | null } | null
+  }
+
+  let widgetTasks: WidgetTaskRow[] = []
+  if (isAdmin || accessibleProjectIds.length > 0) {
+    let qb = admin
+      .from('tasks')
+      .select('due_date, assignee_id, status:task_statuses ( category ), assignee:profiles ( id, display_name, avatar_url )')
+      .eq('workspace_id', workspace.id)
+      .eq('is_archived', false)
+      .limit(2000)
+    if (!isAdmin) qb = qb.in('project_id', accessibleProjectIds)
+    const { data } = await qb as { data: WidgetTaskRow[] | null }
+    widgetTasks = data ?? []
+  }
+
+  const today0 = new Date()
+  today0.setHours(0, 0, 0, 0)
+  const in7 = new Date(today0)
+  in7.setDate(in7.getDate() + 7)
+
+  const byCategory = { todo: 0, in_progress: 0, done: 0, cancelled: 0 }
+  const workloadMap = new Map<string, { name: string; avatar_url: string | null; open: number }>()
+  let overdue = 0
+  let dueSoon = 0
+
+  for (const t of widgetTasks) {
+    const cat = t.status?.category ?? 'todo'
+    if (cat === 'todo' || cat === 'in_progress' || cat === 'done' || cat === 'cancelled') {
+      byCategory[cat] += 1
+    }
+    const isOpen = cat === 'todo' || cat === 'in_progress'
+    if (isOpen && t.due_date) {
+      const d = new Date(t.due_date)
+      if (d < today0) overdue += 1
+      else if (d < in7) dueSoon += 1
+    }
+    if (isOpen && t.assignee) {
+      const cur = workloadMap.get(t.assignee.id)
+      if (cur) cur.open += 1
+      else workloadMap.set(t.assignee.id, {
+        name: t.assignee.display_name ?? 'Sin nombre',
+        avatar_url: t.assignee.avatar_url,
+        open: 1,
+      })
+    }
+  }
+
+  const totalOpen = byCategory.todo + byCategory.in_progress
+  const workload = Array.from(workloadMap.entries())
+    .map(([id, v]) => ({ id, ...v }))
+    .sort((a, b) => b.open - a.open)
+    .slice(0, 6)
+
+  const widgetsData: DashboardWidgetsData = { totalOpen, overdue, dueSoon, byCategory, workload }
+  const hasAnyWidgetData = widgetTasks.length > 0
+
   // ── Progreso de onboarding (checklist de primeros pasos) ──────────────────
   const projectsCount = (teams ?? []).reduce((acc, t) => acc + (t.projects?.length ?? 0), 0)
 
@@ -161,7 +231,7 @@ export default async function WorkspaceDashboardPage({
   }
 
   return (
-    <div className="px-8 py-8 max-w-6xl mx-auto">
+    <div className="px-4 sm:px-8 py-6 sm:py-8 max-w-6xl mx-auto">
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <div className="mb-8 flex items-center gap-3 sm:gap-4">
         <Link
@@ -206,6 +276,11 @@ export default async function WorkspaceDashboardPage({
       <div className="mb-10">
         <MiDia calendarPath={`/w/${params.workspaceSlug}/calendar`} />
       </div>
+
+      {/* ── Resumen: widgets de estado, fechas y carga ───────────────────── */}
+      {hasAnyWidgetData && (
+        <DashboardWidgets data={widgetsData} myTasksHref={`/w/${params.workspaceSlug}/my-tasks`} />
+      )}
 
       {/* ── Mis tareas + Actividad ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-10">

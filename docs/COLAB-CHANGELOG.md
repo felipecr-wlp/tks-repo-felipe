@@ -8,6 +8,44 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Track 4.2 + 4.3: dashboard de inicio y pulido transversal
+
+Cierre del Track 4 ("quitar la sensación de v1"). Dos frentes en un solo deploy.
+
+### 4.2 Dashboard de inicio con widgets
+El inicio del workspace ya tenía Mi día, Mis tareas y Actividad; se le suma una
+banda "Resumen" con tres widgets calculados en el servidor:
+- Tareas por estado (barra apilada por categoría todo / en progreso / hechas /
+  canceladas, con leyenda y conteos).
+- Fechas límite: vencidas y próximas 7 días (tarjetas enlazadas a Mis tareas) +
+  total de tareas abiertas.
+- Carga por persona (top 6 asignados por tareas abiertas, con barra relativa).
+
+Alcance correcto y privado: los admins del workspace ven el agregado de todo el
+workspace; el resto, solo las tareas de los proyectos de sus equipos (las que ya
+carga la home). Nunca se cuenta una tarea de un proyecto sin acceso. El cómputo
+se hace en memoria sobre una sola query (limit 2000), sin round trips extra por
+widget. Archivos: `DashboardWidgets.tsx` (nuevo, server component puro) + bloque
+de agregación en `w/[slug]/page.tsx`.
+
+### 4.3 Empty states + loading/error unificados + pase móvil
+- Primitivos nuevos reutilizables: `src/components/ui/EmptyState.tsx` (icono
+  tenue + título + microcopy + acción opcional) y `src/components/ui/ErrorState.tsx`
+  ('use client', con botón "Reintentar" y spinner, mismo lenguaje que la burbuja
+  de chat). Un solo look and feel para vacíos y errores.
+- Adopción: `AutomationsPanel` usa `EmptyState`. `GoalsView` ahora distingue
+  error de vacío: antes un fallo de carga solo hacía toast y luego se veía como
+  "sin metas" (engañoso); ahora muestra `ErrorState` con reintento real, y el
+  vacío usa `EmptyState`.
+- Móvil: padding del inicio responsive (`px-4 sm:px-8`), tabs de vista del
+  proyecto con scroll horizontal sin barra visible (`overflow-x-auto` +
+  utilidad `.scrollbar-none` nueva en globals.css, tabs `flex-shrink-0`
+  `whitespace-nowrap`). No se tocó `KanbanBoard.tsx` (landmine drag-and-drop).
+
+tsc EXIT 0, build EXIT 0. Deploy prod `wlo-cisii9lxn` (READY, alias wlo.vercel.app).
+
+---
+
 ## 2026-07-20 — Track 4.1: búsqueda global Cmd+K con notas
 
 La paleta de comandos (Cmd+K / Ctrl+K) ya buscaba tareas, proyectos, equipos y
