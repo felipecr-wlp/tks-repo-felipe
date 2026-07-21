@@ -8,6 +8,28 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-21 — Fix: no se podían enviar mensajes de chat solo con adjunto
+
+Bug reportado: al adjuntar un archivo en el chat de equipo (la subida al bucket
+`chat-files` funcionaba y el chip con el peso aparecía), enviar el mensaje sin
+texto fallaba con el toast "No se pudo enviar el mensaje".
+
+Causa raíz (capa de base de datos, no de código): el CHECK `messages_body_check`
+exigía `char_length(body) >= 1`, pero la API ya acepta body vacío cuando hay al
+menos un adjunto (schema con `.refine`). Un mensaje solo-adjunto llegaba con
+`body = ''` y el INSERT violaba el constraint, devolviendo 500.
+
+Fix aditivo y seguro: se afloja el CHECK para permitir body vacío cuando
+`attachments` es un array con al menos un elemento, manteniendo el tope de 4000
+caracteres. No rompe filas existentes (todas tienen body >= 1) y no requirió
+cambios de código ni redeploy: el cambio de constraint aplica de inmediato en
+prod. Verificado con insert de prueba (empty body + adjunto) en rollback.
+
+Archivos: `supabase/migrations/20260721000000_messages_allow_attachment_only.sql`.
+Aplicada a prod (ref cmskiyypeujcgikbvyoz) vía migración.
+
+---
+
 ## 2026-07-20 — Track 4.2 + 4.3: dashboard de inicio y pulido transversal
 
 Cierre del Track 4 ("quitar la sensación de v1"). Dos frentes en un solo deploy.
