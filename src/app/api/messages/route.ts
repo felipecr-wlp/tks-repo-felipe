@@ -27,6 +27,49 @@ interface MemberJoinRow {
   profile: { id: string; display_name: string; avatar_url: string | null } | null
 }
 
+// Acceso al chat de un equipo: es miembro directo (team_members) O es admin del
+// workspace dueño del equipo (org_role owner/admin, o workspace_members.role
+// owner/admin). Replica la regla del sidebar, que a los admins les muestra TODOS
+// los equipos del workspace aunque no esten en team_members. Sin este fallback,
+// un admin ve el equipo pero el chat responde 403 ("No se pudo cargar la
+// conversacion").
+async function canAccessTeamChat(
+  admin: ReturnType<typeof createAdminClient>,
+  teamId: string,
+  userId: string
+): Promise<boolean> {
+  const { data: membership } = await admin
+    .from('team_members')
+    .select('role')
+    .eq('team_id', teamId)
+    .eq('profile_id', userId)
+    .maybeSingle() as { data: { role: string } | null; error: unknown }
+  if (membership) return true
+
+  const { data: team } = await admin
+    .from('teams')
+    .select('workspace_id')
+    .eq('id', teamId)
+    .maybeSingle() as { data: { workspace_id: string } | null; error: unknown }
+  if (!team?.workspace_id) return false
+
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('org_role')
+    .eq('id', userId)
+    .maybeSingle() as { data: { org_role: string | null } | null; error: unknown }
+  const orgRole = profile?.org_role ?? 'member'
+  if (orgRole === 'owner' || orgRole === 'admin') return true
+
+  const { data: wsMember } = await admin
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', team.workspace_id)
+    .eq('profile_id', userId)
+    .maybeSingle() as { data: { role: string } | null; error: unknown }
+  return wsMember?.role === 'owner' || wsMember?.role === 'admin'
+}
+
 // ── GET ────────────────────────────────────────────────────────────────────────
 // Historial paginado por cursor: /api/messages?team_id=xxx&before=<ISO>&limit=30
 // Devuelve mensajes en orden ascendente (viejo -> nuevo) + hasMore para el botón
@@ -52,14 +95,10 @@ export async function GET(request: NextRequest) {
 
   const admin = createAdminClient()
 
-  // Verificar membresía al equipo
-  const { data: membership } = await admin
-    .from('team_members')
-    .select('role')
-    .eq('team_id', team_id)
-    .eq('profile_id', user.id)
-    .maybeSingle() as { data: { role: string } | null; error: unknown }
-  if (!membership) return NextResponse.json({ error: 'Sin acceso al equipo' }, { status: 403 })
+  // Verificar acceso al equipo (miembro directo o admin del workspace)
+  if (!(await canAccessTeamChat(admin, team_id, user.id))) {
+    return NextResponse.json({ error: 'Sin acceso al equipo' }, { status: 403 })
+  }
 
   // Traemos limit+1 (desc) para saber si hay más historia detrás del cursor
   let query = admin
@@ -111,14 +150,10 @@ export async function POST(request: NextRequest) {
   const { team_id, body } = parsed.data
   const admin = createAdminClient()
 
-  // Verificar membresía al equipo
-  const { data: membership } = await admin
-    .from('team_members')
-    .select('role')
-    .eq('team_id', team_id)
-    .eq('profile_id', user.id)
-    .maybeSingle() as { data: { role: string } | null; error: unknown }
-  if (!membership) return NextResponse.json({ error: 'Sin acceso al equipo' }, { status: 403 })
+  // Verificar acceso al equipo (miembro directo o admin del workspace)
+  if (!(await canAccessTeamChat(admin, team_id, user.id))) {
+    return NextResponse.json({ error: 'Sin acceso al equipo' }, { status: 403 })
+  }
 
   // workspace_id del equipo (para scoping)
   const { data: team } = await admin
