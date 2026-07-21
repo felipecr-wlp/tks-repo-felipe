@@ -49,11 +49,19 @@ interface SearchResult {
     avatar_url: string | null
     email: string | null
   }>
+  notes: Array<{
+    id: string
+    title: string
+    icon: string | null
+    doc_kind: string | null
+  }>
 }
+
+const EMPTY_RESULT: SearchResult = { tasks: [], projects: [], teams: [], members: [], notes: [] }
 
 interface FlatItem {
   id: string
-  type: 'task' | 'project' | 'team' | 'member' | 'action'
+  type: 'task' | 'project' | 'team' | 'member' | 'note' | 'action'
   label: string
   sublabel?: string
   href?: string
@@ -119,7 +127,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
         setResults(data)
         setActiveIndex(0)
       } catch {
-        setResults({ tasks: [], projects: [], teams: [], members: [] })
+        setResults(EMPTY_RESULT)
       } finally {
         setLoading(false)
       }
@@ -206,6 +214,15 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
       icon: <TeamIcon />,
       group: 'Equipos',
     }))
+    results.notes.forEach(n => flat.push({
+      id: `n-${n.id}`,
+      type: 'note',
+      label: n.title || 'Sin título',
+      sublabel: n.doc_kind && n.doc_kind !== 'note' ? 'Documento' : undefined,
+      href: `/w/${workspaceSlug}/notes/${n.id}`,
+      icon: <NoteIcon />,
+      group: 'Notas',
+    }))
     results.members.forEach(m => flat.push({
       id: `m-${m.id}`,
       type: 'member',
@@ -287,7 +304,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
               ref={inputRef}
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Busca tareas, proyectos, equipos o personas…"
+              placeholder="Busca tareas, notas, proyectos, equipos o personas…"
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
             />
             {loading && (
@@ -430,6 +447,14 @@ function TaskIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
       <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  )
+}
+function NoteIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M3 1.5h5L11 4.5V12a.5.5 0 0 1-.5.5h-7A.5.5 0 0 1 3 12V1.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M8 1.5v3h3M5 7.5h4M5 9.5h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

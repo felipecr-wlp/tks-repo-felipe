@@ -1,8 +1,12 @@
 /**
  * GET /api/search?q=texto&workspace_id=xxx
  *
- * Búsqueda global en un workspace. Devuelve tasks, projects, teams, members.
+ * Búsqueda global en un workspace. Devuelve tasks, projects, teams, members y notes.
  * Usa ILIKE simple, para escala añadir tsvector + GIN en futuro.
+ *
+ * Las notes respetan la visibilidad app-layer (reflejo del RLS): notas privadas
+ * solo las ve su autor y las de departamentos restringidos solo sus miembros o
+ * los admins de la org. Nunca se filtra contenido restringido en la búsqueda.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -42,7 +46,15 @@ interface SearchResult {
     avatar_url: string | null
     email: string | null
   }>
+  notes: Array<{
+    id: string
+    title: string
+    icon: string | null
+    doc_kind: string | null
+  }>
 }
+
+const EMPTY_RESULT: SearchResult = { tasks: [], projects: [], teams: [], members: [], notes: [] }
 
 export async function GET(request: NextRequest) {
   const limited = await applyRateLimit(request, 'api')
@@ -58,9 +70,7 @@ export async function GET(request: NextRequest) {
     workspace_id: url.searchParams.get('workspace_id'),
   })
   if (!parsed.success) {
-    return NextResponse.json(
-      { tasks: [], projects: [], teams: [], members: [] } satisfies SearchResult
-    )
+    return NextResponse.json(EMPTY_RESULT satisfies SearchResult)
   }
 
   const { q, workspace_id } = parsed.data
@@ -141,6 +151,62 @@ export async function GET(request: NextRequest) {
     .ilike('profile.display_name', escaped)
     .limit(PER_TYPE_LIMIT) as { data: WsMemberRow[] | null; error: unknown }
 
+  // ── Notes (respetando visibilidad app-layer) ─────────────────────────────
+  // Se trae un margen extra (limit alto) porque el filtro de visibilidad se
+  // aplica en memoria; luego se recorta a PER_TYPE_LIMIT.
+  type NoteRow = {
+    id: string
+    title: string
+    icon: string | null
+    doc_kind: string | null
+    visibility: string | null
+    created_by: string | null
+    space_id: string | null
+  }
+  const { data: notesRaw } = await admin
+    .from('notes')
+    .select('id, title, icon, doc_kind, visibility, created_by, space_id')
+    .eq('workspace_id', workspace_id)
+    .ilike('title', escaped)
+    .order('updated_at', { ascending: false })
+    .limit(30) as { data: NoteRow[] | null; error: unknown }
+
+  // Departamentos restringidos que el user NO puede ver (reflejo del RLS).
+  let blockedSpaceIds = new Set<string>()
+  if ((notesRaw ?? []).some(n => n.space_id)) {
+    const { data: myProfile } = await admin
+      .from('profiles')
+      .select('org_role')
+      .eq('id', user.id)
+      .maybeSingle() as { data: { org_role: string | null } | null; error: unknown }
+    const isOrgAdmin = myProfile?.org_role === 'owner' || myProfile?.org_role === 'admin'
+
+    if (!isOrgAdmin) {
+      const { data: rawSpaces } = await admin
+        .from('spaces')
+        .select('id, is_restricted')
+        .eq('workspace_id', workspace_id) as { data: { id: string; is_restricted: boolean }[] | null; error: unknown }
+      const { data: myMemberships } = await admin
+        .from('space_members')
+        .select('space_id')
+        .eq('profile_id', user.id) as { data: { space_id: string }[] | null; error: unknown }
+      const mySpaceIds = new Set((myMemberships ?? []).map(m => m.space_id))
+      blockedSpaceIds = new Set(
+        (rawSpaces ?? [])
+          .filter(s => s.is_restricted && !mySpaceIds.has(s.id))
+          .map(s => s.id)
+      )
+    }
+  }
+
+  const visibleNotes = (notesRaw ?? [])
+    .filter(n => {
+      if (n.visibility === 'private' && n.created_by !== user.id) return false
+      if (n.space_id && blockedSpaceIds.has(n.space_id)) return false
+      return true
+    })
+    .slice(0, PER_TYPE_LIMIT)
+
   const result: SearchResult = {
     tasks: (tasksRaw ?? []).map(t => ({
       id: t.id,
@@ -169,6 +235,12 @@ export async function GET(request: NextRequest) {
         avatar_url: m.profile!.avatar_url,
         email: m.profile!.email,
       })),
+    notes: visibleNotes.map(n => ({
+      id: n.id,
+      title: n.title,
+      icon: n.icon,
+      doc_kind: n.doc_kind,
+    })),
   }
 
   return NextResponse.json(result)

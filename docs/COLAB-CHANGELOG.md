@@ -8,6 +8,32 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Track 4.1: búsqueda global Cmd+K con notas
+
+La paleta de comandos (Cmd+K / Ctrl+K) ya buscaba tareas, proyectos, equipos y
+personas; le faltaban las NOTAS, que el roadmap pide explícito ("tareas, notas y
+personas"). Ahora la búsqueda global cubre también notas y documentos, con
+resultados agrupados y navegación por teclado (ya existente).
+
+Cambios:
+- `src/app/api/search/route.ts`: nueva sección de notas. Query `ilike` sobre
+  `notes.title` del workspace, con RECORTE de visibilidad en memoria que replica
+  el RLS app-layer: se ocultan notas privadas de otro autor y notas de
+  departamentos restringidos donde el usuario no es miembro (los admins de la org
+  ven todo). Se trae un margen (limit 30) y se recorta a 5 tras filtrar. Nuevo
+  campo `notes` en `SearchResult` y constante `EMPTY_RESULT` compartida.
+- `src/components/command-palette/CommandPalette.tsx`: grupo "Notas" en los
+  resultados (icono de documento lucide-style), enlace a `/w/<slug>/notes/<id>`,
+  tipo `note` en `FlatItem`, placeholder actualizado y `EMPTY_RESULT` reutilizado
+  en el fallback de error.
+
+Anti-fuga: la búsqueda NUNCA revela títulos de notas restringidas; el filtro es
+el mismo que usan las 3 rutas de notas y la lente de SOPs.
+
+tsc EXIT 0, build EXIT 0. Deploy prod `dpl_BfLBWQyKjxxLTZ57XNXDzUb52Jz6`.
+
+---
+
 ## 2026-07-20 — Track 3: motor de automatizaciones (reglas "cuando pase X, haz Y")
 
 Módulo nuevo de automatizaciones por proyecto. Un administrador del proyecto
