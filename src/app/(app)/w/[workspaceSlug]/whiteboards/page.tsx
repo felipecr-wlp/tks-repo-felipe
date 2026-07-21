@@ -41,6 +41,9 @@ export default async function WhiteboardsPage({ params }: PageProps) {
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
 
+  // El filtro de privadas se hace en la consulta (antes del limit) para que el
+  // tope de 100 aplique sobre filas ya visibles: una privada ajena nunca ocupa
+  // un lugar. Se conservan las privadas propias y las de visibilidad nula.
   const { data: rawBoards } = await admin
     .from('whiteboards')
     .select(`
@@ -48,12 +51,11 @@ export default async function WhiteboardsPage({ params }: PageProps) {
       author:profiles ( display_name )
     `)
     .eq('workspace_id', workspace.id)
+    .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
     .order('updated_at', { ascending: false })
     .limit(100) as { data: BoardRow[] | null; error: unknown }
 
-  const boards = (rawBoards ?? []).filter(b =>
-    b.visibility !== 'private' || b.created_by === user.id
-  )
+  const boards = rawBoards ?? []
 
   return (
     <div className="px-8 py-10 max-w-5xl mx-auto">
