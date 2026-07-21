@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
-import { MessageSquare, Loader2, ListChecks, X, SmilePlus } from 'lucide-react'
+import { MessageSquare, Loader2, ListChecks, X, SmilePlus, Paperclip, Download, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { TaskAttachPicker, type PickerTask } from './TaskAttachPicker'
@@ -40,7 +40,26 @@ interface TaskAttachment {
   type: 'task'
   task_id: string
 }
-type Attachment = TaskAttachment
+interface FileAttachment {
+  type: 'file'
+  path: string
+  name: string
+  mime: string
+  size: number
+}
+type Attachment = TaskAttachment | FileAttachment
+
+// Archivo subido y listo para adjuntar (aún no enviado). Guardamos el File para
+// previsualizar localmente sin esperar la signed URL del servidor.
+interface PendingFile {
+  path: string
+  name: string
+  mime: string
+  size: number
+  localUrl?: string
+}
+
+const MAX_ATTACHMENTS = 5
 
 interface Message {
   id: string
@@ -75,8 +94,18 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
   const [pendingTasks, setPendingTasks] = useState<PickerTask[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
 
+  // Adjuntos de archivo: cola pendiente + estado de subida + input oculto.
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Cache de signed URLs de archivos (path -> url). Se resuelve al render.
+  const [fileUrls, setFileUrls] = useState<Record<string, string>>({})
+
   // Cache de tarjetas resueltas. undefined = aún no cargada; null = no disponible.
   const [taskCards, setTaskCards] = useState<Record<string, ResolvedTaskCard | null>>({})
+
+  const pendingCount = pendingTasks.length + pendingFiles.length
 
   const memberById = useMemo(() => {
     const m = new Map<string, Member>()
@@ -187,9 +216,37 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
     return () => { cancelled = true }
   }, [messages, teamId, taskCards])
 
+  // Resuelve en lote las signed URLs de los archivos que aparecen en el hilo y
+  // aún no están en cache (historial + realtime). Las URLs caducan (~1h) pero al
+  // volver a montar/paginar se re-piden; suficiente para la sesión.
+  useEffect(() => {
+    const needed = new Set<string>()
+    for (const msg of messages) {
+      for (const att of msg.attachments ?? []) {
+        if (att.type === 'file' && !(att.path in fileUrls)) needed.add(att.path)
+      }
+    }
+    if (needed.size === 0) return
+    let cancelled = false
+    const paths = Array.from(needed).slice(0, 40)
+    const params = new URLSearchParams({ paths: paths.join(',') })
+    fetch(`/api/teams/${teamId}/chat-files/sign?${params.toString()}`)
+      .then(res => (res.ok ? res.json() : Promise.reject(new Error('sign'))))
+      .then((data: { files: { path: string; url: string }[] }) => {
+        if (cancelled) return
+        setFileUrls(prev => {
+          const next = { ...prev }
+          for (const f of data.files) next[f.path] = f.url
+          return next
+        })
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [messages, teamId, fileUrls])
+
   function addPendingTask(task: PickerTask) {
     setPendingTasks(prev => {
-      if (prev.some(t => t.id === task.id) || prev.length >= 5) return prev
+      if (prev.some(t => t.id === task.id) || pendingCount >= MAX_ATTACHMENTS) return prev
       return [...prev, task]
     })
     setPickerOpen(false)
@@ -197,6 +254,48 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
 
   function removePendingTask(id: string) {
     setPendingTasks(prev => prev.filter(t => t.id !== id))
+  }
+
+  function removePendingFile(path: string) {
+    setPendingFiles(prev => {
+      const gone = prev.find(f => f.path === path)
+      if (gone?.localUrl) URL.revokeObjectURL(gone.localUrl)
+      return prev.filter(f => f.path !== path)
+    })
+  }
+
+  // Sube los archivos elegidos (uno por uno) al endpoint del equipo y los agrega
+  // a la cola pendiente. Respeta el tope combinado de adjuntos.
+  async function onFilesChosen(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return
+    const files = Array.from(fileList)
+    setUploading(true)
+    try {
+      for (const file of files) {
+        if (pendingCount + 1 > MAX_ATTACHMENTS) {
+          toast.error(`Máximo ${MAX_ATTACHMENTS} adjuntos por mensaje`)
+          break
+        }
+        if (file.size > 25 * 1024 * 1024) {
+          toast.error(`"${file.name}" supera el límite de 25MB`)
+          continue
+        }
+        const form = new FormData()
+        form.append('file', file)
+        try {
+          const res = await fetch(`/api/teams/${teamId}/chat-files`, { method: 'POST', body: form })
+          if (!res.ok) throw new Error('upload failed')
+          const data = (await res.json()) as { path: string; name: string; mime: string; size: number }
+          const localUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
+          setPendingFiles(prev => [...prev, { ...data, localUrl }])
+        } catch {
+          toast.error(`No se pudo subir "${file.name}"`)
+        }
+      }
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
   }
 
   // Append sin duplicar (dedupe por id).
@@ -293,10 +392,12 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
   async function send() {
     const body = draft.trim()
     const tasks = pendingTasks
-    if ((!body && tasks.length === 0) || sending) return
+    const files = pendingFiles
+    if ((!body && tasks.length === 0 && files.length === 0) || sending || uploading) return
     setSending(true)
     setDraft('')
     setPendingTasks([])
+    setPendingFiles([])
     // Sembramos la cache con las tarjetas que ya conocemos del picker, para que
     // el chip aparezca resuelto de inmediato sin esperar el fetch.
     if (tasks.length > 0) {
@@ -317,7 +418,19 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
         return next
       })
     }
-    const attachments = tasks.map(t => ({ type: 'task' as const, task_id: t.id }))
+    // Sembramos la preview local de imágenes para que se vean al instante sin
+    // esperar la signed URL (los demás usuarios la resuelven por su lado).
+    if (files.length > 0) {
+      setFileUrls(prev => {
+        const next = { ...prev }
+        for (const f of files) if (f.localUrl && !(f.path in next)) next[f.path] = f.localUrl
+        return next
+      })
+    }
+    const attachments: Attachment[] = [
+      ...tasks.map(t => ({ type: 'task' as const, task_id: t.id })),
+      ...files.map(f => ({ type: 'file' as const, path: f.path, name: f.name, mime: f.mime, size: f.size })),
+    ]
     try {
       const res = await fetch('/api/messages', {
         method: 'POST',
@@ -335,6 +448,7 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
       toast.error('No se pudo enviar el mensaje')
       setDraft(body)
       setPendingTasks(tasks)
+      setPendingFiles(files)
     } finally {
       setSending(false)
     }
@@ -420,12 +534,19 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
                         {msg.body}
                       </div>
                     )}
-                    {(msg.attachments ?? []).map(att =>
+                    {(msg.attachments ?? []).map((att, ai) =>
                       att.type === 'task' ? (
                         <TaskCardChip
                           key={att.task_id}
                           card={taskCards[att.task_id]}
                           onMine={mine}
+                        />
+                      ) : att.type === 'file' ? (
+                        <FileAttachmentView
+                          key={`${att.path}-${ai}`}
+                          att={att}
+                          url={fileUrls[att.path]}
+                          mine={mine}
                         />
                       ) : null
                     )}
@@ -500,8 +621,8 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
 
       {/* Composer */}
       <div className="border-t border-border px-4 py-3">
-        {/* Tareas adjuntas pendientes de enviar */}
-        {pendingTasks.length > 0 && (
+        {/* Adjuntos pendientes de enviar (tareas + archivos) */}
+        {(pendingTasks.length > 0 || pendingFiles.length > 0) && (
           <div className="mb-2 flex flex-wrap gap-1.5">
             {pendingTasks.map(t => (
               <span
@@ -513,6 +634,28 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
                 <button
                   onClick={() => removePendingTask(t.id)}
                   aria-label={`Quitar ${t.title}`}
+                  className="rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-foreground transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            {pendingFiles.map(f => (
+              <span
+                key={f.path}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 pl-2.5 pr-1.5 py-1 text-xs text-foreground"
+              >
+                {f.mime.startsWith('image/') && f.localUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={f.localUrl} alt="" className="h-4 w-4 rounded object-cover" />
+                ) : (
+                  <FileText className="h-3 w-3 text-primary" />
+                )}
+                <span className="max-w-[10rem] truncate">{f.name}</span>
+                <span className="text-[10px] text-muted-foreground">{formatBytes(f.size)}</span>
+                <button
+                  onClick={() => removePendingFile(f.path)}
+                  aria-label={`Quitar ${f.name}`}
                   className="rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-foreground transition-colors"
                 >
                   <X className="h-3 w-3" />
@@ -546,6 +689,26 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
               <ListChecks className="h-4 w-4" />
             </button>
           </div>
+          {/* Adjuntar archivo */}
+          <div className="flex-shrink-0">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={e => onFilesChosen(e.target.files)}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || pendingCount >= MAX_ATTACHMENTS}
+              aria-label="Adjuntar archivo"
+              title="Adjuntar archivo"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-40"
+            >
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+            </button>
+          </div>
           <textarea
             value={draft}
             onChange={e => setDraft(e.target.value)}
@@ -556,7 +719,7 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
           />
           <button
             onClick={send}
-            disabled={sending || (draft.trim().length === 0 && pendingTasks.length === 0)}
+            disabled={sending || uploading || (draft.trim().length === 0 && pendingCount === 0)}
             aria-label="Enviar mensaje"
             className="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-40 hover:bg-primary/90 transition-colors"
           >
@@ -578,4 +741,66 @@ function formatTime(iso: string): string {
   }
   return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' }) +
     ' ' + d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes < 1024) return `${bytes || 0} B`
+  const units = ['KB', 'MB', 'GB']
+  let val = bytes / 1024
+  let i = 0
+  while (val >= 1024 && i < units.length - 1) { val /= 1024; i++ }
+  return `${val.toFixed(val >= 10 ? 0 : 1)} ${units[i]}`
+}
+
+// Render de un adjunto de archivo: imágenes se previsualizan; el resto es un chip
+// descargable. La URL (signed o local) llega por prop; mientras se resuelve se
+// muestra un estado de carga.
+function FileAttachmentView({ att, url, mine }: { att: FileAttachment; url?: string; mine: boolean }) {
+  const isImage = att.mime.startsWith('image/')
+
+  if (isImage) {
+    if (!url) {
+      return (
+        <div className="flex h-32 w-48 items-center justify-center rounded-xl border border-border bg-muted/40">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      )
+    }
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt={att.name}
+          className="max-h-56 max-w-[15rem] rounded-xl border border-border object-cover"
+        />
+      </a>
+    )
+  }
+
+  return (
+    <a
+      href={url || undefined}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        'inline-flex max-w-[15rem] items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors',
+        mine
+          ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
+          : 'border-border bg-muted/40 hover:bg-muted',
+        !url && 'pointer-events-none opacity-70'
+      )}
+    >
+      <FileText className="h-4 w-4 flex-shrink-0 text-primary" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-foreground">{att.name}</span>
+        <span className="block text-[10px] text-muted-foreground">{formatBytes(att.size)}</span>
+      </span>
+      {url ? (
+        <Download className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+      ) : (
+        <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-muted-foreground" />
+      )}
+    </a>
+  )
 }

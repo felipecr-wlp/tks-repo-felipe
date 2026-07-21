@@ -8,6 +8,34 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Chat V2, Circuito 1.B: adjuntar archivos al chat de equipo
+
+Segundo superpoder del chat: subir archivos desde el compositor. Las imágenes se
+previsualizan en el hilo (clic abre el original); el resto queda como chip
+descargable con nombre y peso. Se reusa el patrón de `task-files`: bucket privado
+servido solo con signed URL temporal. Aplica al chat completo y a la burbuja
+flotante (ambos reusan `TeamChat`).
+
+Qué cambió:
+- Migración `20260720520000` (aplicada a prod, vía apply_migration): bucket privado
+  nuevo `chat-files` (25MB, allowlist de mime). Aditivo, no toca `task-files`.
+- La referencia del archivo se guarda en la MISMA columna `attachments jsonb` del
+  mensaje como `{ type:'file', path, name, mime, size }`. Sin tabla nueva.
+- Nuevos endpoints por equipo: `POST /api/teams/[teamId]/chat-files` (sube al
+  bucket scopeado a `team/<id>/…`, valida tamaño+mime, devuelve la referencia sin
+  crear el mensaje) y `GET …/chat-files/sign?paths=` (firma URLs temporales solo de
+  paths con prefijo `team/<id>/`). Ambos gateados por `canAccessTeamById`.
+- `src/lib/chat-files.ts`: constantes compartidas (bucket, tope, allowlist) fuera de
+  los route handlers (un route de Next solo puede exportar verbos HTTP).
+- `src/app/api/messages/route.ts`: el schema de adjuntos acepta el tipo `file`;
+  `validateAttachments` conserva solo archivos con path scopeado al equipo
+  (anti-IDOR) además de las tareas del equipo. Tope combinado de 5 adjuntos.
+- Cliente `TeamChat.tsx`: input de archivo oculto + botón Paperclip, cola de
+  archivos pendientes con preview local, resolución en lote de signed URLs para el
+  hilo, y `FileAttachmentView` (imagen embebida o chip con descarga). `FloatingChat`
+  y el server component del chat amplían el tipo de `attachments`.
+- tsc y build EXIT 0. Deploy prod `dpl_9uksmwy4jgHe9R8nRTFLBEakWNqL`.
+
 ## 2026-07-20 — Chat V2, Circuito 1.D: reacciones emoji en mensajes de equipo
 
 El chat de equipo gana reacciones emoji en vivo (el chat de proyecto ya las tenía

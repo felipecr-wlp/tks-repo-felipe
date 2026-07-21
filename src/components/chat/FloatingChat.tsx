@@ -27,12 +27,16 @@ interface Member {
   avatar_url: string | null
 }
 
+type Attachment =
+  | { type: 'task'; task_id: string }
+  | { type: 'file'; path: string; name: string; mime: string; size: number }
+
 interface Message {
   id: string
   author_id: string
   body: string
   created_at: string
-  attachments?: { type: 'task'; task_id: string }[] | null
+  attachments?: Attachment[] | null
 }
 
 interface Reaction {

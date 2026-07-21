@@ -44,7 +44,12 @@ export default async function ChatPage({ params }: ChatPageProps) {
     author_id: string
     body: string
     created_at: string
-    attachments: { type: 'task'; task_id: string }[] | null
+    attachments:
+      | (
+          | { type: 'task'; task_id: string }
+          | { type: 'file'; path: string; name: string; mime: string; size: number }
+        )[]
+      | null
   }
   const { data: msgRows } = await admin
     .from('messages')

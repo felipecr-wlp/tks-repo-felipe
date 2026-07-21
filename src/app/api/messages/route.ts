@@ -12,13 +12,20 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { canAccessTeamById } from '@/lib/team-access'
 import { applyRateLimit } from '@/lib/rate-limit'
 
-// Un adjunto de mensaje es una referencia minima. Por ahora solo tarjetas de
-// tarea; el tipo es abierto para crecer (archivo, recordatorio) sin romper.
+// Un adjunto de mensaje es una referencia minima. Tarjeta de tarea o archivo del
+// bucket chat-files; el tipo es abierto para crecer (recordatorio) sin romper.
 const taskAttachmentSchema = z.object({
   type: z.literal('task'),
   task_id: z.string().uuid(),
 })
-const attachmentSchema = z.discriminatedUnion('type', [taskAttachmentSchema])
+const fileAttachmentSchema = z.object({
+  type: z.literal('file'),
+  path: z.string().min(1).max(400),
+  name: z.string().min(1).max(160),
+  mime: z.string().min(1).max(120),
+  size: z.number().int().nonnegative().max(26214400), // 25MB
+})
+const attachmentSchema = z.discriminatedUnion('type', [taskAttachmentSchema, fileAttachmentSchema])
 
 const schema = z.object({
   team_id: z.string().uuid(),
@@ -52,27 +59,52 @@ interface ReactionRow {
   emoji: string
 }
 
-// Filtra los adjuntos de tarea dejando solo los que pertenecen al equipo (una
-// tarea es del equipo si su proyecto tiene team_id = team_id). Anti-IDOR: nunca
-// confiamos en el task_id del body sin validar la pertenencia al equipo.
-async function validateTaskAttachments(
+// Valida y sanea todos los adjuntos del mensaje (anti-IDOR):
+//  - tarea: solo se conserva si su proyecto pertenece a este equipo.
+//  - archivo: solo si su path está scopeado a team/<teamId>/ (el objeto lo subió
+//    nuestro endpoint chat-files, que ya validó el acceso al subir).
+// Se preserva el orden original y se limita el total a 5.
+async function validateAttachments(
   admin: ReturnType<typeof createAdminClient>,
   teamId: string,
   attachments: Attachment[]
 ): Promise<Attachment[]> {
   const taskIds = Array.from(
-    new Set(attachments.filter(a => a.type === 'task').map(a => a.task_id))
+    new Set(attachments.filter((a): a is Extract<Attachment, { type: 'task' }> => a.type === 'task').map(a => a.task_id))
   )
-  if (taskIds.length === 0) return []
+  let allowedTasks = new Set<string>()
+  if (taskIds.length > 0) {
+    const { data: rows } = (await admin
+      .from('tasks')
+      .select('id, projects!inner ( team_id )')
+      .in('id', taskIds)
+      .eq('projects.team_id', teamId)) as { data: { id: string }[] | null; error: unknown }
+    allowedTasks = new Set((rows ?? []).map(r => r.id))
+  }
 
-  const { data: rows } = (await admin
-    .from('tasks')
-    .select('id, projects!inner ( team_id )')
-    .in('id', taskIds)
-    .eq('projects.team_id', teamId)) as { data: { id: string }[] | null; error: unknown }
-
-  const allowed = new Set((rows ?? []).map(r => r.id))
-  return taskIds.filter(id => allowed.has(id)).map(id => ({ type: 'task' as const, task_id: id }))
+  const prefix = `team/${teamId}/`
+  const out: Attachment[] = []
+  const seenTask = new Set<string>()
+  for (const a of attachments) {
+    if (a.type === 'task') {
+      if (allowedTasks.has(a.task_id) && !seenTask.has(a.task_id)) {
+        seenTask.add(a.task_id)
+        out.push({ type: 'task', task_id: a.task_id })
+      }
+    } else if (a.type === 'file') {
+      if (a.path.startsWith(prefix) && !a.path.includes('..')) {
+        out.push({
+          type: 'file',
+          path: a.path,
+          name: a.name.slice(0, 160),
+          mime: a.mime.slice(0, 120),
+          size: a.size,
+        })
+      }
+    }
+    if (out.length >= 5) break
+  }
+  return out
 }
 
 // ── GET ────────────────────────────────────────────────────────────────────────
@@ -171,9 +203,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Sin acceso al equipo' }, { status: 403 })
   }
 
-  // Validar adjuntos: solo tareas que realmente pertenecen a este equipo.
+  // Validar adjuntos: tareas del equipo + archivos scopeados a team/<id>/.
   const safeAttachments = attachments?.length
-    ? await validateTaskAttachments(admin, team_id, attachments)
+    ? await validateAttachments(admin, team_id, attachments)
     : []
 
   // workspace_id del equipo (para scoping)
