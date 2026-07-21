@@ -74,6 +74,10 @@ export async function GET(request: NextRequest) {
       author:profiles ( display_name, avatar_url )
     `)
     .eq('workspace_id', workspace_id)
+    // Privadas ajenas fuera en la consulta (antes del limit), para no gastar
+    // slots del tope con notas que igual se ocultarian. El gating de espacios
+    // restringidos queda en JS: depende de las membresias que se calculan abajo.
+    .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
     .order('updated_at', { ascending: false })
     .limit(200) as { data: NoteListRow[] | null; error: unknown }
 
@@ -103,12 +107,10 @@ export async function GET(request: NextRequest) {
       .map(s => s.id)
   )
 
-  // Filtrar por visibility + espacio restringido
+  // Las privadas ajenas ya se filtraron en la consulta; aqui solo queda el
+  // gating de espacios restringidos (necesita las membresias de arriba).
   const visible = (notes ?? []).filter(n => {
     if (n.space_id && blockedSpaceIds.has(n.space_id)) return false
-    if (n.visibility === 'workspace') return true
-    if (n.visibility === 'private') return n.created_by === user.id
-    // project/team, para mantener simple, mostramos todo del workspace por ahora
     return true
   })
 

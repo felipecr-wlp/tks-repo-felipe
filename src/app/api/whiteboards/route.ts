@@ -54,11 +54,14 @@ export async function GET(request: NextRequest) {
       author:profiles ( display_name, avatar_url )
     `)
     .eq('workspace_id', workspace_id)
+    // Privadas ajenas fuera en la consulta (antes del limit): si se filtraran
+    // despues, una privada de otro gastaria un slot y podria esconder una
+    // pizarra visible mas reciente del propio usuario.
+    .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
     .order('updated_at', { ascending: false })
     .limit(100) as { data: WhiteboardListRow[] | null; error: unknown }
 
-  const visible = (boards ?? []).filter(w => w.visibility !== 'private' || w.created_by === user.id)
-  return NextResponse.json({ whiteboards: visible })
+  return NextResponse.json({ whiteboards: boards ?? [] })
 }
 
 export async function POST(request: NextRequest) {

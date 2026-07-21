@@ -168,6 +168,10 @@ export async function GET(request: NextRequest) {
     .select('id, title, icon, doc_kind, visibility, created_by, space_id')
     .eq('workspace_id', workspace_id)
     .ilike('title', escaped)
+    // Privadas ajenas fuera en la consulta (antes del limit), para no gastar
+    // slots con notas que igual se ocultarian. El gating de espacios
+    // restringidos queda en JS: depende de las membresias que se calculan abajo.
+    .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
     .order('updated_at', { ascending: false })
     .limit(30) as { data: NoteRow[] | null; error: unknown }
 
@@ -199,9 +203,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Las privadas ajenas ya se filtraron en la consulta; aqui solo queda el
+  // gating de espacios restringidos (necesita las membresias de arriba).
   const visibleNotes = (notesRaw ?? [])
     .filter(n => {
-      if (n.visibility === 'private' && n.created_by !== user.id) return false
       if (n.space_id && blockedSpaceIds.has(n.space_id)) return false
       return true
     })
