@@ -328,6 +328,35 @@ export function ScrumWorkspace({
     }
   }
 
+  // Cierre de sprint con carry-over: las tareas incompletas se van al backlog o
+  // a otro sprint (carryTo). Las hechas se quedan como registro de lo logrado.
+  async function closeSprint(sprintId: string, carryTo: string | null) {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/sprints/${sprintId}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ carry_to: carryTo }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j.error ?? 'No se pudo cerrar el sprint')
+      }
+      const data: { carried: number; done: number } = await res.json()
+      const dest = carryTo ? 'al siguiente sprint' : 'al backlog'
+      toast.success(
+        data.carried > 0
+          ? `Sprint cerrado. ${data.carried} ${data.carried === 1 ? 'tarea movida' : 'tareas movidas'} ${dest}.`
+          : 'Sprint cerrado.'
+      )
+      router.refresh()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al cerrar el sprint')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // Reconciliar el estado optimista cuando el panel edita una tarea, para que la
   // tarjeta del tablero refleje el cambio sin esperar al realtime.
   function onTaskUpdated(u: { id: string; title: string; priority: string; due_date: string | null; status: ScrumStatus | { id: string; name: string; color: string | null; category: string } | null; assignee: { id: string; display_name: string; avatar_url: string | null } | null }) {
@@ -367,6 +396,7 @@ export function ScrumWorkspace({
         onSelect={setSelectedSprintId}
         onCreate={createSprint}
         onSetStatus={(st) => selectedSprint && patchSprint(selectedSprint.id, { status: st }, 'Estado actualizado')}
+        onCloseSprint={(carryTo) => selectedSprint && closeSprint(selectedSprint.id, carryTo)}
         view={view}
         onView={setView}
         busy={busy}
@@ -421,7 +451,7 @@ type SprintSummary = { total: number; done: number; committedSP: number; complet
 
 function SprintBar({
   teamName, methodology, isAdmin, onSwitchMethodology,
-  sprints, selected, summary, onSelect, onCreate, onSetStatus, view, onView, busy, viewers,
+  sprints, selected, summary, onSelect, onCreate, onSetStatus, onCloseSprint, view, onView, busy, viewers,
 }: {
   teamName: string
   methodology: Methodology
@@ -433,6 +463,7 @@ function SprintBar({
   onSelect: (id: string) => void
   onCreate: (p: { name: string; goal: string; start_date: string; end_date: string }) => void
   onSetStatus: (s: 'planning' | 'active' | 'completed') => void
+  onCloseSprint: (carryTo: string | null) => void
   view: View
   onView: (v: View) => void
   busy: boolean
@@ -443,6 +474,7 @@ function SprintBar({
   const [goal, setGoal] = useState('')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
+  const [showClose, setShowClose] = useState(false)
 
   const isKanban = methodology === 'kanban'
 
@@ -522,7 +554,14 @@ function SprintBar({
           {!isKanban && selected && (
             <select
               value={selected.status}
-              onChange={e => onSetStatus(e.target.value as 'planning' | 'active' | 'completed')}
+              onChange={e => {
+                const next = e.target.value as 'planning' | 'active' | 'completed'
+                // Cerrar un sprint activo o en plan pasa por el modal de carry-over
+                // (para decidir el destino de las tareas incompletas). Los demas
+                // cambios de estado son un PATCH directo.
+                if (next === 'completed' && selected.status !== 'completed') setShowClose(true)
+                else onSetStatus(next)
+              }}
               disabled={busy}
               className={cn(
                 'text-xs rounded-full px-2 py-1 font-medium border',
@@ -608,6 +647,92 @@ function SprintBar({
           </div>
         </div>
       )}
+
+      {showClose && selected && (
+        <CloseSprintModal
+          sprint={selected}
+          incomplete={Math.max(summary.total - summary.done, 0)}
+          candidates={sprints.filter(s => s.id !== selected.id && s.status !== 'completed')}
+          busy={busy}
+          onCancel={() => setShowClose(false)}
+          onConfirm={(carryTo) => { onCloseSprint(carryTo); setShowClose(false) }}
+        />
+      )}
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* Modal de cierre de sprint con carry-over: elige el destino de las tareas    */
+/* incompletas (backlog u otro sprint abierto). Las hechas se quedan.          */
+/* ════════════════════════════════════════════════════════════════════════ */
+function CloseSprintModal({
+  sprint, incomplete, candidates, busy, onCancel, onConfirm,
+}: {
+  sprint: ScrumSprint
+  incomplete: number
+  candidates: ScrumSprint[]
+  busy: boolean
+  onCancel: () => void
+  onConfirm: (carryTo: string | null) => void
+}) {
+  const [dest, setDest] = useState<string>('backlog')
+  const carryTo = dest === 'backlog' ? null : dest
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onCancel}>
+      <div
+        className="w-full max-w-md bg-card border border-border rounded-xl shadow-xl p-5"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <Timer className="w-4 h-4 text-primary" />
+          <h2 className="text-base font-semibold text-foreground">Cerrar {sprint.name}</h2>
+        </div>
+        {incomplete > 0 ? (
+          <p className="text-sm text-muted-foreground mb-4">
+            Hay {incomplete} {incomplete === 1 ? 'tarea sin terminar' : 'tareas sin terminar'}. ¿A dónde las mueves? Las tareas hechas se quedan en el sprint como registro.
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground mb-4">
+            No quedan tareas sin terminar. El sprint se cerrará.
+          </p>
+        )}
+
+        {incomplete > 0 && (
+          <label className="text-xs font-medium text-muted-foreground flex flex-col gap-1 mb-4">
+            Mover tareas incompletas a
+            <select
+              value={dest}
+              onChange={e => setDest(e.target.value)}
+              className="text-sm border border-border rounded-md px-2 py-2 bg-background text-foreground"
+            >
+              <option value="backlog">Backlog (quitar del sprint)</option>
+              {candidates.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.name} {s.status === 'active' ? '(activo)' : '(plan)'}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="text-xs px-3 py-1.5 text-muted-foreground hover:text-foreground rounded-md"
+          >
+            Cancelar
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => onConfirm(carryTo)}
+            className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-md disabled:opacity-50"
+          >
+            Cerrar sprint
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
