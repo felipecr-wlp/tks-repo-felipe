@@ -14,6 +14,7 @@
  * Uso: <TaskDetailPanel taskId={id} onClose={() => setOpen(false)} />
  */
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
@@ -23,7 +24,7 @@ import {
   Zap, ChevronsUp, ChevronUp, ChevronDown, Minus, ImageIcon, FileText,
   CircleDot, User as UserIcon, Calendar as CalendarIcon, MessageSquare,
   CornerLeftUp, PlayCircle, Clock, Eye, Pencil, Check, Repeat,
-  AlertTriangle, CalendarClock,
+  AlertTriangle, CalendarClock, Copy,
 } from 'lucide-react'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 import { RECURRENCE_RULES, RECURRENCE_LABELS } from '@/lib/recurrence'
@@ -160,8 +161,12 @@ export function TaskDetailPanel({
   onDeleted,
   onOpenTask,
 }: TaskDetailPanelProps) {
+  const router = useRouter()
   const [task, setTask] = useState<TaskDetail | null>(null)
+  const [duplicating, setDuplicating] = useState(false)
   const [comments, setComments] = useState<Comment[]>([])
+  const [hasMoreComments, setHasMoreComments] = useState(false)
+  const [loadingMoreComments, setLoadingMoreComments] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
@@ -194,8 +199,9 @@ export function TaskDetailPanel({
           setTitleValue(data.title)
         }
         if (commentsRes.ok) {
-          const data: Comment[] = await commentsRes.json()
-          setComments(data)
+          const data: { comments: Comment[]; has_more: boolean } = await commentsRes.json()
+          setComments(data.comments ?? [])
+          setHasMoreComments(!!data.has_more)
         }
       } catch {
         toast.error('Error al cargar la tarea')
@@ -267,6 +273,25 @@ export function TaskDetailPanel({
     }
   }
 
+  const handleDuplicate = async () => {
+    if (duplicating) return
+    setDuplicating(true)
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/duplicate`, { method: 'POST' })
+      if (!res.ok) throw new Error('Error al duplicar')
+      const copy: { id: string; title: string } = await res.json()
+      toast.success('Tarea duplicada')
+      // Re-ejecuta el server component padre para que el tablero muestre la
+      // copia, y abre la tarea nueva para confirmar visualmente.
+      router.refresh()
+      onOpenTask?.(copy.id)
+    } catch {
+      toast.error('Error al duplicar la tarea')
+    } finally {
+      setDuplicating(false)
+    }
+  }
+
   const handleDelete = async () => {
     if (!(await confirmDialog({ message: '¿Eliminar esta tarea? No se puede deshacer.', destructive: true, confirmLabel: 'Eliminar' }))) return
     try {
@@ -277,6 +302,25 @@ export function TaskDetailPanel({
       onClose()
     } catch {
       toast.error('Error al eliminar la tarea')
+    }
+  }
+
+  // Cargar comentarios anteriores (mas viejos). El cursor es el created_at del
+  // comentario mas antiguo que ya esta en pantalla; los nuevos se anteponen.
+  const loadMoreComments = async () => {
+    if (loadingMoreComments || comments.length === 0) return
+    setLoadingMoreComments(true)
+    try {
+      const oldest = comments[0].created_at
+      const res = await fetch(`/api/tasks/${taskId}/comments?before=${encodeURIComponent(oldest)}`)
+      if (!res.ok) throw new Error('Error al cargar comentarios')
+      const data: { comments: Comment[]; has_more: boolean } = await res.json()
+      setComments(prev => [...(data.comments ?? []), ...prev])
+      setHasMoreComments(!!data.has_more)
+    } catch {
+      toast.error('Error al cargar comentarios anteriores')
+    } finally {
+      setLoadingMoreComments(false)
     }
   }
 
@@ -377,6 +421,15 @@ export function TaskDetailPanel({
                 Guardando...
               </span>
             )}
+            <button
+              onClick={handleDuplicate}
+              disabled={duplicating}
+              title="Duplicar tarea"
+              aria-label="Duplicar tarea"
+              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors disabled:opacity-50"
+            >
+              {duplicating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+            </button>
             <button
               onClick={handleDelete}
               title="Eliminar tarea"
@@ -499,6 +552,17 @@ export function TaskDetailPanel({
                   <SectionLabel icon={<MessageSquare className="w-3.5 h-3.5" />}>
                     Comentarios ({comments.length})
                   </SectionLabel>
+
+                  {hasMoreComments && (
+                    <button
+                      type="button"
+                      onClick={loadMoreComments}
+                      disabled={loadingMoreComments}
+                      className="mb-3 text-xs font-medium text-primary hover:underline disabled:opacity-50"
+                    >
+                      {loadingMoreComments ? 'Cargando...' : 'Cargar comentarios anteriores'}
+                    </button>
+                  )}
 
                   {comments.length > 0 && (
                     <div className="space-y-3 mb-4">

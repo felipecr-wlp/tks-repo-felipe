@@ -10,7 +10,7 @@ import { autoWatch } from '@/lib/watchers'
 import { logActivity, ActivityVerbs, NotificationTypes, notifyTaskWatchers } from '@/lib/activity'
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { taskId: string } }
 ) {
   const supabase = createClient()
@@ -48,22 +48,39 @@ export async function GET(
     created_at: string
     author: { id: string; display_name: string; avatar_url: string | null } | null
   }
-  const { data: rawComments } = await admin
+
+  // Paginacion por cursor. Antes se cargaban los 100 comentarios mas ANTIGUOS
+  // (ASC limit 100), asi que pasando 100 se ocultaban los recientes, que es lo
+  // peor para un hilo. Ahora se traen los mas NUEVOS primero y la UI pide los
+  // anteriores con el parametro `before` (created_at del comentario mas viejo
+  // que ya tiene en pantalla).
+  const url = new URL(request.url)
+  const before = url.searchParams.get('before')
+  const rawLimit = parseInt(url.searchParams.get('limit') ?? '30', 10)
+  const pageSize = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 30
+
+  let query = admin
     .from('task_comments')
     .select('id, content, created_at, author:profiles ( id, display_name, avatar_url )')
     .eq('task_id', params.taskId)
-    .order('created_at', { ascending: true })
-    .limit(100) as { data: RawCommentRow[] | null; error: unknown }
+    .order('created_at', { ascending: false })
+    .limit(pageSize + 1) // +1 para saber si hay mas paginas sin un count aparte
 
-  // Mapear `content` → `body` para la UI
-  const comments: CommentRow[] = (rawComments ?? []).map(c => ({
-    id: c.id,
-    body: c.content,
-    created_at: c.created_at,
-    author: c.author,
-  }))
+  if (before) query = query.lt('created_at', before)
 
-  return NextResponse.json(comments)
+  const { data: rawComments } = await query as { data: RawCommentRow[] | null; error: unknown }
+
+  const rows = rawComments ?? []
+  const hasMore = rows.length > pageSize
+  const page = hasMore ? rows.slice(0, pageSize) : rows
+
+  // Mapear `content` -> `body` y devolver en orden ascendente (viejo -> nuevo)
+  // para que la UI los pinte de arriba hacia abajo como una conversacion.
+  const comments: CommentRow[] = page
+    .map(c => ({ id: c.id, body: c.content, created_at: c.created_at, author: c.author }))
+    .reverse()
+
+  return NextResponse.json({ comments, has_more: hasMore })
 }
 
 export async function POST(
