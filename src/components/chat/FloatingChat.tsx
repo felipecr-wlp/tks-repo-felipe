@@ -32,6 +32,7 @@ interface Message {
   author_id: string
   body: string
   created_at: string
+  attachments?: { type: 'task'; task_id: string }[] | null
 }
 
 interface LoadedTeam {

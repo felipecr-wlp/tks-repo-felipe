@@ -39,10 +39,16 @@ export default async function ChatPage({ params }: ChatPageProps) {
     .map(m => m.profile!)
 
   // ── Historial reciente (últimos 100, ascendente) ──────────────────────────
-  type MsgRow = { id: string; author_id: string; body: string; created_at: string }
+  type MsgRow = {
+    id: string
+    author_id: string
+    body: string
+    created_at: string
+    attachments: { type: 'task'; task_id: string }[] | null
+  }
   const { data: msgRows } = await admin
     .from('messages')
-    .select('id, author_id, body, created_at')
+    .select('id, author_id, body, created_at, attachments')
     .eq('team_id', team.id)
     .order('created_at', { ascending: false })
     .limit(100) as { data: MsgRow[] | null; error: unknown }

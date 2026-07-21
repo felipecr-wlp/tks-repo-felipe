@@ -68,6 +68,51 @@ async function resolveWorkspaceMembership(userId: string, workspaceSlug: string)
   return wsRow
 }
 
+/**
+ * Acceso al chat/tareas de un equipo por id (sin resolver slugs).
+ *
+ * Es miembro directo (team_members) O admin del workspace dueño del equipo
+ * (org_role owner/admin, o workspace_members.role owner/admin). Replica la regla
+ * del sidebar, que a los admins les muestra TODOS los equipos del workspace.
+ * Compartido por /api/messages y los endpoints de adjuntos del chat.
+ */
+export async function canAccessTeamById(
+  admin: ReturnType<typeof createAdminClient>,
+  teamId: string,
+  userId: string
+): Promise<boolean> {
+  const { data: membership } = (await admin
+    .from('team_members')
+    .select('role')
+    .eq('team_id', teamId)
+    .eq('profile_id', userId)
+    .maybeSingle()) as { data: { role: string } | null; error: unknown }
+  if (membership) return true
+
+  const { data: team } = (await admin
+    .from('teams')
+    .select('workspace_id')
+    .eq('id', teamId)
+    .maybeSingle()) as { data: { workspace_id: string } | null; error: unknown }
+  if (!team?.workspace_id) return false
+
+  const { data: profile } = (await admin
+    .from('profiles')
+    .select('org_role')
+    .eq('id', userId)
+    .maybeSingle()) as { data: { org_role: string | null } | null; error: unknown }
+  const orgRole = profile?.org_role ?? 'member'
+  if (orgRole === 'owner' || orgRole === 'admin') return true
+
+  const { data: wsMember } = (await admin
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', team.workspace_id)
+    .eq('profile_id', userId)
+    .maybeSingle()) as { data: { role: string } | null; error: unknown }
+  return wsMember?.role === 'owner' || wsMember?.role === 'admin'
+}
+
 async function isOrgAdmin(userId: string): Promise<boolean> {
   const admin = createAdminClient()
   const { data: profile } = (await admin

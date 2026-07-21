@@ -8,7 +8,39 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
-## 2026-07-20 — SOP Nivel 2, Paso 3: rollup de cumplimiento exportable por departamento
+## 2026-07-20 — Chat V2, Circuito 1.A: adjuntar una tarea al mensaje
+
+Primer superpoder del chat de equipo. Desde el compositor se abre un buscador de
+tareas del propio equipo y se publica una tarjeta enlazada (título, estado,
+prioridad, asignado) que al hacer clic abre la tarea en su tablero. La tarjeta se
+resuelve viva al render, así siempre refleja el estado actual, no una copia
+congelada. Aplica al chat de equipo completo y a la burbuja flotante (ambos
+reusan `TeamChat`).
+
+Qué cambió:
+- Migración `20260720500000_message_attachments.sql` (aplicada a prod): columna
+  aditiva `attachments jsonb NOT NULL DEFAULT '[]'` en `messages`. Sin tabla nueva,
+  sin FK, sin RLS: inmune a los landmines de ciclos de FK y recursión de policies.
+  El adjunto guarda solo la referencia mínima `{ type:'task', task_id }`.
+- `src/lib/team-access.ts`: se extrajo `canAccessTeamById(admin, teamId, userId)`
+  (miembro del equipo o admin del workspace) para compartirlo entre rutas. La ruta
+  de mensajes deja de duplicar esa lógica.
+- `src/app/api/messages/route.ts`: POST acepta `attachments` (máx 5) y valida
+  server-side que cada tarea pertenezca al equipo (join `projects.team_id`,
+  anti-IDOR) antes de guardar. El cuerpo puede ir vacío si hay al menos un adjunto.
+  GET devuelve `attachments`.
+- Nuevos endpoints: `GET /api/tasks/search` (buscador de tareas del equipo para el
+  picker) y `GET /api/tasks/cards` (resuelve tarjetas vivas + href para abrir la
+  tarea). Ambos gateados por `canAccessTeamById` y limitados a tareas del equipo.
+- Cliente: `TaskAttachPicker.tsx` (popover de búsqueda con debounce),
+  `TaskCardChip.tsx` (tarjeta enlazada con estados cargando/no-disponible) y
+  `TeamChat.tsx` (cola de adjuntos pendientes en el compositor + resolución en lote
+  de tarjetas para historial y realtime). `FloatingChat` y el server component del
+  chat incluyen `attachments` en su carga.
+
+Deploy: prod `dpl_3y6qgFohGK4tV884dtEqFiV3K6tN` (wlo.vercel.app). tsc + build EXIT 0.
+
+
 
 Cierre del Nivel 2. Un panel para admins encima de la lente "Procesos y SOPs" que
 agrega el cumplimiento de todos los SOPs del workspace: cuánta gente requerida ya

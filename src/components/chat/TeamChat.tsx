@@ -12,9 +12,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
-import { MessageSquare, Loader2 } from 'lucide-react'
+import { MessageSquare, Loader2, ListChecks, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { TaskAttachPicker, type PickerTask } from './TaskAttachPicker'
+import { TaskCardChip, type ResolvedTaskCard } from './TaskCardChip'
 
 interface Member {
   id: string
@@ -22,11 +24,18 @@ interface Member {
   avatar_url: string | null
 }
 
+interface TaskAttachment {
+  type: 'task'
+  task_id: string
+}
+type Attachment = TaskAttachment
+
 interface Message {
   id: string
   author_id: string
   body: string
   created_at: string
+  attachments?: Attachment[] | null
 }
 
 interface TeamChatProps {
@@ -47,11 +56,69 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages }: Te
   const scrollRef = useRef<HTMLDivElement>(null)
   const prependingRef = useRef(false)
 
+  // Adjuntos de tarea: cola pendiente (antes de enviar) y buscador abierto.
+  const [pendingTasks, setPendingTasks] = useState<PickerTask[]>([])
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  // Cache de tarjetas resueltas. undefined = aún no cargada; null = no disponible.
+  const [taskCards, setTaskCards] = useState<Record<string, ResolvedTaskCard | null>>({})
+
   const memberById = useMemo(() => {
     const m = new Map<string, Member>()
     for (const mem of members) m.set(mem.id, mem)
     return m
   }, [members])
+
+  // Resuelve en lote las tarjetas de tarea que aparecen en los mensajes y aún no
+  // están en cache. Cubre tanto el historial como los mensajes que llegan por
+  // realtime (que traen solo la referencia cruda en attachments).
+  useEffect(() => {
+    const needed = new Set<string>()
+    for (const msg of messages) {
+      for (const att of msg.attachments ?? []) {
+        if (att.type === 'task' && !(att.task_id in taskCards)) needed.add(att.task_id)
+      }
+    }
+    if (needed.size === 0) return
+    let cancelled = false
+    const ids = Array.from(needed).slice(0, 30)
+    // Marcamos como "en curso" (undefined ya lo está por ausencia); evitamos
+    // refetch marcándolas provisionalmente a null si la respuesta no las trae.
+    const params = new URLSearchParams({ team_id: teamId, ids: ids.join(',') })
+    fetch(`/api/tasks/cards?${params.toString()}`)
+      .then(res => (res.ok ? res.json() : Promise.reject(new Error('cards'))))
+      .then((data: { cards: ResolvedTaskCard[] }) => {
+        if (cancelled) return
+        setTaskCards(prev => {
+          const next = { ...prev }
+          const found = new Set(data.cards.map(c => c.id))
+          for (const c of data.cards) next[c.id] = c
+          for (const id of ids) if (!found.has(id)) next[id] = null
+          return next
+        })
+      })
+      .catch(() => {
+        if (cancelled) return
+        setTaskCards(prev => {
+          const next = { ...prev }
+          for (const id of ids) if (!(id in next)) next[id] = null
+          return next
+        })
+      })
+    return () => { cancelled = true }
+  }, [messages, teamId, taskCards])
+
+  function addPendingTask(task: PickerTask) {
+    setPendingTasks(prev => {
+      if (prev.some(t => t.id === task.id) || prev.length >= 5) return prev
+      return [...prev, task]
+    })
+    setPickerOpen(false)
+  }
+
+  function removePendingTask(id: string) {
+    setPendingTasks(prev => prev.filter(t => t.id !== id))
+  }
 
   // Append sin duplicar (dedupe por id).
   function upsertMessage(msg: Message) {
@@ -125,14 +192,41 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages }: Te
 
   async function send() {
     const body = draft.trim()
-    if (!body || sending) return
+    const tasks = pendingTasks
+    if ((!body && tasks.length === 0) || sending) return
     setSending(true)
     setDraft('')
+    setPendingTasks([])
+    // Sembramos la cache con las tarjetas que ya conocemos del picker, para que
+    // el chip aparezca resuelto de inmediato sin esperar el fetch.
+    if (tasks.length > 0) {
+      setTaskCards(prev => {
+        const next = { ...prev }
+        for (const t of tasks) {
+          if (!(t.id in next)) {
+            next[t.id] = {
+              id: t.id,
+              title: t.title,
+              priority: t.priority,
+              status: t.status,
+              assignee: null,
+              href: '',
+            }
+          }
+        }
+        return next
+      })
+    }
+    const attachments = tasks.map(t => ({ type: 'task' as const, task_id: t.id }))
     try {
       const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ team_id: teamId, body }),
+        body: JSON.stringify({
+          team_id: teamId,
+          body,
+          ...(attachments.length > 0 ? { attachments } : {}),
+        }),
       })
       if (!res.ok) throw new Error('send failed')
       const msg = (await res.json()) as Message
@@ -140,6 +234,7 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages }: Te
     } catch {
       toast.error('No se pudo enviar el mensaje')
       setDraft(body)
+      setPendingTasks(tasks)
     } finally {
       setSending(false)
     }
@@ -211,16 +306,27 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages }: Te
                     </span>
                   </div>
                 )}
-                <div
-                  className={cn(
-                    'px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words',
-                    mine
-                      ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                      : 'bg-muted text-foreground rounded-tl-sm'
-                  )}
-                >
-                  {msg.body}
-                </div>
+                {msg.body && (
+                  <div
+                    className={cn(
+                      'px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words',
+                      mine
+                        ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                        : 'bg-muted text-foreground rounded-tl-sm'
+                    )}
+                  >
+                    {msg.body}
+                  </div>
+                )}
+                {(msg.attachments ?? []).map(att =>
+                  att.type === 'task' ? (
+                    <TaskCardChip
+                      key={att.task_id}
+                      card={taskCards[att.task_id]}
+                      onMine={mine}
+                    />
+                  ) : null
+                )}
               </div>
             </div>
           )
@@ -230,7 +336,52 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages }: Te
 
       {/* Composer */}
       <div className="border-t border-border px-4 py-3">
+        {/* Tareas adjuntas pendientes de enviar */}
+        {pendingTasks.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {pendingTasks.map(t => (
+              <span
+                key={t.id}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 pl-2.5 pr-1.5 py-1 text-xs text-foreground"
+              >
+                <ListChecks className="h-3 w-3 text-primary" />
+                <span className="max-w-[10rem] truncate">{t.title}</span>
+                <button
+                  onClick={() => removePendingTask(t.id)}
+                  aria-label={`Quitar ${t.title}`}
+                  className="rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-foreground transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <div className="flex items-end gap-2">
+          {/* Adjuntar tarea */}
+          <div className="relative flex-shrink-0">
+            {pickerOpen && (
+              <TaskAttachPicker
+                teamId={teamId}
+                onPick={addPendingTask}
+                onClose={() => setPickerOpen(false)}
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => setPickerOpen(o => !o)}
+              aria-label="Adjuntar tarea"
+              title="Adjuntar tarea"
+              className={cn(
+                'inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors',
+                pickerOpen
+                  ? 'border-primary/40 bg-primary/10 text-primary'
+                  : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              <ListChecks className="h-4 w-4" />
+            </button>
+          </div>
           <textarea
             value={draft}
             onChange={e => setDraft(e.target.value)}
@@ -241,7 +392,7 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages }: Te
           />
           <button
             onClick={send}
-            disabled={sending || draft.trim().length === 0}
+            disabled={sending || (draft.trim().length === 0 && pendingTasks.length === 0)}
             aria-label="Enviar mensaje"
             className="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-40 hover:bg-primary/90 transition-colors"
           >

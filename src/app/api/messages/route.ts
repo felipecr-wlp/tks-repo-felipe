@@ -9,65 +9,63 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { canAccessTeamById } from '@/lib/team-access'
 import { applyRateLimit } from '@/lib/rate-limit'
+
+// Un adjunto de mensaje es una referencia minima. Por ahora solo tarjetas de
+// tarea; el tipo es abierto para crecer (archivo, recordatorio) sin romper.
+const taskAttachmentSchema = z.object({
+  type: z.literal('task'),
+  task_id: z.string().uuid(),
+})
+const attachmentSchema = z.discriminatedUnion('type', [taskAttachmentSchema])
 
 const schema = z.object({
   team_id: z.string().uuid(),
-  body:    z.string().min(1).max(4000).trim(),
-}).strict()
+  // El cuerpo puede ir vacío si el mensaje adjunta al menos una tarea.
+  body:    z.string().max(4000).trim(),
+  attachments: z.array(attachmentSchema).max(5).optional(),
+}).strict().refine(
+  d => d.body.length > 0 || (d.attachments?.length ?? 0) > 0,
+  { message: 'El mensaje no puede estar vacío' }
+)
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Attachment = z.infer<typeof attachmentSchema> extends infer T ? T : any
 
 interface MessageRow {
   id: string
   author_id: string
   body: string
   created_at: string
+  attachments: Attachment[] | null
 }
 
 interface MemberJoinRow {
   profile: { id: string; display_name: string; avatar_url: string | null } | null
 }
 
-// Acceso al chat de un equipo: es miembro directo (team_members) O es admin del
-// workspace dueño del equipo (org_role owner/admin, o workspace_members.role
-// owner/admin). Replica la regla del sidebar, que a los admins les muestra TODOS
-// los equipos del workspace aunque no esten en team_members. Sin este fallback,
-// un admin ve el equipo pero el chat responde 403 ("No se pudo cargar la
-// conversacion").
-async function canAccessTeamChat(
+// Filtra los adjuntos de tarea dejando solo los que pertenecen al equipo (una
+// tarea es del equipo si su proyecto tiene team_id = team_id). Anti-IDOR: nunca
+// confiamos en el task_id del body sin validar la pertenencia al equipo.
+async function validateTaskAttachments(
   admin: ReturnType<typeof createAdminClient>,
   teamId: string,
-  userId: string
-): Promise<boolean> {
-  const { data: membership } = await admin
-    .from('team_members')
-    .select('role')
-    .eq('team_id', teamId)
-    .eq('profile_id', userId)
-    .maybeSingle() as { data: { role: string } | null; error: unknown }
-  if (membership) return true
+  attachments: Attachment[]
+): Promise<Attachment[]> {
+  const taskIds = Array.from(
+    new Set(attachments.filter(a => a.type === 'task').map(a => a.task_id))
+  )
+  if (taskIds.length === 0) return []
 
-  const { data: team } = await admin
-    .from('teams')
-    .select('workspace_id')
-    .eq('id', teamId)
-    .maybeSingle() as { data: { workspace_id: string } | null; error: unknown }
-  if (!team?.workspace_id) return false
+  const { data: rows } = (await admin
+    .from('tasks')
+    .select('id, projects!inner ( team_id )')
+    .in('id', taskIds)
+    .eq('projects.team_id', teamId)) as { data: { id: string }[] | null; error: unknown }
 
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('org_role')
-    .eq('id', userId)
-    .maybeSingle() as { data: { org_role: string | null } | null; error: unknown }
-  const orgRole = profile?.org_role ?? 'member'
-  if (orgRole === 'owner' || orgRole === 'admin') return true
-
-  const { data: wsMember } = await admin
-    .from('workspace_members')
-    .select('role')
-    .eq('workspace_id', team.workspace_id)
-    .eq('profile_id', userId)
-    .maybeSingle() as { data: { role: string } | null; error: unknown }
-  return wsMember?.role === 'owner' || wsMember?.role === 'admin'
+  const allowed = new Set((rows ?? []).map(r => r.id))
+  return taskIds.filter(id => allowed.has(id)).map(id => ({ type: 'task' as const, task_id: id }))
 }
 
 // ── GET ────────────────────────────────────────────────────────────────────────
@@ -96,14 +94,14 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient()
 
   // Verificar acceso al equipo (miembro directo o admin del workspace)
-  if (!(await canAccessTeamChat(admin, team_id, user.id))) {
+  if (!(await canAccessTeamById(admin, team_id, user.id))) {
     return NextResponse.json({ error: 'Sin acceso al equipo' }, { status: 403 })
   }
 
   // Traemos limit+1 (desc) para saber si hay más historia detrás del cursor
   let query = admin
     .from('messages')
-    .select('id, author_id, body, created_at')
+    .select('id, author_id, body, created_at, attachments')
     .eq('team_id', team_id)
     .order('created_at', { ascending: false })
     .limit(limit + 1)
@@ -147,13 +145,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 422 })
   }
 
-  const { team_id, body } = parsed.data
+  const { team_id, body, attachments } = parsed.data
   const admin = createAdminClient()
 
   // Verificar acceso al equipo (miembro directo o admin del workspace)
-  if (!(await canAccessTeamChat(admin, team_id, user.id))) {
+  if (!(await canAccessTeamById(admin, team_id, user.id))) {
     return NextResponse.json({ error: 'Sin acceso al equipo' }, { status: 403 })
   }
+
+  // Validar adjuntos: solo tareas que realmente pertenecen a este equipo.
+  const safeAttachments = attachments?.length
+    ? await validateTaskAttachments(admin, team_id, attachments)
+    : []
 
   // workspace_id del equipo (para scoping)
   const { data: team } = await admin
@@ -170,8 +173,9 @@ export async function POST(request: NextRequest) {
       workspace_id: team?.workspace_id ?? null,
       author_id: user.id,
       body,
+      attachments: safeAttachments,
     })
-    .select('id, team_id, author_id, body, created_at')
+    .select('id, team_id, author_id, body, created_at, attachments')
     .single()
 
   if (error || !message) {
