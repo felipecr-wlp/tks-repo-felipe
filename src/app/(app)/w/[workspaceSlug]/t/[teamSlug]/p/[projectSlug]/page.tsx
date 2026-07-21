@@ -116,7 +116,7 @@ export default async function ProjectPage({
       sort_order,
       recurrence_rule,
       status:task_statuses ( id, name, color, category ),
-      assignee:profiles ( id, display_name, avatar_url ),
+      assignee:profiles!tasks_assignee_id_fkey ( id, display_name, avatar_url ),
       task_assignees ( profile:profiles ( id, display_name, avatar_url ) ),
       labels:task_labels ( label:labels ( id, name, color ) )
     `)

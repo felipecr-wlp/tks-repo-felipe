@@ -41,7 +41,7 @@ export async function GET(
       status:task_statuses ( id, name, color, category ),
       assignee:profiles!tasks_assignee_id_fkey ( id, display_name, avatar_url ),
       created_by_profile:profiles!tasks_created_by_fkey ( id, display_name, avatar_url ),
-      parent:tasks!tasks_parent_task_id_fkey ( id, title )
+      parent:tasks ( id, title )
     `)
     .eq('id', params.taskId)
     .eq('is_archived', false)
