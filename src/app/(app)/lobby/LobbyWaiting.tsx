@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
-import { Clock, LogOut, RefreshCw } from 'lucide-react'
+import { LogOut, RefreshCw } from 'lucide-react'
 
 interface LobbyWaitingProps {
   displayName: string
@@ -44,8 +44,24 @@ export function LobbyWaiting({ displayName, email, orgName }: LobbyWaitingProps)
   return (
     <div className="min-h-screen w-full bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md text-center">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 text-primary mb-5">
-          <Clock size={26} />
+        {/* Recepción: el husky recibe en la puerta */}
+        <div className="lobby-welcome relative mx-auto mb-5 h-32 w-full max-w-xs overflow-hidden rounded-2xl border border-border">
+          <div className="lobby-welcome-bg absolute inset-0" />
+          <div className="lobby-welcome-mat absolute left-1/2 bottom-0 -translate-x-1/2" />
+          <div className="relative z-10 flex h-full items-end justify-center">
+            <div className="relative pb-2">
+              <div className="lobby-welcome-bubble">¡Bienvenido!</div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/avatars/husky.png"
+                alt="Husky de bienvenida"
+                width={104}
+                height={104}
+                className="lobby-welcome-husky h-24 w-24 object-contain drop-shadow-lg"
+              />
+              <div className="lobby-welcome-shadow" />
+            </div>
+          </div>
         </div>
 
         <h1 className="text-2xl font-semibold text-foreground">
@@ -96,6 +112,85 @@ export function LobbyWaiting({ displayName, email, orgName }: LobbyWaitingProps)
           </button>
         </div>
       </div>
+
+      <style jsx>{`
+        .lobby-welcome-bg {
+          background:
+            radial-gradient(120% 90% at 50% 0%, rgba(37, 99, 235, 0.14), transparent 60%),
+            linear-gradient(180deg, hsl(var(--muted) / 0.5), hsl(var(--card)));
+        }
+        .lobby-welcome-mat {
+          width: 150px;
+          height: 34px;
+          background: linear-gradient(180deg, #fed500, #f5c400);
+          clip-path: polygon(22% 0, 78% 0, 100% 100%, 0 100%);
+          opacity: 0.85;
+        }
+        .lobby-welcome-husky {
+          transform-origin: 50% 90%;
+          animation:
+            lobby-welcome-drop 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both,
+            lobby-welcome-bob 2.8s ease-in-out 0.9s infinite;
+        }
+        .lobby-welcome-shadow {
+          position: absolute;
+          left: 50%;
+          bottom: 2px;
+          width: 62px;
+          height: 10px;
+          transform: translateX(-50%);
+          background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.22), transparent 70%);
+          animation: lobby-welcome-shadow 2.8s ease-in-out 0.9s infinite;
+        }
+        .lobby-welcome-bubble {
+          position: absolute;
+          top: -2px;
+          right: -12px;
+          z-index: 2;
+          padding: 3px 8px;
+          font-size: 10px;
+          font-weight: 600;
+          color: #fff;
+          background: #2563eb;
+          border-radius: 9999px;
+          white-space: nowrap;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+          animation: lobby-welcome-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 1.1s both;
+        }
+        .lobby-welcome-bubble::after {
+          content: '';
+          position: absolute;
+          left: 12px;
+          bottom: -4px;
+          width: 8px;
+          height: 8px;
+          background: #2563eb;
+          transform: rotate(45deg);
+          border-radius: 1px;
+        }
+        @keyframes lobby-welcome-drop {
+          0% { opacity: 0; transform: translateY(-24px) scale(0.9); }
+          60% { transform: translateY(4px) scale(1.02); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes lobby-welcome-bob {
+          0%, 100% { transform: translateY(0) rotate(-2deg); }
+          50% { transform: translateY(-6px) rotate(2deg); }
+        }
+        @keyframes lobby-welcome-shadow {
+          0%, 100% { transform: translateX(-50%) scaleX(1); opacity: 0.5; }
+          50% { transform: translateX(-50%) scaleX(0.82); opacity: 0.32; }
+        }
+        @keyframes lobby-welcome-pop {
+          from { opacity: 0; transform: scale(0.4) translateY(6px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .lobby-welcome-husky, .lobby-welcome-shadow, .lobby-welcome-bubble {
+            animation: none !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }
