@@ -14,6 +14,7 @@
  */
 import { notFound, redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { canAccessNoteSpace } from '@/lib/note-space-access'
 import { PrintController } from './PrintController'
 
 interface PrintPageProps {
@@ -25,6 +26,7 @@ export const metadata = { title: 'Imprimir nota · WLO' }
 type NoteRow = {
   id: string
   workspace_id: string
+  space_id: string | null
   icon: string | null
   title: string
   content: string | null
@@ -78,7 +80,7 @@ export default async function PrintNotePage({ params }: PrintPageProps) {
   const { data: note } = await admin
     .from('notes')
     .select(`
-      id, workspace_id, icon, title, content, visibility,
+      id, workspace_id, space_id, icon, title, content, visibility,
       doc_kind, sop_status, sop_version, review_due,
       created_by, created_at, updated_at,
       author:profiles ( display_name, avatar_url )
@@ -98,6 +100,11 @@ export default async function PrintNotePage({ params }: PrintPageProps) {
 
   if (!membership) notFound()
   if (note.visibility === 'private' && note.created_by !== user.id) notFound()
+
+  // F3: espacio restringido, mismo check que el editor. El export a PDF
+  // incluye ademas el registro de acuses de lectura, asi que el riesgo es
+  // mayor si se omite aqui.
+  if (!(await canAccessNoteSpace(admin, note.space_id, user.id))) notFound()
 
   const isDoc = note.doc_kind !== 'note'
 

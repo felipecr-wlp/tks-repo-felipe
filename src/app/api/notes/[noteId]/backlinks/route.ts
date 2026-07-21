@@ -8,6 +8,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { canAccessNoteSpace } from '@/lib/note-space-access'
 
 interface RouteParams {
   params: { noteId: string }
@@ -20,6 +21,7 @@ interface SourceNote {
   visibility: string
   created_by: string | null
   updated_at: string
+  space_id: string | null
 }
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
@@ -32,9 +34,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   // Cargar la nota objetivo y validar acceso.
   const { data: note } = await admin
     .from('notes')
-    .select('id, workspace_id, visibility, created_by')
+    .select('id, workspace_id, space_id, visibility, created_by')
     .eq('id', params.noteId)
-    .maybeSingle() as { data: { id: string; workspace_id: string; visibility: string; created_by: string | null } | null }
+    .maybeSingle() as { data: { id: string; workspace_id: string; space_id: string | null; visibility: string; created_by: string | null } | null }
 
   if (!note) return NextResponse.json({ error: 'No encontrada' }, { status: 404 })
 
@@ -49,6 +51,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   if (note.visibility === 'private' && note.created_by !== user.id) {
     return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
   }
+  if (!(await canAccessNoteSpace(admin, note.space_id, user.id))) {
+    return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
+  }
 
   // Aristas entrantes.
   const { data: edges } = await admin
@@ -61,12 +66,16 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
   const { data: sources } = await admin
     .from('notes')
-    .select('id, title, icon, visibility, created_by, updated_at')
+    .select('id, title, icon, visibility, created_by, updated_at, space_id')
     .in('id', sourceIds) as { data: SourceNote[] | null }
 
-  // Respetar visibilidad: una nota origen privada solo la ve su creador.
-  const list = (sources ?? [])
-    .filter(s => s.visibility !== 'private' || s.created_by === user.id)
+  // Respetar visibilidad: una nota origen privada solo la ve su creador. Y
+  // espacio restringido: una nota origen de un depto confidencial no debe
+  // filtrarse como backlink fuera de ese espacio.
+  const visibleSources = (sources ?? []).filter(s => s.visibility !== 'private' || s.created_by === user.id)
+  const allowed = await Promise.all(visibleSources.map(s => canAccessNoteSpace(admin, s.space_id, user.id)))
+  const list = visibleSources
+    .filter((_, i) => allowed[i])
     .map(s => ({ id: s.id, title: s.title, icon: s.icon, updated_at: s.updated_at }))
 
   return NextResponse.json(list)

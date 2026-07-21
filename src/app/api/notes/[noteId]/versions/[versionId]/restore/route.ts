@@ -11,6 +11,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { recomputeNoteLinks } from '@/lib/note-links'
 import { snapshotNoteVersion } from '@/lib/note-versions'
+import { canAccessNoteSpace } from '@/lib/note-space-access'
 
 interface RouteParams {
   params: { noteId: string; versionId: string }
@@ -19,6 +20,7 @@ interface RouteParams {
 interface NoteRow {
   id: string
   workspace_id: string
+  space_id: string | null
   title: string
   content: string | null
   visibility: string
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const { data: note } = await admin
     .from('notes')
-    .select('id, workspace_id, title, content, visibility, created_by')
+    .select('id, workspace_id, space_id, title, content, visibility, created_by')
     .eq('id', params.noteId)
     .maybeSingle() as { data: NoteRow | null }
 
@@ -52,6 +54,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   if (!membership) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
   if (note.visibility === 'private' && note.created_by !== user.id) {
+    return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
+  }
+  if (!(await canAccessNoteSpace(admin, note.space_id, user.id))) {
     return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
   }
 

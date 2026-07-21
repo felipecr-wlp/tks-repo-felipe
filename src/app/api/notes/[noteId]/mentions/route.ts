@@ -18,6 +18,7 @@ import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, createNotification, ActivityVerbs, NotificationTypes } from '@/lib/activity'
+import { canAccessNoteSpace } from '@/lib/note-space-access'
 
 interface RouteParams {
   params: { noteId: string }
@@ -31,6 +32,7 @@ const schema = z.object({
 interface NoteAccess {
   id: string
   workspace_id: string
+  space_id: string | null
   title: string
   visibility: string
   created_by: string | null
@@ -43,7 +45,7 @@ async function loadNoteForMentions(
 ): Promise<{ note: NoteAccess | null; status: number }> {
   const { data: note } = await admin
     .from('notes')
-    .select('id, workspace_id, title, visibility, created_by')
+    .select('id, workspace_id, space_id, title, visibility, created_by')
     .eq('id', noteId)
     .maybeSingle() as { data: NoteAccess | null; error: unknown }
 
@@ -58,6 +60,13 @@ async function loadNoteForMentions(
 
   if (!membership) return { note: null, status: 403 }
   if (note.visibility === 'private' && note.created_by !== userId) {
+    return { note: null, status: 403 }
+  }
+
+  // F3: espacio restringido. Cierra el vector de descubrimiento por mencion:
+  // sin esto, alguien fuera del espacio podia @mencionar a otro externo dentro
+  // de una nota confidencial y esa mencion le mandaba el link a la nota.
+  if (!(await canAccessNoteSpace(admin, note.space_id, userId))) {
     return { note: null, status: 403 }
   }
 

@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import { canAccessNoteSpace } from '@/lib/note-space-access'
 
 interface RouteParams {
   params: { noteId: string }
@@ -23,6 +24,7 @@ interface RouteParams {
 interface NoteApproval {
   id: string
   workspace_id: string
+  space_id: string | null
   title: string
   visibility: string
   created_by: string | null
@@ -40,7 +42,7 @@ async function loadNote(
 ): Promise<{ note: NoteApproval | null; status: number }> {
   const { data: note } = await admin
     .from('notes')
-    .select('id, workspace_id, title, visibility, created_by, doc_kind, sop_version, approved_by, approved_at, approved_version')
+    .select('id, workspace_id, space_id, title, visibility, created_by, doc_kind, sop_version, approved_by, approved_at, approved_version')
     .eq('id', noteId)
     .maybeSingle() as { data: NoteApproval | null; error: unknown }
 
@@ -55,6 +57,9 @@ async function loadNote(
 
   if (!membership) return { note: null, status: 403 }
   if (note.visibility === 'private' && note.created_by !== userId) {
+    return { note: null, status: 403 }
+  }
+  if (!(await canAccessNoteSpace(admin, note.space_id, userId))) {
     return { note: null, status: 403 }
   }
   return { note, status: 200 }

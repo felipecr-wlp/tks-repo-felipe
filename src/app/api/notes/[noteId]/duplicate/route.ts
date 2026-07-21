@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
+import { canAccessNoteSpace } from '@/lib/note-space-access'
 
 interface RouteParams {
   params: { noteId: string }
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     workspace_id: string
     project_id: string | null
     parent_note_id: string | null
+    space_id: string | null
     title: string
     content: string | null
     icon: string | null
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const { data: source } = await admin
     .from('notes')
-    .select('workspace_id, project_id, parent_note_id, title, content, icon, visibility, created_by')
+    .select('workspace_id, project_id, parent_note_id, space_id, title, content, icon, visibility, created_by')
     .eq('id', params.noteId)
     .maybeSingle() as { data: Source | null; error: unknown }
 
@@ -55,6 +57,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   if (source.visibility === 'private' && source.created_by !== user.id) {
     return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
   }
+  if (!(await canAccessNoteSpace(admin, source.space_id, user.id))) {
+    return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
+  }
 
   type NoteResult = { id: string; title: string; icon: string | null; parent_note_id: string | null }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,6 +69,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       workspace_id:   source.workspace_id,
       project_id:     source.project_id,
       parent_note_id: source.parent_note_id,
+      space_id:       source.space_id,
       title:          `${source.title} (copia)`,
       content:        source.content,
       icon:           source.icon,

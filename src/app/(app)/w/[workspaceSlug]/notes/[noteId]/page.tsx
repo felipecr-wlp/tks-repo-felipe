@@ -4,6 +4,7 @@
  */
 import { notFound, redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { canAccessNoteSpace } from '@/lib/note-space-access'
 import { NoteEditor } from './NoteEditor'
 
 interface NotePageProps {
@@ -16,6 +17,7 @@ type NoteFull = {
   id: string
   workspace_id: string
   parent_note_id: string | null
+  space_id: string | null
   icon: string | null
   title: string
   content: string | null
@@ -57,7 +59,7 @@ export default async function NotePage({ params }: NotePageProps) {
   const { data: note } = await admin
     .from('notes')
     .select(`
-      id, workspace_id, parent_note_id, icon,
+      id, workspace_id, parent_note_id, space_id, icon,
       title, content, visibility,
       doc_kind, sop_status, sop_version, review_due,
       created_by, created_at, updated_at,
@@ -70,6 +72,14 @@ export default async function NotePage({ params }: NotePageProps) {
   if (!note) notFound()
 
   if (note.visibility === 'private' && note.created_by !== user.id) {
+    notFound()
+  }
+
+  // F3: nota de un espacio restringido (RH, Legal, Finanzas), solo admin de
+  // org o miembro del espacio. Esta pagina usa admin client, que bypassa el
+  // RLS notes_restrict_space; sin este check cualquier miembro del workspace
+  // con el UUID podia abrir y editar la nota directo por URL.
+  if (!(await canAccessNoteSpace(admin, note.space_id, user.id))) {
     notFound()
   }
 
