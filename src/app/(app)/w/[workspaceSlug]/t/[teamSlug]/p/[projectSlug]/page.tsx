@@ -6,13 +6,14 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { resolveProjectForViewer } from '@/lib/team-access'
-import { LayoutDashboard } from 'lucide-react'
+import { LayoutDashboard, Zap } from 'lucide-react'
 import { ProjectIcon } from '@/lib/project-icons'
 import { TaskListView } from '@/components/tasks/TaskListView'
 import { TaskCalendarView } from '@/components/tasks/TaskCalendarView'
 import { TaskWorkloadView } from '@/components/tasks/TaskWorkloadView'
 import { TaskFilterBar } from '@/components/tasks/TaskFilterBar'
 import { ProjectChat } from '@/components/chat/ProjectChat'
+import { AutomationsPanel } from '@/components/automations/AutomationsPanel'
 import { Skeleton } from '@/components/ui/Skeleton'
 
 // Kanban cargado lazy, contiene @dnd-kit que pesa ~150KB
@@ -92,7 +93,11 @@ export default async function ProjectPage({
   )
   if (!res.ok && res.reason === 'no-auth') redirect('/auth/login')
   if (!res.ok) notFound()
-  const { userId, project } = res.ctx
+  const { userId, project, role, isAdmin } = res.ctx
+
+  // ¿Puede administrar reglas de automatización? (manager/lead/admin del
+  // proyecto o admin del workspace). Gatea la pestaña "Reglas".
+  const canManage = isAdmin || ['owner', 'admin', 'lead', 'manager'].includes(role ?? '')
 
   const admin = createAdminClient()
 
@@ -238,6 +243,33 @@ export default async function ProjectPage({
     }
   }
 
+  // ── Automatizaciones (Circuito 3.C): reglas + sprints para el editor ──────
+  type AutomationRuleRow = {
+    id: string; name: string; trigger: string
+    trigger_config: { to_status_id?: string; to_assignee_id?: string }
+    conditions: unknown[]; actions: unknown[]; is_active: boolean; created_at: string
+  }
+  type SprintRow = { id: string; name: string; status: string }
+  let automationRules: AutomationRuleRow[] = []
+  let sprintList: SprintRow[] = []
+  if (currentView === 'automations' && canManage) {
+    const [{ data: rules }, { data: sp }] = await Promise.all([
+      admin
+        .from('automations')
+        .select('id, name, trigger, trigger_config, conditions, actions, is_active, created_at')
+        .eq('project_id', project.id)
+        .order('created_at', { ascending: true }),
+      admin
+        .from('sprints')
+        .select('id, name, status')
+        .eq('team_id', project.team_id)
+        .neq('status', 'completed')
+        .order('created_at', { ascending: false }),
+    ]) as [{ data: AutomationRuleRow[] | null }, { data: SprintRow[] | null }]
+    automationRules = rules ?? []
+    sprintList = sp ?? []
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* ── Header del proyecto: breadcrumb compacto + tabs (estilo Linear) ── */}
@@ -280,11 +312,14 @@ export default async function ProjectPage({
           <ViewToggle href={`${basePath}?view=calendar`} active={currentView === 'calendar'} label="Calendario" icon={<CalIcon />} />
           <ViewToggle href={`${basePath}?view=workload`} active={currentView === 'workload'} label="Carga" icon={<LoadIcon />} />
           <ViewToggle href={`${basePath}?view=chat`} active={currentView === 'chat'} label="Chat" icon={<ChatIcon />} />
+          {canManage && (
+            <ViewToggle href={`${basePath}?view=automations`} active={currentView === 'automations'} label="Reglas" icon={<Zap className="w-[13px] h-[13px]" />} />
+          )}
         </nav>
       </div>
 
-      {/* ── Barra de filtros + vistas guardadas (no aplica al chat) ──── */}
-      {currentView !== 'chat' && (
+      {/* ── Barra de filtros + vistas guardadas (no aplica al chat ni reglas) ──── */}
+      {currentView !== 'chat' && currentView !== 'automations' && (
         <TaskFilterBar
           basePath={basePath}
           projectId={project.id}
@@ -310,6 +345,30 @@ export default async function ProjectPage({
             initialMessages={chatMessages}
             initialReactions={chatReactions}
           />
+        ) : currentView === 'automations' ? (
+          canManage ? (
+            <AutomationsPanel
+              projectId={project.id}
+              statuses={(statuses ?? []).map(s => ({ id: s.id, name: s.name, category: s.category }))}
+              members={memberProfiles}
+              sprints={sprintList}
+              initialRules={automationRules.map(r => ({
+                id: r.id,
+                name: r.name,
+                trigger: r.trigger as 'status_changed' | 'assigned' | 'task_created' | 'due',
+                trigger_config: r.trigger_config ?? {},
+                conditions: r.conditions ?? [],
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                actions: (r.actions ?? []) as any,
+                is_active: r.is_active,
+                created_at: r.created_at,
+              }))}
+            />
+          ) : (
+            <div className="px-6 py-10 text-center text-sm text-muted-foreground">
+              No tienes permiso para administrar las reglas de este proyecto.
+            </div>
+          )
         ) : currentView === 'board' ? (
           <KanbanBoard
             projectId={project.id}

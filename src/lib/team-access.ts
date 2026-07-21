@@ -113,6 +113,55 @@ export async function canAccessTeamById(
   return wsMember?.role === 'owner' || wsMember?.role === 'admin'
 }
 
+/**
+ * ¿Puede el usuario ADMINISTRAR la configuración de un proyecto (p. ej. crear
+ * automatizaciones)? Manager/lead/admin/owner del proyecto, o admin del
+ * workspace/org. Devuelve también el workspace_id del proyecto (o null si no
+ * existe) para reusar en la ruta sin otra consulta.
+ */
+export async function canManageProject(
+  admin: ReturnType<typeof createAdminClient>,
+  projectId: string,
+  userId: string
+): Promise<{ ok: boolean; workspaceId: string | null }> {
+  const { data: project } = (await admin
+    .from('projects')
+    .select('workspace_id')
+    .eq('id', projectId)
+    .maybeSingle()) as { data: { workspace_id: string } | null; error: unknown }
+  if (!project?.workspace_id) return { ok: false, workspaceId: null }
+
+  const { data: pm } = (await admin
+    .from('project_members')
+    .select('role')
+    .eq('project_id', projectId)
+    .eq('profile_id', userId)
+    .maybeSingle()) as { data: { role: string } | null; error: unknown }
+  const pmRole = pm?.role ?? null
+  if (pmRole && ['owner', 'admin', 'lead', 'manager'].includes(pmRole)) {
+    return { ok: true, workspaceId: project.workspace_id }
+  }
+
+  const { data: profile } = (await admin
+    .from('profiles')
+    .select('org_role')
+    .eq('id', userId)
+    .maybeSingle()) as { data: { org_role: string | null } | null; error: unknown }
+  const orgRole = profile?.org_role ?? 'member'
+  if (orgRole === 'owner' || orgRole === 'admin') {
+    return { ok: true, workspaceId: project.workspace_id }
+  }
+
+  const { data: wsMember } = (await admin
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', project.workspace_id)
+    .eq('profile_id', userId)
+    .maybeSingle()) as { data: { role: string } | null; error: unknown }
+  const ok = wsMember?.role === 'owner' || wsMember?.role === 'admin'
+  return { ok, workspaceId: project.workspace_id }
+}
+
 async function isOrgAdmin(userId: string): Promise<boolean> {
   const admin = createAdminClient()
   const { data: profile } = (await admin

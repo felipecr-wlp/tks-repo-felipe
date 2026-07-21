@@ -10,6 +10,7 @@ import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, notify, ActivityVerbs, NotificationTypes, notifyTaskWatchers } from '@/lib/activity'
 import { autoWatch } from '@/lib/watchers'
 import { nextRecurrenceDate, type RecurrenceRule } from '@/lib/recurrence'
+import { runAutomations } from '@/lib/automations'
 
 // ── GET: detalle completo ─────────────────────────────────────────────────────
 export async function GET(
@@ -303,6 +304,33 @@ export async function PATCH(
         }
       }
     }
+  }
+
+  // ── Automatizaciones (Circuito 3.B): disparadores de estado y asignacion ──
+  // Corren las reglas activas del proyecto cuando este PATCH cambio el estado
+  // (status_changed) o el asignado (assigned). Best effort, secuencial para no
+  // pisar la misma tarea, y sin re-entrar al motor (las acciones escriben
+  // directo con el admin client). No bloquea la respuesta.
+  if (statusChanged || assigneeChanged) {
+    const snapshot = {
+      id: updated.id,
+      project_id: existing.project_id,
+      workspace_id: existing.workspace_id,
+      title: updated.title,
+      status_id: updated.status?.id ?? null,
+      assignee_id: updated.assignee?.id ?? null,
+      priority: updated.priority,
+      due_date: updated.due_date,
+      sprint_id: parsed.data.sprint_id ?? undefined,
+    }
+    ;(async () => {
+      if (statusChanged) {
+        await runAutomations({ admin, event: 'status_changed', actorId: user.id, task: snapshot })
+      }
+      if (assigneeChanged) {
+        await runAutomations({ admin, event: 'assigned', actorId: user.id, task: snapshot })
+      }
+    })().catch(console.error)
   }
 
   return NextResponse.json({ ...updated, spawned_task_id: spawnedTaskId })

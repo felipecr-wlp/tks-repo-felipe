@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { NotificationTypes, notify } from '@/lib/activity'
+import { runAutomations } from '@/lib/automations'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -42,6 +43,9 @@ type TaskRow = {
   due_date: string | null
   assignee_id: string | null
   workspace_id: string
+  project_id: string
+  priority: string
+  status_id: string | null
   status: { category: string } | null
 }
 
@@ -133,7 +137,7 @@ export async function GET(request: NextRequest) {
   // ── Tareas activas, con asignado y fecha, que vencen dentro de 24h o antes ──
   const { data: tasks, error } = await supabase
     .from('tasks')
-    .select('id, title, due_date, assignee_id, workspace_id, status:task_statuses ( category )')
+    .select('id, title, due_date, assignee_id, workspace_id, project_id, priority, status_id, status:task_statuses ( category )')
     .eq('is_archived', false)
     .not('assignee_id', 'is', null)
     .not('due_date', 'is', null)
@@ -143,13 +147,50 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Error al leer tareas' }, { status: 500 })
   }
 
+  // ── Automatizaciones por vencimiento (Circuito 3.B) ─────────────────────────
+  // Dispara reglas con trigger 'due' para tareas que ACABAN de vencer desde la
+  // ultima corrida (due_date pasada pero dentro de las ultimas 24h). La ventana
+  // coincide con la cadencia diaria del cron, dando un disparo UNICO por tarea
+  // (evita re-ejecutar la regla cada dia). Corre aunque la tarea no tenga
+  // asignado (una regla podria asignarla). Best effort.
+  let dueAutomations = 0
+  try {
+    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const justDue = (tasks ?? []).filter(t =>
+      t.status?.category !== 'done' &&
+      t.due_date != null &&
+      new Date(t.due_date) <= now &&
+      new Date(t.due_date) > dayAgo
+    )
+    for (const t of justDue) {
+      await runAutomations({
+        admin: supabase,
+        event: 'due',
+        actorId: null,
+        task: {
+          id: t.id,
+          project_id: t.project_id,
+          workspace_id: t.workspace_id,
+          title: t.title,
+          status_id: t.status_id,
+          assignee_id: t.assignee_id,
+          priority: t.priority,
+          due_date: t.due_date,
+        },
+      })
+      dueAutomations++
+    }
+  } catch (e) {
+    console.error('[due-reminders] error corriendo automatizaciones due:', e)
+  }
+
   // Excluir las ya completadas y clasificar overdue vs due_soon.
   const candidates = (tasks ?? []).filter(
     t => t.status?.category !== 'done' && t.assignee_id && t.due_date
   )
 
   if (candidates.length === 0) {
-    return NextResponse.json({ ok: true, scanned: 0, created: 0, remindersSent })
+    return NextResponse.json({ ok: true, scanned: 0, created: 0, remindersSent, dueAutomations })
   }
 
   // ── Dedup: notificaciones recordatorio de las ultimas 20h ───────────────────
@@ -192,5 +233,5 @@ export async function GET(request: NextRequest) {
     created = rows.length
   }
 
-  return NextResponse.json({ ok: true, scanned: candidates.length, created, remindersSent })
+  return NextResponse.json({ ok: true, scanned: candidates.length, created, remindersSent, dueAutomations })
 }

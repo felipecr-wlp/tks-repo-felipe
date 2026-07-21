@@ -41,6 +41,7 @@ const VERB_LABELS: Record<string, string> = {
   'task_mentioned':       'te mencionó en',
   'task_assigned':        'te asignó la tarea',
   'reminder':             'te recuerda:',
+  'automation':           'regla automática:',
   'note_mentioned':       'te mencionó en la nota',
   'task_updated':         'actualizó la tarea que sigues',
   'task_commented':       'comentó en la tarea que sigues',

@@ -9,6 +9,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, notify, ActivityVerbs, NotificationTypes } from '@/lib/activity'
 import { autoWatch } from '@/lib/watchers'
+import { runAutomations } from '@/lib/automations'
 
 const createSchema = z.object({
   project_id: z.string().uuid(),
@@ -185,6 +186,25 @@ export async function POST(request: NextRequest) {
       workspace_id: project.workspace_id,
     }).catch(console.error)
   }
+
+  // ── Automatizaciones (Circuito 3.B): disparador "se crea tarea" ───────────
+  // Corre las reglas activas del proyecto con trigger task_created. Best effort,
+  // no re-entra al motor (las acciones escriben directo). No bloquea la respuesta.
+  runAutomations({
+    admin,
+    event: 'task_created',
+    actorId: user.id,
+    task: {
+      id: newTask.id,
+      project_id,
+      workspace_id: project.workspace_id,
+      title: newTask.title,
+      status_id: resolvedStatusId ?? null,
+      assignee_id: assignee_id ?? null,
+      priority,
+      due_date: due_date ?? null,
+    },
+  }).catch(console.error)
 
   return NextResponse.json(newTask, { status: 201 })
 }

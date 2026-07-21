@@ -8,6 +8,52 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-20 — Track 3: motor de automatizaciones (reglas "cuando pase X, haz Y")
+
+Módulo nuevo de automatizaciones por proyecto. Un administrador del proyecto
+define reglas con selects (sin JSON a la vista): un disparador y una o varias
+acciones. El motor las ejecuta solo en los puntos de escritura de tareas y en el
+cron de vencimientos. Cumple el criterio de aceptación: una regla "al mover a En
+revisión, asignar a QA y avisar en el chat" se dispara sola.
+
+Qué cambió:
+- Migración `20260720800000` (aplicada a prod): tabla aditiva `automations`
+  (`workspace_id`, `project_id`, `name`, `trigger` con CHECK
+  status_changed/assigned/task_created/due, `trigger_config` jsonb,
+  `conditions` jsonb, `actions` jsonb, `is_active`, `created_by`). Landmine-safe:
+  FK hacia afuera (sin ciclo, evita HTTP 300); RLS con SELECT por membresía del
+  workspace via subquery a `workspace_members` (otra tabla, sin recursión 42P17);
+  toda escritura por el service/admin client tras el gateo. Índice
+  `automations_project_idx (project_id, is_active)`.
+- `src/lib/automations.ts` (nuevo): motor `runAutomations({ admin, event, task,
+  actorId })`. Triggers v1: status_changed, assigned, task_created, due. Acciones
+  v1: assign, move_status (valida que el estado sea del proyecto), move_sprint
+  (valida sprint), notify (a persona o "el asignado"), chat_post (publica en
+  `project_messages`, sustituye `{tarea}` por el título). Anti-loop: las acciones
+  que mutan la tarea escriben directo, NUNCA re-entran al motor. Best effort:
+  una regla o acción que falla se registra y no tumba el flujo.
+- Hooks del motor: `POST /api/tasks` (evento task_created), `PATCH
+  /api/tasks/[taskId]` (status_changed y assigned, reusando los flags
+  `statusChanged`/`assigneeChanged` ya calculados; secuencial para no pisar la
+  misma tarea), y el cron `due-reminders` (evento due para tareas que ACABAN de
+  vencer en las últimas 24h = disparo único por la cadencia diaria del cron).
+- `src/lib/activity.ts`: nuevo tipo de notificación `AUTOMATION`; etiqueta
+  "regla automática:" en la Bandeja (`InboxList.tsx`).
+- API REST gateada por `canManageProject` (nuevo helper en `team-access.ts`:
+  manager/lead/admin/owner del proyecto, o admin del workspace/org):
+  `GET`/`POST /api/projects/[projectId]/automations` y
+  `PATCH`/`DELETE /api/projects/[projectId]/automations/[automationId]`
+  (anti-IDOR: la regla debe pertenecer al proyecto de la URL).
+- UI: `src/components/automations/AutomationsPanel.tsx` (nuevo) + pestaña "Reglas"
+  (`?view=automations`) en la página del proyecto, visible solo para quien puede
+  administrar. Constructor con selects para disparador, config del disparador y
+  varias acciones; lista de reglas con resumen legible, toggle activar/pausar y
+  eliminar. La página carga reglas + sprints solo cuando la pestaña está activa.
+
+Deploy: `dpl_thEsaDtinKxgCz8YP2tTWuAGCEQ9` (prod, READY). tsc y build en verde.
+
+---
+
 ## 2026-07-20 — Circuito 1.C: recordatorios desde el chat
 
 Desde cualquier mensaje del chat de equipo se puede crear un recordatorio (para
