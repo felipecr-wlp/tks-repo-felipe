@@ -3,6 +3,7 @@
  * Solo admins del workspace (o de la org).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -19,6 +20,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { workspaceId: string } }
 ) {
+  if (!isUuid(params.workspaceId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

@@ -10,6 +10,7 @@
  * solo envia el taskId.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -33,6 +34,9 @@ type LabelRow = { id: string; name: string; color: string }
 
 // ── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.taskId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -51,26 +55,39 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 
   type AttachedRow = { label: LabelRow | null }
-  const { data: attachedRaw } = await admin
+  const { data: attachedRaw, error: attachedError } = await admin
     .from('task_labels')
     .select('label:labels ( id, name, color )')
     .eq('task_id', params.taskId) as { data: AttachedRow[] | null; error: unknown }
+
+  if (attachedError) {
+    console.error('[labels GET] attached read error:', attachedError)
+    return NextResponse.json({ error: 'Error al cargar etiquetas' }, { status: 500 })
+  }
 
   const attached = (attachedRaw ?? [])
     .map(r => r.label)
     .filter((l): l is LabelRow => l != null)
 
-  const { data: available } = await admin
+  const { data: available, error: availableError } = await admin
     .from('labels')
     .select('id, name, color')
     .eq('project_id', access.projectId)
     .order('name', { ascending: true }) as { data: LabelRow[] | null; error: unknown }
+
+  if (availableError) {
+    console.error('[labels GET] available read error:', availableError)
+    return NextResponse.json({ error: 'Error al cargar etiquetas' }, { status: 500 })
+  }
 
   return NextResponse.json({ attached, available: available ?? [] })
 }
 
 // ── POST ─────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.taskId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -159,6 +176,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
 // ── DELETE ───────────────────────────────────────────────────────────────────
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.taskId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

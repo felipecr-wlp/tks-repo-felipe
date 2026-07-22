@@ -31,12 +31,17 @@ export async function GET(request: NextRequest) {
 
   if (!membership) return NextResponse.json({ error: 'Sin acceso al equipo' }, { status: 403 })
 
-  const { data: sprints } = await admin
+  const { data: sprints, error: sprintsError } = await admin
     .from('sprints')
     .select('id, name, goal, status, start_date, end_date, created_at')
     .eq('team_id', teamId)
     .order('start_date', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
+
+  if (sprintsError) {
+    console.error('[sprints GET] read error:', sprintsError)
+    return NextResponse.json({ error: 'Error al cargar sprints' }, { status: 500 })
+  }
 
   return NextResponse.json(sprints ?? [])
 }

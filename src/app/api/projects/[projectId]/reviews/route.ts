@@ -11,6 +11,7 @@
  * Admin client + verificacion en handler (evita IDOR).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -31,6 +32,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  if (!isUuid(params.projectId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 
@@ -120,6 +124,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  if (!isUuid(params.projectId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })

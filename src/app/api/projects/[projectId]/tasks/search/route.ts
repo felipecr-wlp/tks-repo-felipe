@@ -8,6 +8,7 @@
  * de la ruta y se valida contra la membresia real; nunca del body.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -44,6 +45,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { projectId: string } },
 ) {
+  if (!isUuid(params.projectId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -59,7 +63,7 @@ export async function GET(
   if (!ok) return NextResponse.json({ error: 'Sin acceso al proyecto' }, { status: 403 })
 
   const escaped = parsed.data.q.replace(/[%_]/g, m => `\\${m}`)
-  const { data: tasks } = await admin
+  const { data: tasks, error: tasksError } = await admin
     .from('tasks')
     .select('id, title')
     .eq('project_id', params.projectId)
@@ -67,6 +71,11 @@ export async function GET(
     .ilike('title', `%${escaped}%`)
     .order('sort_order', { ascending: true })
     .limit(10) as { data: { id: string; title: string }[] | null; error: unknown }
+
+  if (tasksError) {
+    console.error('[project tasks search GET] read error:', tasksError)
+    return NextResponse.json({ error: 'Error al buscar tareas' }, { status: 500 })
+  }
 
   return NextResponse.json({ tasks: tasks ?? [] })
 }

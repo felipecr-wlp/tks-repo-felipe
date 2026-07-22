@@ -9,6 +9,7 @@
  * Admin client + verificacion en handler (evita IDOR).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -23,6 +24,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { applicationId: string } }
 ) {
+  if (!isUuid(params.applicationId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 

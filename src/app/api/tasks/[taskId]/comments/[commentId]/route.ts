@@ -3,6 +3,7 @@
  * DELETE /api/tasks/[taskId]/comments/[commentId], Elimina un comentario (solo autor)
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -34,6 +35,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { taskId: string; commentId: string } }
 ) {
+  if (!isUuid(params.taskId) || !isUuid(params.commentId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 
@@ -82,6 +86,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { taskId: string; commentId: string } }
 ) {
+  if (!isUuid(params.taskId) || !isUuid(params.commentId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 

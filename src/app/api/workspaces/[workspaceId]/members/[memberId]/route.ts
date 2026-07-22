@@ -6,6 +6,7 @@
  * permitir que un admin se quite a si mismo (evita bloqueos accidentales).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -41,6 +42,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { workspaceId: string; memberId: string } }
 ) {
+  if (!isUuid(params.workspaceId) || !isUuid(params.memberId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -82,6 +86,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { workspaceId: string; memberId: string } }
 ) {
+  if (!isUuid(params.workspaceId) || !isUuid(params.memberId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

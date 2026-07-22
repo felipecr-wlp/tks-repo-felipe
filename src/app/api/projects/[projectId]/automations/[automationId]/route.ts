@@ -6,6 +6,7 @@
  * Anti-IDOR: la regla debe pertenecer al proyecto de la URL.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -59,6 +60,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { projectId: string; automationId: string } }
 ) {
+  if (!isUuid(params.projectId) || !isUuid(params.automationId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 
@@ -98,6 +102,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { projectId: string; automationId: string } }
 ) {
+  if (!isUuid(params.projectId) || !isUuid(params.automationId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 

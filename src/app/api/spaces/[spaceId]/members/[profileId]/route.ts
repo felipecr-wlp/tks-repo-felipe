@@ -4,6 +4,7 @@
  * Solo admins del workspace. No dejar el departamento sin owners.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { isWorkspaceAdminById } from '@/lib/workspace-admin'
@@ -33,6 +34,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { spaceId: string; profileId: string } }
 ) {
+  if (!isUuid(params.spaceId) || !isUuid(params.profileId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

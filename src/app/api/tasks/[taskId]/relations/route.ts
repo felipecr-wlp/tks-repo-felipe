@@ -13,6 +13,7 @@
  * al MISMO proyecto. El project_id se deriva en el servidor.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -37,6 +38,9 @@ const TASK_SELECT = 'id, title, status:task_statuses ( id, name, color, category
 
 // ── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.taskId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -82,6 +86,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 // ── POST ─────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.taskId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -164,6 +171,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
 // ── DELETE ───────────────────────────────────────────────────────────────────
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.taskId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

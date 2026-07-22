@@ -8,6 +8,7 @@
  * project_id viene de la ruta, workspace_id se deriva del proyecto).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -47,6 +48,9 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  if (!isUuid(params.projectId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
@@ -55,11 +59,16 @@ export async function GET(
   const { ok } = await canManageProject(admin, params.projectId, user.id)
   if (!ok) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
-  const { data: rules } = await admin
+  const { data: rules, error: rulesError } = await admin
     .from('automations')
     .select('id, name, trigger, trigger_config, conditions, actions, is_active, created_at')
     .eq('project_id', params.projectId)
     .order('created_at', { ascending: true })
+
+  if (rulesError) {
+    console.error('[automations GET] read error:', rulesError)
+    return NextResponse.json({ error: 'Error al cargar automatizaciones' }, { status: 500 })
+  }
 
   return NextResponse.json(rules ?? [])
 }
@@ -68,6 +77,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  if (!isUuid(params.projectId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 

@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rows } = (await (admin as any)
+  const { data: rows, error: rowsError } = (await (admin as any)
     .from('tasks')
     .select(`
       id, title, priority,
@@ -69,6 +69,11 @@ export async function GET(request: NextRequest) {
     `)
     .in('id', ids)
     .eq('projects.team_id', team_id)) as { data: TaskCardRow[] | null; error: unknown }
+
+  if (rowsError) {
+    console.error('[tasks/cards GET] tasks read error:', rowsError)
+    return NextResponse.json({ error: 'Error al cargar tarjetas' }, { status: 500 })
+  }
 
   const cards = (rows ?? []).map(r => {
     const wsSlug = r.projects?.workspaces?.slug ?? ''

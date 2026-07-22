@@ -6,6 +6,7 @@
  * (o admin/owner de la org). El admin client ignora RLS, se valida en handler.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -58,6 +59,9 @@ async function goalAccess(
 
 // ── PATCH ─────────────────────────────────────────────────────────────────────
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.goalId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -96,6 +100,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 // ── DELETE ───────────────────────────────────────────────────────────────────
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.goalId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

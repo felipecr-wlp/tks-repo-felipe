@@ -7,6 +7,7 @@
  * Acceso: miembro del workspace + visibilidad (private = solo su creador).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { recomputeNoteLinks } from '@/lib/note-links'
@@ -28,6 +29,9 @@ interface NoteRow {
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.noteId) || !isUuid(params.versionId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

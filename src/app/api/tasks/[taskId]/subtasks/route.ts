@@ -8,6 +8,7 @@
  * cliente solo envía el taskId.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { checkTaskAccess } from '@/lib/task-access'
@@ -26,6 +27,9 @@ type SubtaskRow = {
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.taskId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -43,7 +47,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     )
   }
 
-  const { data: subtasks } = await admin
+  const { data: subtasks, error: subtasksError } = await admin
     .from('tasks')
     .select(`
       id, title, priority, due_date,
@@ -53,6 +57,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     .eq('parent_task_id', params.taskId)
     .eq('is_archived', false)
     .order('sort_order', { ascending: true }) as { data: SubtaskRow[] | null; error: unknown }
+
+  if (subtasksError) {
+    console.error('[subtasks GET] read error:', subtasksError)
+    return NextResponse.json({ error: 'Error al cargar subtareas' }, { status: 500 })
+  }
 
   return NextResponse.json({ subtasks: subtasks ?? [] })
 }

@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     .maybeSingle() as { data: { role: string } | null; error: unknown }
   if (!membership) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
-  const { data: boards } = await admin
+  const { data: boards, error: boardsError } = await admin
     .from('whiteboards')
     .select(`
       id, title, visibility, created_at, updated_at, created_by,
@@ -60,6 +60,11 @@ export async function GET(request: NextRequest) {
     .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
     .order('updated_at', { ascending: false })
     .limit(100) as { data: WhiteboardListRow[] | null; error: unknown }
+
+  if (boardsError) {
+    console.error('[whiteboards GET] read error:', boardsError)
+    return NextResponse.json({ error: 'Error al cargar pizarras' }, { status: 500 })
+  }
 
   return NextResponse.json({ whiteboards: boards ?? [] })
 }

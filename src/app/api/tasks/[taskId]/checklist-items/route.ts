@@ -6,6 +6,7 @@
  * (auto-creada al insertar el primer item).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -51,6 +52,9 @@ async function getOrCreateDefaultChecklist(
 
 // ── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.taskId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -76,17 +80,25 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     checklist_id: string
   }
 
-  const { data: items } = await admin
+  const { data: items, error: itemsError } = await admin
     .from('task_checklist_items')
     .select('id, title, is_checked, position, checklist_id')
     .eq('task_id', params.taskId)
     .order('position', { ascending: true }) as { data: ItemRow[] | null; error: unknown }
+
+  if (itemsError) {
+    console.error('[checklist-items GET] read error:', itemsError)
+    return NextResponse.json({ error: 'Error al cargar la lista de verificación' }, { status: 500 })
+  }
 
   return NextResponse.json({ items: items ?? [] })
 }
 
 // ── POST ─────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.taskId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

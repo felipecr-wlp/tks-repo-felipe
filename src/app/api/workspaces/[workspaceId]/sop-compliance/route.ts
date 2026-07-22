@@ -15,6 +15,7 @@
  * equipos/departamentos se expanden aqui (target_id polimorfico sin FK).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { createAdminClient } from '@/lib/supabase/server'
 import { isWorkspaceAdminById } from '@/lib/workspace-admin'
 
@@ -51,6 +52,9 @@ function isOverdue(reviewDue: string | null): boolean {
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.workspaceId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const auth = await isWorkspaceAdminById(params.workspaceId)
   if (!auth) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
   if (!auth.isAdmin) return NextResponse.json({ error: 'Se requiere rol admin' }, { status: 403 })

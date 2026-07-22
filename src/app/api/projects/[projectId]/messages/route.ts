@@ -10,6 +10,7 @@
  * el workspace_id se resuelve del proyecto, nunca del body.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -49,6 +50,9 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  if (!isUuid(params.projectId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
@@ -57,12 +61,17 @@ export async function GET(
   const access = await canAccessProject(admin, params.projectId, user.id)
   if (!access.ok) return NextResponse.json({ error: 'Sin acceso al proyecto' }, { status: 403 })
 
-  const { data: rows } = await admin
+  const { data: rows, error: rowsError } = await admin
     .from('project_messages')
     .select('id, project_id, author_id, body, created_at')
     .eq('project_id', params.projectId)
     .order('created_at', { ascending: false })
-    .limit(100) as { data: { id: string; project_id: string; author_id: string; body: string; created_at: string }[] | null }
+    .limit(100) as { data: { id: string; project_id: string; author_id: string; body: string; created_at: string }[] | null; error: unknown }
+
+  if (rowsError) {
+    console.error('[project messages GET] read error:', rowsError)
+    return NextResponse.json({ error: 'Error al cargar mensajes' }, { status: 500 })
+  }
 
   return NextResponse.json((rows ?? []).reverse())
 }
@@ -71,6 +80,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  if (!isUuid(params.projectId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 

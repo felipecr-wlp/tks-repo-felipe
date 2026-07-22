@@ -5,6 +5,7 @@
  * usuario (profile_id), para que nadie borre las vistas privadas de otro.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 
@@ -13,6 +14,9 @@ interface RouteParams {
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.projectId) || !isUuid(params.viewId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

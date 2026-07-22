@@ -11,6 +11,7 @@
  * ignora RLS). Los valores se filtran por project_id, no se cruza otro proyecto.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 
@@ -48,6 +49,9 @@ async function assertMember(
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.projectId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -59,19 +63,29 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const ok = await assertMember(admin, params.projectId, user.id)
   if (!ok) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
-  const { data: fields } = await admin
+  const { data: fields, error: fieldsError } = await admin
     .from('custom_field_definitions')
     .select('id, name, field_type, options, position, created_at')
     .eq('project_id', params.projectId)
     .order('position', { ascending: true })
     .order('created_at', { ascending: true })
 
-  const { data: rows } = await admin
+  if (fieldsError) {
+    console.error('[custom-fields values GET] fields read error:', fieldsError)
+    return NextResponse.json({ error: 'Error al cargar campos personalizados' }, { status: 500 })
+  }
+
+  const { data: rows, error: rowsError } = await admin
     .from('task_custom_field_values')
     .select('task_id, field_id, value')
     .eq('project_id', params.projectId) as {
-      data: { task_id: string; field_id: string; value: unknown }[] | null
+      data: { task_id: string; field_id: string; value: unknown }[] | null; error: unknown
     }
+
+  if (rowsError) {
+    console.error('[custom-fields values GET] values read error:', rowsError)
+    return NextResponse.json({ error: 'Error al cargar campos personalizados' }, { status: 500 })
+  }
 
   const values: Record<string, Record<string, unknown>> = {}
   for (const r of rows ?? []) {

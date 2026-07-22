@@ -5,6 +5,7 @@
  * Solo admins del workspace. El departamento se resuelve por su workspace_id.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -37,6 +38,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { spaceId: string } }
 ) {
+  if (!isUuid(params.spaceId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -83,6 +87,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { spaceId: string } }
 ) {
+  if (!isUuid(params.spaceId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

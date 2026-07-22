@@ -74,10 +74,14 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient()
 
   // Equipos del usuario (re-check de membresia; base del anti-IDOR).
-  const { data: memberRows } = await admin
+  const { data: memberRows, error: memberErr } = await admin
     .from('team_members')
     .select('team_id')
-    .eq('profile_id', user.id) as { data: { team_id: string }[] | null }
+    .eq('profile_id', user.id) as { data: { team_id: string }[] | null; error: unknown }
+  if (memberErr) {
+    console.error('[activities GET] team_members read error:', memberErr)
+    return NextResponse.json({ error: 'Error al cargar actividades' }, { status: 500 })
+  }
 
   const memberTeamIds = Array.from(new Set((memberRows ?? []).map(r => r.team_id).filter(Boolean)))
   if (memberTeamIds.length === 0) {
@@ -86,10 +90,14 @@ export async function GET(request: NextRequest) {
 
   // Metadatos de equipos (slug + slug de su workspace) para armar los href.
   type TeamRow = { id: string; slug: string; workspace: { slug: string } | { slug: string }[] | null }
-  const { data: teamRows } = await admin
+  const { data: teamRows, error: teamErr } = await admin
     .from('teams')
     .select('id, slug, workspace:workspaces ( slug )')
-    .in('id', memberTeamIds) as { data: TeamRow[] | null }
+    .in('id', memberTeamIds) as { data: TeamRow[] | null; error: unknown }
+  if (teamErr) {
+    console.error('[activities GET] teams read error:', teamErr)
+    return NextResponse.json({ error: 'Error al cargar actividades' }, { status: 500 })
+  }
 
   const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v)
 
@@ -101,10 +109,14 @@ export async function GET(request: NextRequest) {
 
   // Proyectos de esos equipos (para filtrar tareas y resolver nombre/slug).
   type ProjRow = { id: string; name: string; slug: string; team_id: string | null }
-  const { data: projRows } = await admin
+  const { data: projRows, error: projErr } = await admin
     .from('projects')
     .select('id, name, slug, team_id')
-    .in('team_id', memberTeamIds) as { data: ProjRow[] | null }
+    .in('team_id', memberTeamIds) as { data: ProjRow[] | null; error: unknown }
+  if (projErr) {
+    console.error('[activities GET] projects read error:', projErr)
+    return NextResponse.json({ error: 'Error al cargar actividades' }, { status: 500 })
+  }
 
   const projectMeta = new Map<string, ProjectMeta>()
   for (const p of projRows ?? []) {
@@ -119,7 +131,7 @@ export async function GET(request: NextRequest) {
     type TaskRow = {
       id: string; title: string; priority: string | null; due_date: string | null; project_id: string | null
     }
-    const { data: taskRows } = await admin
+    const { data: taskRows, error: taskErr } = await admin
       .from('tasks')
       .select('id, title, priority, due_date, project_id')
       .eq('assignee_id', user.id)
@@ -128,7 +140,11 @@ export async function GET(request: NextRequest) {
       .gte('due_date', from)
       .lte('due_date', to)
       .in('project_id', memberProjectIds)
-      .order('due_date', { ascending: true }) as { data: TaskRow[] | null }
+      .order('due_date', { ascending: true }) as { data: TaskRow[] | null; error: unknown }
+    if (taskErr) {
+      console.error('[activities GET] tasks read error:', taskErr)
+      return NextResponse.json({ error: 'Error al cargar actividades' }, { status: 500 })
+    }
 
     for (const t of taskRows ?? []) {
       if (!t.due_date || !t.project_id) continue
@@ -151,14 +167,18 @@ export async function GET(request: NextRequest) {
 
   // Fin de sprints de sus equipos dentro del rango.
   type SprintRow = { id: string; name: string; end_date: string | null; team_id: string | null }
-  const { data: sprintRows } = await admin
+  const { data: sprintRows, error: sprintErr } = await admin
     .from('sprints')
     .select('id, name, end_date, team_id')
     .in('team_id', memberTeamIds)
     .not('end_date', 'is', null)
     .gte('end_date', fromDate)
     .lte('end_date', toDate)
-    .order('end_date', { ascending: true }) as { data: SprintRow[] | null }
+    .order('end_date', { ascending: true }) as { data: SprintRow[] | null; error: unknown }
+  if (sprintErr) {
+    console.error('[activities GET] sprints read error:', sprintErr)
+    return NextResponse.json({ error: 'Error al cargar actividades' }, { status: 500 })
+  }
 
   for (const s of sprintRows ?? []) {
     if (!s.end_date) continue

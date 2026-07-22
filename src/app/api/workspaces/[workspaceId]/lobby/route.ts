@@ -10,6 +10,7 @@
  *   forma opcional en un departamento y/o equipo del mismo workspace.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -40,6 +41,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { workspaceId: string } }
 ) {
+  if (!isUuid(params.workspaceId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -59,6 +63,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { workspaceId: string } }
 ) {
+  if (!isUuid(params.workspaceId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

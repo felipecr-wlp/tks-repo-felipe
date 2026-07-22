@@ -10,6 +10,7 @@
  * antes de leer o escribir (el admin client ignora RLS).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -40,6 +41,9 @@ async function assertMember(
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.projectId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -75,6 +79,9 @@ const postSchema = z.object({
 }).strict()
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.projectId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

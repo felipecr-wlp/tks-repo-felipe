@@ -11,6 +11,7 @@
  * Admin client (bypass RLS) + verificacion de rol org en el handler (anti-IDOR).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -24,6 +25,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  if (!isUuid(params.projectId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 

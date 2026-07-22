@@ -11,6 +11,7 @@
  * (checkTaskAccess) usando el admin client, igual que el resto de subrecursos.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { checkTaskAccess } from '@/lib/task-access'
@@ -20,6 +21,9 @@ interface RouteParams {
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.taskId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -43,13 +47,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     metadata: Record<string, unknown> | null
     subject: { id: string; display_name: string; avatar_url: string | null } | null
   }
-  const { data: events } = await admin
+  const { data: events, error: eventsError } = await admin
     .from('activity_events')
     .select('id, verb, created_at, metadata, subject:profiles ( id, display_name, avatar_url )')
     .eq('object_type', 'task')
     .eq('object_id', params.taskId)
     .order('created_at', { ascending: false })
     .limit(50) as { data: EventRow[] | null; error: unknown }
+
+  if (eventsError) {
+    console.error('[task activity GET] read error:', eventsError)
+    return NextResponse.json({ error: 'Error al cargar actividad' }, { status: 500 })
+  }
 
   return NextResponse.json({ events: events ?? [] })
 }

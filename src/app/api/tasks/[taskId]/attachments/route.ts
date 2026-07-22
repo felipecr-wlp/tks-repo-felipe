@@ -10,6 +10,7 @@
  *  - Bucket privado task-files: se sirve solo con signed URL temporal.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { randomUUID } from 'crypto'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -74,6 +75,9 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { taskId: string } }
 ) {
+  if (!isUuid(params.taskId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
@@ -97,6 +101,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { taskId: string } }
 ) {
+  if (!isUuid(params.taskId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 

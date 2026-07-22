@@ -12,6 +12,7 @@
  *    (que la ve en su Bandeja). No se notifica al autor si se auto-menciona.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -46,6 +47,9 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { taskId: string } }
 ) {
+  if (!isUuid(params.taskId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
@@ -72,6 +76,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { taskId: string } }
 ) {
+  if (!isUuid(params.taskId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 

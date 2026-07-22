@@ -9,6 +9,7 @@
  * org. El admin client ignora RLS, por eso la membresia se valida en el handler.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -67,6 +68,9 @@ async function hasWorkspaceAccess(
 
 // ── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.workspaceId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -131,6 +135,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 // ── POST ─────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.workspaceId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

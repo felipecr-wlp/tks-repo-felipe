@@ -12,12 +12,16 @@
  * miembro autenticado de la organizacion (es un CV interno, por diseno).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: { profileId: string } }
 ) {
+  if (!isUuid(params.profileId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })

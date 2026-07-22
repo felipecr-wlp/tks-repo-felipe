@@ -5,6 +5,7 @@
  * Solo admins del workspace. Roles de departamento: owner | member.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -33,6 +34,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { spaceId: string } }
 ) {
+  if (!isUuid(params.spaceId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 
@@ -73,6 +77,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { spaceId: string } }
 ) {
+  if (!isUuid(params.spaceId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

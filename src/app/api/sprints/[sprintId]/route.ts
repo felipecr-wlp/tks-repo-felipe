@@ -5,6 +5,7 @@
  *                                   el ON DELETE SET NULL del FK.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -43,6 +44,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { sprintId: string } }
 ) {
+  if (!isUuid(params.sprintId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 
@@ -86,6 +90,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { sprintId: string } }
 ) {
+  if (!isUuid(params.sprintId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 

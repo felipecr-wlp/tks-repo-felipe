@@ -11,6 +11,7 @@
  * manual con admin client (bypass RLS) + team_members, mismo molde que el resto.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -24,6 +25,9 @@ const bodySchema = z.object({
 }).strict()
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  if (!isUuid(params.sprintId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 

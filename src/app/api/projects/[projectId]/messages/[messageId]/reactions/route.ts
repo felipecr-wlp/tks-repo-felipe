@@ -13,6 +13,7 @@
  *  3. profile_id se toma del usuario autenticado, nunca del body.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -55,6 +56,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string; messageId: string } }
 ) {
+  if (!isUuid(params.projectId) || !isUuid(params.messageId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 

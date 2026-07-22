@@ -10,6 +10,7 @@
  *    otro equipo aunque el path venga manipulado).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { canAccessTeamById } from '@/lib/team-access'
@@ -22,6 +23,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { teamId: string } }
 ) {
+  if (!isUuid(params.teamId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request, 'api')
   if (limited) return limited
 

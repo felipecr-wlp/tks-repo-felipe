@@ -9,6 +9,7 @@
  * Admin client + verificacion en handler (evita IDOR).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -24,6 +25,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  if (!isUuid(params.projectId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const limited = await applyRateLimit(request)
   if (limited) return limited
 
@@ -134,6 +138,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  if (!isUuid(params.projectId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
@@ -157,11 +164,16 @@ export async function GET(
     || profile?.org_role === 'owner' || profile?.org_role === 'admin'
   if (!canReview) return NextResponse.json({ error: 'Solo el lider o un manager pueden ver las postulaciones' }, { status: 403 })
 
-  const { data: applications } = await admin
+  const { data: applications, error: applicationsError } = await admin
     .from('project_applications')
     .select('id, applicant_id, pitch, role_desired, status, decided_at, created_at, applicant:profiles!project_applications_applicant_id_fkey(id, display_name, avatar_url, email)')
     .eq('project_id', params.projectId)
-    .order('created_at', { ascending: false }) as { data: unknown[] | null }
+    .order('created_at', { ascending: false }) as { data: unknown[] | null; error: unknown }
+
+  if (applicationsError) {
+    console.error('[project applications GET] read error:', applicationsError)
+    return NextResponse.json({ error: 'Error al cargar postulaciones' }, { status: 500 })
+  }
 
   return NextResponse.json({ applications: applications ?? [] })
 }
