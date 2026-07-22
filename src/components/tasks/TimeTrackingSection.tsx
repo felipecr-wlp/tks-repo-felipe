@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
-import { Timer, Play, Square, Plus, Loader2 } from 'lucide-react'
+import { Timer, Play, Square, Plus, Loader2, AlertTriangle } from 'lucide-react'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 
 interface Author { id: string; display_name: string; avatar_url: string | null }
@@ -47,20 +47,23 @@ export function TimeTrackingSection({ taskId, onTotalChange }: TimeTrackingSecti
   const [runningEntryId, setRunningEntryId] = useState<string | null>(null)
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
   const [manual, setManual] = useState('')
 
   const load = useCallback(async () => {
+    setError(false)
     try {
       const res = await fetch(`/api/tasks/${taskId}/time`)
-      if (!res.ok) return
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setTotalSec(data.totalSec ?? 0)
       setRunningEntryId(data.runningEntryId ?? null)
       setEntries(data.entries ?? [])
       onTotalChange?.(data.totalSec ?? 0)
-    } catch {
-      /* silencioso: no romper el panel */
+    } catch (err) {
+      console.error(err)
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -92,9 +95,19 @@ export function TimeTrackingSection({ taskId, onTotalChange }: TimeTrackingSecti
     }
   }
 
+  // Tope por registro manual: 24 horas = 1440 minutos (la unidad del input es minutos).
+  const MAX_MANUAL_MIN = 1440
+
   async function addManual() {
     const mins = parseInt(manual, 10)
-    if (!Number.isFinite(mins) || mins <= 0) { setManual(''); return }
+    if (!Number.isFinite(mins) || mins <= 0) {
+      toast.error('El tiempo debe ser mayor a 0')
+      return
+    }
+    if (mins > MAX_MANUAL_MIN) {
+      toast.error('El tiempo máximo por registro es de 24 horas')
+      return
+    }
     setBusy(true)
     try {
       const ended = new Date()
@@ -110,6 +123,7 @@ export function TimeTrackingSection({ taskId, onTotalChange }: TimeTrackingSecti
       }
       setManual('')
       await load()
+      toast.success('Tiempo registrado')
     } catch (e) {
       toast.error(e instanceof Error && e.message ? e.message : 'Error al registrar el tiempo')
     } finally {
@@ -162,7 +176,20 @@ export function TimeTrackingSection({ taskId, onTotalChange }: TimeTrackingSecti
         </button>
       </div>
 
-      {entries.length > 0 && (
+      {error && (
+        <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400 mb-2">
+          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>No se pudieron cargar los datos. Intenta de nuevo.</span>
+          <button
+            onClick={() => load()}
+            className="ml-auto underline hover:no-underline text-red-600 dark:text-red-400"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      {!error && entries.length > 0 && (
         <div className="space-y-0.5">
           {entries.slice(0, 6).map(e => (
             <div key={e.id} className="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-muted/40 transition-colors">

@@ -12,7 +12,7 @@
  */
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Settings2, Loader2, Plus } from 'lucide-react'
+import { Settings2, Loader2, Plus, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ManageCustomFieldsModal } from './ManageCustomFieldsModal'
 
@@ -74,18 +74,20 @@ function isClientValueValid(field: CustomField, value: unknown): boolean {
 export function CustomFieldsSection({ taskId, projectId }: Props) {
   const [fields, setFields] = useState<CustomField[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [managing, setManaging] = useState(false)
 
   const load = useCallback(async () => {
+    setError(false)
     try {
       const res = await fetch(`/api/tasks/${taskId}/custom-fields`)
-      if (res.ok) {
-        const data = await res.json()
-        setFields(data.fields ?? [])
-      }
-    } catch {
-      /* silencioso: no romper el panel */
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setFields(data.fields ?? [])
+    } catch (err) {
+      console.error(err)
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -141,6 +143,17 @@ export function CustomFieldsSection({ taskId, projectId }: Props) {
       {loading ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando...
+        </div>
+      ) : error ? (
+        <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400">
+          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>No se pudieron cargar los datos. Intenta de nuevo.</span>
+          <button
+            onClick={() => load()}
+            className="ml-auto underline hover:no-underline text-red-600 dark:text-red-400"
+          >
+            Reintentar
+          </button>
         </div>
       ) : fields.length === 0 ? (
         <button
