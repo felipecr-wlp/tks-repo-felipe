@@ -665,8 +665,16 @@ export function TaskDetailPanel({
                   />
                 </MetaRow>
 
-                <MetaRow icon={<UserIcon className="w-3.5 h-3.5" />} label="Asignados">
-                  <AssigneesSection taskId={taskId} members={members} />
+                <MetaRow icon={<UserIcon className="w-3.5 h-3.5" />} label="Responsable">
+                  <AssigneesSection
+                    taskId={taskId}
+                    members={members}
+                    value={task.assignee}
+                    onChange={a => {
+                      setTask(t => (t ? { ...t, assignee: a } : t))
+                      if (task) onUpdated?.({ ...task, assignee: a })
+                    }}
+                  />
                 </MetaRow>
 
                 <MetaRow icon={<Eye className="w-3.5 h-3.5" />} label="Seguidores">
