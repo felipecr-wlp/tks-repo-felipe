@@ -20,6 +20,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { NotificationTypes, notify } from '@/lib/activity'
 import { runAutomations } from '@/lib/automations'
+import { safeEqual } from '@/lib/secure-compare'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -117,7 +118,7 @@ export async function GET(request: NextRequest) {
     )
   }
   const auth = request.headers.get('authorization')
-  if (auth !== `Bearer ${secret}`) {
+  if (!safeEqual(auth ?? '', `Bearer ${secret}`)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
 

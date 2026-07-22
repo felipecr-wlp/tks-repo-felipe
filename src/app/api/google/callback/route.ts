@@ -14,6 +14,7 @@ import { google } from 'googleapis'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { safeInternalPath } from '@/lib/validation'
 import { getOAuthClient } from '@/lib/google/client'
+import { safeEqual } from '@/lib/secure-compare'
 
 export async function GET(request: NextRequest) {
   const { origin, searchParams } = new URL(request.url)
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
   if (oauthError) {
     return clearCookies(NextResponse.redirect(`${origin}${next}?google=error`))
   }
-  if (!code || !state || !stateCookie || state !== stateCookie) {
+  if (!code || !state || !stateCookie || !safeEqual(state, stateCookie)) {
     return clearCookies(NextResponse.redirect(`${origin}${next}?google=state_mismatch`))
   }
 
