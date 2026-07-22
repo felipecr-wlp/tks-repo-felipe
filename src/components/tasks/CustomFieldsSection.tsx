@@ -32,6 +32,45 @@ interface Props {
   projectId: string
 }
 
+/**
+ * Guard cliente ligero: valida el valor contra el field_type antes de enviarlo.
+ * Espeja la validacion del server (que es la fuente de verdad). null siempre es
+ * valido (limpia el campo).
+ */
+function isClientValueValid(field: CustomField, value: unknown): boolean {
+  if (value === null) return true
+  switch (field.field_type) {
+    case 'number':
+    case 'currency':
+      return typeof value === 'number' && Number.isFinite(value)
+    case 'date':
+      return typeof value === 'string' && !Number.isNaN(Date.parse(value))
+    case 'checkbox':
+      return typeof value === 'boolean'
+    case 'select':
+      return typeof value === 'string' && (value === '' || field.options.some(o => o.id === value))
+    case 'multi_select': {
+      if (!Array.isArray(value)) return false
+      const ids = new Set(field.options.map(o => o.id))
+      return value.every(v => typeof v === 'string' && ids.has(v))
+    }
+    case 'url':
+      if (typeof value !== 'string') return false
+      if (value === '') return true
+      if (value.length > 2048) return false
+      try {
+        const u = new URL(value)
+        return u.protocol === 'http:' || u.protocol === 'https:'
+      } catch {
+        return false
+      }
+    case 'text':
+      return typeof value === 'string' && value.length <= 5000
+    default:
+      return false
+  }
+}
+
 export function CustomFieldsSection({ taskId, projectId }: Props) {
   const [fields, setFields] = useState<CustomField[]>([])
   const [loading, setLoading] = useState(true)
@@ -55,6 +94,13 @@ export function CustomFieldsSection({ taskId, projectId }: Props) {
   useEffect(() => { load() }, [load])
 
   const saveValue = useCallback(async (fieldId: string, value: unknown) => {
+    // guard cliente: no enviar valores que el server rechazaria por tipo.
+    // El server valida de nuevo (fuente de verdad), esto solo evita el viaje.
+    const field = fields.find(f => f.id === fieldId)
+    if (field && !isClientValueValid(field, value)) {
+      toast.error('Valor inválido para el tipo de campo')
+      return
+    }
     setSavingId(fieldId)
     // optimista
     setFields(prev => prev.map(f => (f.id === fieldId ? { ...f, value } : f)))
@@ -74,7 +120,7 @@ export function CustomFieldsSection({ taskId, projectId }: Props) {
     } finally {
       setSavingId(null)
     }
-  }, [taskId, load])
+  }, [taskId, load, fields])
 
   return (
     <div className="pt-3 border-t border-border">

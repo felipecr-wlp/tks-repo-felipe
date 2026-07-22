@@ -33,6 +33,68 @@ const upsertSchema = z.object({
   value: valueSchema,
 })
 
+interface FieldOptionDef { id: string; label?: string; color?: string }
+
+/**
+ * Valida un valor entrante contra el field_type de su definicion.
+ * Devuelve true si es valido (null/vacio siempre es valido: limpia el campo).
+ */
+function isValueValidForType(
+  fieldType: string,
+  options: unknown,
+  value: unknown,
+): boolean {
+  // null limpia el valor, valido para todos los tipos
+  if (value === null) return true
+
+  switch (fieldType) {
+    case 'number':
+    case 'currency':
+      return typeof value === 'number' && Number.isFinite(value)
+
+    case 'date': {
+      if (typeof value !== 'string') return false
+      const t = Date.parse(value)
+      return !Number.isNaN(t)
+    }
+
+    case 'checkbox':
+      return typeof value === 'boolean'
+
+    case 'select': {
+      if (typeof value !== 'string') return false
+      if (value === '') return true
+      const opts = Array.isArray(options) ? (options as FieldOptionDef[]) : []
+      return opts.some((o) => o && o.id === value)
+    }
+
+    case 'multi_select': {
+      if (!Array.isArray(value)) return false
+      const opts = Array.isArray(options) ? (options as FieldOptionDef[]) : []
+      const valid = new Set(opts.map((o) => o && o.id))
+      return value.every((v) => typeof v === 'string' && valid.has(v))
+    }
+
+    case 'url': {
+      if (typeof value !== 'string') return false
+      if (value === '') return true
+      if (value.length > 2048) return false
+      try {
+        const u = new URL(value)
+        return u.protocol === 'http:' || u.protocol === 'https:'
+      } catch {
+        return false
+      }
+    }
+
+    case 'text':
+      return typeof value === 'string' && value.length <= 5000
+
+    default:
+      return false
+  }
+}
+
 export async function GET(request: NextRequest, { params }: RouteParams) {
   if (!isUuid(params.taskId)) {
     return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
@@ -101,11 +163,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // el campo debe existir y pertenecer al proyecto de la tarea
   const { data: field } = await admin
     .from('custom_field_definitions')
-    .select('id, project_id')
+    .select('id, project_id, field_type, options')
     .eq('id', parsed.data.field_id)
-    .maybeSingle() as { data: { id: string; project_id: string } | null }
+    .maybeSingle() as { data: { id: string; project_id: string; field_type: string; options: unknown } | null }
   if (!field || field.project_id !== access.projectId) {
     return NextResponse.json({ error: 'Campo no encontrado' }, { status: 404 })
+  }
+
+  // el valor debe corresponder al tipo del campo (evita corromper datos)
+  if (!isValueValidForType(field.field_type, field.options, parsed.data.value)) {
+    return NextResponse.json({ error: 'Valor inválido para el tipo de campo' }, { status: 422 })
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
