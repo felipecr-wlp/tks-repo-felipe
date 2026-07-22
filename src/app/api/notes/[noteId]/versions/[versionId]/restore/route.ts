@@ -13,6 +13,7 @@ import { applyRateLimit } from '@/lib/rate-limit'
 import { recomputeNoteLinks } from '@/lib/note-links'
 import { snapshotNoteVersion } from '@/lib/note-versions'
 import { canAccessNoteSpace } from '@/lib/note-space-access'
+import { sanitizeRichText } from '@/lib/sanitize'
 
 interface RouteParams {
   params: { noteId: string; versionId: string }
@@ -87,7 +88,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: updated, error } = await (admin as any)
     .from('notes')
-    .update({ title: version.title, content: version.content, updated_at: new Date().toISOString() })
+    // Saneado defensivo: una version historica pudo escribirse ANTES de que
+    // existiera el saneado al escribir (S21). Al restaurar no reintroducimos
+    // HTML sin sanear en notes.content. Se preserva null (nota vacia).
+    .update({ title: version.title, content: version.content == null ? null : sanitizeRichText(version.content), updated_at: new Date().toISOString() })
     .eq('id', note.id)
     .select('id, workspace_id, title, content, updated_at')
     .single() as { data: { id: string; workspace_id: string; title: string; content: string | null; updated_at: string } | null; error: unknown }

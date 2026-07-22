@@ -11,6 +11,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
 import { canAccessNoteSpace } from '@/lib/note-space-access'
+import { sanitizeRichText } from '@/lib/sanitize'
 
 interface RouteParams {
   params: { noteId: string }
@@ -75,7 +76,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       parent_note_id: source.parent_note_id,
       space_id:       source.space_id,
       title:          `${source.title} (copia)`,
-      content:        source.content,
+      // Saneado defensivo al copiar: el origen pudo escribirse antes de S21.
+      content:        source.content == null ? null : sanitizeRichText(source.content),
       icon:           source.icon,
       // Visibility privada se "personaliza" para el duplicador (su propia copia)
       visibility:     source.visibility === 'private' ? 'private' : source.visibility,

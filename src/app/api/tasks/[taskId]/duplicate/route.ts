@@ -13,6 +13,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
 import { autoWatch } from '@/lib/watchers'
+import { sanitizeRichText } from '@/lib/sanitize'
 
 interface RouteParams {
   params: { taskId: string }
@@ -94,7 +95,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       workspace_id:        source.workspace_id,
       parent_task_id:      source.parent_task_id,
       title:               `${source.title} (copia)`,
-      description:         source.description,
+      // Saneado defensivo al copiar: el origen pudo escribirse antes de S21.
+      description:         source.description == null ? null : sanitizeRichText(source.description),
       priority:            source.priority,
       status_id:           source.status_id,
       assignee_id:         source.assignee_id,
