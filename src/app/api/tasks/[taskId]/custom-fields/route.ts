@@ -19,12 +19,16 @@ interface RouteParams {
   params: { taskId: string }
 }
 
-// value acepta string | number | boolean | array de option ids | null
+// value acepta string | number | boolean | array de option ids | null.
+// El array se ACOTA (.max(100)): un multi_select sin techo dejaria que el
+// cliente mande millones de ids (todos "validos" si repiten una option real,
+// isValueValidForType no cuenta ni deduplica) y los vuelque al JSON del valor,
+// saturando memoria y fila (OWASP API4, consumo de recursos no acotado).
 const valueSchema = z.union([
   z.string(),
   z.number(),
   z.boolean(),
-  z.array(z.string()),
+  z.array(z.string()).max(100),
   z.null(),
 ])
 
