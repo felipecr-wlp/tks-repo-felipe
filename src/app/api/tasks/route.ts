@@ -19,6 +19,9 @@ const createSchema = z.object({
   assignee_id: z.string().uuid().nullable().optional(),
   due_date: z.string().datetime().nullable().optional(),
   parent_task_id: z.string().uuid().nullable().optional(),
+  // Plantilla de tarea opcional: si viene, tras crear la tarea se prellenan los
+  // campos que el usuario no envio y se siembra la checklist de la plantilla.
+  template_id: z.string().uuid().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -41,7 +44,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 422 })
   }
 
-  const { project_id, title, status_id, priority, assignee_id, due_date, parent_task_id } = parsed.data
+  const { project_id, title, status_id, priority, assignee_id, due_date, parent_task_id, template_id } = parsed.data
 
   const admin = createAdminClient()
 
@@ -162,6 +165,93 @@ export async function POST(request: NextRequest) {
       error: 'Error al crear la tarea',
       details: (insertError as { message?: string })?.message,
     }, { status: 500 })
+  }
+
+  // ── Sembrado desde plantilla (opcional) ──────────────────────────────────
+  // Si se indico template_id: se cargan los campos de la plantilla y se rellenan
+  // los que el usuario NO envio (nunca se pisa lo que el usuario tecleo), y se
+  // insertan los items de checklist. Se ESPERA (await) para que la tarea nazca
+  // completa antes de responder, pero envuelto en try/catch: un fallo del
+  // sembrado se registra y no rompe la creacion (igual devolvemos 201).
+  if (template_id) {
+    try {
+      type TemplateRow = {
+        workspace_id: string
+        project_id: string | null
+        description: string | null
+        priority: string
+        estimate_minutes: number | null
+        story_points: number | null
+        checklist: Array<{ text?: string }> | null
+      }
+      const { data: template } = await admin
+        .from('task_templates')
+        .select('workspace_id, project_id, description, priority, estimate_minutes, story_points, checklist')
+        .eq('id', template_id)
+        .maybeSingle() as { data: TemplateRow | null; error: unknown }
+
+      // La plantilla debe ser del mismo workspace y visible para este proyecto
+      // (propia del proyecto o de todo el workspace). Nunca cross-workspace.
+      const visible =
+        !!template &&
+        template.workspace_id === project.workspace_id &&
+        (template.project_id === null || template.project_id === project_id)
+
+      if (visible && template) {
+        // El body crudo dice si el usuario suministro cada campo (no lo pisamos).
+        const raw = (body ?? {}) as Record<string, unknown>
+        const patch: Record<string, unknown> = {}
+
+        // La descripcion no esta en createSchema, asi que el usuario nunca la
+        // manda aqui: si la plantilla la trae, se aplica.
+        if (template.description != null && raw.description === undefined) {
+          patch.description = template.description
+        }
+        // priority: solo si el usuario NO lo envio explicitamente.
+        if (raw.priority === undefined && template.priority) {
+          patch.priority = template.priority
+        }
+        if (raw.estimate_minutes === undefined && template.estimate_minutes != null) {
+          patch.estimate_minutes = template.estimate_minutes
+        }
+        if (raw.story_points === undefined && template.story_points != null) {
+          patch.story_points = template.story_points
+        }
+
+        if (Object.keys(patch).length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (admin as any).from('tasks').update(patch).eq('id', newTask.id)
+        }
+
+        // Sembrar la checklist: se crea una checklist default y sus items.
+        const items = (template.checklist ?? [])
+          .map(i => (typeof i?.text === 'string' ? i.text.trim() : ''))
+          .filter(Boolean)
+
+        if (items.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: checklist } = await (admin as any)
+            .from('task_checklists')
+            .insert({ task_id: newTask.id, title: 'Subtareas', position: 0 })
+            .select('id')
+            .single() as { data: { id: string } | null; error: unknown }
+
+          if (checklist) {
+            const rows = items.map((title, position) => ({
+              checklist_id: checklist.id,
+              task_id: newTask.id,
+              title,
+              position,
+            }))
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (admin as any).from('task_checklist_items').insert(rows)
+          }
+        }
+      }
+    } catch (seedErr) {
+      // No debe romper la creacion de la tarea.
+      console.error('[tasks POST] template seed error:', seedErr)
+    }
   }
 
   // Log actividad (async, no bloquea)

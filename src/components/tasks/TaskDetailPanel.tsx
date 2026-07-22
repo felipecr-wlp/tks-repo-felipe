@@ -19,12 +19,13 @@ import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
+import { promptDialog } from '@/components/PromptDialog'
 import {
   X, Trash2, Loader2, Paperclip, UploadCloud, Download, AtSign,
   Zap, ChevronsUp, ChevronUp, ChevronDown, Minus, ImageIcon, FileText,
   CircleDot, User as UserIcon, Calendar as CalendarIcon, MessageSquare,
   CornerLeftUp, PlayCircle, Clock, Eye, Pencil, Check, Repeat,
-  AlertTriangle, CalendarClock, Copy, Gauge,
+  AlertTriangle, CalendarClock, Copy, Gauge, LayoutTemplate,
 } from 'lucide-react'
 import { cn, getInitials, timeAgo, dateInputToISO, isoToDateInput } from '@/lib/utils'
 import { RECURRENCE_RULES, RECURRENCE_LABELS } from '@/lib/recurrence'
@@ -170,6 +171,7 @@ export function TaskDetailPanel({
   const router = useRouter()
   const [task, setTask] = useState<TaskDetail | null>(null)
   const [duplicating, setDuplicating] = useState(false)
+  const [savingTemplate, setSavingTemplate] = useState(false)
   const [comments, setComments] = useState<Comment[]>([])
   const [hasMoreComments, setHasMoreComments] = useState(false)
   const [loadingMoreComments, setLoadingMoreComments] = useState(false)
@@ -295,6 +297,36 @@ export function TaskDetailPanel({
       toast.error('Error al duplicar la tarea')
     } finally {
       setDuplicating(false)
+    }
+  }
+
+  // Guardar la tarea actual como plantilla reutilizable. Pide un nombre con el
+  // dialogo inline (nunca window.prompt) y hace snapshot en el servidor.
+  const handleSaveAsTemplate = async () => {
+    if (savingTemplate || !task) return
+    const name = await promptDialog({
+      title: 'Guardar como plantilla',
+      label: 'Nombre de la plantilla de tarea',
+      placeholder: 'Ej. Checklist de arranque de proyecto',
+      confirmLabel: 'Guardar',
+    })
+    if (!name) return
+    setSavingTemplate(true)
+    try {
+      const res = await fetch(`/api/projects/${task.project_id}/task-templates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from_task_id: task.id, name }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error ?? 'Error al guardar la plantilla')
+      }
+      toast.success('Plantilla guardada')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al guardar la plantilla')
+    } finally {
+      setSavingTemplate(false)
     }
   }
 
@@ -435,6 +467,15 @@ export function TaskDetailPanel({
               className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors disabled:opacity-50"
             >
               {duplicating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={handleSaveAsTemplate}
+              disabled={savingTemplate}
+              title="Guardar como plantilla"
+              aria-label="Guardar como plantilla"
+              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors disabled:opacity-50"
+            >
+              {savingTemplate ? <Loader2 className="w-4 h-4 animate-spin" /> : <LayoutTemplate className="w-4 h-4" />}
             </button>
             <button
               onClick={handleDelete}

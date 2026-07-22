@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Plus, ChevronDown, Loader2, FolderKanban } from 'lucide-react'
+import { Plus, ChevronDown, Loader2, FolderKanban, LayoutTemplate } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useNewTask } from '@/stores/new-task'
 
@@ -26,6 +26,16 @@ interface TeamWithProjects {
 
 interface GlobalNewTaskModalProps {
   teams: TeamWithProjects[]
+}
+
+// Plantilla de tarea (contraparte a nivel tarea de las plantillas de proyecto).
+// Solo se usan los campos que el modal prellena; el servidor siembra la checklist.
+interface TaskTemplate {
+  id: string
+  name: string
+  title: string
+  description: string | null
+  priority: string
 }
 
 const LAST_PROJECT_KEY = 'wlo-new-task-last-project'
@@ -64,8 +74,11 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
 
   const [projectId, setProjectId] = useState('')
   const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
   const [priority, setPriority] = useState('none')
   const [submitting, setSubmitting] = useState(false)
+  const [templates, setTemplates] = useState<TaskTemplate[]>([])
+  const [templateId, setTemplateId] = useState('')
   const titleRef = useRef<HTMLInputElement>(null)
 
   // Atajo global C: abre el modal desde cualquier pantalla del workspace.
@@ -86,7 +99,9 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
   useEffect(() => {
     if (!open) return
     setTitle('')
+    setDescription('')
     setPriority('none')
+    setTemplateId('')
     let initial = projects[0]?.id ?? ''
     try {
       const last = localStorage.getItem(LAST_PROJECT_KEY)
@@ -112,7 +127,40 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, setOpen])
 
+  // Cargar las plantillas del proyecto seleccionado (propias + de todo el
+  // workspace). Se limpia la seleccion al cambiar de proyecto para no arrastrar
+  // una plantilla de otro proyecto.
+  useEffect(() => {
+    if (!open || !projectId) {
+      setTemplates([])
+      return
+    }
+    let cancelled = false
+    setTemplateId('')
+    fetch(`/api/projects/${projectId}/task-templates`)
+      .then(r => (r.ok ? r.json() : { templates: [] }))
+      .then((data: { templates?: TaskTemplate[] }) => {
+        if (!cancelled) setTemplates(data.templates ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setTemplates([])
+      })
+    return () => { cancelled = true }
+  }, [open, projectId])
+
   if (!open) return null
+
+  // Aplicar una plantilla: prellena titulo (si esta vacio) y descripcion, fija la
+  // prioridad y recuerda el id para que el servidor siembre la checklist. "" limpia.
+  const applyTemplate = (id: string) => {
+    setTemplateId(id)
+    if (!id) return
+    const tpl = templates.find(t => t.id === id)
+    if (!tpl) return
+    if (!title.trim() && tpl.title) setTitle(tpl.title)
+    if (tpl.description) setDescription(tpl.description)
+    if (tpl.priority) setPriority(tpl.priority)
+  }
 
   const canSubmit = title.trim().length > 0 && projectId && !submitting
 
@@ -128,6 +176,8 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
           project_id: projectId,
           title: title.trim(),
           priority,
+          // Al enviar template_id el servidor siembra la checklist de la plantilla.
+          ...(templateId ? { template_id: templateId } : {}),
         }),
       })
       if (!res.ok) {
@@ -228,6 +278,42 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
                 <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               </div>
             </div>
+
+            {/* Plantilla de tarea (solo si el proyecto tiene alguna) */}
+            {templates.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <LayoutTemplate className="h-3.5 w-3.5" aria-hidden="true" />
+                  Plantilla
+                </label>
+                <div className="relative">
+                  <select
+                    value={templateId}
+                    onChange={e => applyTemplate(e.target.value)}
+                    aria-label="Plantilla de tarea"
+                    className="w-full appearance-none rounded-lg border border-input bg-background pl-3 pr-8 py-2 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">Ninguna</option>
+                    {templates.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                </div>
+              </div>
+            )}
+
+            {/* Vista previa de la descripción que aportará la plantilla. Solo
+                lectura: el servidor la siembra al crear (via template_id), asi
+                que aqui solo se muestra para que el usuario sepa que trae. */}
+            {templateId && description && (
+              <div className="rounded-lg border border-border bg-muted/40 px-3.5 py-2.5 text-xs text-muted-foreground">
+                <span className="mb-1 block font-medium text-foreground">Descripción de la plantilla</span>
+                <p className="line-clamp-4 whitespace-pre-wrap">{description}</p>
+              </div>
+            )}
 
             {/* Prioridad como pastillas */}
             <div className="space-y-1.5">
