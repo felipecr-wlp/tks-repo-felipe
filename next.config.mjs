@@ -5,6 +5,10 @@ const securityHeaders = [
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  // La app es 100% HTTPS (Vercel). HSTS fuerza al navegador a no volver a HTTP
+  // durante 2 anios, protege contra downgrade/MITM en subdominios. preload lo
+  // habilita para la lista precargada de navegadores.
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
   {
     key: 'Permissions-Policy',
     value: 'camera=(), microphone=(), geolocation=()',
@@ -19,6 +23,12 @@ const securityHeaders = [
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com",
       "frame-src https://docs.google.com https://sheets.google.com https://drive.google.com",
       "font-src 'self'",
+      // Endurecimiento adicional: nadie externo puede enmarcar la app (refuerza
+      // X-Frame-Options en navegadores modernos), sin <base> inyectable, y se
+      // bloquean <object>/<embed> (la app no los usa; Excalidraw es canvas).
+      "frame-ancestors 'self'",
+      "base-uri 'self'",
+      "object-src 'none'",
     ].join('; '),
   },
 ]
@@ -34,7 +44,7 @@ const nextConfig = {
     ]
   },
 
-  // Image optimization — allow Google CDN for avatars
+  // Image optimization, allow Google CDN for avatars
   images: {
     remotePatterns: [
       {
