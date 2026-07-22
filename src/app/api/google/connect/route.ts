@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import { safeInternalPath } from '@/lib/validation'
 import { getOAuthClient, CALENDAR_SCOPES, isGoogleConfigured } from '@/lib/google/client'
 
 export async function GET(request: NextRequest) {
@@ -34,10 +35,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Destino al que volver despues de conectar (solo rutas internas seguras).
-  const nextRaw = searchParams.get('next') ?? '/'
-  const isSafeNext =
-    nextRaw.startsWith('/') && !nextRaw.startsWith('//') && !nextRaw.startsWith('/\\')
-  const next = isSafeNext ? nextRaw : '/'
+  const next = safeInternalPath(searchParams.get('next'))
 
   // state anti-CSRF: valor aleatorio que revalidamos en el callback.
   const state = randomBytes(24).toString('hex')

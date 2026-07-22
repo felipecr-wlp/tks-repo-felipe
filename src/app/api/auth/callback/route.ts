@@ -3,6 +3,7 @@
  * Intercambia el code por una sesión y redirige al destino.
  */
 import { createClient } from '@/lib/supabase/server'
+import { safeInternalPath } from '@/lib/validation'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
@@ -42,10 +43,8 @@ export async function GET(request: NextRequest) {
   // TODO: Fase 0, Verificar si el usuario tiene org/workspace asignado
   // Si es el primer login, redirigir al onboarding
 
-  // Redirigir al destino original o al workspace.
-  // Solo aceptamos rutas internas: debe empezar con "/" pero NO con "//" ni
-  // "/\" (redirect protocol-relative que sacaría al usuario a otro dominio).
-  const isSafeNext = next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\')
-  const redirectUrl = isSafeNext ? `${origin}${next}` : origin
-  return NextResponse.redirect(redirectUrl)
+  // Redirigir al destino original o al workspace. Solo aceptamos rutas internas
+  // (guarda centralizada en safeInternalPath): protocol-relative y URLs absolutas
+  // sacarian al usuario a otro dominio.
+  return NextResponse.redirect(`${origin}${safeInternalPath(next)}`)
 }

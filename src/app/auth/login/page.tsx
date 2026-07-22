@@ -3,6 +3,7 @@
  */
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { safeInternalPath } from '@/lib/validation'
 import { LoginButton } from './LoginButton'
 
 export const metadata = { title: 'Iniciar sesión' }
@@ -16,11 +17,9 @@ export default async function LoginPage({
   const { data: { user } } = await supabase.auth.getUser()
 
   // Solo se permite redirigir a rutas internas (mismo origen). Bloquea
-  // open-redirect: URLs absolutas (https://evil.com), protocol-relative (//evil)
-  // y backslash-tricks (/\evil) caen al home. Mismo criterio que el callback.
-  const rt = searchParams.redirectTo
-  const safeRedirect =
-    rt && rt.startsWith('/') && !rt.startsWith('//') && !rt.startsWith('/\\') ? rt : '/'
+  // open-redirect: URLs absolutas, protocol-relative y backslash-tricks caen al
+  // home. Mismo criterio centralizado que el callback OAuth y google/connect.
+  const safeRedirect = safeInternalPath(searchParams.redirectTo)
 
   // Si ya tiene sesión, redirigir
   if (user) redirect(safeRedirect)

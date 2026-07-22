@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { safeInternalPath } from '@/lib/validation'
 import { getOAuthClient } from '@/lib/google/client'
 
 export async function GET(request: NextRequest) {
@@ -22,10 +23,7 @@ export async function GET(request: NextRequest) {
   const oauthError = searchParams.get('error')
 
   const stateCookie = request.cookies.get('g_oauth_state')?.value
-  const nextCookie = request.cookies.get('g_oauth_next')?.value ?? '/'
-  const isSafeNext =
-    nextCookie.startsWith('/') && !nextCookie.startsWith('//') && !nextCookie.startsWith('/\\')
-  const next = isSafeNext ? nextCookie : '/'
+  const next = safeInternalPath(request.cookies.get('g_oauth_next')?.value)
 
   // Limpia las cookies del flujo en cualquier salida.
   const clearCookies = (res: NextResponse) => {
