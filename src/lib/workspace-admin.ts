@@ -8,7 +8,9 @@
  * Se usa el admin client (bypassa RLS) con checks explicitos de membresia,
  * igual que en el layout del workspace y en las rutas /api.
  */
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { cache } from 'react'
+import { createAdminClient } from '@/lib/supabase/server'
+import { getCachedUser } from '@/lib/auth'
 
 export interface WorkspaceAdminContext {
   userId: string
@@ -21,13 +23,10 @@ export interface WorkspaceAdminContext {
  * Resuelve el workspace por slug DESDE la membresia del usuario y calcula si es admin.
  * Devuelve null si no hay sesion o el usuario no es miembro de ese workspace.
  */
-export async function getWorkspaceAdminContext(
+export const getWorkspaceAdminContext = cache(async (
   slug: string
-): Promise<WorkspaceAdminContext | null> {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+): Promise<WorkspaceAdminContext | null> => {
+  const user = await getCachedUser()
   if (!user) return null
 
   const admin = createAdminClient()
@@ -72,19 +71,16 @@ export async function getWorkspaceAdminContext(
     role: row.role,
     isAdmin,
   }
-}
+})
 
 /**
  * Variante para rutas /api: verifica que el user autenticado sea admin de un
  * workspace dado por ID. Devuelve { userId, isAdmin, role } o null si no hay sesion.
  */
-export async function isWorkspaceAdminById(
+export const isWorkspaceAdminById = cache(async (
   workspaceId: string
-): Promise<{ userId: string; isAdmin: boolean; role: string | null } | null> {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+): Promise<{ userId: string; isAdmin: boolean; role: string | null } | null> => {
+  const user = await getCachedUser()
   if (!user) return null
 
   const admin = createAdminClient()
@@ -111,4 +107,4 @@ export async function isWorkspaceAdminById(
     role === 'admin'
 
   return { userId: user.id, isAdmin, role }
-}
+})

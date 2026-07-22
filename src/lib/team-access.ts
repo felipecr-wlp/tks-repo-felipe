@@ -10,7 +10,9 @@
  * Se usa el admin client (bypassa RLS) con checks explícitos de membresía,
  * igual que el layout del workspace y las rutas /api.
  */
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { cache } from 'react'
+import { createAdminClient } from '@/lib/supabase/server'
+import { getCachedUser } from '@/lib/auth'
 
 export interface TeamViewerContext {
   userId: string
@@ -177,14 +179,11 @@ async function isOrgAdmin(userId: string): Promise<boolean> {
 /**
  * Resuelve un equipo por slug para el visor (miembro O admin del workspace).
  */
-export async function resolveTeamForViewer(
+export const resolveTeamForViewer = cache(async (
   workspaceSlug: string,
   teamSlug: string
-): Promise<ViewerResult<TeamViewerContext>> {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+): Promise<ViewerResult<TeamViewerContext>> => {
+  const user = await getCachedUser()
   if (!user) return { ok: false, reason: 'no-auth' }
 
   const admin = createAdminClient()
@@ -244,21 +243,18 @@ export async function resolveTeamForViewer(
     ok: true,
     ctx: { userId: user.id, workspace, team, role: tm?.role ?? null, isAdmin, isMember },
   }
-}
+})
 
 /**
  * Resuelve un proyecto por slug para el visor (miembro del proyecto O admin del
  * workspace). Verifica coherencia con el team de la URL.
  */
-export async function resolveProjectForViewer(
+export const resolveProjectForViewer = cache(async (
   workspaceSlug: string,
   teamSlug: string,
   projectSlug: string
-): Promise<ViewerResult<ProjectViewerContext>> {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+): Promise<ViewerResult<ProjectViewerContext>> => {
+  const user = await getCachedUser()
   if (!user) return { ok: false, reason: 'no-auth' }
 
   const admin = createAdminClient()
@@ -325,4 +321,4 @@ export async function resolveProjectForViewer(
     ok: true,
     ctx: { userId: user.id, workspace, project, role: pm?.role ?? null, isAdmin, isMember },
   }
-}
+})
