@@ -220,10 +220,17 @@ function CommentComposer({ members, submitting, onSubmit }: {
           value={value}
           onChange={onChange}
           onKeyDown={e => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send()
+            // Enter envia, Shift+Enter salto de linea (convencion unica de la app).
+            // Si el menu de menciones esta abierto, Enter elige la primera sugerencia.
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              if (mentionQuery !== null && suggestions.length > 0) { pickMention(suggestions[0]); return }
+              send()
+              return
+            }
             if (e.key === 'Escape') setMentionQuery(null)
           }}
-          placeholder="Escribe un comentario… (@ para mencionar, Ctrl+Enter para enviar)"
+          placeholder="Escribe un comentario… (@ para mencionar, Enter para enviar, Shift+Enter salto de línea)"
           rows={2}
           className="w-full text-sm px-3 py-2 border border-input rounded-lg bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
         />
