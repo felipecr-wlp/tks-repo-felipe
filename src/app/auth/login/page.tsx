@@ -15,8 +15,15 @@ export default async function LoginPage({
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Solo se permite redirigir a rutas internas (mismo origen). Bloquea
+  // open-redirect: URLs absolutas (https://evil.com), protocol-relative (//evil)
+  // y backslash-tricks (/\evil) caen al home. Mismo criterio que el callback.
+  const rt = searchParams.redirectTo
+  const safeRedirect =
+    rt && rt.startsWith('/') && !rt.startsWith('//') && !rt.startsWith('/\\') ? rt : '/'
+
   // Si ya tiene sesión, redirigir
-  if (user) redirect(searchParams.redirectTo ?? '/')
+  if (user) redirect(safeRedirect)
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
@@ -42,7 +49,7 @@ export default async function LoginPage({
           </div>
         )}
 
-        <LoginButton redirectTo={searchParams.redirectTo} />
+        <LoginButton redirectTo={safeRedirect} />
 
         <p className="text-xs text-muted-foreground">
           Solo cuentas{' '}
