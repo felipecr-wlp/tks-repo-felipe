@@ -274,10 +274,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 }
 
 // ── DELETE ───────────────────────────────────────────────────────────────────
-export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   if (!isUuid(params.noteId)) {
     return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
   }
+  const limited = await applyRateLimit(request, 'api')
+  if (limited) return limited
+
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })

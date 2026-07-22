@@ -81,7 +81,12 @@ export async function GET(request: NextRequest) {
     .neq('doc_kind', 'note')
     .not('review_due', 'is', null)
     .not('created_by', 'is', null)
-    .lte('review_due', in7dIso) as { data: SopRow[] | null; error: unknown }
+    .lte('review_due', in7dIso)
+    // Cota dura: sin limite este barrido crecia sin techo (todo SOP con revision
+    // vencida o proxima en la instancia) y podia agotar memoria o el maxDuration
+    // de 30s. Se prioriza lo mas vencido (review_due ascendente) y se topa en 5000.
+    .order('review_due', { ascending: true })
+    .limit(5000) as { data: SopRow[] | null; error: unknown }
 
   if (error) {
     return NextResponse.json({ error: 'Error al leer SOPs' }, { status: 500 })
@@ -102,7 +107,9 @@ export async function GET(request: NextRequest) {
     .from('notifications')
     .select('recipient_id, object_id, type')
     .in('type', [NotificationTypes.SOP_REVIEW_OVERDUE, NotificationTypes.SOP_REVIEW_DUE_SOON])
-    .gte('created_at', since) as { data: NotifRow[] | null; error: unknown }
+    .gte('created_at', since)
+    // Cota dura al set de dedup: coherente con el limite del barrido de arriba.
+    .limit(10000) as { data: NotifRow[] | null; error: unknown }
 
   const seen = new Set(
     (recent ?? []).map(n => `${n.recipient_id}:${n.object_id}:${n.type}`)

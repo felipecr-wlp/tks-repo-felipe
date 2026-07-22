@@ -25,7 +25,7 @@ const patchSchema = z.object({
   status:        z.enum(['on_track', 'at_risk', 'off_track', 'done']).optional(),
   due_date:      z.string().optional().nullable(),
   owner_id:      z.string().uuid().optional().nullable(),
-})
+}).strict()
 
 // ── Helper: la meta existe y el usuario puede tocarla ────────────────────────
 async function goalAccess(
