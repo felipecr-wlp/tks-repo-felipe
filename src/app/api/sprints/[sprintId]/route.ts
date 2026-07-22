@@ -14,8 +14,8 @@ const patchSchema = z.object({
   name:       z.string().min(1).max(120).trim().optional(),
   goal:       z.string().max(500).nullable().optional(),
   status:     z.enum(['planning', 'active', 'completed']).optional(),
-  start_date: z.string().nullable().optional(),
-  end_date:   z.string().nullable().optional(),
+  start_date: z.string().max(40).nullable().optional(),
+  end_date:   z.string().max(40).nullable().optional(),
 }).strict()
 
 async function authorize(sprintId: string, userId: string) {

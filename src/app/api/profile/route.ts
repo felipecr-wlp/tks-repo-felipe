@@ -14,7 +14,7 @@ import { AVATAR_PATHS, ADMIN_ONLY_AVATARS, ADMIN_ROLES } from '@/lib/avatars'
 
 const patchSchema = z.object({
   display_name: z.string().min(2).max(80).trim().optional(),
-  avatar_url: z.string().nullable().optional(),
+  avatar_url: z.string().max(2048).nullable().optional(),
   email_notifications: z.boolean().optional(),
 }).strict()
 

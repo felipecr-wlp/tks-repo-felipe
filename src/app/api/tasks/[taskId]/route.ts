@@ -84,7 +84,7 @@ const patchSchema = z.object({
   due_date:    z.string().datetime().nullable().optional(),
   start_date:  z.string().datetime().nullable().optional(),
   estimate_minutes: z.number().int().min(0).max(1000000).nullable().optional(),
-  sort_order:  z.string().optional(),
+  sort_order:  z.string().max(100).optional(),
   // ── Capa SCRUM ──────────────────────────────────────────────
   sprint_id:         z.string().uuid().nullable().optional(),
   story_points:      z.number().refine(n => (SP_VALUES as readonly number[]).includes(n), 'Fibonacci 1,2,3,5,8,13,21').nullable().optional(),

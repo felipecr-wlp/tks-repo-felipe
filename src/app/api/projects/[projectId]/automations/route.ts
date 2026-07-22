@@ -18,7 +18,7 @@ import { AUTOMATION_TRIGGERS, AUTOMATION_ACTION_TYPES } from '@/lib/automations'
 const conditionSchema = z.object({
   field: z.enum(['priority', 'assignee_id', 'status_id']),
   op:    z.enum(['eq', 'neq']),
-  value: z.string().nullable(),
+  value: z.string().max(200).nullable(),
 })
 
 const actionSchema = z.object({

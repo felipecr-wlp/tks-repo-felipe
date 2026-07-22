@@ -53,8 +53,8 @@ const createSchema = z.object({
   name:       z.string().min(1).max(120).trim(),
   goal:       z.string().max(500).nullable().optional(),
   status:     z.enum(['planning', 'active', 'completed']).optional().default('planning'),
-  start_date: z.string().optional().nullable(),
-  end_date:   z.string().optional().nullable(),
+  start_date: z.string().max(40).optional().nullable(),
+  end_date:   z.string().max(40).optional().nullable(),
 })
 
 export async function POST(request: NextRequest) {

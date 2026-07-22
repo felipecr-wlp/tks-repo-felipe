@@ -26,7 +26,7 @@ const createSchema = z.object({
   target_value:  z.number().finite().optional(),
   current_value: z.number().finite().optional(),
   status:        z.enum(['on_track', 'at_risk', 'off_track', 'done']).default('on_track'),
-  due_date:      z.string().optional().nullable(),
+  due_date:      z.string().max(40).optional().nullable(),
   owner_id:      z.string().uuid().optional().nullable(),
 })
 

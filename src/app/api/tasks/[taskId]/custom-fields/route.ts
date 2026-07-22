@@ -25,7 +25,7 @@ interface RouteParams {
 // isValueValidForType no cuenta ni deduplica) y los vuelque al JSON del valor,
 // saturando memoria y fila (OWASP API4, consumo de recursos no acotado).
 const valueSchema = z.union([
-  z.string(),
+  z.string().max(10_000),
   z.number(),
   z.boolean(),
   z.array(z.string()).max(100),

@@ -19,7 +19,7 @@ interface RouteParams {
 
 const patchSchema = z.object({
   title:          z.string().max(200).trim().optional(),
-  content:        z.string().nullable().optional(),
+  content:        z.string().max(1_000_000).nullable().optional(),
   visibility:     z.enum(['private', 'project', 'team', 'workspace']).optional(),
   icon:           z.string().max(64).nullable().optional(),
   parent_note_id: z.string().uuid().nullable().optional(),

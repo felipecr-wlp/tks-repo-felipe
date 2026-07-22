@@ -14,7 +14,7 @@ import { logActivity, ActivityVerbs } from '@/lib/activity'
 const createSchema = z.object({
   workspace_id:   z.string().uuid(),
   title:          z.string().max(200).trim().optional(),
-  content:        z.string().nullable().optional(),
+  content:        z.string().max(1_000_000).nullable().optional(),
   visibility:     z.enum(['private', 'project', 'team', 'workspace']).default('workspace'),
   project_id:     z.string().uuid().nullable().optional(),
   parent_note_id: z.string().uuid().nullable().optional(),

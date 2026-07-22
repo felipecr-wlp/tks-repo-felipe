@@ -21,7 +21,7 @@ import { slugify } from '@/lib/utils'
 import { logActivity, createNotification, ActivityVerbs, NotificationTypes } from '@/lib/activity'
 
 const schema = z.object({
-  workspace_slug:       z.string().min(1),
+  workspace_slug:       z.string().min(1).max(120),
   team_id:              z.string().uuid().nullable().optional(),
   name:                 z.string().min(2).max(80).trim(),
   description:          z.string().max(500).trim().nullable().optional(),
