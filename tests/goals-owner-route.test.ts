@@ -54,6 +54,19 @@ describe('PATCH goals/[goalId] owner_id', () => {
     expect(res.status).toBe(422)
   })
 
+  it('campo desconocido en el body se rechaza con 422 (schema .strict)', async () => {
+    state.user = { id: 'user-1' }
+    // El schema es .strict(): una clave fuera de la lista blanca (intento de
+    // mass-assignment, ej. escribir workspace_id o created_by) debe abortar
+    // ANTES de tocar la DB. Sin adminResults en cola: si llegara a consultar,
+    // fallaria distinto; aqui esperamos el corte temprano por validacion.
+    const res = await PATCH(
+      req({ title: 'M', workspace_id: 'ws-otra', bogus: 1 }),
+      { params: { goalId: GOAL } },
+    )
+    expect(res.status).toBe(422)
+  })
+
   it('owner_id miembro del workspace se acepta', async () => {
     state.user = { id: 'user-1' }
     state.adminResults = [
