@@ -148,9 +148,7 @@ export async function POST(
   if (insertError || !raw) {
     console.error('[comments POST] insert error:', insertError)
     return NextResponse.json({
-      error: 'Error al crear el comentario',
-      details: (insertError as { message?: string })?.message,
-    }, { status: 500 })
+      error: 'Error al crear el comentario',    }, { status: 500 })
   }
 
   // Auto-seguimiento: quien comenta pasa a seguir la tarea (best effort).

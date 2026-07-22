@@ -115,9 +115,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   if (error || !copy) {
     console.error('[tasks duplicate POST] insert error:', error)
     return NextResponse.json({
-      error: 'Error al duplicar',
-      details: (error as { message?: string })?.message,
-    }, { status: 500 })
+      error: 'Error al duplicar',    }, { status: 500 })
   }
 
   // Quien duplica pasa a seguir la copia (best effort).

@@ -136,9 +136,7 @@ export async function POST(request: NextRequest) {
   if (error || !space) {
     console.error('[spaces POST] insert error:', error)
     return NextResponse.json({
-      error: 'Error al crear el departamento',
-      details: (error as { message?: string })?.message,
-    }, { status: 500 })
+      error: 'Error al crear el departamento',    }, { status: 500 })
   }
 
   // El creador queda como owner del departamento

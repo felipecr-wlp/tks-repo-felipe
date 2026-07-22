@@ -162,9 +162,7 @@ export async function POST(request: NextRequest) {
   if (insertError || !newTask) {
     console.error('[tasks POST] insert error:', insertError)
     return NextResponse.json({
-      error: 'Error al crear la tarea',
-      details: (insertError as { message?: string })?.message,
-    }, { status: 500 })
+      error: 'Error al crear la tarea',    }, { status: 500 })
   }
 
   // ── Sembrado desde plantilla (opcional) ──────────────────────────────────

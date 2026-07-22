@@ -113,10 +113,8 @@ export async function POST(request: NextRequest) {
     .single() as { data: WhiteboardInsert | null; error: unknown }
 
   if (error || !board) {
-    return NextResponse.json({
-      error: 'Error al crear la pizarra',
-      details: (error as { message?: string })?.message,
-    }, { status: 500 })
+    console.error('[whiteboards POST] insert error:', error)
+    return NextResponse.json({ error: 'Error al crear la pizarra' }, { status: 500 })
   }
 
   logActivity({

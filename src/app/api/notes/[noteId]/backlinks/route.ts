@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { canAccessNoteSpace } from '@/lib/note-space-access'
+import { canAccessNoteSpace, accessibleSpaceIds } from '@/lib/note-space-access'
 
 interface RouteParams {
   params: { noteId: string }
@@ -59,11 +59,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
   }
 
-  // Aristas entrantes.
+  // Aristas entrantes. Cota dura: una nota muy enlazada no debe traer un set
+  // sin techo (memoria + fan-out del chequeo de espacio); 500 backlinks basta.
   const { data: edges } = await admin
     .from('note_links')
     .select('source_note_id')
-    .eq('target_note_id', params.noteId) as { data: { source_note_id: string }[] | null }
+    .eq('target_note_id', params.noteId)
+    .limit(500) as { data: { source_note_id: string }[] | null }
 
   const sourceIds = Array.from(new Set((edges ?? []).map(e => e.source_note_id)))
   if (sourceIds.length === 0) return NextResponse.json([])
@@ -77,9 +79,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   // espacio restringido: una nota origen de un depto confidencial no debe
   // filtrarse como backlink fuera de ese espacio.
   const visibleSources = (sources ?? []).filter(s => s.visibility !== 'private' || s.created_by === user.id)
-  const allowed = await Promise.all(visibleSources.map(s => canAccessNoteSpace(admin, s.space_id, user.id)))
+  // Chequeo de espacio en batch (3 queries max) en lugar de N+1 por backlink.
+  // Un space_id null se trata como accesible (nota sin espacio restringido).
+  const okSpaces = await accessibleSpaceIds(admin, visibleSources.map(s => s.space_id), user.id)
   const list = visibleSources
-    .filter((_, i) => allowed[i])
+    .filter(s => s.space_id == null || okSpaces.has(s.space_id))
     .map(s => ({ id: s.id, title: s.title, icon: s.icon, updated_at: s.updated_at }))
 
   return NextResponse.json(list)

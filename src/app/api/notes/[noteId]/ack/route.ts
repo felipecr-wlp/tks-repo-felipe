@@ -144,9 +144,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   if (upsertError) {
     console.error('[note ack POST] upsert error:', upsertError)
     return NextResponse.json({
-      error: 'Error al registrar el acuse',
-      details: (upsertError as { message?: string })?.message,
-    }, { status: 500 })
+      error: 'Error al registrar el acuse',    }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true, acknowledged: true, version: note.sop_version }, { status: 201 })

@@ -142,9 +142,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   if (insertError || !raw) {
     console.error('[note comments POST] insert error:', insertError)
     return NextResponse.json({
-      error: 'Error al crear el comentario',
-      details: (insertError as { message?: string })?.message,
-    }, { status: 500 })
+      error: 'Error al crear el comentario',    }, { status: 500 })
   }
 
   logActivity({

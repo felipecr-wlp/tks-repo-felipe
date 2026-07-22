@@ -238,9 +238,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   if (error || !updated) {
     return NextResponse.json({
-      error: 'Error al actualizar',
-      details: (error as { message?: string })?.message,
-    }, { status: 500 })
+      error: 'Error al actualizar',    }, { status: 500 })
   }
 
   logActivity({

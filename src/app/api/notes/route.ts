@@ -181,9 +181,7 @@ export async function POST(request: NextRequest) {
   if (insertError || !note) {
     console.error('[notes POST] insert error:', insertError)
     return NextResponse.json({
-      error: 'Error al crear la nota',
-      details: (insertError as { message?: string })?.message,
-    }, { status: 500 })
+      error: 'Error al crear la nota',    }, { status: 500 })
   }
 
   logActivity({
