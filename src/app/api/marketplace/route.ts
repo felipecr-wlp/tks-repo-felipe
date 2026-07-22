@@ -46,7 +46,8 @@ export async function GET(request: NextRequest) {
     .eq('open_for_applications', true)
     .eq('is_archived', false)
     .or(`application_deadline.is.null,application_deadline.gte.${nowIso}`)
-    .order('application_deadline', { ascending: true, nullsFirst: false }) as { data: ProjRow[] | null }
+    .order('application_deadline', { ascending: true, nullsFirst: false })
+    .limit(200) as { data: ProjRow[] | null }
 
   const list = projects ?? []
   if (list.length === 0) return NextResponse.json({ projects: [] })

@@ -176,7 +176,8 @@ async function listLobby(
     .from('profiles')
     .select('id, display_name, email, avatar_url, created_at')
     .eq('org_id', orgId)
-    .order('created_at', { ascending: true })) as { data: Prof[] | null; error: unknown }
+    .order('created_at', { ascending: true })
+    .limit(500)) as { data: Prof[] | null; error: unknown }
 
   const ids = (profiles ?? []).map((p) => p.id)
   if (ids.length === 0) return []

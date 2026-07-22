@@ -72,7 +72,8 @@ export async function GET(
     .from('project_members')
     .select('role, title, contribution, joined_at, project:projects!project_members_project_id_fkey(id, name, is_archived, status, lead_id, workspace_id)')
     .eq('profile_id', params.profileId)
-    .order('joined_at', { ascending: false }) as { data: MembershipRow[] | null }
+    .order('joined_at', { ascending: false })
+    .limit(300) as { data: MembershipRow[] | null }
 
   const projects = (memberships ?? [])
     .filter(m => m.project)

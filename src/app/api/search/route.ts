@@ -189,7 +189,8 @@ export async function GET(request: NextRequest) {
       const { data: rawSpaces } = await admin
         .from('spaces')
         .select('id, is_restricted')
-        .eq('workspace_id', workspace_id) as { data: { id: string; is_restricted: boolean }[] | null; error: unknown }
+        .eq('workspace_id', workspace_id)
+        .limit(500) as { data: { id: string; is_restricted: boolean }[] | null; error: unknown }
       const { data: myMemberships } = await admin
         .from('space_members')
         .select('space_id')

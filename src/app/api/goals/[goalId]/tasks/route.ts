@@ -78,7 +78,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const { data } = await admin
     .from('goal_tasks')
     .select('id, task:tasks ( id, title, status:task_statuses ( id, name, color, category ) )')
-    .eq('goal_id', params.goalId) as { data: Row[] | null }
+    .eq('goal_id', params.goalId)
+    .limit(500) as { data: Row[] | null }
 
   const tasks = (data ?? [])
     .filter(r => r.task)

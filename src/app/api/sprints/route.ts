@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
     .eq('team_id', teamId)
     .order('start_date', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
+    .limit(200)
 
   if (sprintsError) {
     console.error('[sprints GET] read error:', sprintsError)

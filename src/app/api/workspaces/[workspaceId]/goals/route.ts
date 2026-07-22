@@ -87,7 +87,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     .from('goals')
     .select('id, title, description, unit, progress_mode, target_value, current_value, status, due_date, owner_id, owner:profiles!goals_owner_id_fkey ( id, display_name, avatar_url ), created_at')
     .eq('workspace_id', params.workspaceId)
-    .order('created_at', { ascending: false }) as { data: GoalRow[] | null }
+    .order('created_at', { ascending: false })
+    .limit(200) as { data: GoalRow[] | null }
 
   const list = goals ?? []
 

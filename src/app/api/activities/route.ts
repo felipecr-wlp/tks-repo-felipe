@@ -112,7 +112,8 @@ export async function GET(request: NextRequest) {
   const { data: projRows, error: projErr } = await admin
     .from('projects')
     .select('id, name, slug, team_id')
-    .in('team_id', memberTeamIds) as { data: ProjRow[] | null; error: unknown }
+    .in('team_id', memberTeamIds)
+    .limit(1000) as { data: ProjRow[] | null; error: unknown }
   if (projErr) {
     console.error('[activities GET] projects read error:', projErr)
     return NextResponse.json({ error: 'Error al cargar actividades' }, { status: 500 })
@@ -140,7 +141,8 @@ export async function GET(request: NextRequest) {
       .gte('due_date', from)
       .lte('due_date', to)
       .in('project_id', memberProjectIds)
-      .order('due_date', { ascending: true }) as { data: TaskRow[] | null; error: unknown }
+      .order('due_date', { ascending: true })
+      .limit(500) as { data: TaskRow[] | null; error: unknown }
     if (taskErr) {
       console.error('[activities GET] tasks read error:', taskErr)
       return NextResponse.json({ error: 'Error al cargar actividades' }, { status: 500 })
