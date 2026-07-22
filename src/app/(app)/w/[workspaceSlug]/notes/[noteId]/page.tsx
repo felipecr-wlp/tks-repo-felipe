@@ -83,21 +83,13 @@ export default async function NotePage({ params }: NotePageProps) {
     notFound()
   }
 
-  // Breadcrumb de ancestros (subir hasta encontrar root)
-  const breadcrumbs: Breadcrumb[] = []
-  let currentParentId = note.parent_note_id
-  // Limitar profundidad por seguridad
-  for (let i = 0; i < 10 && currentParentId; i++) {
-    type AncestorRow = { id: string; title: string; icon: string | null; parent_note_id: string | null }
-    const { data: ancestor } = await admin
-      .from('notes')
-      .select('id, title, icon, parent_note_id')
-      .eq('id', currentParentId)
-      .maybeSingle() as { data: AncestorRow | null; error: unknown }
-    if (!ancestor) break
-    breadcrumbs.unshift({ id: ancestor.id, title: ancestor.title, icon: ancestor.icon })
-    currentParentId = ancestor.parent_note_id
-  }
+  // Breadcrumb de ancestros: una sola consulta (CTE recursiva en la RPC
+  // note_ancestors) en vez del bucle N+1 de hasta 10 lecturas secuenciales.
+  // La RPC devuelve ya ordenado del root al padre inmediato, con tope de 10.
+  type AncestorRow = { id: string; title: string; icon: string | null }
+  const { data: ancestors } = await admin
+    .rpc('note_ancestors', { p_note_id: note.id }) as { data: AncestorRow[] | null; error: unknown }
+  const breadcrumbs: Breadcrumb[] = (ancestors ?? []).map(a => ({ id: a.id, title: a.title, icon: a.icon }))
 
   // Sub-páginas directas
   const { data: children } = await admin

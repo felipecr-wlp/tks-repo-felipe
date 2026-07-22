@@ -159,66 +159,47 @@ export default async function WorkspaceDashboardPage({
     new Set((teams ?? []).flatMap(t => (t.projects ?? []).map(p => p.id)))
   )
 
-  type WidgetTaskRow = {
-    due_date: string | null
-    assignee_id: string | null
-    status: { category: string } | null
-    assignee: { id: string; display_name: string | null; avatar_url: string | null } | null
-  }
-
-  let widgetTasks: WidgetTaskRow[] = []
-  if (isAdmin || accessibleProjectIds.length > 0) {
-    let qb = admin
-      .from('tasks')
-      .select('due_date, assignee_id, status:task_statuses ( category ), assignee:profiles ( id, display_name, avatar_url )')
-      .eq('workspace_id', workspace.id)
-      .eq('is_archived', false)
-      .limit(2000)
-    if (!isAdmin) qb = qb.in('project_id', accessibleProjectIds)
-    const { data } = await qb as { data: WidgetTaskRow[] | null }
-    widgetTasks = data ?? []
-  }
-
   const today0 = new Date()
   today0.setHours(0, 0, 0, 0)
   const in7 = new Date(today0)
   in7.setDate(in7.getDate() + 7)
 
-  const byCategory = { todo: 0, in_progress: 0, done: 0, cancelled: 0 }
-  const workloadMap = new Map<string, { name: string; avatar_url: string | null; open: number }>()
-  let overdue = 0
-  let dueSoon = 0
-
-  for (const t of widgetTasks) {
-    const cat = t.status?.category ?? 'todo'
-    if (cat === 'todo' || cat === 'in_progress' || cat === 'done' || cat === 'cancelled') {
-      byCategory[cat] += 1
-    }
-    const isOpen = cat === 'todo' || cat === 'in_progress'
-    if (isOpen && t.due_date) {
-      const d = new Date(t.due_date)
-      if (d < today0) overdue += 1
-      else if (d < in7) dueSoon += 1
-    }
-    if (isOpen && t.assignee) {
-      const cur = workloadMap.get(t.assignee.id)
-      if (cur) cur.open += 1
-      else workloadMap.set(t.assignee.id, {
-        name: t.assignee.display_name ?? 'Sin nombre',
-        avatar_url: t.assignee.avatar_url,
-        open: 1,
-      })
-    }
+  // Agregacion en Postgres (RPC workspace_dashboard_widgets): antes se traian
+  // hasta 2000 filas de tareas al server solo para contarlas. Ahora la base
+  // devuelve los totales ya calculados. Alcance: admin = null (todo el
+  // workspace); resto = solo los proyectos accesibles. Los limites de fecha se
+  // pasan desde el server para conservar identica la semantica de vencidas.
+  type WidgetsRpc = {
+    byCategory: { todo: number; in_progress: number; done: number; cancelled: number }
+    overdue: number
+    dueSoon: number
+    total: number
+    workload: { id: string; name: string; avatar_url: string | null; open: number }[]
+  }
+  const emptyWidgets: WidgetsRpc = {
+    byCategory: { todo: 0, in_progress: 0, done: 0, cancelled: 0 },
+    overdue: 0, dueSoon: 0, total: 0, workload: [],
   }
 
+  let agg: WidgetsRpc = emptyWidgets
+  if (isAdmin || accessibleProjectIds.length > 0) {
+    const { data } = await admin.rpc('workspace_dashboard_widgets', {
+      p_workspace_id: workspace.id,
+      p_project_ids: isAdmin ? null : accessibleProjectIds,
+      p_today: today0.toISOString(),
+      p_in7: in7.toISOString(),
+    }) as { data: WidgetsRpc | null }
+    agg = data ?? emptyWidgets
+  }
+
+  const byCategory = agg.byCategory
+  const overdue = agg.overdue
+  const dueSoon = agg.dueSoon
   const totalOpen = byCategory.todo + byCategory.in_progress
-  const workload = Array.from(workloadMap.entries())
-    .map(([id, v]) => ({ id, ...v }))
-    .sort((a, b) => b.open - a.open)
-    .slice(0, 6)
+  const workload = agg.workload
 
   const widgetsData: DashboardWidgetsData = { totalOpen, overdue, dueSoon, byCategory, workload }
-  const hasAnyWidgetData = widgetTasks.length > 0
+  const hasAnyWidgetData = agg.total > 0
 
   // ── Progreso de onboarding (checklist de primeros pasos) ──────────────────
   const projectsCount = (teams ?? []).reduce((acc, t) => acc + (t.projects?.length ?? 0), 0)
