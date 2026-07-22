@@ -141,7 +141,12 @@ export async function GET(request: NextRequest) {
     .eq('is_archived', false)
     .not('assignee_id', 'is', null)
     .not('due_date', 'is', null)
-    .lte('due_date', in24h.toISOString()) as { data: TaskRow[] | null; error: unknown }
+    .lte('due_date', in24h.toISOString())
+    // Cota dura: sin limite este barrido crecia sin techo (toda tarea vencida o
+    // por vencer en la instancia) y podia agotar memoria o el maxDuration de 30s.
+    // Se prioriza lo mas vencido (due_date ascendente) y se topa en 5000.
+    .order('due_date', { ascending: true })
+    .limit(5000) as { data: TaskRow[] | null; error: unknown }
 
   if (error) {
     return NextResponse.json({ error: 'Error al leer tareas' }, { status: 500 })

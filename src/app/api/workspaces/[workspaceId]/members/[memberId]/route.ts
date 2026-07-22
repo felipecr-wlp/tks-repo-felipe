@@ -62,6 +62,13 @@ export async function PATCH(
   if (!parsed.success)
     return NextResponse.json({ error: 'Rol invalido' }, { status: 422 })
 
+  // Solo un owner puede otorgar el rol owner. Sin esta barrera un simple admin
+  // podia promover a cualquiera (incluido a si mismo) a owner: escalada de
+  // privilegios. Los admin siguen pudiendo asignar roles admin y por debajo.
+  if (parsed.data.role === 'owner' && !auth.isOwner) {
+    return NextResponse.json({ error: 'Solo un owner puede asignar el rol owner' }, { status: 403 })
+  }
+
   const admin = createAdminClient()
   const prev = await currentRole(admin, params.workspaceId, params.memberId)
   if (!prev) return NextResponse.json({ error: 'Miembro no encontrado' }, { status: 404 })

@@ -157,9 +157,70 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const { note, status } = await loadNoteWithAccess(admin, params.noteId, user.id)
   if (!note) return NextResponse.json({ error: 'No encontrada o sin acceso' }, { status })
 
-  // Solo creador o admin del workspace puede editar
-  // (UI: dejar al creador editar; validación más fina se puede hacer aquí)
-  // Por ahora cualquiera con acceso puede editar, coherente con docs colaborativos.
+  // Edición de contenido: cualquiera con acceso (docs colaborativos). Pero mover
+  // la nota de espacio/padre o cambiar su visibilidad son cambios ESTRUCTURALES
+  // que pueden reubicarla dentro de un espacio restringido o esconderla; se
+  // reservan al creador o a un admin (workspace u org). Sin esta barrera un
+  // simple miembro podía moverla a un espacio restringido o cambiar el alcance.
+  const touchesStructure =
+    Object.prototype.hasOwnProperty.call(parsed.data, 'space_id') ||
+    Object.prototype.hasOwnProperty.call(parsed.data, 'parent_note_id') ||
+    Object.prototype.hasOwnProperty.call(parsed.data, 'visibility')
+
+  if (touchesStructure) {
+    let canRestructure = note.created_by === user.id
+    if (!canRestructure) {
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('org_role')
+        .eq('id', user.id)
+        .maybeSingle() as { data: { org_role: string | null } | null; error: unknown }
+      if (profile?.org_role === 'owner' || profile?.org_role === 'admin') canRestructure = true
+      if (!canRestructure) {
+        const { data: wsMember } = await admin
+          .from('workspace_members')
+          .select('role')
+          .eq('workspace_id', note.workspace_id)
+          .eq('profile_id', user.id)
+          .maybeSingle() as { data: { role: string } | null; error: unknown }
+        if (wsMember?.role === 'admin' || wsMember?.role === 'owner') canRestructure = true
+      }
+    }
+    if (!canRestructure) {
+      return NextResponse.json(
+        { error: 'Solo el creador o un admin puede mover la nota o cambiar su visibilidad' },
+        { status: 403 }
+      )
+    }
+
+    // Validar que el destino pertenezca al MISMO workspace (evita reubicar la
+    // nota bajo un espacio/padre de otro workspace vía admin client).
+    const nextSpaceId = parsed.data.space_id
+    if (nextSpaceId) {
+      const { data: space } = await admin
+        .from('spaces')
+        .select('workspace_id')
+        .eq('id', nextSpaceId)
+        .maybeSingle() as { data: { workspace_id: string } | null; error: unknown }
+      if (!space || space.workspace_id !== note.workspace_id) {
+        return NextResponse.json({ error: 'Espacio inválido' }, { status: 422 })
+      }
+    }
+    const nextParentId = parsed.data.parent_note_id
+    if (nextParentId) {
+      if (nextParentId === note.id) {
+        return NextResponse.json({ error: 'Una nota no puede ser su propio padre' }, { status: 422 })
+      }
+      const { data: parent } = await admin
+        .from('notes')
+        .select('workspace_id')
+        .eq('id', nextParentId)
+        .maybeSingle() as { data: { workspace_id: string } | null; error: unknown }
+      if (!parent || parent.workspace_id !== note.workspace_id) {
+        return NextResponse.json({ error: 'Nota padre inválida' }, { status: 422 })
+      }
+    }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: updated, error } = await (admin as any)

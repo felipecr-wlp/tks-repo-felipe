@@ -75,11 +75,13 @@ export const getWorkspaceAdminContext = cache(async (
 
 /**
  * Variante para rutas /api: verifica que el user autenticado sea admin de un
- * workspace dado por ID. Devuelve { userId, isAdmin, role } o null si no hay sesion.
+ * workspace dado por ID. Devuelve { userId, isAdmin, isOwner, role } o null si
+ * no hay sesion. `isOwner` (owner del workspace u owner de la org) es la barrera
+ * para acciones que solo un owner puede hacer, como asignar el rol owner.
  */
 export const isWorkspaceAdminById = cache(async (
   workspaceId: string
-): Promise<{ userId: string; isAdmin: boolean; role: string | null } | null> => {
+): Promise<{ userId: string; isAdmin: boolean; isOwner: boolean; role: string | null } | null> => {
   const user = await getCachedUser()
   if (!user) return null
 
@@ -100,11 +102,11 @@ export const isWorkspaceAdminById = cache(async (
 
   const orgRole = profile?.org_role ?? 'member'
   const role = membership?.role ?? null
+  const isOwner = orgRole === 'owner' || role === 'owner'
   const isAdmin =
-    orgRole === 'owner' ||
+    isOwner ||
     orgRole === 'admin' ||
-    role === 'owner' ||
     role === 'admin'
 
-  return { userId: user.id, isAdmin, role }
+  return { userId: user.id, isAdmin, isOwner, role }
 })

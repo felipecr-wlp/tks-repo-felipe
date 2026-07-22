@@ -154,6 +154,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
   }
 
+  // El responsable, si se da, debe ser miembro de ESTE workspace (coherente con
+  // el PATCH; evita owners de otra org en el join).
+  if (parsed.data.owner_id) {
+    const { data: ownerMember } = await admin
+      .from('workspace_members')
+      .select('profile_id')
+      .eq('workspace_id', params.workspaceId)
+      .eq('profile_id', parsed.data.owner_id)
+      .maybeSingle() as { data: { profile_id: string } | null }
+    if (!ownerMember) {
+      return NextResponse.json({ error: 'El responsable debe ser miembro del workspace' }, { status: 422 })
+    }
+  }
+
   const d = parsed.data
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (admin as any)

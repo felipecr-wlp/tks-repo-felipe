@@ -5,7 +5,7 @@
  * Body POST:
  *   {
  *     password?: string,        // opcional
- *     role?: 'member'|'manager'|'viewer',  // default 'member'
+ *     role?: 'admin'|'manager'|'member'|'viewer',  // default 'member'; 'admin' solo lo puede emitir un owner
  *     max_uses?: number,        // null = ilimitado
  *     expires_in_days?: number  // null = no expira
  *   }
@@ -62,6 +62,33 @@ async function isAdmin(
     .single() as { data: MembershipRow | null; error: unknown }
 
   return membership?.role === 'admin'
+}
+
+// ── Helper: verifica owner del workspace o de la org ─────────────────────────
+// Barrera para acciones reservadas a owners, como emitir invites con rol admin.
+async function isOwner(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  workspaceId: string
+): Promise<boolean> {
+  type ProfileRow = { org_role: string | null }
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('org_role')
+    .eq('id', userId)
+    .single() as { data: ProfileRow | null; error: unknown }
+
+  if (profile?.org_role === 'owner') return true
+
+  type MembershipRow = { role: string }
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('profile_id', userId)
+    .single() as { data: MembershipRow | null; error: unknown }
+
+  return membership?.role === 'owner'
 }
 
 // ── GET ──────────────────────────────────────────────────────────────────────
@@ -145,6 +172,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   const { password, role, max_uses, expires_in_days, email } = parsed.data
+
+  // Un invite con rol admin otorga admin al redimirse: solo un owner puede
+  // emitirlo. Sin esta barrera un admin de workspace podia crear invites admin
+  // y multiplicar admins (escalada de privilegios).
+  if (role === 'admin' && !(await isOwner(supabase, user.id, params.workspaceId))) {
+    return NextResponse.json({ error: 'Solo un owner puede crear invites con rol admin' }, { status: 403 })
+  }
 
   const code = generateInviteCode(16)
   const expires_at = expires_in_days

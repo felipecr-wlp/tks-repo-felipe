@@ -142,6 +142,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ workspace_slug: invite.workspaces.slug, already_member: true })
   }
 
+  // ── Reservar un cupo del invite de forma atómica ───────────────────────────
+  // La comprobación temprana de max_uses (arriba) es solo UX; aquí se decrementa
+  // el cupo con un UPDATE guardado en la DB (SECURITY DEFINER) que garantiza que
+  // dos redenciones concurrentes no rebasen max_uses. Devuelve el nuevo conteo o
+  // null/sin filas si ya está agotado.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: redeemed, error: redeemError } = await (admin as any)
+    .rpc('redeem_invite_slot', { p_invite_id: invite.id })
+
+  if (redeemError) {
+    console.error('[join] redeem_invite_slot error:', redeemError)
+    return NextResponse.json({ error: 'Error al unirse al workspace' }, { status: 500 })
+  }
+  if (redeemed == null) {
+    return NextResponse.json({ error: 'Este invite ya alcanzó su límite de usos' }, { status: 410 })
+  }
+
   // ── Insertar membership ────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: memberError } = await (admin as any)
@@ -154,15 +171,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   if (memberError) {
     console.error('[join] workspace_members insert error:', memberError)
+    // Devolver el cupo reservado para no "quemar" un uso por un fallo de insert.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (admin as any).rpc('release_invite_slot', { p_invite_id: invite.id })
     return NextResponse.json({ error: 'Error al unirse al workspace' }, { status: 500 })
   }
-
-  // ── Increment uses_count atómico ───────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any)
-    .from('workspace_invites')
-    .update({ uses_count: invite.uses_count + 1 })
-    .eq('id', invite.id)
 
   // ── Activity log ──────────────────────────────────────────────────────────
   await logActivity({

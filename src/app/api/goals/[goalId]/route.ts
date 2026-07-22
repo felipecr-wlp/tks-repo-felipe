@@ -32,13 +32,13 @@ async function goalAccess(
   admin: ReturnType<typeof createAdminClient>,
   goalId: string,
   userId: string,
-): Promise<{ ok: boolean; status: number }> {
+): Promise<{ ok: boolean; status: number; workspaceId: string | null }> {
   const { data: goal } = await admin
     .from('goals')
     .select('workspace_id')
     .eq('id', goalId)
     .maybeSingle() as { data: { workspace_id: string } | null }
-  if (!goal) return { ok: false, status: 404 }
+  if (!goal) return { ok: false, status: 404, workspaceId: null }
 
   const { data: member } = await admin
     .from('workspace_members')
@@ -46,15 +46,17 @@ async function goalAccess(
     .eq('workspace_id', goal.workspace_id)
     .eq('profile_id', userId)
     .maybeSingle()
-  if (member) return { ok: true, status: 200 }
+  if (member) return { ok: true, status: 200, workspaceId: goal.workspace_id }
 
   const { data: profile } = await admin
     .from('profiles')
     .select('org_role')
     .eq('id', userId)
     .maybeSingle() as { data: { org_role: string | null } | null }
-  if (profile?.org_role === 'owner' || profile?.org_role === 'admin') return { ok: true, status: 200 }
-  return { ok: false, status: 403 }
+  if (profile?.org_role === 'owner' || profile?.org_role === 'admin') {
+    return { ok: true, status: 200, workspaceId: goal.workspace_id }
+  }
+  return { ok: false, status: 403, workspaceId: null }
 }
 
 // ── PATCH ─────────────────────────────────────────────────────────────────────
@@ -77,6 +79,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const access = await goalAccess(admin, params.goalId, user.id)
   if (!access.ok) {
     return NextResponse.json({ error: access.status === 404 ? 'Meta no encontrada' : 'Sin acceso' }, { status: access.status })
+  }
+
+  // El responsable (owner_id) debe ser miembro del workspace de la meta. Sin esta
+  // validación se podía asignar como owner a un profile de otra org (dato roto en
+  // el join y fuga de nombre/avatar de alguien ajeno al workspace).
+  if (parsed.data.owner_id) {
+    const { data: ownerMember } = await admin
+      .from('workspace_members')
+      .select('profile_id')
+      .eq('workspace_id', access.workspaceId as string)
+      .eq('profile_id', parsed.data.owner_id)
+      .maybeSingle() as { data: { profile_id: string } | null }
+    if (!ownerMember) {
+      return NextResponse.json({ error: 'El responsable debe ser miembro del workspace' }, { status: 422 })
+    }
   }
 
   const patch: Record<string, unknown> = { ...parsed.data, updated_at: new Date().toISOString() }

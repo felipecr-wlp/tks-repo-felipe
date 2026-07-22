@@ -108,8 +108,18 @@ export async function PATCH(
   const nowIso = new Date().toISOString()
 
   if (parsed.data.status === 'accepted') {
-    // Respetar cupo maximo si esta definido
-    if (project.max_members) {
+    // ¿Ya era miembro? Si el postulante ya esta en el proyecto, aceptar es
+    // idempotente y NO consume un cupo nuevo.
+    const { data: existingMember } = await admin
+      .from('project_members')
+      .select('profile_id')
+      .eq('project_id', project.id)
+      .eq('profile_id', application.applicant_id)
+      .maybeSingle() as { data: { profile_id: string } | null }
+    const wasMember = existingMember != null
+
+    // Respetar cupo maximo si esta definido (pre-chequeo barato para UX).
+    if (project.max_members && !wasMember) {
       const { count } = await admin
         .from('project_members')
         .select('profile_id', { count: 'exact', head: true })
@@ -134,6 +144,28 @@ export async function PATCH(
         },
         { onConflict: 'project_id,profile_id' }
       )
+
+    // Cierre de la carrera check-then-act: el pre-chequeo y el upsert no son
+    // atomicos, asi que dos aceptaciones concurrentes de postulantes distintos
+    // podian rebasar el cupo. Solo cuando agregamos un asiento NUEVO, re-contamos
+    // y si quedamos por encima del maximo revertimos ESTA alta (no una previa) y
+    // devolvemos 409. Al compensar solo el asiento nuevo, las re-aceptaciones
+    // idempotentes siguen intactas.
+    if (project.max_members && !wasMember) {
+      const { count: after } = await admin
+        .from('project_members')
+        .select('profile_id', { count: 'exact', head: true })
+        .eq('project_id', project.id) as { count: number | null }
+      if ((after ?? 0) > project.max_members) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (admin as any)
+          .from('project_members')
+          .delete()
+          .eq('project_id', project.id)
+          .eq('profile_id', application.applicant_id)
+        return NextResponse.json({ error: 'El proyecto alcanzó su cupo máximo de miembros' }, { status: 409 })
+      }
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
