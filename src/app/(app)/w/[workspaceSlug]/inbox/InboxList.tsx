@@ -110,40 +110,49 @@ export function InboxList({ initial, workspaceSlug, currentUserId }: InboxListPr
     : notifications
 
   // Marca is_read en el servidor para un id (usado por markRead y por Deshacer).
-  async function setRead(id: string, value: boolean) {
+  // Devuelve true si el servidor confirmo el cambio; el llamador decide si
+  // revierte el estado optimista.
+  async function setRead(id: string, value: boolean): Promise<boolean> {
     try {
-      await fetch(`/api/notifications/${id}`, {
+      const res = await fetch(`/api/notifications/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_read: value }),
       })
+      return res.ok
     } catch {
-      // silencioso: el estado optimista ya se revirtio o se dejo segun el flujo.
+      return false
     }
   }
 
   async function markRead(id: string) {
-    // Optimistic
+    // Si ya esta leida no hacemos nada: evita un doble PATCH y un toast repetido
+    // cuando el click de la fila y el boton de check compiten.
+    const target = notifications.find(n => n.id === id)
+    if (!target || target.is_read) return
+    // Optimista.
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
-    try {
-      await fetch(`/api/notifications/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_read: true }),
-      })
-      toast.success('Marcada como leída', {
-        action: {
-          label: 'Deshacer',
-          onClick: () => {
-            setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: false } : n))
-            setRead(id, false)
-          },
-        },
-      })
-    } catch {
-      // Revert
+    const ok = await setRead(id, true)
+    if (!ok) {
+      // Revertir y avisar.
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: false } : n))
+      toast.error('No se pudo marcar como leída')
+      return
     }
+    toast.success('Marcada como leída', {
+      action: {
+        label: 'Deshacer',
+        onClick: async () => {
+          setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: false } : n))
+          const undone = await setRead(id, false)
+          if (!undone) {
+            // Revertir el "deshacer": vuelve a quedar leída.
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
+            toast.error('No se pudo deshacer')
+          }
+        },
+      },
+    })
   }
 
   async function markAllRead() {
