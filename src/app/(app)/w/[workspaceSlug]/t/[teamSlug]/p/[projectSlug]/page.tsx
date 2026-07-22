@@ -6,10 +6,11 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { resolveProjectForViewer } from '@/lib/team-access'
-import { LayoutDashboard, Zap } from 'lucide-react'
+import { LayoutDashboard, Zap, GanttChartSquare } from 'lucide-react'
 import { ProjectIcon } from '@/lib/project-icons'
 import { TaskListView } from '@/components/tasks/TaskListView'
 import { TaskCalendarView } from '@/components/tasks/TaskCalendarView'
+import { TaskTimelineView } from '@/components/tasks/TaskTimelineView'
 import { TaskWorkloadView } from '@/components/tasks/TaskWorkloadView'
 import { TaskFilterBar } from '@/components/tasks/TaskFilterBar'
 import { ProjectChat } from '@/components/chat/ProjectChat'
@@ -310,6 +311,7 @@ export default async function ProjectPage({
           <ViewToggle href={`${basePath}?view=list`} active={currentView === 'list'} label="Lista" icon={<ListIcon />} />
           <ViewToggle href={`${basePath}?view=board`} active={currentView === 'board'} label="Tablero" icon={<BoardIcon />} />
           <ViewToggle href={`${basePath}?view=calendar`} active={currentView === 'calendar'} label="Calendario" icon={<CalIcon />} />
+          <ViewToggle href={`${basePath}?view=timeline`} active={currentView === 'timeline'} label="Cronograma" icon={<GanttChartSquare className="w-[13px] h-[13px]" />} />
           <ViewToggle href={`${basePath}?view=workload`} active={currentView === 'workload'} label="Carga" icon={<LoadIcon />} />
           <ViewToggle href={`${basePath}?view=chat`} active={currentView === 'chat'} label="Chat" icon={<ChatIcon />} />
           {canManage && (
@@ -380,6 +382,14 @@ export default async function ProjectPage({
           />
         ) : currentView === 'calendar' ? (
           <TaskCalendarView
+            projectId={project.id}
+            tasks={tasks ?? []}
+            statuses={statuses ?? []}
+            members={memberProfiles}
+            currentUserId={userId}
+          />
+        ) : currentView === 'timeline' ? (
+          <TaskTimelineView
             projectId={project.id}
             tasks={tasks ?? []}
             statuses={statuses ?? []}
