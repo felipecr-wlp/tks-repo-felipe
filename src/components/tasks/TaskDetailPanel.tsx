@@ -24,7 +24,7 @@ import {
   Zap, ChevronsUp, ChevronUp, ChevronDown, Minus, ImageIcon, FileText,
   CircleDot, User as UserIcon, Calendar as CalendarIcon, MessageSquare,
   CornerLeftUp, PlayCircle, Clock, Eye, Pencil, Check, Repeat,
-  AlertTriangle, CalendarClock, Copy,
+  AlertTriangle, CalendarClock, Copy, Gauge,
 } from 'lucide-react'
 import { cn, getInitials, timeAgo, dateInputToISO, isoToDateInput } from '@/lib/utils'
 import { RECURRENCE_RULES, RECURRENCE_LABELS } from '@/lib/recurrence'
@@ -64,6 +64,7 @@ interface TaskDetail {
   due_date: string | null
   start_date: string | null
   estimate_minutes: number | null
+  story_points: number | null
   recurrence_rule: string | null
   recurrence_end_date: string | null
   sort_order: string
@@ -672,6 +673,13 @@ export function TaskDetailPanel({
                   />
                 </MetaRow>
 
+                <MetaRow icon={<Gauge className="w-3.5 h-3.5" />} label="Puntos">
+                  <StoryPointsField
+                    points={task.story_points}
+                    onSave={pts => updateField({ story_points: pts })}
+                  />
+                </MetaRow>
+
                 <MetaRow icon={<Repeat className="w-3.5 h-3.5" />} label="Repetir">
                   <select
                     value={task.recurrence_rule ?? ''}
@@ -779,6 +787,25 @@ function EstimateField({ minutes, onSave }: { minutes: number | null; onSave: (m
       placeholder="ej. 2h 30m"
       className="text-sm bg-transparent text-foreground hover:text-primary focus:text-foreground transition-colors outline-none w-full placeholder:text-muted-foreground/60"
     />
+  )
+}
+
+// Puntos de historia (Fibonacci). Misma escala que el tablero Scrum, para poder
+// estimar una tarea desde su panel sin tener que abrir el tablero de sprint.
+const STORY_POINT_VALUES = [1, 2, 3, 5, 8, 13, 21] as const
+
+function StoryPointsField({ points, onSave }: { points: number | null; onSave: (pts: number | null) => void }) {
+  return (
+    <select
+      value={points ?? ''}
+      onChange={e => onSave(e.target.value ? Number(e.target.value) : null)}
+      className="text-sm bg-transparent text-foreground cursor-pointer hover:text-primary transition-colors outline-none w-full"
+    >
+      <option value="">Sin estimar</option>
+      {STORY_POINT_VALUES.map(v => (
+        <option key={v} value={v}>{v} {v === 1 ? 'punto' : 'puntos'}</option>
+      ))}
+    </select>
   )
 }
 
