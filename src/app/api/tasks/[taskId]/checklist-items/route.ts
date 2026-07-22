@@ -36,18 +36,32 @@ async function getOrCreateDefaultChecklist(
 
   if (existing) return existing.id
 
+  // Insert idempotente: task_checklists tiene un indice unico en task_id, asi que
+  // dos requests concurrentes no crean dos checklists. El que pierde la carrera
+  // recibe conflicto (ignoreDuplicates -> data null) y cae al re-select de abajo.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: created, error } = await (admin as any)
+  const { data: created } = await (admin as any)
     .from('task_checklists')
-    .insert({ task_id: taskId, title: 'Subtareas', position: 0 })
+    .upsert({ task_id: taskId, title: 'Subtareas', position: 0 }, { onConflict: 'task_id', ignoreDuplicates: true })
     .select('id')
-    .single() as { data: ChecklistRow | null; error: unknown }
+    .maybeSingle() as { data: ChecklistRow | null; error: unknown }
 
-  if (error || !created) {
-    console.error('[checklist] create error:', error)
+  if (created) return created.id
+
+  // Perdimos la carrera (o ya existia): leer la checklist que quedo.
+  const { data: winner, error: reselectErr } = await admin
+    .from('task_checklists')
+    .select('id')
+    .eq('task_id', taskId)
+    .order('position', { ascending: true })
+    .limit(1)
+    .maybeSingle() as { data: ChecklistRow | null; error: unknown }
+
+  if (reselectErr || !winner) {
+    console.error('[checklist] create error:', reselectErr)
     return null
   }
-  return created.id
+  return winner.id
 }
 
 // ── GET ──────────────────────────────────────────────────────────────────────
