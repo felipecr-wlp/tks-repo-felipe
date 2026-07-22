@@ -15,6 +15,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { safeInternalPath } from '@/lib/validation'
 import { getOAuthClient } from '@/lib/google/client'
 import { safeEqual } from '@/lib/secure-compare'
+import { errMessage } from '@/lib/safe-log'
 
 export async function GET(request: NextRequest) {
   const { origin, searchParams } = new URL(request.url)
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
       googleEmail = info.email ?? null
     } catch (e) {
       // No es fatal: podemos guardar la conexion sin el id de Google.
-      console.error('[google/callback] userinfo error:', e)
+      console.error('[google/callback] userinfo error:', errMessage(e))
     }
 
     const admin = createAdminClient()
@@ -96,13 +97,13 @@ export async function GET(request: NextRequest) {
       )
 
     if (upsertError) {
-      console.error('[google/callback] upsert error:', upsertError)
+      console.error('[google/callback] upsert error:', errMessage(upsertError))
       return clearCookies(NextResponse.redirect(`${origin}${next}?google=save_error`))
     }
 
     return clearCookies(NextResponse.redirect(`${origin}${next}?google=connected`))
   } catch (e) {
-    console.error('[google/callback] token exchange error:', e)
+    console.error('[google/callback] token exchange error:', errMessage(e))
     return clearCookies(NextResponse.redirect(`${origin}${next}?google=error`))
   }
 }
