@@ -1,8 +1,8 @@
-/* AUTO-GENERADO desde C:/tmp/wlp_academy/index.html por extract.js.
-   NO editar a mano el contenido de los cursos aqui: editar la fuente y re-extraer,
-   o (mejor) mover la fuente de verdad a este archivo y borrar el estatico.
-   Cursos: 9 · Modulos: 38 · Lecciones: 118.
-   Generado: 2026-07-22T16:58:42.227Z. */
+/* Fuente de verdad del contenido de la Academia (ya NO auto-generado).
+   Base extraida de C:/tmp/wlp_academy/index.html; desde 2026-07-22 se edita
+   AQUI directamente. El curso SEM se dividio: publico (sem-google-ads) e
+   interno de analista (sem-internal).
+   Cursos: 10 · Modulos: 39 · Lecciones: 121. */
 import type { Course, ProfileMap } from './types';
 
 export const COURSES: Course[] = [
@@ -2651,6 +2651,123 @@ export const COURSES: Course[] = [
         "id": "m3",
         "num": "03",
         "icon": "database",
+        "dur": "20 min",
+        "title": "Leer la cuenta y detectar fugas (disciplina)",
+        "tag": "El dato vivo manda: ningún conteo se afirma de memoria.",
+        "objectives": [
+          "Verificar cualquier conteo de la cuenta contra el dato vivo, nunca de memoria.",
+          "Distinguir una fuga real de un artefacto histórico de tracking.",
+          "Leer el ranking de ad groups por conversiones y CPA para ubicar el freno."
+        ],
+        "lessons": [
+          {
+            "t": "El dato vivo manda",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "Antes de afirmar cualquier número de la cuenta (ad groups activos, keywords, negativos, conversiones) se cruza contra el dato vivo de la plataforma, NUNCA de memoria ni de un reporte viejo. Los planes y el estado real divergen: un documento puede decir \"consolidar a 5 grupos\" mientras la cuenta sirve otra cosa."
+              },
+              {
+                "type": "callout",
+                "style": "warn",
+                "ci": "alert",
+                "v": "El inventario engaña: una cuenta puede tener miles de keywords cargadas y solo unas decenas que de verdad SIRVEN (con impresiones). Contar sobre el total infla la lectura. Cuenta solo lo que sirve."
+              }
+            ]
+          },
+          {
+            "t": "Fugas reales vs artefactos históricos",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "No toda métrica vieja es comparable con hoy. Un CPC baratísimo de años atrás suele ser un artefacto de campañas Display con conversiones \"soft\" (visitas a una página), no de tráfico comercial de Search. Fusionar dos eras distintas de tracking produce conclusiones falsas."
+              },
+              {
+                "type": "list",
+                "v": [
+                  "Nunca cites \"convertidores estrella\" de ventanas con tracking impreciso como si fueran vigentes.",
+                  "Compara siempre dentro de una ventana LIMPIA y consistente de medición.",
+                  "Ads que apuntan al home (no a una landing dedicada) castigan el Quality Score y suben el CPC real."
+                ]
+              }
+            ]
+          },
+          {
+            "t": "Ranking de ad groups y el freno real",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "Para saber dónde está la ineficiencia, ordena los ad groups por conversiones y por CPA en la ventana viva. El freno no es el que menos convierte, sino el que MÁS gasta con el PEOR CPA: ahí se drena el presupuesto."
+              },
+              {
+                "type": "list",
+                "v": [
+                  "La fuga accionable típica vive en los términos de búsqueda: competidores nombrados, fuera de área y DIY/costo son candidatos a palabra negativa.",
+                  "Antes de podar una negativa \"residencial\", valida término por término: WLP atiende residencial Y comercial (F026), y matar residencial mataría a los HOAs, un segmento recurrente atractivo."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "tip",
+                "ci": "lightbulb",
+                "v": "Regla práctica: cada afirmación sobre la cuenta debe poder rastrearse a un dato vivo. Si no lo puedes verificar hoy, no lo afirmes como verdad."
+              }
+            ]
+          }
+        ],
+        "quiz": [
+          {
+            "q": "Antes de afirmar un conteo de la cuenta, ¿qué se hace?",
+            "opts": [
+              "Se cita un plan viejo de memoria",
+              "Se cruza contra el dato vivo de la plataforma",
+              "Se estima a ojo",
+              "Se asume el estado del último reporte"
+            ],
+            "a": 1,
+            "ex": "El dato vivo manda; nunca de memoria ni de un reporte viejo."
+          },
+          {
+            "q": "¿Por qué un CPC baratísimo de hace años no suele ser replicable hoy?",
+            "opts": [
+              "Google subió precios",
+              "Solía ser Display con conversiones soft, no Search comercial",
+              "Se acabó el presupuesto",
+              "Cambió la moneda"
+            ],
+            "a": 1,
+            "ex": "El barato era un artefacto de Display + conversiones soft; el Search comercial corre mucho más caro."
+          },
+          {
+            "q": "¿Cuál ad group es el verdadero freno de eficiencia?",
+            "opts": [
+              "El que menos convierte",
+              "El que más gasta con el peor CPA",
+              "El más nuevo",
+              "El de mejor CPA"
+            ],
+            "a": 1,
+            "ex": "El freno drena presupuesto: más gasto y peor CPA."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "sem-internal",
+    "status": "live",
+    "lang": "es",
+    "icon": "database",
+    "accent": "#818CF8",
+    "track": "Marketing / Paid Search (interno)",
+    "title": "Auditoría y Modelado SEM (interno)",
+    "subtitle": "Runbook de analista: verificar la cuenta por API, separar fugas reales de artefactos y modelar el presupuesto con el laboratorio Monte Carlo.",
+    "certName": "WLP SEM Analista (interno)",
+    "modules": [
+      {
+        "id": "m1",
+        "num": "01",
+        "icon": "database",
         "dur": "25 min",
         "title": "Auditar la cuenta sin adivinar: fugas y verificacion por API",
         "tag": "Regla dura: el dato vivo manda. Ningun conteo se afirma de memoria.",
@@ -2840,8 +2957,8 @@ export const COURSES: Course[] = [
         ]
       },
       {
-        "id": "m4",
-        "num": "04",
+        "id": "m2",
+        "num": "02",
         "icon": "compass",
         "dur": "22 min",
         "title": "El laboratorio Monte Carlo: modelar presupuesto sin quemar dinero",
@@ -5493,7 +5610,8 @@ export const PROFILES: ProfileMap = {
     "courses": [
       "marketing-platform",
       "seo",
-      "sem-google-ads"
+      "sem-google-ads",
+      "sem-internal"
     ]
   },
   "finanzas": {
