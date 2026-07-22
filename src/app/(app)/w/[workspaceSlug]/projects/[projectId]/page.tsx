@@ -54,8 +54,10 @@ export default async function ManageProjectPage({ params }: PageProps) {
     || profile?.org_role === 'owner' || profile?.org_role === 'admin'
   if (!canManage) redirect(`/w/${params.workspaceSlug}/projects`)
 
-  // Postulaciones + equipo actual
-  const [{ data: apps }, { data: members }] = await Promise.all([
+  // Postulaciones + equipo actual + historial de chat (ultimos 100).
+  // Las tres consultas solo dependen de project.id y son independientes entre si.
+  type ProjectMessageRow = { id: string; author_id: string; body: string; created_at: string }
+  const [{ data: apps }, { data: members }, { data: rawChat }] = await Promise.all([
     admin
       .from('project_applications')
       .select('id, pitch, role_desired, status, created_at, applicant:profiles!project_applications_applicant_id_fkey(id, display_name, avatar_url, email)')
@@ -66,6 +68,12 @@ export default async function ManageProjectPage({ params }: PageProps) {
       .select('profile_id, role, title, joined_at, profile:profiles!project_members_profile_id_fkey(id, display_name, avatar_url)')
       .eq('project_id', project.id)
       .order('joined_at', { ascending: true }) as Promise<{ data: Member[] | null }>,
+    admin
+      .from('project_messages')
+      .select('id, author_id, body, created_at')
+      .eq('project_id', project.id)
+      .order('created_at', { ascending: false })
+      .limit(100) as Promise<{ data: ProjectMessageRow[] | null }>,
   ])
 
   const charter: Charter = {
@@ -80,14 +88,8 @@ export default async function ManageProjectPage({ params }: PageProps) {
     max_members: project.max_members,
   }
 
-  // Chat del proyecto: historial (ultimos 100) + miembros para resolver autores.
-  type ProjectMessageRow = { id: string; author_id: string; body: string; created_at: string }
-  const { data: rawChat } = await admin
-    .from('project_messages')
-    .select('id, author_id, body, created_at')
-    .eq('project_id', project.id)
-    .order('created_at', { ascending: false })
-    .limit(100) as { data: ProjectMessageRow[] | null }
+  // Chat del proyecto: el historial ya se cargo arriba (rawChat); aqui solo se
+  // invierte para orden cronologico. Los miembros resuelven a los autores.
   const chatMessages = (rawChat ?? []).reverse()
 
   const chatMembers = (members ?? [])

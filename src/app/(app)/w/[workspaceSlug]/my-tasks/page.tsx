@@ -85,16 +85,17 @@ export default async function MyTasksPage({ params, searchParams }: MyTasksPageP
     query = query.eq('priority', searchParams.priority)
   }
 
-  const { data: tasks } = await query as { data: MyTask[] | null; error: unknown }
-
-  // ── Timer activo del usuario (si lo hay) para pintar el cronometro en vivo ──
+  // ── Mis tareas + timer activo (consultas independientes, en paralelo) ──────
   type RunningRow = { id: string; task_id: string | null; started_at: string }
-  const { data: runningRow } = await admin
-    .from('time_entries')
-    .select('id, task_id, started_at')
-    .eq('profile_id', user.id)
-    .is('ended_at', null)
-    .maybeSingle() as { data: RunningRow | null; error: unknown }
+  const [{ data: tasks }, { data: runningRow }] = await Promise.all([
+    query as unknown as Promise<{ data: MyTask[] | null; error: unknown }>,
+    admin
+      .from('time_entries')
+      .select('id, task_id, started_at')
+      .eq('profile_id', user.id)
+      .is('ended_at', null)
+      .maybeSingle() as Promise<{ data: RunningRow | null; error: unknown }>,
+  ])
 
   // Filtrar por categoría de estado si se pide
   let filtered = tasks ?? []

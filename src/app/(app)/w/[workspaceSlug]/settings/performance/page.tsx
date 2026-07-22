@@ -75,7 +75,7 @@ export default async function PerformanceSettingsPage({
   const admin = createAdminClient()
   const wsId = ctx.workspace.id
 
-  // ── Proyectos del workspace (canales) ──────────────────────────────────────
+  // ── Tipos de las filas base ────────────────────────────────────────────────
   type ProjectRow = {
     id: string
     name: string
@@ -83,34 +83,6 @@ export default async function PerformanceSettingsPage({
     team_id: string | null
     lead_id: string | null
   }
-  const { data: projects } = (await admin
-    .from('projects')
-    .select('id, name, icon, team_id, lead_id')
-    .eq('workspace_id', wsId)
-    .eq('is_archived', false)) as { data: ProjectRow[] | null; error: unknown }
-
-  // ── Equipos (para nombre de canal) ─────────────────────────────────────────
-  const { data: teams } = (await admin
-    .from('teams')
-    .select('id, name')
-    .eq('workspace_id', wsId)) as { data: { id: string; name: string }[] | null; error: unknown }
-  const teamName = new Map((teams ?? []).map((t) => [t.id, t.name]))
-
-  // ── Managers de proyecto (project_members.role='manager') como respaldo ─────
-  const { data: pmembers } = (await admin
-    .from('project_members')
-    .select('project_id, profile_id, role')) as {
-    data: { project_id: string; profile_id: string; role: string }[] | null
-    error: unknown
-  }
-  const managerByProject = new Map<string, string>()
-  for (const pm of pmembers ?? []) {
-    if (pm.role === 'manager' && !managerByProject.has(pm.project_id)) {
-      managerByProject.set(pm.project_id, pm.profile_id)
-    }
-  }
-
-  // ── Tareas del workspace cerradas en el mes ────────────────────────────────
   type TaskRow = {
     id: string
     project_id: string | null
@@ -120,14 +92,64 @@ export default async function PerformanceSettingsPage({
     due_date: string | null
     completed_at: string | null
   }
-  const { data: tasks } = (await admin
-    .from('tasks')
-    .select('id, project_id, assignee_id, story_points, story_points_done, due_date, completed_at')
-    .eq('workspace_id', wsId)
-    .eq('is_archived', false)
-    .not('completed_at', 'is', null)
-    .gte('completed_at', start.toISOString())
-    .lt('completed_at', end.toISOString())) as { data: TaskRow[] | null; error: unknown }
+  type WsMemberRow = {
+    profile_id: string
+    profiles: { id: string; display_name: string; avatar_url: string | null } | null
+  }
+
+  // ── Consultas independientes (proyectos, equipos, tareas, miembros) ─────────
+  // Ninguna depende del resultado de otra: se ejecutan en paralelo.
+  const [
+    { data: projects },
+    { data: teams },
+    { data: tasks },
+    { data: wsMembers },
+  ] = (await Promise.all([
+    admin
+      .from('projects')
+      .select('id, name, icon, team_id, lead_id')
+      .eq('workspace_id', wsId)
+      .eq('is_archived', false),
+    admin.from('teams').select('id, name').eq('workspace_id', wsId),
+    admin
+      .from('tasks')
+      .select('id, project_id, assignee_id, story_points, story_points_done, due_date, completed_at')
+      .eq('workspace_id', wsId)
+      .eq('is_archived', false)
+      .not('completed_at', 'is', null)
+      .gte('completed_at', start.toISOString())
+      .lt('completed_at', end.toISOString()),
+    admin
+      .from('workspace_members')
+      .select('profile_id, profiles ( id, display_name, avatar_url )')
+      .eq('workspace_id', wsId),
+  ])) as [
+    { data: ProjectRow[] | null; error: unknown },
+    { data: { id: string; name: string }[] | null; error: unknown },
+    { data: TaskRow[] | null; error: unknown },
+    { data: WsMemberRow[] | null; error: unknown },
+  ]
+
+  const teamName = new Map((teams ?? []).map((t) => [t.id, t.name]))
+
+  // ── Managers de proyecto (project_members.role='manager') como respaldo ─────
+  // Se limita a los proyectos del workspace (project_members no tiene workspace_id).
+  const workspaceProjectIds = (projects ?? []).map((p) => p.id)
+  const { data: pmembers } = (workspaceProjectIds.length > 0
+    ? await admin
+        .from('project_members')
+        .select('project_id, profile_id, role')
+        .in('project_id', workspaceProjectIds)
+    : { data: [] }) as {
+    data: { project_id: string; profile_id: string; role: string }[] | null
+    error?: unknown
+  }
+  const managerByProject = new Map<string, string>()
+  for (const pm of pmembers ?? []) {
+    if (pm.role === 'manager' && !managerByProject.has(pm.project_id)) {
+      managerByProject.set(pm.project_id, pm.profile_id)
+    }
+  }
 
   const doneTasks = tasks ?? []
   const doneTaskIds = doneTasks.map((t) => t.id)
@@ -155,15 +177,7 @@ export default async function PerformanceSettingsPage({
   }
 
   // ── Perfiles del workspace (nombres/avatares) ──────────────────────────────
-  const { data: wsMembers } = (await admin
-    .from('workspace_members')
-    .select('profile_id, profiles ( id, display_name, avatar_url )')
-    .eq('workspace_id', wsId)) as {
-    data:
-      | { profile_id: string; profiles: { id: string; display_name: string; avatar_url: string | null } | null }[]
-      | null
-    error: unknown
-  }
+  // wsMembers ya se cargo arriba en el Promise.all inicial.
   const profileById = new Map<string, { name: string; avatar: string | null }>()
   for (const m of wsMembers ?? []) {
     if (m.profiles) {
