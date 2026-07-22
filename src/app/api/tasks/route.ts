@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import { sanitizeRichText } from '@/lib/sanitize'
 import { logActivity, notify, ActivityVerbs, NotificationTypes } from '@/lib/activity'
 import { autoWatch } from '@/lib/watchers'
 import { runAutomations } from '@/lib/automations'
@@ -203,7 +204,8 @@ export async function POST(request: NextRequest) {
         // La descripcion no esta en createSchema, asi que el usuario nunca la
         // manda aqui: si la plantilla la trae, se aplica.
         if (template.description != null && raw.description === undefined) {
-          patch.description = template.description
+          // Saneado anti stored-XSS al escribir (la plantilla puede traer HTML).
+          patch.description = sanitizeRichText(template.description)
         }
         // priority: solo si el usuario NO lo envio explicitamente.
         if (raw.priority === undefined && template.priority) {

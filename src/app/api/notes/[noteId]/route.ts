@@ -5,6 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { isUuid } from '@/lib/validation'
+import { sanitizeRichText } from '@/lib/sanitize'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
@@ -151,6 +152,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const parsed = patchSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 422 })
+  }
+
+  // Defensa en profundidad anti stored-XSS: el content es HTML del editor y se
+  // re-renderiza en varias vistas (Tiptap in-app, impresion cruda). Se sanea al
+  // ESCRIBIR para que ningun payload inyectado por API persista y quede limpio
+  // tambien para la vista in-app, que no pasa por el saneado en render.
+  if (typeof parsed.data.content === 'string') {
+    parsed.data.content = sanitizeRichText(parsed.data.content)
   }
 
   const admin = createAdminClient()

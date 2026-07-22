@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import { sanitizeRichText } from '@/lib/sanitize'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
 
 const createSchema = z.object({
@@ -168,7 +169,8 @@ export async function POST(request: NextRequest) {
       parent_note_id: parent_note_id ?? null,
       space_id:       space_id ?? null,
       title:          title ?? 'Sin título',
-      content:        content ?? null,
+      // Saneado anti stored-XSS al escribir (ver /api/notes/[noteId] PATCH).
+      content:        content == null ? null : sanitizeRichText(content),
       visibility,
       icon:           icon ?? null,
       doc_kind:       doc_kind ?? 'note',
