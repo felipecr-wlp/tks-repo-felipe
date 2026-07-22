@@ -26,6 +26,7 @@ import {
   CalendarDays,
   Timer,
   Target,
+  BarChart3,
   FileText,
   PenTool,
   Compass,
@@ -130,6 +131,7 @@ export function Sidebar({
     { href: `${base}/notes`, icon: FileText, label: 'Notas' },
     { href: `${base}/whiteboards`, icon: PenTool, label: 'Pizarras' },
     { href: `${base}/goals`, icon: Target, label: 'Metas' },
+    { href: `${base}/analytics`, icon: BarChart3, label: 'Analítica' },
     { href: `${base}/tracking`, icon: Timer, label: 'Tracking' },
   ]
 
