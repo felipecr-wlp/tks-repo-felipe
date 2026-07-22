@@ -53,13 +53,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   if (!sprint) return NextResponse.json({ error: 'Sprint no encontrado' }, { status: 404 })
 
-  const { data: membership } = await admin
+  const { data: membership, error: membershipErr } = await admin
     .from('team_members')
     .select('role')
     .eq('team_id', sprint.team_id)
     .eq('profile_id', user.id)
     .maybeSingle() as { data: { role: string } | null; error: unknown }
 
+  // Distinguir fallo de lectura (500) de ausencia real de membresia (403): si la
+  // consulta erro, devolver null como "sin acceso" seria un 403 falso.
+  if (membershipErr) {
+    console.error('[sprint close] membership read error:', membershipErr)
+    return NextResponse.json({ error: 'Error al verificar acceso' }, { status: 500 })
+  }
   if (!membership) return NextResponse.json({ error: 'Sin acceso al equipo' }, { status: 403 })
 
   // Validar el destino cuando se pide carry-over a otro sprint.
@@ -84,11 +90,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   // Tareas del sprint con su categoria de estado, para separar hechas de incompletas.
   type TaskRow = { id: string; status: { category: string } | null }
-  const { data: tasks } = await admin
+  const { data: tasks, error: tasksErr } = await admin
     .from('tasks')
     .select('id, status:task_statuses ( category )')
     .eq('sprint_id', params.sprintId)
     .eq('is_archived', false) as { data: TaskRow[] | null; error: unknown }
+
+  // Si la lectura de tareas falla, abortar: cerrar aqui dejaria las incompletas
+  // huerfanas dentro del sprint cerrado y reportaria carried 0 erroneamente.
+  if (tasksErr) {
+    console.error('[sprint close] tasks read error:', tasksErr)
+    return NextResponse.json({ error: 'Error al leer las tareas del sprint' }, { status: 500 })
+  }
 
   const rows = tasks ?? []
   const incomplete = rows.filter(t => (t.status?.category ?? '') !== 'done').map(t => t.id)

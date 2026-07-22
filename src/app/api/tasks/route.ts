@@ -46,13 +46,18 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient()
 
   // Verificar acceso al proyecto (admin client bypass RLS)
-  const { data: membership } = await admin
+  const { data: membership, error: membershipErr } = await admin
     .from('project_members')
     .select('role')
     .eq('project_id', project_id)
     .eq('profile_id', user.id)
     .maybeSingle() as { data: { role: string } | null; error: unknown }
 
+  // Distinguir fallo de lectura (500) de ausencia real de membresia (403).
+  if (membershipErr) {
+    console.error('[tasks POST] membership read error:', membershipErr)
+    return NextResponse.json({ error: 'Error al verificar acceso' }, { status: 500 })
+  }
   if (!membership) return NextResponse.json({ error: 'Sin acceso al proyecto' }, { status: 403 })
 
   // Obtener workspace_id del proyecto (para denormalización)

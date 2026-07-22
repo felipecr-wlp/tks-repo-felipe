@@ -51,12 +51,17 @@ export async function GET(
   if (!task) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
 
   // Verificar acceso al proyecto
-  const { data: membership } = await admin
+  const { data: membership, error: membershipErr } = await admin
     .from('project_members')
     .select('role')
     .eq('project_id', task.project_id)
     .eq('profile_id', user.id)
     .maybeSingle() as { data: { role: string } | null; error: unknown }
+  // Distinguir fallo de lectura (500) de ausencia real de membresia (403).
+  if (membershipErr) {
+    console.error('[task GET] membership read error:', membershipErr)
+    return NextResponse.json({ error: 'Error al verificar acceso' }, { status: 500 })
+  }
   if (!membership) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
   return NextResponse.json(task)
