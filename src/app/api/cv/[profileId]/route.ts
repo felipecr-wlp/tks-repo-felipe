@@ -14,28 +14,48 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { applyRateLimit } from '@/lib/rate-limit'
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { profileId: string } }
 ) {
   if (!isUuid(params.profileId)) {
     return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
   }
+  const limited = await applyRateLimit(request, 'api')
+  if (limited) return limited
+
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
   const admin = createAdminClient()
 
+  // Org del solicitante: el CV es interno a la organizacion, asi que solo se
+  // puede leer el de un perfil de la MISMA org. Sin esto, cualquier autenticado
+  // podia leer el email y el historial de un perfil de OTRA org por su UUID.
+  type OrgRow = { org_id: string | null }
+  const { data: self } = await admin
+    .from('profiles')
+    .select('org_id')
+    .eq('id', user.id)
+    .maybeSingle() as { data: OrgRow | null }
+
   // Perfil base
-  type ProfileRow = { id: string; display_name: string | null; avatar_url: string | null; email: string | null; org_role: string }
+  type ProfileRow = { id: string; display_name: string | null; avatar_url: string | null; email: string | null; org_role: string; org_id: string | null }
   const { data: profile } = await admin
     .from('profiles')
-    .select('id, display_name, avatar_url, email, org_role')
+    .select('id, display_name, avatar_url, email, org_role, org_id')
     .eq('id', params.profileId)
     .maybeSingle() as { data: ProfileRow | null }
   if (!profile) return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 })
+
+  // Boundary de org: si el perfil objetivo no comparte org con el solicitante,
+  // se responde 404 (no 403) para no revelar la existencia de perfiles de otra org.
+  if (!self?.org_id || profile.org_id !== self.org_id) {
+    return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 })
+  }
 
   // Historial de proyectos (CV): membresias del perfil enriquecidas con el proyecto.
   type MembershipRow = {
