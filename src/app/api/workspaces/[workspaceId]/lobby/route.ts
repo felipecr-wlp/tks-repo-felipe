@@ -83,6 +83,14 @@ export async function POST(
   }
   const { profile_id, role, space_id, team_id } = parsed.data
 
+  // Solo un owner puede otorgar el rol owner. Sin esta barrera un admin comun
+  // podria asignarse (o asignar a un tercero) el rol owner por este endpoint de
+  // ubicacion, escalando privilegios y saltandose la misma barrera que ya tiene
+  // el PATCH de miembros. Los admin siguen pudiendo asignar admin y por debajo.
+  if (role === 'owner' && !auth.isOwner) {
+    return NextResponse.json({ error: 'Solo un owner puede asignar el rol owner' }, { status: 403 })
+  }
+
   const admin = createAdminClient()
   const orgId = await orgIdOfWorkspace(admin, params.workspaceId)
   if (!orgId) return NextResponse.json({ error: 'Workspace no encontrado' }, { status: 404 })
