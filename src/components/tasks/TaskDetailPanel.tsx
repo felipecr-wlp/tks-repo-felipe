@@ -28,6 +28,7 @@ import {
   AlertTriangle, CalendarClock, Copy, Gauge, LayoutTemplate,
 } from 'lucide-react'
 import { cn, getInitials, timeAgo, dateInputToISO, isoToDateInput } from '@/lib/utils'
+import { sanitizeRichText } from '@/lib/sanitize'
 import { RECURRENCE_RULES, RECURRENCE_LABELS } from '@/lib/recurrence'
 import { ChecklistSection } from './ChecklistSection'
 import { SubtasksSection } from './SubtasksSection'
@@ -1198,7 +1199,7 @@ function DescriptionEditor({ value, onSave }: { value: string; onSave: (v: strin
       <button
         onClick={() => setEditing(true)}
         className="w-full text-left text-sm text-foreground transition-colors px-3 py-2 rounded-lg hover:bg-muted/40 border border-transparent hover:border-border prose prose-sm max-w-none [&_p]:my-1 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-primary [&_a]:underline"
-        dangerouslySetInnerHTML={{ __html: value }}
+        dangerouslySetInnerHTML={{ __html: sanitizeRichText(value) }}
         title="Clic para editar"
       />
     )

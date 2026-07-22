@@ -15,6 +15,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { canAccessNoteSpace } from '@/lib/note-space-access'
+import { sanitizeRichText } from '@/lib/sanitize'
 import { PrintController } from './PrintController'
 
 interface PrintPageProps {
@@ -145,7 +146,7 @@ export default async function PrintNotePage({ params }: PrintPageProps) {
       {/* Contenido */}
       <article
         className="prose prose-sm max-w-none prose-headings:text-black prose-p:text-black prose-li:text-black prose-strong:text-black"
-        dangerouslySetInnerHTML={{ __html: note.content ?? '<p><em>Documento sin contenido.</em></p>' }}
+        dangerouslySetInnerHTML={{ __html: sanitizeRichText(note.content) || '<p><em>Documento sin contenido.</em></p>' }}
       />
 
       {/* Registro de acuses de lectura */}
