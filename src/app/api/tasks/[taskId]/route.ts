@@ -75,7 +75,7 @@ const SP_VALUES = [1, 2, 3, 5, 8, 13, 21] as const
 
 const patchSchema = z.object({
   title:       z.string().min(1).max(500).trim().optional(),
-  description: z.string().nullable().optional(),
+  description: z.string().max(20000).nullable().optional(),
   status_id:   z.string().uuid().nullable().optional(),
   priority:    z.enum(['urgent', 'high', 'medium', 'low', 'none']).optional(),
   assignee_id: z.string().uuid().nullable().optional(),

@@ -26,7 +26,7 @@ import {
   CornerLeftUp, PlayCircle, Clock, Eye, Pencil, Check, Repeat,
   AlertTriangle, CalendarClock, Copy,
 } from 'lucide-react'
-import { cn, getInitials, timeAgo } from '@/lib/utils'
+import { cn, getInitials, timeAgo, dateInputToISO, isoToDateInput } from '@/lib/utils'
 import { RECURRENCE_RULES, RECURRENCE_LABELS } from '@/lib/recurrence'
 import { ChecklistSection } from './ChecklistSection'
 import { SubtasksSection } from './SubtasksSection'
@@ -117,7 +117,12 @@ const PRIORITIES: { value: string; label: string; color: string; Icon: typeof Za
 // zona horaria). Mismo criterio que el tablero y la lista.
 function dueBucket(due: string | null | undefined, isDone: boolean): 'overdue' | 'today' | 'future' | null {
   if (!due || isDone) return null
-  const d = new Date(String(due).slice(0, 10) + 'T00:00:00')
+  // Reconstruye la fecha desde las partes LOCALES del timestamp almacenado
+  // (isoToDateInput) y la fija a medianoche local, para clasificar el dia sin
+  // corrimiento por zona horaria sin importar el offset.
+  const local = isoToDateInput(due)
+  if (!local) return null
+  const d = new Date(local + 'T00:00:00')
   if (Number.isNaN(d.getTime())) return null
   const start = new Date()
   start.setHours(0, 0, 0, 0)
@@ -623,8 +628,8 @@ export function TaskDetailPanel({
                 <MetaRow icon={<PlayCircle className="w-3.5 h-3.5" />} label="Inicia el">
                   <input
                     type="date"
-                    defaultValue={task.start_date ? task.start_date.slice(0, 10) : ''}
-                    onChange={e => updateField({ start_date: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                    defaultValue={isoToDateInput(task.start_date)}
+                    onChange={e => updateField({ start_date: dateInputToISO(e.target.value) })}
                     className="text-sm bg-transparent text-foreground cursor-pointer hover:text-primary transition-colors outline-none w-full"
                   />
                 </MetaRow>
@@ -633,8 +638,8 @@ export function TaskDetailPanel({
                   <div className="flex items-center gap-2">
                     <input
                       type="date"
-                      defaultValue={task.due_date ? task.due_date.slice(0, 10) : ''}
-                      onChange={e => updateField({ due_date: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                      defaultValue={isoToDateInput(task.due_date)}
+                      onChange={e => updateField({ due_date: dateInputToISO(e.target.value) })}
                       className="text-sm bg-transparent text-foreground cursor-pointer hover:text-primary transition-colors outline-none flex-1"
                     />
                     {(() => {
@@ -681,8 +686,8 @@ export function TaskDetailPanel({
                       <label className="text-[10px] text-muted-foreground block mb-0.5">Repetir hasta (opcional)</label>
                       <input
                         type="date"
-                        defaultValue={task.recurrence_end_date ? task.recurrence_end_date.slice(0, 10) : ''}
-                        onChange={e => updateField({ recurrence_end_date: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                        defaultValue={isoToDateInput(task.recurrence_end_date)}
+                        onChange={e => updateField({ recurrence_end_date: dateInputToISO(e.target.value) })}
                         className="text-sm bg-transparent text-foreground cursor-pointer hover:text-primary transition-colors outline-none w-full"
                       />
                     </div>
