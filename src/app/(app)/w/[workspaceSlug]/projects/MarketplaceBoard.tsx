@@ -141,6 +141,7 @@ function ApplyModal({ project, onClose }: { project: MarketProject; onClose: () 
   const [loading, setLoading] = useState(false)
 
   const submit = async () => {
+    if (loading) return // evita doble submit
     if (pitch.trim().length < 10) {
       toast.error('Cuentanos un poco mas (minimo 10 caracteres)')
       return

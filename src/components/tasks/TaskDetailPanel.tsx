@@ -485,18 +485,24 @@ export function TaskDetailPanel({
                     </button>
                   )}
                   {editingTitle ? (
-                    <input
-                      ref={titleRef}
-                      value={titleValue}
-                      onChange={e => setTitleValue(e.target.value)}
-                      onBlur={handleTitleSave}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') handleTitleSave()
-                        if (e.key === 'Escape') { setEditingTitle(false); setTitleValue(task.title) }
-                      }}
-                      className="w-full text-2xl font-semibold bg-transparent outline-none border-b-2 border-ring pb-1"
-                      autoFocus
-                    />
+                    <div>
+                      <input
+                        ref={titleRef}
+                        value={titleValue}
+                        onChange={e => setTitleValue(e.target.value)}
+                        onBlur={handleTitleSave}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') handleTitleSave()
+                          if (e.key === 'Escape') { setEditingTitle(false); setTitleValue(task.title) }
+                        }}
+                        maxLength={500}
+                        className="w-full text-2xl font-semibold bg-transparent outline-none border-b-2 border-ring pb-1"
+                        autoFocus
+                      />
+                      <span className="mt-1 block text-right text-[11px] text-muted-foreground tabular-nums">
+                        {titleValue.length}/500
+                      </span>
+                    </div>
                   ) : (
                     <button
                       onClick={() => { setEditingTitle(true); setTimeout(() => titleRef.current?.focus(), 0) }}
@@ -953,6 +959,7 @@ function CommentComposer({ members, submitting, onSubmit }: {
   }
 
   const send = async () => {
+    if (submitting) return // evita doble envio (boton o Ctrl+Enter repetido)
     if (!value.trim()) return
     try {
       await onSubmit(value)
@@ -979,8 +986,14 @@ function CommentComposer({ members, submitting, onSubmit }: {
           }}
           placeholder="Escribe un comentario... (@ para mencionar, Ctrl+Enter para enviar)"
           rows={2}
+          maxLength={5000}
           className="w-full text-sm px-3 py-2 border border-input rounded-lg bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
         />
+        {value.length > 0 && (
+          <span className="mt-1 block text-right text-[11px] text-muted-foreground tabular-nums">
+            {value.length}/5000
+          </span>
+        )}
 
         {/* Autocompletar de menciones */}
         {mentionQuery !== null && suggestions.length > 0 && (
@@ -1136,6 +1149,7 @@ function CommentItem({
   const [confirming, setConfirming] = useState(false)
 
   const saveEdit = async () => {
+    if (saving) return // evita doble envio (boton o Ctrl+Enter repetido)
     const trimmed = draft.trim()
     if (!trimmed || trimmed === comment.body) { setEditing(false); return }
     setSaving(true)
@@ -1198,12 +1212,16 @@ function CommentItem({
               onChange={e => setDraft(e.target.value)}
               rows={2}
               autoFocus
+              maxLength={5000}
               onKeyDown={e => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveEdit() }
                 if (e.key === 'Escape') setEditing(false)
               }}
               className="w-full text-sm rounded-md border border-border bg-background px-2 py-1.5 resize-y focus:outline-none focus:ring-2 focus:ring-ring"
             />
+            <span className="mt-1 block text-right text-[11px] text-muted-foreground tabular-nums">
+              {draft.length}/5000
+            </span>
             <div className="flex items-center gap-2 mt-1.5">
               <button
                 onClick={saveEdit}

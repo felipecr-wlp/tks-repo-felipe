@@ -104,8 +104,14 @@ export function CreateTaskInline({ projectId, statusId, onCreated }: CreateTaskI
         }}
         placeholder="Nombre de la tarea..."
         disabled={isLoading}
+        maxLength={500}
         className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"
       />
+      {title.length > 0 && (
+        <span className="text-[11px] text-muted-foreground tabular-nums flex-shrink-0">
+          {title.length}/500
+        </span>
+      )}
       {isLoading && (
         <span className="w-3 h-3 border border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin flex-shrink-0" />
       )}

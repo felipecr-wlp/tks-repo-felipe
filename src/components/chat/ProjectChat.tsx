@@ -338,6 +338,7 @@ export function ProjectChat({ projectId, currentUserId, members, initialMessages
             onChange={e => setDraft(e.target.value)}
             onKeyDown={onKeyDown}
             rows={1}
+            maxLength={4000}
             placeholder="Escribe un mensaje...  (Enter para enviar, Shift+Enter salto de linea)"
             className="flex-1 resize-none max-h-32 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
@@ -349,6 +350,11 @@ export function ProjectChat({ projectId, currentUserId, members, initialMessages
             Enviar
           </button>
         </div>
+        {draft.length > 0 && (
+          <p className="mt-1 text-right text-[11px] text-muted-foreground tabular-nums">
+            {draft.length}/4000
+          </p>
+        )}
       </div>
     </div>
   )

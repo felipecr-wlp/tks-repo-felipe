@@ -364,6 +364,7 @@ function CreateProjectModal({ workspaceSlug, onClose }: { workspaceSlug: string;
   const [loading, setLoading] = useState(false)
 
   const submit = async () => {
+    if (loading) return // evita doble submit
     if (name.trim().length < 2) {
       toast.error('Ponle un nombre al proyecto (minimo 2 caracteres)')
       return
