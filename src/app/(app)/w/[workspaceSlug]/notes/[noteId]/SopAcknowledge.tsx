@@ -138,7 +138,7 @@ export function SopAcknowledge({ noteId }: SopAcknowledgeProps) {
       {outdated && (
         <p className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-600">
           <AlertTriangle className="w-3 h-3" />
-          Tu acuse previo era de la v{mine?.sop_version ?? '—'}; la versión vigente es la v{state.current_version ?? '—'}.
+          Tu acuse previo era de la v{mine?.sop_version ?? '-'}; la versión vigente es la v{state.current_version ?? '-'}.
         </p>
       )}
 

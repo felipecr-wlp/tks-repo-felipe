@@ -64,7 +64,7 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 function fmtDate(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   return d.toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -135,8 +135,8 @@ export default async function PrintNotePage({ params }: PrintPageProps) {
 
         {isDoc && (
           <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-700">
-            <span><strong>Estatus:</strong> {note.sop_status ? (STATUS_LABELS[note.sop_status] ?? note.sop_status) : '—'}</span>
-            <span><strong>Versión:</strong> {note.sop_version ? `v${note.sop_version}` : '—'}</span>
+            <span><strong>Estatus:</strong> {note.sop_status ? (STATUS_LABELS[note.sop_status] ?? note.sop_status) : '-'}</span>
+            <span><strong>Versión:</strong> {note.sop_version ? `v${note.sop_version}` : '-'}</span>
             <span><strong>Próxima revisión:</strong> {fmtDate(note.review_due)}</span>
           </div>
         )}
@@ -175,7 +175,7 @@ export default async function PrintNotePage({ params }: PrintPageProps) {
                       <td className="py-1.5 pr-4 text-black">{a.profile?.display_name ?? 'Usuario'}</td>
                       <td className="py-1.5 pr-4 text-black">{fmtDate(a.acknowledged_at)}</td>
                       <td className="py-1.5 text-black">
-                        {a.sop_version ? `v${a.sop_version}` : '—'}
+                        {a.sop_version ? `v${a.sop_version}` : '-'}
                         {outdated && <span className="text-amber-700"> (desactualizado)</span>}
                       </td>
                     </tr>

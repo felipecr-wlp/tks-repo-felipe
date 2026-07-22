@@ -69,9 +69,9 @@ export function AutomationsPanel({ projectId, statuses, members, sprints, initia
   const [rules, setRules] = useState<Rule[]>(initialRules)
   const [creating, setCreating] = useState(false)
 
-  const statusName = (id?: string | null) => statuses.find(s => s.id === id)?.name ?? '—'
+  const statusName = (id?: string | null) => statuses.find(s => s.id === id)?.name ?? '-'
   const memberName = (id?: string | null) => members.find(m => m.id === id)?.display_name ?? 'alguien'
-  const sprintName = (id?: string | null) => sprints.find(s => s.id === id)?.name ?? '—'
+  const sprintName = (id?: string | null) => sprints.find(s => s.id === id)?.name ?? '-'
 
   function actionSummary(a: Action): string {
     switch (a.type) {

@@ -149,10 +149,10 @@ export function PerformancePanel({
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{p.throughput}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{p.velocity}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-                        {p.onTimePct != null ? `${p.onTimePct}%` : '—'}
+                        {p.onTimePct != null ? `${p.onTimePct}%` : '-'}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-                        {p.estAccuracy != null ? `${p.estAccuracy}%` : '—'}
+                        {p.estAccuracy != null ? `${p.estAccuracy}%` : '-'}
                       </td>
                       <td className={`px-4 py-3 text-right tabular-nums font-semibold ${scoreColor(p.score)}`}>
                         {p.score}

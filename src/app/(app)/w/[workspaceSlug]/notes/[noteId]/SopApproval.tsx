@@ -123,7 +123,7 @@ export function SopApproval({ noteId }: SopApprovalProps) {
               {approved_version ? ` · v${approved_version}` : ''}
               {outdated && (
                 <span className="text-amber-700 dark:text-amber-400">
-                  {' '}· firma desactualizada (vigente v{current_version ?? '—'})
+                  {' '}· firma desactualizada (vigente v{current_version ?? '-'})
                 </span>
               )}
             </p>
