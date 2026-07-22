@@ -14,6 +14,7 @@ import { LayoutDashboard, CheckSquare, Activity } from 'lucide-react'
 import MiDia from './MiDia'
 import { OnboardingGuide } from './OnboardingGuide'
 import { DashboardWidgets, type DashboardWidgetsData } from './DashboardWidgets'
+import { AcademyWidget } from './AcademyWidget'
 
 interface WorkspaceDashboardProps {
   params: { workspaceSlug: string }
@@ -257,6 +258,9 @@ export default async function WorkspaceDashboardPage({
       <div className="mb-10">
         <MiDia calendarPath={`/w/${params.workspaceSlug}/calendar`} />
       </div>
+
+      {/* ── Mi academia (cursos de la persona con progreso) ──────────────── */}
+      <AcademyWidget userId={user.id} workspaceSlug={params.workspaceSlug} />
 
       {/* ── Resumen: widgets de estado, fechas y carga ───────────────────── */}
       {hasAnyWidgetData && (
