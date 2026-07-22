@@ -361,9 +361,11 @@ export function TaskListView({
       {/* Salud del proyecto: barra de completado + conteos clave */}
       {tasks.length > 0 && (() => {
         const total = tasks.length
+        // Terminal = done o cancelled: una tarea cancelada ya no vence (coincide con las barras).
+        const isTerminal = (t: Task) => t.status?.category === 'done' || t.status?.category === 'cancelled'
         const doneCount = tasks.filter(t => t.status?.category === 'done').length
-        const overdueCount = tasks.filter(t => dueBucket(t.due_date, t.status?.category === 'done') === 'overdue').length
-        const todayCount = tasks.filter(t => dueBucket(t.due_date, t.status?.category === 'done') === 'today').length
+        const overdueCount = tasks.filter(t => dueBucket(t.due_date, isTerminal(t)) === 'overdue').length
+        const todayCount = tasks.filter(t => dueBucket(t.due_date, isTerminal(t)) === 'today').length
         const donePct = total === 0 ? 0 : Math.round((doneCount / total) * 100)
         return (
           <div className="mb-4 flex items-center gap-x-4 gap-y-1.5 flex-wrap">

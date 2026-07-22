@@ -124,10 +124,11 @@ export async function PATCH(
     status_id: string | null; due_date: string | null; priority: string
     assignee_id: string | null
     recurrence_rule: string | null; recurrence_end_date: string | null
+    status: { category: string } | null
   }
   const { data: existing } = await admin
     .from('tasks')
-    .select('id, project_id, workspace_id, title, status_id, due_date, priority, assignee_id, recurrence_rule, recurrence_end_date')
+    .select('id, project_id, workspace_id, title, status_id, due_date, priority, assignee_id, recurrence_rule, recurrence_end_date, status:task_statuses ( category )')
     .eq('id', params.taskId)
     .maybeSingle() as { data: TaskCheck | null; error: unknown }
 
@@ -231,8 +232,13 @@ export async function PATCH(
   const effectiveRule = (parsed.data.recurrence_rule !== undefined ? parsed.data.recurrence_rule : existing.recurrence_rule) as RecurrenceRule | null
   const effectiveEnd = parsed.data.recurrence_end_date !== undefined ? parsed.data.recurrence_end_date : existing.recurrence_end_date
 
+  // Transicion REAL a completado: la categoria previa NO era 'done'. Un proyecto
+  // puede tener varios estados 'done' (ej. Completado y Archivado); mover entre
+  // ellos cambia status_id pero NO debe volver a clonar la serie (evita doble spawn).
+  const enteredDone = updated.status?.category === 'done' && existing.status?.category !== 'done'
+
   let spawnedTaskId: string | null = null
-  if (statusChanged && updated.status?.category === 'done' && effectiveRule) {
+  if (statusChanged && enteredDone && effectiveRule) {
     const baseDate = existing.due_date ? new Date(existing.due_date) : new Date()
     const nextDue = nextRecurrenceDate(effectiveRule, baseDate)
 

@@ -79,6 +79,32 @@ describe('POST /api/sprints/[sprintId]/close', () => {
     expect(json.carry_to).toBeNull()
   })
 
+  it('las canceladas NO se arrastran ni cuentan como done', async () => {
+    state.user = { id: 'user-1' }
+    state.adminResults = [
+      { data: { id: SPRINT_UUID, team_id: 'team-1', status: 'active' }, error: null },
+      { data: { role: 'admin' }, error: null },
+      // 1 incompleta (todo) + 1 cancelada + 2 done. Solo la todo se arrastra.
+      {
+        data: [
+          { id: 't1', status: { category: 'todo' } },
+          { id: 't2', status: { category: 'cancelled' } },
+          { id: 't3', status: { category: 'done' } },
+          { id: 't4', status: { category: 'done' } },
+        ],
+        error: null,
+      },
+      { data: null, error: null }, // update de reubicacion
+      { data: { id: SPRINT_UUID, name: 'Sprint 1', status: 'completed' }, error: null },
+    ]
+
+    const res = await POST(req({ carry_to: null }), { params: { sprintId: SPRINT_UUID } })
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.carried).toBe(1) // solo la todo, la cancelada se queda
+    expect(json.done).toBe(2)
+  })
+
   it('guarda 422: sprintId invalido no toca la DB', async () => {
     const res = await POST(req({}), { params: { sprintId: 'no-uuid' } })
     expect(res.status).toBe(422)

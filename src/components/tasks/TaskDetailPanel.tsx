@@ -699,7 +699,7 @@ export function TaskDetailPanel({
                       className="text-sm bg-transparent text-foreground cursor-pointer hover:text-primary transition-colors outline-none flex-1"
                     />
                     {(() => {
-                      const bucket = dueBucket(task.due_date, task.status?.category === 'done')
+                      const bucket = dueBucket(task.due_date, task.status?.category === 'done' || task.status?.category === 'cancelled')
                       if (bucket === 'overdue') return (
                         <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive text-[10px] font-medium px-1.5 py-0.5 flex-shrink-0">
                           <AlertTriangle className="w-3 h-3" /> Vencida

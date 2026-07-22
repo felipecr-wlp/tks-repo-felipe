@@ -314,7 +314,7 @@ export function TaskRow({
 
       {/* ── Fecha de vencimiento ───────────────────────────── */}
       {task.due_date && (() => {
-        const bucket = dueBucket(task.due_date, task.status?.category === 'done')
+        const bucket = dueBucket(task.due_date, task.status?.category === 'done' || task.status?.category === 'cancelled')
         return (
           <span className={cn(
             'flex-shrink-0 text-[11px] px-1.5 py-0.5 rounded',

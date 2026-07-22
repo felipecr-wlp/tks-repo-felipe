@@ -527,9 +527,11 @@ export function KanbanBoard({
   // Salud del proyecto (sobre TODAS las tareas, no las filtradas): completado,
   // vencidas y para hoy. Da una lectura de un vistazo arriba del tablero.
   const total = tasks.length
+  // Terminal = done o cancelled: una tarea cancelada ya no vence.
+  const isTerminal = (c: string | null | undefined) => c === 'done' || c === 'cancelled'
   const doneCount = tasks.filter(t => t.status?.category === 'done').length
-  const overdueCount = tasks.filter(t => dueBucket(t.due_date, t.status?.category === 'done') === 'overdue').length
-  const todayCount = tasks.filter(t => dueBucket(t.due_date, t.status?.category === 'done') === 'today').length
+  const overdueCount = tasks.filter(t => dueBucket(t.due_date, isTerminal(t.status?.category)) === 'overdue').length
+  const todayCount = tasks.filter(t => dueBucket(t.due_date, isTerminal(t.status?.category)) === 'today').length
   const donePct = total === 0 ? 0 : Math.round((doneCount / total) * 100)
 
   const handleTaskCreated = (newTask: Task) => {

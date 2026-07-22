@@ -24,7 +24,21 @@ export function nextRecurrenceDate(rule: RecurrenceRule, from: Date): Date {
     case 'daily':    d.setDate(d.getDate() + 1); break
     case 'weekly':   d.setDate(d.getDate() + 7); break
     case 'biweekly': d.setDate(d.getDate() + 14); break
-    case 'monthly':  d.setMonth(d.getMonth() + 1); break
+    case 'monthly':  addMonthClamped(d, 1); break
   }
   return d
+}
+
+/**
+ * Avanza `d` en `months` meses SIN desbordar el fin de mes. `setMonth` nativo
+ * hace rollover (ej. 31 ene + 1 mes intenta 31 feb y salta a 3 mar); aqui se
+ * fija primero el dia 1, se avanza el mes y luego se re-aplica el dia original
+ * acotado al ultimo dia del mes destino (31 ene -> 28/29 feb). Muta `d`.
+ */
+function addMonthClamped(d: Date, months: number): void {
+  const day = d.getDate()
+  d.setDate(1)
+  d.setMonth(d.getMonth() + months)
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+  d.setDate(Math.min(day, lastDay))
 }

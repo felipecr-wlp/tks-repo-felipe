@@ -108,8 +108,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   const rows = tasks ?? []
-  const incomplete = rows.filter(t => (t.status?.category ?? '') !== 'done').map(t => t.id)
-  const doneCount = rows.length - incomplete.length
+  // Terminal = done o cancelled: ninguna se arrastra. Una tarea cancelada ya no
+  // se va a trabajar, asi que se queda en el sprint cerrado (no infla el carry).
+  const incomplete = rows
+    .filter(t => { const c = t.status?.category ?? ''; return c !== 'done' && c !== 'cancelled' })
+    .map(t => t.id)
+  const doneCount = rows.filter(t => t.status?.category === 'done').length
 
   // Reubicar incompletas (al backlog o al sprint destino) en un solo update.
   if (incomplete.length > 0) {
