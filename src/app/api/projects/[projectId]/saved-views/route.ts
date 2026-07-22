@@ -23,6 +23,8 @@ type SavedViewRow = {
   id: string
   name: string
   filters: Record<string, unknown>
+  sort: Record<string, unknown> | null
+  is_shared: boolean
   created_at: string
 }
 
@@ -56,26 +58,45 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
   }
 
+  // Vistas propias del usuario mas las compartidas del proyecto (or) para que
+  // el equipo reutilice configuraciones publicadas sin dejar de ver las privadas.
   const { data } = await admin
     .from('task_saved_views')
-    .select('id, name, filters, created_at')
+    .select('id, name, filters, sort, is_shared, created_at')
     .eq('project_id', params.projectId)
-    .eq('profile_id', user.id)
+    .or(`profile_id.eq.${user.id},is_shared.eq.true`)
     .order('created_at', { ascending: true }) as { data: SavedViewRow[] | null }
 
   return NextResponse.json({ views: data ?? [] })
 }
 
+const PRIORITY_VALUES = ['urgent', 'high', 'medium', 'low', 'none'] as const
+
+// Acepta la forma corta que ya usa el tablero (view/status/priority/assignee)
+// y, aditivamente, la forma en arreglos (statuses/priorities/labels/assignees +
+// search) para filtros avanzados. Ambas conviven sin romper vistas existentes.
 const filterSchema = z.object({
   view: z.string().max(20).optional(),
   status: z.string().uuid().optional(),
-  priority: z.enum(['urgent', 'high', 'medium', 'low', 'none']).optional(),
+  priority: z.enum(PRIORITY_VALUES).optional(),
   assignee: z.string().uuid().optional(),
+  statuses: z.array(z.string().uuid()).max(50).optional(),
+  priorities: z.array(z.enum(PRIORITY_VALUES)).max(5).optional(),
+  labels: z.array(z.string().uuid()).max(50).optional(),
+  assignees: z.array(z.string().uuid()).max(50).optional(),
+  search: z.string().max(200).optional(),
+}).strict()
+
+const sortSchema = z.object({
+  field: z.string().max(40),
+  dir: z.enum(['asc', 'desc']),
 }).strict()
 
 const postSchema = z.object({
   name: z.string().min(1).max(60).trim(),
   filters: filterSchema,
+  sort: sortSchema.nullish(),
+  isShared: z.boolean().optional(),
 }).strict()
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -109,10 +130,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .insert({
       project_id: params.projectId,
       profile_id: user.id,
+      created_by: user.id,
       name: parsed.data.name,
       filters: parsed.data.filters,
+      sort: parsed.data.sort ?? null,
+      is_shared: parsed.data.isShared ?? false,
     })
-    .select('id, name, filters, created_at')
+    .select('id, name, filters, sort, is_shared, created_at')
     .single() as { data: SavedViewRow | null; error: unknown }
 
   if (error || !data) {
