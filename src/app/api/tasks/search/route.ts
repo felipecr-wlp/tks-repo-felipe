@@ -51,7 +51,12 @@ export async function GET(request: NextRequest) {
     .order('updated_at', { ascending: false })
     .limit(limit)
 
-  if (q) query = query.ilike('title', `%${q}%`)
+  // Escapar comodines LIKE (%, _) igual que search/route.ts y projects tasks
+  // search: evita busquedas sobre-amplias y patrones patologicos de escaneo lento.
+  if (q) {
+    const escaped = q.replace(/[%_]/g, m => `\\${m}`)
+    query = query.ilike('title', `%${escaped}%`)
+  }
 
   const { data: rows } = (await query) as { data: TaskSearchRow[] | null; error: unknown }
 
