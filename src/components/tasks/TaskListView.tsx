@@ -16,7 +16,9 @@ import { TaskRow as TaskItem } from './TaskRow'
 import { CreateTaskInline } from './CreateTaskInline'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { BulkActionBar } from './BulkActionBar'
+import { DensityToggle } from './DensityToggle'
 import { formatFieldValue, type CustomFieldDef } from './CustomFieldCells'
+import { useDensity } from '@/stores/useDensity'
 
 interface Status {
   id: string
@@ -84,6 +86,8 @@ export function TaskListView({
   initialTaskId,
 }: TaskListViewProps) {
   const router = useRouter()
+  const density = useDensity(s => s.density)
+  const isCompact = density === 'compact'
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [search, setSearch] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
@@ -283,11 +287,13 @@ export function TaskListView({
     count: flatRows.length,
     getScrollElement: () => scrollParentRef.current,
     // Estimacion inicial; la medida real la toma measureElement por fila.
+    // La estimacion de las filas de tarea baja en modo compacto (menos padding),
+    // para que la ventana virtual arranque cerca de la altura real.
     estimateSize: (index: number) => {
       const r = flatRows[index]
       if (r.kind === 'header') return 32
       if (r.kind === 'create') return 40
-      return 44
+      return isCompact ? 36 : 44
     },
     getItemKey: (index: number) => {
       const r = flatRows[index]
@@ -297,6 +303,10 @@ export function TaskListView({
     },
     overscan: 8,
   })
+
+  // Al cambiar la densidad, la altura real de las filas cambia: fuerza una
+  // remedicion para que las posiciones virtuales se recalculen sin desfase.
+  useEffect(() => { rowVirtualizer.measure() }, [density, rowVirtualizer])
 
   return (
     <div className="px-6 py-4">
@@ -405,6 +415,9 @@ export function TaskListView({
               )}
             </>
           )}
+
+          {/* Densidad de la lista (Cómoda / Compacta) */}
+          <DensityToggle className="ml-auto" />
         </div>
       )}
 
@@ -515,7 +528,7 @@ export function TaskListView({
                   )}
 
                   {row.kind === 'task' && (
-                    <div className="py-[1px]">
+                    <div className={cn(isCompact ? 'py-0 text-sm' : 'py-[1px]')}>
                       <TaskItem
                         task={row.task}
                         statuses={statuses}

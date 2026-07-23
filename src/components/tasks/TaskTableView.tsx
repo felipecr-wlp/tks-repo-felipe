@@ -28,7 +28,9 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { BulkActionBar } from './BulkActionBar'
+import { DensityToggle } from './DensityToggle'
 import { formatFieldValue, type CustomFieldDef } from './CustomFieldCells'
+import { useDensity } from '@/stores/useDensity'
 
 interface Status {
   id: string
@@ -104,6 +106,10 @@ export function TaskTableView({
   projects,
 }: TaskTableViewProps) {
   const router = useRouter()
+  const density = useDensity(s => s.density)
+  const isCompact = density === 'compact'
+  // Padding vertical de las celdas segun densidad (compacta = filas mas bajas).
+  const cellY = isCompact ? 'py-0.5' : 'py-1.5'
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialTaskId ?? null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -287,8 +293,13 @@ export function TaskTableView({
         />
       )}
 
+      {/* Barra de herramientas de la tabla: densidad (Cómoda / Compacta) */}
+      <div className="mb-3 flex items-center justify-end">
+        <DensityToggle />
+      </div>
+
       <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-sm border-collapse">
+        <table className={cn('w-full border-collapse', isCompact ? 'text-xs' : 'text-sm')}>
           <thead>
             <tr className="border-b border-border bg-muted/40 text-muted-foreground">
               <th className="w-9 px-2 py-2 text-left">
@@ -328,7 +339,7 @@ export function TaskTableView({
                     selectedIds.has(task.id) && 'bg-primary/5 hover:bg-primary/10',
                   )}
                 >
-                  <td className="px-2 py-1.5 align-middle">
+                  <td className={cn('px-2 align-middle', cellY)}>
                     <input
                       type="checkbox"
                       checked={selectedIds.has(task.id)}
@@ -339,7 +350,7 @@ export function TaskTableView({
                   </td>
 
                   {/* Titulo: abre el panel de detalle */}
-                  <td className="px-2 py-1.5 align-middle">
+                  <td className={cn('px-2 align-middle', cellY)}>
                     <button
                       onClick={() => setSelectedTaskId(task.id)}
                       className={cn(
@@ -353,7 +364,7 @@ export function TaskTableView({
                   </td>
 
                   {/* Estado (select inline) */}
-                  <td className="px-2 py-1.5 align-middle">
+                  <td className={cn('px-2 align-middle', cellY)}>
                     <div className="flex items-center gap-1.5">
                       <span
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0"
@@ -374,7 +385,7 @@ export function TaskTableView({
                   </td>
 
                   {/* Prioridad (select inline) */}
-                  <td className="px-2 py-1.5 align-middle">
+                  <td className={cn('px-2 align-middle', cellY)}>
                     <div className="flex items-center gap-1.5">
                       <prio.Icon className={cn('w-4 h-4 flex-shrink-0', prio.color)} />
                       <select
@@ -391,7 +402,7 @@ export function TaskTableView({
                   </td>
 
                   {/* Asignado (select inline, principal) */}
-                  <td className="px-2 py-1.5 align-middle">
+                  <td className={cn('px-2 align-middle', cellY)}>
                     <div className="flex items-center gap-1.5">
                       <span className="w-5 h-5 rounded-full bg-muted overflow-hidden flex items-center justify-center flex-shrink-0">
                         {task.assignee?.avatar_url ? (
@@ -417,7 +428,7 @@ export function TaskTableView({
                   </td>
 
                   {/* Fecha de vencimiento (date inline) */}
-                  <td className="px-2 py-1.5 align-middle">
+                  <td className={cn('px-2 align-middle', cellY)}>
                     <input
                       type="date"
                       value={task.due_date ? String(task.due_date).slice(0, 10) : ''}
@@ -429,7 +440,7 @@ export function TaskTableView({
 
                   {/* Campos personalizados (editables en linea) */}
                   {customFields.map(f => (
-                    <td key={f.id} className="px-2 py-1.5 align-middle">
+                    <td key={f.id} className={cn('px-2 align-middle', cellY)}>
                       <CustomFieldCell
                         field={f}
                         value={customValues[task.id]?.[f.id]}

@@ -112,7 +112,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Error al actualizar la meta' }, { status: 500 })
   }
 
-  return NextResponse.json({ goal: { ...data, task_count: 0, task_done: 0 } })
+  // Reconteo del rollup de tareas enlazadas para no devolver 0/0 tras editar
+  // (borraba la barra secundaria de una meta manual con tareas vinculadas).
+  type LinkRow = { task: { status: { category: string } | null } | null }
+  const { data: links } = await admin
+    .from('goal_tasks')
+    .select('task:tasks ( status:task_statuses ( category ) )')
+    .eq('goal_id', params.goalId) as { data: LinkRow[] | null }
+  const rows = Array.isArray(links) ? links : []
+  const taskDone = rows.filter(l => l.task?.status?.category === 'done').length
+
+  return NextResponse.json({ goal: { ...data, task_count: rows.length, task_done: taskDone } })
 }
 
 // ── DELETE ───────────────────────────────────────────────────────────────────

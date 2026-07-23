@@ -28,6 +28,8 @@ import {
   Calendar,
   GraduationCap,
   CornerDownLeft,
+  Clock,
+  Folder,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { ProjectIcon } from '@/lib/project-icons'
@@ -75,6 +77,60 @@ interface SearchResult {
 
 const EMPTY_RESULT: SearchResult = { tasks: [], projects: [], teams: [], members: [], notes: [] }
 
+// ── Recientes (persistidos en localStorage) ─────────────────────────────────
+// Guardamos lo mínimo para poder renderizar y navegar sin volver a buscar.
+type RecentType = 'task' | 'project' | 'team' | 'member' | 'note' | 'action'
+
+interface RecentItem {
+  id: string
+  type: RecentType
+  label: string
+  sublabel?: string
+  href: string
+  iconHint: RecentType
+  ts: number
+}
+
+const RECENTS_CAP = 8
+const recentsKey = (workspaceId: string) => `wlo-cmdk-recents-${workspaceId}`
+
+function loadRecents(workspaceId: string): RecentItem[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(recentsKey(workspaceId))
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((r): r is RecentItem =>
+        r && typeof r.id === 'string' && typeof r.href === 'string' && typeof r.label === 'string')
+      .slice(0, RECENTS_CAP)
+  } catch {
+    return []
+  }
+}
+
+function saveRecents(workspaceId: string, list: RecentItem[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(recentsKey(workspaceId), JSON.stringify(list.slice(0, RECENTS_CAP)))
+  } catch {
+    // localStorage lleno o bloqueado: no es crítico, seguimos sin persistir.
+  }
+}
+
+// Ícono lucide por tipo de reciente (se reconstruye al render, no se serializa).
+function recentIcon(hint: RecentType): React.ReactNode {
+  switch (hint) {
+    case 'task': return <CircleDot className="w-3.5 h-3.5" />
+    case 'project': return <Folder className="w-3.5 h-3.5" />
+    case 'team': return <Users className="w-3.5 h-3.5" />
+    case 'member': return <Users className="w-3.5 h-3.5" />
+    case 'note': return <FileText className="w-3.5 h-3.5" />
+    default: return <Home className="w-3.5 h-3.5" />
+  }
+}
+
 interface FlatItem {
   id: string
   type: 'task' | 'project' | 'team' | 'member' | 'note' | 'action'
@@ -98,8 +154,19 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
+  const [recents, setRecents] = useState<RecentItem[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+
+  // Registra un item en Recientes (dedupe por id+type, más reciente primero, cap 8).
+  const recordRecent = useCallback((r: Omit<RecentItem, 'ts'>) => {
+    setRecents(prev => {
+      const filtered = prev.filter(x => !(x.id === r.id && x.type === r.type))
+      const next = [{ ...r, ts: Date.now() }, ...filtered].slice(0, RECENTS_CAP)
+      saveRecents(workspaceId, next)
+      return next
+    })
+  }, [workspaceId])
 
   // Afijo Cmd (Mac) vs Ctrl (resto) para el hint del atajo.
   const [modKey, setModKey] = useState('Ctrl')
@@ -158,9 +225,10 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
       setQuery('')
       setActiveIndex(0)
       setResults(null)
+      setRecents(loadRecents(workspaceId))
       requestAnimationFrame(() => inputRef.current?.focus())
     }
-  }, [open])
+  }, [open, workspaceId])
 
   // ── Debounced search ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -191,8 +259,18 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
   // ── Aplanar resultados para nav con teclado ───────────────────────────────
   const items: FlatItem[] = useMemo(() => {
     if (!query.trim()) {
-      // Quick actions cuando no hay query
+      // Recientes (si hay) arriba, luego quick actions.
+      const recentItems: FlatItem[] = recents.map(r => ({
+        id: `r-${r.type}-${r.id}`,
+        type: r.type,
+        label: r.label,
+        sublabel: r.sublabel,
+        href: r.href,
+        icon: recentIcon(r.iconHint),
+        group: 'Recientes',
+      }))
       return [
+        ...recentItems,
         {
           id: 'a-home',
           type: 'action',
@@ -335,7 +413,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
       group: 'Personas',
     }))
     return flat
-  }, [results, query, workspaceSlug, isAdmin, createNote])
+  }, [results, query, workspaceSlug, isAdmin, createNote, recents])
 
   // ── Agrupar para render ───────────────────────────────────────────────────
   const groups = useMemo(() => {
@@ -356,9 +434,20 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
     }
     setOpen(false)
     if (item.href) {
+      // Registrar en Recientes antes de navegar. Guardamos el id base (sin el
+      // prefijo de reciente "r-") para deduplicar contra futuras selecciones.
+      const baseId = item.id.startsWith('r-') ? item.id.slice(item.id.indexOf('-', 2) + 1) : item.id
+      recordRecent({
+        id: baseId,
+        type: item.type,
+        label: item.label,
+        sublabel: item.sublabel,
+        href: item.href,
+        iconHint: item.type,
+      })
       router.push(item.href)
     }
-  }, [router, setOpen])
+  }, [router, setOpen, recordRecent])
 
   // Enter sobre una query sin match exacto: ir a la página de resultados.
   const goToResultsPage = useCallback(() => {
@@ -473,7 +562,8 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
 
             {groups.map(([group, groupItems]) => (
               <div key={group} className="py-1">
-                <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5">
+                  {group === 'Recientes' && <Clock className="w-3 h-3" />}
                   {group}
                 </div>
                 {groupItems.map((item) => {

@@ -66,6 +66,12 @@ function progressPct(g: Goal): number {
   return 0
 }
 
+// Rollup por tareas enlazadas (hechas / total). Se muestra en metas manuales
+// que tengan tareas vinculadas, para augmentar el valor manual sin sustituirlo.
+function taskRollupPct(g: Goal): number {
+  return g.task_count > 0 ? Math.round((g.task_done / g.task_count) * 100) : 0
+}
+
 function formatValue(g: Goal): string {
   if (g.progress_mode === 'tasks') return `${g.task_done} / ${g.task_count} tareas`
   if (g.unit === 'percent') return `${Math.round(g.current_value)}%`
@@ -603,6 +609,26 @@ function GoalCard({
             style={{ width: `${pct}%` }}
           />
         </div>
+
+        {/* Rollup secundario por tareas enlazadas. Solo en metas manuales con
+            tareas vinculadas: augmenta el valor manual sin reemplazarlo. En modo
+            'tasks' la barra principal ya ES el rollup, no se duplica. */}
+        {goal.progress_mode === 'manual' && goal.task_count > 0 && (
+          <div className="mt-2">
+            <div className="flex items-center justify-between mb-1">
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Link2 className="w-3 h-3" /> Tareas: {goal.task_done} / {goal.task_count}
+              </span>
+              <span className="text-[11px] font-medium text-muted-foreground">{taskRollupPct(goal)}%</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className={cn('h-full rounded-full transition-all', taskRollupPct(goal) >= 100 ? 'bg-emerald-500' : 'bg-primary/60')}
+                style={{ width: `${taskRollupPct(goal)}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Pie: responsable, fecha, tareas */}
@@ -635,21 +661,28 @@ function GoalCard({
             </span>
           )
         )}
-        {goal.progress_mode === 'tasks' && (
-          <button
-            onClick={() => setShowTasks(v => !v)}
-            className="inline-flex items-center gap-1 hover:text-foreground transition-colors ml-auto"
-          >
-            <Link2 className="w-3 h-3" /> {showTasks ? 'Ocultar tareas' : 'Tareas enlazadas'}
-          </button>
-        )}
+        <button
+          onClick={() => setShowTasks(v => !v)}
+          className="inline-flex items-center gap-1 hover:text-foreground transition-colors ml-auto"
+        >
+          <Link2 className="w-3 h-3" /> {showTasks ? 'Ocultar tareas' : 'Tareas enlazadas'}
+        </button>
       </div>
 
-      {showTasks && goal.progress_mode === 'tasks' && (
+      {showTasks && (
         <GoalTasksPanel
           goalId={goal.id}
           workspaceId={workspaceId}
-          onCountChange={(done, total) => onUpdated({ ...goal, task_done: done, task_count: total, current_value: done, target_value: total })}
+          onCountChange={(done, total) =>
+            // En modo 'tasks' el rollup ES el progreso (deriva current/target).
+            // En modo 'manual' solo actualiza el conteo del rollup secundario,
+            // sin tocar el valor manual (current_value / target_value).
+            onUpdated(
+              goal.progress_mode === 'tasks'
+                ? { ...goal, task_done: done, task_count: total, current_value: done, target_value: total }
+                : { ...goal, task_done: done, task_count: total },
+            )
+          }
         />
       )}
     </div>
@@ -666,6 +699,8 @@ function GoalTasksPanel({
 }) {
   const [tasks, setTasks] = useState<LinkedTask[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+  const [retrying, setRetrying] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchTask[]>([])
   const [searching, setSearching] = useState(false)
@@ -676,16 +711,28 @@ function GoalTasksPanel({
     onCountChange(done, list.length)
   }, [onCountChange])
 
+  const loadTasks = useCallback(async () => {
+    const res = await fetch(`/api/goals/${goalId}/tasks`)
+    if (!res.ok) throw new Error()
+    const data = await res.json()
+    setTasks(data.tasks ?? [])
+    emitCount(data.tasks ?? [])
+    setLoadError(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goalId])
+
   useEffect(() => {
     let alive = true
     setLoading(true)
-    fetch(`/api/goals/${goalId}/tasks`)
-      .then(r => (r.ok ? r.json() : { tasks: [] }))
-      .then(data => { if (alive) { setTasks(data.tasks ?? []); emitCount(data.tasks ?? []) } })
-      .finally(() => { if (alive) setLoading(false) })
+    loadTasks().catch(() => { if (alive) setLoadError(true) }).finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [goalId])
+  }, [loadTasks])
+
+  const retryLoad = useCallback(async () => {
+    setRetrying(true)
+    await loadTasks().catch(() => setLoadError(true))
+    setRetrying(false)
+  }, [loadTasks])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -760,6 +807,15 @@ function GoalTasksPanel({
 
       {loading ? (
         <div className="flex justify-center py-2"><Loader2 className="w-4 h-4 text-muted-foreground animate-spin" /></div>
+      ) : loadError ? (
+        <ErrorState
+          compact
+          className="my-1"
+          title="No se pudieron cargar las tareas"
+          description="Revisa tu conexión e inténtalo de nuevo."
+          onRetry={retryLoad}
+          retrying={retrying}
+        />
       ) : tasks.length === 0 ? (
         <p className="text-[11px] text-muted-foreground/70">Sin tareas enlazadas. Busca arriba para vincular una.</p>
       ) : (

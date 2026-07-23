@@ -74,6 +74,7 @@ describe('PATCH goals/[goalId] owner_id', () => {
       { data: { profile_id: 'user-1' }, error: null },     // goalAccess: user es miembro -> ok
       { data: { profile_id: OUTSIDER }, error: null },     // owner check: SI es miembro
       { data: { id: GOAL, title: 'M', owner_id: OUTSIDER }, error: null }, // update
+      { data: [], error: null },                            // reconteo rollup goal_tasks (vacio)
     ]
     const res = await PATCH(req({ owner_id: OUTSIDER }), { params: { goalId: GOAL } })
     expect(res.status).toBe(200)

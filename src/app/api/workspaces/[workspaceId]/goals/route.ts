@@ -92,15 +92,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   const list = goals ?? []
 
-  // Para metas en modo 'tasks', agregar conteo de tareas enlazadas (done/total).
-  const taskGoalIds = list.filter(g => g.progress_mode === 'tasks').map(g => g.id)
+  // Rollup por tareas enlazadas (done/total) para TODAS las metas, no solo las de
+  // modo 'tasks'. Asi una meta manual tambien muestra como avanzan sus tareas
+  // vinculadas (augment, no reemplaza el valor manual). Las metas en modo 'tasks'
+  // ademas derivan current/target del conteo.
+  const goalIds = list.map(g => g.id)
   const counts: Record<string, { done: number; total: number }> = {}
-  if (taskGoalIds.length) {
+  if (goalIds.length) {
     type LinkRow = { goal_id: string; task: { status: { category: string } | null } | null }
     const { data: links } = await admin
       .from('goal_tasks')
       .select('goal_id, task:tasks ( status:task_statuses ( category ) )')
-      .in('goal_id', taskGoalIds) as { data: LinkRow[] | null }
+      .in('goal_id', goalIds) as { data: LinkRow[] | null }
     for (const l of links ?? []) {
       const c = (counts[l.goal_id] ??= { done: 0, total: 0 })
       c.total += 1
@@ -109,6 +112,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 
   const result = list.map(g => {
+    const c = counts[g.id] ?? { done: 0, total: 0 }
     const base = {
       id: g.id,
       title: g.title,
@@ -121,12 +125,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       due_date: g.due_date,
       owner: g.owner,
       created_at: g.created_at,
-      task_count: 0,
-      task_done: 0,
+      task_count: c.total,
+      task_done: c.done,
     }
     if (g.progress_mode === 'tasks') {
-      const c = counts[g.id] ?? { done: 0, total: 0 }
-      return { ...base, task_count: c.total, task_done: c.done, current_value: c.done, target_value: c.total }
+      return { ...base, current_value: c.done, target_value: c.total }
     }
     return base
   })

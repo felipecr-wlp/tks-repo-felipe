@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { promptDialog } from '@/components/PromptDialog'
 import { Filter, Bookmark, BookmarkPlus, X, Trash2, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import ExportButton from '@/components/tasks/ExportButton'
 
 interface Status { id: string; name: string; color: string | null; category: string }
 interface Member { id: string; display_name: string; avatar_url: string | null }
@@ -332,6 +333,12 @@ export function TaskFilterBar({
       )}
 
       <div className="ml-auto flex items-center gap-1.5">
+        {/* Exportar tareas del proyecto a CSV */}
+        <ExportButton
+          projectId={projectId}
+          className="flex items-center gap-1 text-[11px] px-2 py-1 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors disabled:opacity-50"
+        />
+
         {/* Guardar vista actual */}
         <button
           onClick={saveCurrent}
