@@ -2256,12 +2256,12 @@ export const COURSES: Course[] = [
             "q": "¿Qué dice la brecha entre $1,796 y la meta de ~$95?",
             "opts": [
               "Que el marketing es carísimo",
-              "Que hay enorme colchon y el CAC no es el limite",
+              "Que hay enorme colchón y el CAC no es el límite",
               "Que hay que subir precios",
               "Que no conviene hacer marketing"
             ],
             "a": 1,
-            "ex": "El gran colchon muestra que adquirir clientes es barato frente a lo que dejan."
+            "ex": "El gran colchón muestra que adquirir clientes es barato frente a lo que dejan."
           }
         ]
       },
@@ -2275,7 +2275,7 @@ export const COURSES: Course[] = [
         "objectives": [
           "Identificar el verdadero cuello de botella del negocio.",
           "Traducir la economía unitaria en decisiones diarias.",
-          "Cerrar con el criterio financiero que guia al equipo."
+          "Cerrar con el criterio financiero que guía al equipo."
         ],
         "lessons": [
           {
@@ -2307,7 +2307,7 @@ export const COURSES: Course[] = [
             ]
           },
           {
-            "t": "El criterio que guia",
+            "t": "El criterio que guía",
             "blocks": [
               {
                 "type": "callout",
@@ -2346,7 +2346,7 @@ export const COURSES: Course[] = [
               "Porque el volumen ya es rentable a precio sano",
               "Porque no hay demanda",
               "Porque sube el OPEX",
-              "Porque baja la garantia"
+              "Porque baja la garantía"
             ],
             "a": 0,
             "ex": "El volumen ya deja margen sano; descontar solo regala GP sin necesidad."
@@ -3034,7 +3034,7 @@ export const COURSES: Course[] = [
                 "v": [
                   "Concordancia por keyword (Exacta 1.0 / Frase x1.6 / Amplia x2.8, con castigo de CVR).",
                   "Quality Score 1-10 (multiplicador de CPC via Ad Rank, ~0.55x a 1.6x).",
-                  "IS maximo 0-1 (techo de impression share alcanzable aunque sobre budget).",
+                  "IS máximo 0-1 (techo de impression share alcanzable aunque sobre budget).",
                   "Estacionalidad 0.3-1.8 por campaña (multiplicador de demanda del mes).",
                   "Ratio de llamadas 0-3 (modela el hueco de atribución telefónica, ~75%)."
                 ]
@@ -3142,8 +3142,8 @@ export const COURSES: Course[] = [
     "icon": "compass",
     "accent": "#A78BFA",
     "track": "Marketing / SEO",
-    "title": "SEO y contenido organico",
-    "subtitle": "Canibalizacion programatica, tecnico on-page, ADA, CRO y backlinks.",
+    "title": "SEO y contenido orgánico",
+    "subtitle": "Canibalización programática, técnico on-page, ADA, CRO y backlinks.",
     "certName": "WLP SEO",
     "modules": [
       {
@@ -3151,80 +3151,80 @@ export const COURSES: Course[] = [
         "num": "01",
         "icon": "compass",
         "dur": "25 min",
-        "title": "SEO organico del sitio: canibalizacion y tecnico",
+        "title": "SEO orgánico del sitio: canibalización y técnico",
         "tag": "El dominio welovepaving.com compite consigo mismo. El primer trabajo de SEO es dejar de auto-sabotearse.",
         "objectives": [
-          "Identificar la canibalizacion programatica geografica del sitio.",
-          "Conocer los fixes tecnicos y on-page prioritarios.",
-          "Saber que medicion falta para probar impacto."
+          "Identificar la canibalización programática geográfica del sitio.",
+          "Conocer los fixes técnicos y on-page prioritarios.",
+          "Saber qué medición falta para probar impacto."
         ],
         "lessons": [
           {
-            "t": "Canibalizacion programatica geografica",
+            "t": "Canibalización programática geográfica",
             "blocks": [
               {
                 "type": "p",
-                "v": "welovepaving.com corre en WordPress con tema Divi. El crawl LIVE (UA Claude-User en allowlist del WAF de Cloudflare) cubrio 894 URLs."
+                "v": "welovepaving.com corre en WordPress con tema Divi. El crawl LIVE (UA Claude-User en allowlist del WAF de Cloudflare) cubrió 894 URLs."
               },
               {
                 "type": "list",
                 "v": [
-                  "Cuatro superficies programaticas se solapan sobre la misma geografia NorCal: /locations/ (362 paginas), /markets/ (54), /service-area/ (26) y /services/ (20).",
-                  "El total solapado sobre la misma geografia es de 462 paginas, que diluyen la autoridad del dominio.",
-                  "Hay colisiones de titulos cross-surface, por ejemplo /locations/sacramento contra /service-area/sacramento-county.",
-                  "El crawl detecto 16 grupos de canibalizacion por focus-keyword y 13 paginas de Peninsula que son 55 a 73% identicas tras quitar el template."
+                  "Cuatro superficies programáticas se solapan sobre la misma geografía NorCal: /locations/ (362 páginas), /markets/ (54), /service-area/ (26) y /services/ (20).",
+                  "El total solapado sobre la misma geografía es de 462 páginas, que diluyen la autoridad del dominio.",
+                  "Hay colisiones de títulos cross-surface, por ejemplo /locations/sacramento contra /service-area/sacramento-county.",
+                  "El crawl detectó 16 grupos de canibalización por focus-keyword y 13 páginas de Península que son 55 a 73% idénticas tras quitar el template."
                 ]
               },
               {
                 "type": "rule",
                 "lab": "Accion",
-                "v": "Consolidar a UNA arquitectura geografica canonica y aplicar 301 al resto, usando la skill seo-cannibalization-auditor."
+                "v": "Consolidar a UNA arquitectura geográfica canónica y aplicar 301 al resto, usando la skill seo-cannibalization-auditor."
               }
             ]
           },
           {
-            "t": "SEO tecnico y on-page",
+            "t": "SEO técnico y on-page",
             "blocks": [
               {
                 "type": "list",
                 "v": [
-                  "Hay 200 titulos con mas de 60 caracteres que se truncan en el SERP y hay que acortar.",
+                  "Hay 200 títulos con más de 60 caracteres que se truncan en el SERP y hay que acortar.",
                   "El sitemap contiene 14 URLs que devuelven 404 y hay que limpiarlas.",
-                  "La metodologia base usa SOLO datos LIVE verificados, nunca los falsos positivos del XML.",
-                  "La deduplicacion real se hizo con MinHash k=8, removiendo 749 shingles de boilerplate de Divi."
+                  "La metodología base usa SOLO datos LIVE verificados, nunca los falsos positivos del XML.",
+                  "La deduplicación real se hizo con MinHash k=8, removiendo 749 shingles de boilerplate de Divi."
                 ]
               },
               {
                 "type": "callout",
                 "style": "tip",
                 "ci": "file",
-                "v": "La referencia maestra es el doc 33 (auditoria de sitio, 12 paginas), con data cruda en los JSON audit_live, deep_dup y audit_seo."
+                "v": "La referencia maestra es el doc 33 (auditoría de sitio, 12 páginas), con data cruda en los JSON audit_live, deep_dup y audit_seo."
               }
             ]
           },
           {
-            "t": "Prioridades y medicion pendiente",
+            "t": "Prioridades y medición pendiente",
             "blocks": [
               {
                 "type": "list",
                 "v": [
-                  "Orden de impacto: 1) resolver canibalizacion geografica (462 paginas), 2) acortar los 200 titulos largos, 3) limpiar las 14 URLs 404, 4) diferenciar las 13 paginas de Peninsula, 5) subir el CTA sitewide.",
-                  "Falta rank tracking vivo: sin datos de posicion no se mide si los fixes mueven ranking.",
-                  "Falta conectar Search Console para clicks, impresiones y posicion reales por query y por pagina.",
-                  "El paid search ya rinde el doble que el organico en conversion (6,973 sesiones, 919 conversiones, 10% en 12 meses); el organico se mide contra ese baseline en GA4."
+                  "Orden de impacto: 1) resolver canibalización geográfica (462 páginas), 2) acortar los 200 títulos largos, 3) limpiar las 14 URLs 404, 4) diferenciar las 13 páginas de Península, 5) subir el CTA sitewide.",
+                  "Falta rank tracking vivo: sin datos de posición no se mide si los fixes mueven ranking.",
+                  "Falta conectar Search Console para clicks, impresiones y posición reales por query y por página.",
+                  "El paid search ya rinde el doble que el orgánico en conversión (6,973 sesiones, 919 conversiones, 10% en 12 meses); el orgánico se mide contra ese baseline en GA4."
                 ]
               },
               {
                 "type": "rule",
                 "lab": "Regla rectora",
-                "v": "Cualquier pagina nueva debe justificar que NO compite con una existente."
+                "v": "Cualquier página nueva debe justificar que NO compite con una existente."
               }
             ]
           }
         ],
         "quiz": [
           {
-            "q": "Cuantas paginas se solapan sobre la misma geografia NorCal?",
+            "q": "¿Cuántas páginas se solapan sobre la misma geografía NorCal?",
             "opts": [
               "362",
               "462",
@@ -3232,10 +3232,10 @@ export const COURSES: Course[] = [
               "54"
             ],
             "a": 1,
-            "ex": "Las 4 superficies programaticas suman 462 paginas solapadas."
+            "ex": "Las 4 superficies programáticas suman 462 páginas solapadas."
           },
           {
-            "q": "Cuantos titulos superan los 60 caracteres?",
+            "q": "¿Cuántos títulos superan los 60 caracteres?",
             "opts": [
               "14",
               "200",
@@ -3243,10 +3243,10 @@ export const COURSES: Course[] = [
               "894"
             ],
             "a": 1,
-            "ex": "Hay 200 titulos largos que se truncan en el SERP."
+            "ex": "Hay 200 títulos largos que se truncan en el SERP."
           },
           {
-            "q": "Cuantas URLs del sitemap devuelven 404?",
+            "q": "¿Cuántas URLs del sitemap devuelven 404?",
             "opts": [
               "14",
               "16",
@@ -3257,7 +3257,7 @@ export const COURSES: Course[] = [
             "ex": "El sitemap tiene 14 URLs con 404 que hay que limpiar."
           },
           {
-            "q": "Que metodo se uso para deduplicar de verdad?",
+            "q": "¿Qué método se usó para deduplicar de verdad?",
             "opts": [
               "El XML sitemap",
               "MinHash k=8 quitando 749 shingles",
@@ -3265,7 +3265,7 @@ export const COURSES: Course[] = [
               "Search Console"
             ],
             "a": 1,
-            "ex": "Se uso MinHash k=8 removiendo boilerplate de Divi."
+            "ex": "Se usó MinHash k=8 removiendo boilerplate de Divi."
           }
         ]
       },
@@ -3275,11 +3275,11 @@ export const COURSES: Course[] = [
         "icon": "layers",
         "dur": "25 min",
         "title": "Accesibilidad, CRO, carreras y backlinks",
-        "tag": "El SEO no termina en el ranking: accesibilidad, conversion y links son parte del mismo motor.",
+        "tag": "El SEO no termina en el ranking: accesibilidad, conversión y links son parte del mismo motor.",
         "objectives": [
           "Conocer el estado ADA y la oportunidad de CRO del sitio.",
-          "Entender la decision de la pagina de Carreras (subcarpeta vs subdominio).",
-          "Saber de donde salen los backlinks de empleos."
+          "Entender la decisión de la página de Carreras (subcarpeta vs subdominio).",
+          "Saber de dónde salen los backlinks de empleos."
         ],
         "lessons": [
           {
@@ -3288,23 +3288,23 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "La accesibilidad ADA es fuerte: 0 imagenes sin texto alt de un total de 32,186 imagenes.",
-                  "El CRO es debil: el CTA Free Estimate aparece solo en 12 de 880 paginas.",
-                  "La oportunidad es llevar ese CTA a cobertura sitewide, ligandolo al trabajo de landing y form del SSOT SEM.",
+                  "La accesibilidad ADA es fuerte: 0 imágenes sin texto alt de un total de 32,186 imágenes.",
+                  "El CRO es débil: el CTA Free Estimate aparece solo en 12 de 880 páginas.",
+                  "La oportunidad es llevar ese CTA a cobertura sitewide, ligándolo al trabajo de landing y form del SSOT SEM.",
                   "Subir la cobertura del CTA es la quinta prioridad SEO, cruzando CRO con message-match de SEM."
                 ]
               }
             ]
           },
           {
-            "t": "Pagina de Carreras: subcarpeta vs subdominio",
+            "t": "Página de Carreras: subcarpeta vs subdominio",
             "blocks": [
               {
                 "type": "list",
                 "v": [
-                  "Decision cerrada (Ali, 2026-07-09): careers vive en la subcarpeta welovepaving.com/careers, nunca en subdominio.",
-                  "No se usara ningun ATS ni plataforma de reclutamiento; todo se maneja dentro de WordPress en WLP.",
-                  "Razon SEO: el dominio tiene autoridad baja y perfil de links fragil; la subcarpeta consolida autoridad en el raiz mientras un subdominio la dividiria.",
+                  "Decisión cerrada (Ali, 2026-07-09): careers vive en la subcarpeta welovepaving.com/careers, nunca en subdominio.",
+                  "No se usará ningún ATS ni plataforma de reclutamiento; todo se maneja dentro de WordPress en WLP.",
+                  "Razón SEO: el dominio tiene autoridad baja y perfil de links frágil; la subcarpeta consolida autoridad en el raíz mientras un subdominio la dividiría.",
                   "MasTec usa subdominio (careers.masteccommunicationsgroup.com) porque su ATS iCIMS lo hospeda aparte, no por SEO."
                 ]
               },
@@ -3312,7 +3312,7 @@ export const COURSES: Course[] = [
                 "type": "callout",
                 "style": "tip",
                 "ci": "shield",
-                "v": "Fallback si algun dia se adopta plataforma externa: embed/iframe o reverse proxy via Cloudflare bajo /careers, nunca migrar a subdominio."
+                "v": "Fallback si algún día se adopta plataforma externa: embed/iframe o reverse proxy vía Cloudflare bajo /careers, nunca migrar a subdominio."
               }
             ]
           },
@@ -3322,10 +3322,10 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "Sin ATS no hay sindicacion automatica a cientos de job boards, asi que el volumen de backlinks de empleos es limitado.",
-                  "Las fuentes se reducen a Google for Jobs (schema JobPosting, gratis) mas posteo manual.",
+                  "Sin ATS no hay sindicación automática a cientos de job boards, así que el volumen de backlinks de empleos es limitado.",
+                  "Las fuentes se reducen a Google for Jobs (schema JobPosting, gratis) más posteo manual.",
                   "El posteo manual se hace en Indeed, LinkedIn y SimplyHired.",
-                  "La evaluacion de esta estrategia vive en el ejercicio de backlinks organicos llamado Maquina de empleos."
+                  "La evaluación de esta estrategia vive en el ejercicio de backlinks orgánicos llamado Máquina de empleos."
                 ]
               }
             ]
@@ -3333,7 +3333,7 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "Cuantas imagenes sin alt encontro el crawl?",
+            "q": "¿Cuántas imágenes sin alt encontró el crawl?",
             "opts": [
               "12",
               "0",
@@ -3341,10 +3341,10 @@ export const COURSES: Course[] = [
               "32,186"
             ],
             "a": 1,
-            "ex": "Cero imagenes sin alt de 32,186 en total; la accesibilidad ADA es fuerte."
+            "ex": "Cero imágenes sin alt de 32,186 en total; la accesibilidad ADA es fuerte."
           },
           {
-            "q": "En cuantas de 880 paginas aparece el CTA Free Estimate?",
+            "q": "¿En cuántas de 880 páginas aparece el CTA Free Estimate?",
             "opts": [
               "12",
               "200",
@@ -3352,10 +3352,10 @@ export const COURSES: Course[] = [
               "880"
             ],
             "a": 0,
-            "ex": "Solo 12 de 880 paginas; el CRO es debil."
+            "ex": "Solo 12 de 880 páginas; el CRO es débil."
           },
           {
-            "q": "Donde vive la pagina de Carreras?",
+            "q": "¿Dónde vive la página de Carreras?",
             "opts": [
               "En un subdominio",
               "En la subcarpeta /careers",
@@ -3363,10 +3363,10 @@ export const COURSES: Course[] = [
               "En iCIMS"
             ],
             "a": 1,
-            "ex": "Decision cerrada: subcarpeta welovepaving.com/careers."
+            "ex": "Decisión cerrada: subcarpeta welovepaving.com/careers."
           },
           {
-            "q": "Cual es una fuente gratuita de backlinks de empleos?",
+            "q": "¿Cuál es una fuente gratuita de backlinks de empleos?",
             "opts": [
               "iCIMS",
               "Google for Jobs con schema JobPosting",
@@ -3388,7 +3388,7 @@ export const COURSES: Course[] = [
     "accent": "#F472B6",
     "track": "Legal / Contratos",
     "title": "Legal y contratos",
-    "subtitle": "Matriz de MSA, garantias 15/5, pricing schedule, seguros e intercompany.",
+    "subtitle": "Matriz de MSA, garantías 15/5, pricing schedule, seguros e intercompany.",
     "certName": "WLP Legal",
     "modules": [
       {
@@ -3396,12 +3396,12 @@ export const COURSES: Course[] = [
         "num": "01",
         "icon": "shield",
         "dur": "30 min",
-        "title": "Contratos, garantias y pricing de WLP",
-        "tag": "Un advisor que promete de mas crea exposicion legal. Aqui estan los limites reales que WLP puede prometer.",
+        "title": "Contratos, garantías y pricing de WLP",
+        "tag": "Un advisor que promete de más crea exposición legal. Aquí están los límites reales que WLP puede prometer.",
         "objectives": [
           "Conocer la matriz de contratos MSA y subcontratos.",
-          "Memorizar las garantias por material y la regla que nunca se rompe.",
-          "Ubicar los numeros clave del pricing schedule."
+          "Memorizar las garantías por material y la regla que nunca se rompe.",
+          "Ubicar los números clave del pricing schedule."
         ],
         "lessons": [
           {
@@ -3410,32 +3410,32 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "El WLP MSA 2026 Branded tiene 29 paginas y 45 articulos, esta CERRADO desde 2026-05-07, aprobado por Elizabeth (outside counsel) y Alfred, con score A+ de 9.8/10.",
-                  "El unico pendiente del MSA es el sign-off final de Fred y Elizabeth antes del primer cliente de concreto.",
-                  "El WLP Subcontractor Agreement v1.0 tiene 14 articulos y esta BLOQUEADO, no aprobado, porque Elizabeth nunca lo reviso.",
-                  "El Pavific MSA Mexico Contractors (v2) es provisionalmente defendible con 11 correcciones criticas, pero requiere abogado mexicano certificado antes de firmar.",
-                  "La WLP Permission Letter (Alfred usa IP de WLP en marketing Pavific) esta FINAL, sin compensacion, y sobrevive a la terminacion."
+                  "El WLP MSA 2026 Branded tiene 29 páginas y 45 artículos, está CERRADO desde 2026-05-07, aprobado por Elizabeth (outside counsel) y Alfred, con score A+ de 9.8/10.",
+                  "El único pendiente del MSA es el sign-off final de Fred y Elizabeth antes del primer cliente de concreto.",
+                  "El WLP Subcontractor Agreement v1.0 tiene 14 artículos y está BLOQUEADO, no aprobado, porque Elizabeth nunca lo revisó.",
+                  "El Pavific MSA México Contractors (v2) es provisionalmente defendible con 11 correcciones críticas, pero requiere abogado mexicano certificado antes de firmar.",
+                  "La WLP Permission Letter (Alfred usa IP de WLP en marketing Pavific) está FINAL, sin compensación, y sobrevive a la terminación."
                 ]
               }
             ]
           },
           {
-            "t": "Garantias (warranty) por material",
+            "t": "Garantías (warranty) por material",
             "blocks": [
               {
                 "type": "list",
                 "v": [
-                  "El asfalto full-depth bajo el Paving Panda Pledge (opt-in) tiene garantia de hasta 15 años renovable.",
-                  "El concreto en el MSA 2026 (default) tiene 5 años estructural (subio de 3 a 5, aprobado 2026-05-07) y NO es elegible al tier Pledge.",
-                  "Garantias menores por flow-down: sealcoat y striping 30 dias, parches menores a 1,000 SF 30 dias, full-depth residencial de 2.5 a 3 pulgadas 1 año.",
-                  "WLP carga exposicion de defecto latente bajo Civ 337.15 (10 años de statute of repose) sin importar el termino de garantia contratado."
+                  "El asfalto full-depth bajo el Paving Panda Pledge (opt-in) tiene garantía de hasta 15 años renovable.",
+                  "El concreto en el MSA 2026 (default) tiene 5 años estructural (subió de 3 a 5, aprobado 2026-05-07) y NO es elegible al tier Pledge.",
+                  "Garantías menores por flow-down: sealcoat y striping 30 días, parches menores a 1,000 SF 30 días, full-depth residencial de 2.5 a 3 pulgadas 1 año.",
+                  "WLP carga exposición de defecto latente bajo Civ 337.15 (10 años de statute of repose) sin importar el término de garantía contratado."
                 ]
               },
               {
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "NUNCA promover garantia de 15 años en concreto. Ese PDF era exposicion bajo 17500 (publicidad falsa) y quedo retirado. Concreto es 5 años, asfalto hasta 15."
+                "v": "NUNCA promover garantía de 15 años en concreto. Ese PDF era exposición bajo 17500 (publicidad falsa) y quedó retirado. Concreto es 5 años, asfalto hasta 15."
               }
             ]
           },
@@ -3459,14 +3459,14 @@ export const COURSES: Course[] = [
                   ],
                   [
                     "Mobilization / remob (min 6 hr)",
-                    "$5,000 minimo"
+                    "$5,000 mínimo"
                   ],
                   [
                     "Permit Acquisition",
                     "$1,100"
                   ],
                   [
-                    "Interes moratorio (Civ 3289b)",
+                    "Interés moratorio (Civ 3289b)",
                     "10% anual simple"
                   ],
                   [
@@ -3479,7 +3479,7 @@ export const COURSES: Course[] = [
                 "type": "list",
                 "v": [
                   "El markup correctivo es 25% en el Subcontrato y de 20 a 30% en el MSA.",
-                  "Terminos de pago: prompt pay 7 dias (B&P 7108.5), backstop 120 dias, retencion 5% (Civ 8811) y tope de retencion 150%."
+                  "Términos de pago: prompt pay 7 días (B&P 7108.5), backstop 120 días, retención 5% (Civ 8811) y tope de retención 150%."
                 ]
               }
             ]
@@ -3487,7 +3487,7 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "Cual es la garantia del concreto en el MSA 2026?",
+            "q": "¿Cuál es la garantía del concreto en el MSA 2026?",
             "opts": [
               "3 años",
               "5 años",
@@ -3495,10 +3495,10 @@ export const COURSES: Course[] = [
               "15 años"
             ],
             "a": 1,
-            "ex": "El concreto subio de 3 a 5 años estructural, aprobado el 2026-05-07."
+            "ex": "El concreto subió de 3 a 5 años estructural, aprobado el 2026-05-07."
           },
           {
-            "q": "Cuanto cuesta el standby por hora por Resource?",
+            "q": "¿Cuánto cuesta el standby por hora por Resource?",
             "opts": [
               "$97",
               "$350",
@@ -3509,7 +3509,7 @@ export const COURSES: Course[] = [
             "ex": "El standby es $575 por hora por Resource."
           },
           {
-            "q": "Cuantos articulos tiene el WLP MSA 2026 Branded?",
+            "q": "¿Cuántos artículos tiene el WLP MSA 2026 Branded?",
             "opts": [
               "14",
               "29",
@@ -3517,10 +3517,10 @@ export const COURSES: Course[] = [
               "11"
             ],
             "a": 2,
-            "ex": "El MSA tiene 45 articulos y 29 paginas."
+            "ex": "El MSA tiene 45 artículos y 29 páginas."
           },
           {
-            "q": "Cual es el interes moratorio segun Civ 3289b?",
+            "q": "¿Cuál es el interés moratorio según Civ 3289b?",
             "opts": [
               "3% anual",
               "5% anual",
@@ -3528,7 +3528,7 @@ export const COURSES: Course[] = [
               "12% anual"
             ],
             "a": 2,
-            "ex": "El interes moratorio es 10% anual simple."
+            "ex": "El interés moratorio es 10% anual simple."
           }
         ]
       },
@@ -3537,24 +3537,24 @@ export const COURSES: Course[] = [
         "num": "02",
         "icon": "receipt",
         "dur": "25 min",
-        "title": "Clasificacion laboral, seguros y postura fiscal",
-        "tag": "Como se paga la gente, quien asegura la obra y como se factura entre entidades sin crear riesgo.",
+        "title": "Clasificación laboral, seguros y postura fiscal",
+        "tag": "Cómo se paga la gente, quién asegura la obra y cómo se factura entre entidades sin crear riesgo.",
         "objectives": [
-          "Entender la regla AB5 y la clasificacion laboral de WLP.",
-          "Conocer las polizas de seguro vivas y los minimos a subcontratistas.",
+          "Entender la regla AB5 y la clasificación laboral de WLP.",
+          "Conocer las pólizas de seguro vivas y los mínimos a subcontratistas.",
           "Ubicar la postura fiscal intercompany y de contractors MX."
         ],
         "lessons": [
           {
-            "t": "Clasificacion laboral (AB5)",
+            "t": "Clasificación laboral (AB5)",
             "blocks": [
               {
                 "type": "list",
                 "v": [
-                  "AB5 y el Labor Code 2775 siguen sin resolver mientras el Subcontractor Agreement continue bloqueado (riesgo ALTO abierto).",
+                  "AB5 y el Labor Code 2775 siguen sin resolver mientras el Subcontractor Agreement continúe bloqueado (riesgo ALTO abierto).",
                   "La regla operativa es que la labor directa se paga W-2 por hora SOLAMENTE, nunca 1099 ni sub.",
-                  "El Subcontractor Agreement aplica solo a cuadrillas o companias externas, no a labor directa.",
-                  "El core team de Pavific (BI/backoffice) FALLA el Prong B de AB5 porque hace el negocio core de Pavific, y ningun lenguaje contractual lo cura."
+                  "El Subcontractor Agreement aplica solo a cuadrillas o compañías externas, no a labor directa.",
+                  "El core team de Pavific (BI/backoffice) FALLA el Prong B de AB5 porque hace el negocio core de Pavific, y ningún lenguaje contractual lo cura."
                 ]
               },
               {
@@ -3570,10 +3570,10 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "CGL y Completed Ops con Champlain Specialty Insurance Co., poliza CSAR-CGL-000388202, efectiva 06/15/2025.",
-                  "Workers Comp con Everest Premier Insurance Co., poliza 7600023032251, efectiva 08/04/2025.",
-                  "CSLB Bond con Platte River Insurance Co., poliza PR2759750, por $25K, efectivo 11/24/2024.",
-                  "Minimos exigidos a subcontratistas: CGL $2M por $4M, Workers Comp statutory, Auto $1M y Umbrella $2M, con WLP como Additional Insured."
+                  "CGL y Completed Ops con Champlain Specialty Insurance Co., póliza CSAR-CGL-000388202, efectiva 06/15/2025.",
+                  "Workers Comp con Everest Premier Insurance Co., póliza 7600023032251, efectiva 08/04/2025.",
+                  "CSLB Bond con Platte River Insurance Co., póliza PR2759750, por $25K, efectivo 11/24/2024.",
+                  "Mínimos exigidos a subcontratistas: CGL $2M por $4M, Workers Comp statutory, Auto $1M y Umbrella $2M, con WLP como Additional Insured."
                 ]
               }
             ]
@@ -3584,7 +3584,7 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "Los contractors de Mexico facturan con CFDI 4.0, RFC XEXX010101000, Regimen 616, Uso G03 y CP 95054.",
+                  "Los contractors de México facturan con CFDI 4.0, RFC XEXX010101000, Régimen 616, Uso G03 y CP 95054.",
                   "El IVA es 0% por export de servicios (LIVA Art. 29) y se suman IMSS, INFONAVIT y PTU al indemnity.",
                   "El Fractional CEO se paga con 1099-NEC a MarginRight, no W-2.",
                   "El billing intercompany de Pavific a WLP debe ser arm's-length y defendible en transfer pricing, sin usar fondos SBA para facturas no soportadas."
@@ -3601,7 +3601,7 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "Como se paga la labor directa segun la regla operativa?",
+            "q": "¿Cómo se paga la labor directa según la regla operativa?",
             "opts": [
               "Con 1099",
               "W-2 por hora",
@@ -3612,7 +3612,7 @@ export const COURSES: Course[] = [
             "ex": "La labor directa es W-2 por hora solamente, nunca 1099 ni sub."
           },
           {
-            "q": "Que monto cubre el CSLB Bond con Platte River?",
+            "q": "¿Qué monto cubre el CSLB Bond con Platte River?",
             "opts": [
               "$10K",
               "$25K",
@@ -3623,7 +3623,7 @@ export const COURSES: Course[] = [
             "ex": "El CSLB Bond es por $25K."
           },
           {
-            "q": "Cual es el minimo de CGL exigido a subcontratistas?",
+            "q": "¿Cuál es el mínimo de CGL exigido a subcontratistas?",
             "opts": [
               "$1M / $2M",
               "$2M / $4M",
@@ -3631,10 +3631,10 @@ export const COURSES: Course[] = [
               "$5M / $10M"
             ],
             "a": 1,
-            "ex": "El minimo de CGL a subcontratistas es $2M por $4M."
+            "ex": "El mínimo de CGL a subcontratistas es $2M por $4M."
           },
           {
-            "q": "Que IVA aplica al export de servicios de contractors MX?",
+            "q": "¿Qué IVA aplica al export de servicios de contractors MX?",
             "opts": [
               "16%",
               "8%",
@@ -3651,16 +3651,16 @@ export const COURSES: Course[] = [
         "num": "03",
         "icon": "landmark",
         "dur": "25 min",
-        "title": "Como cobra y se protege WLP: liens y disputas",
-        "tag": "El trabajo no termina cuando se instala el asfalto, termina cuando se cobra. Aqui esta el blindaje legal del pago.",
+        "title": "Cómo cobra y se protege WLP: liens y disputas",
+        "tag": "El trabajo no termina cuando se instala el asfalto, termina cuando se cobra. Aquí está el blindaje legal del pago.",
         "objectives": [
-          "Ubicar los terminos de pago y de retencion verificados.",
-          "Entender el proceso de mechanics lien y sus fechas criticas.",
-          "Reconocer que hace la empresa cuando un cliente no paga."
+          "Ubicar los términos de pago y de retención verificados.",
+          "Entender el proceso de mechanics lien y sus fechas críticas.",
+          "Reconocer qué hace la empresa cuando un cliente no paga."
         ],
         "lessons": [
           {
-            "t": "Terminos de pago y retencion",
+            "t": "Términos de pago y retención",
             "blocks": [
               {
                 "type": "table",
@@ -3672,26 +3672,26 @@ export const COURSES: Course[] = [
                 "rows": [
                   [
                     "Prompt pay",
-                    "7 dias",
+                    "7 días",
                     "B&P 7108.5"
                   ],
                   [
                     "Backstop de pago",
-                    "120 dias",
+                    "120 días",
                     "Contrato"
                   ],
                   [
-                    "Retencion",
+                    "Retención",
                     "5%",
                     "Civ 8811"
                   ],
                   [
-                    "Tope de retencion",
+                    "Tope de retención",
                     "150%",
                     "Contrato"
                   ],
                   [
-                    "Interes moratorio",
+                    "Interés moratorio",
                     "10% anual simple",
                     "Civ 3289(b)"
                   ],
@@ -3738,23 +3738,23 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "Parker Stanbury LLP (Alex L. Shia) envio demand letter el 2026-04-27, re Zero Impact Solutions / Arden Acres Inc.",
+                  "Parker Stanbury LLP (Alex L. Shia) envió demand letter el 2026-04-27, re Zero Impact Solutions / Arden Acres Inc.",
                   "Contrato de $14,861.04; monto demandado $17,136.04; lien grabado el 2026-03-03; deadline de foreclosure 2026-06-01 (Civ 8460).",
-                  "Pendiente critico real: verificar el servicio del 20-Day Preliminary Notice (Civ 8200) a Arden Acres, y localizar el numero de instrumento del lien grabado."
+                  "Pendiente crítico real: verificar el servicio del 20-Day Preliminary Notice (Civ 8200) a Arden Acres, y localizar el número de instrumento del lien grabado."
                 ]
               },
               {
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "Ademas del termino de garantia, WLP carga exposicion de defecto latente por 10 años bajo Civ 337.15 (statute of repose). Se puede reclamar un defecto oculto aunque la garantia contratada sea menor."
+                "v": "Además del término de garantía, WLP carga exposición de defecto latente por 10 años bajo Civ 337.15 (statute of repose). Se puede reclamar un defecto oculto aunque la garantía contratada sea menor."
               }
             ]
           }
         ],
         "quiz": [
           {
-            "q": "Que retencion y base legal aplica WLP?",
+            "q": "¿Qué retención y base legal aplica WLP?",
             "opts": [
               "10% por contrato",
               "5% Civ 8811",
@@ -3762,21 +3762,21 @@ export const COURSES: Course[] = [
               "20% B&P"
             ],
             "a": 1,
-            "ex": "La retencion es 5% con base en Civ 8811, con tope de retencion de 150%."
+            "ex": "La retención es 5% con base en Civ 8811, con tope de retención de 150%."
           },
           {
-            "q": "Que pasa si no se sirve el 20-Day Preliminary Notice (Civ 8200)?",
+            "q": "¿Qué pasa si no se sirve el 20-Day Preliminary Notice (Civ 8200)?",
             "opts": [
               "No pasa nada",
               "El lien se cae y se pierde el derecho",
-              "Sube el interes",
-              "Se duplica la retencion"
+              "Sube el interés",
+              "Se duplica la retención"
             ],
             "a": 1,
             "ex": "Sin el 20-Day Notice servido, el derecho a mechanics lien se pierde."
           },
           {
-            "q": "Cual es el interes moratorio verificado?",
+            "q": "¿Cuál es el interés moratorio verificado?",
             "opts": [
               "3% anual",
               "10% anual simple (Civ 3289b)",
@@ -3784,10 +3784,10 @@ export const COURSES: Course[] = [
               "16%"
             ],
             "a": 1,
-            "ex": "El interes moratorio es 10% anual simple bajo Civ 3289(b)."
+            "ex": "El interés moratorio es 10% anual simple bajo Civ 3289(b)."
           },
           {
-            "q": "Cuanto dura la exposicion de defecto latente (statute of repose)?",
+            "q": "¿Cuánto dura la exposición de defecto latente (statute of repose)?",
             "opts": [
               "1 año",
               "5 años",
@@ -3795,7 +3795,7 @@ export const COURSES: Course[] = [
               "No existe"
             ],
             "a": 2,
-            "ex": "Civ 337.15 fija 10 años de statute of repose, sin importar el termino de garantia."
+            "ex": "Civ 337.15 fija 10 años de statute of repose, sin importar el término de garantía."
           }
         ]
       },
@@ -3804,60 +3804,60 @@ export const COURSES: Course[] = [
         "num": "04",
         "icon": "shield",
         "dur": "20 min",
-        "title": "Que puede y que NO puede prometer un advisor",
-        "tag": "Una promesa de mas se vuelve exposicion legal. Estos son los limites que protegen al cliente y a la empresa.",
+        "title": "Qué puede y qué NO puede prometer un advisor",
+        "tag": "Una promesa de más se vuelve exposición legal. Estos son los límites que protegen al cliente y a la empresa.",
         "objectives": [
           "Distinguir lo que se puede prometer de lo que crea riesgo.",
-          "Aplicar la regla de garantia sin caer en publicidad falsa.",
-          "Saber cuando un documento todavia NO se puede firmar ni presentar como aprobado."
+          "Aplicar la regla de garantía sin caer en publicidad falsa.",
+          "Saber cuándo un documento todavía NO se puede firmar ni presentar como aprobado."
         ],
         "lessons": [
           {
-            "t": "Garantia: la linea que no se cruza",
+            "t": "Garantía: la línea que no se cruza",
             "blocks": [
               {
                 "type": "list",
                 "v": [
                   "Asfalto full-depth: hasta 15 años renovable, SOLO bajo el Paving Panda Pledge (opt-in).",
                   "Concreto: 5 años estructural (default MSA 2026). NO es elegible al tier Pledge.",
-                  "Menores por flow-down: sealcoat y striping 30 dias; parches menores a 1,000 SF 30 dias; full-depth residencial de 2.5 a 3 pulgadas 1 año."
+                  "Menores por flow-down: sealcoat y striping 30 días; parches menores a 1,000 SF 30 días; full-depth residencial de 2.5 a 3 pulgadas 1 año."
                 ]
               },
               {
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "NUNCA promover 15 años de garantia en concreto. Ese PDF era exposicion bajo 17500 (publicidad falsa) y quedo retirado. Concreto es 5, asfalto hasta 15."
+                "v": "NUNCA promover 15 años de garantía en concreto. Ese PDF era exposición bajo 17500 (publicidad falsa) y quedó retirado. Concreto es 5, asfalto hasta 15."
               }
             ]
           },
           {
-            "t": "Documentos que todavia NO estan listos",
+            "t": "Documentos que todavía NO están listos",
             "blocks": [
               {
                 "type": "list",
                 "v": [
-                  "El MSA cliente esta CERRADO pero falta el sign-off final de Fred y Elizabeth antes del primer cliente de concreto.",
-                  "El WLP Subcontractor Agreement esta BLOQUEADO (no aprobado): no presentarlo como vigente. Tiene un typo critico (arbitraje 'unbinding' inejecutable) y le falta el articulo de AB5 (Labor Code 2775).",
-                  "El Pavific MSA Mexico es solo provisionalmente defendible: requiere abogado mexicano certificado antes de cualquier firma.",
-                  "Los contratos que aun digan 'Pavific Inc' deben decir 'Pavific Corp' antes de firmar."
+                  "El MSA cliente está CERRADO pero falta el sign-off final de Fred y Elizabeth antes del primer cliente de concreto.",
+                  "El WLP Subcontractor Agreement está BLOQUEADO (no aprobado): no presentarlo como vigente. Tiene un typo crítico (arbitraje 'unbinding' inejecutable) y le falta el artículo de AB5 (Labor Code 2775).",
+                  "El Pavific MSA México es solo provisionalmente defendible: requiere abogado mexicano certificado antes de cualquier firma.",
+                  "Los contratos que aún digan 'Pavific Inc' deben decir 'Pavific Corp' antes de firmar."
                 ]
               },
               {
                 "type": "rule",
                 "lab": "Regla dura",
-                "v": "Un draft NO es vinculante hasta el review de un abogado licenciado de la jurisdiccion correcta. No presentar un contrato bloqueado o pendiente como si estuviera aprobado."
+                "v": "Un draft NO es vinculante hasta el review de un abogado licenciado de la jurisdicción correcta. No presentar un contrato bloqueado o pendiente como si estuviera aprobado."
               }
             ]
           },
           {
-            "t": "Gente y numeros: no improvisar",
+            "t": "Gente y números: no improvisar",
             "blocks": [
               {
                 "type": "list",
                 "v": [
                   "Labor directa se paga W-2 por hora SOLAMENTE, nunca 1099 ni subcontrato. AB5 sigue como riesgo abierto.",
-                  "El pricing se cotiza con los valores verificados del schedule, no con numeros inventados.",
+                  "El pricing se cotiza con los valores verificados del schedule, no con números inventados.",
                   "Datos no confirmados (tipo fiscal de Pavific, EIN, % de propiedad de los founders) no se afirman: se marcan como pendientes."
                 ]
               },
@@ -3865,25 +3865,25 @@ export const COURSES: Course[] = [
                 "type": "callout",
                 "style": "tip",
                 "ci": "lightbulb",
-                "v": "La regla de oro legal: el margen financia la garantia, y la garantia es la promesa de marca. Prometer de mas no vende mas, solo transfiere riesgo a la empresa."
+                "v": "La regla de oro legal: el margen financia la garantía, y la garantía es la promesa de marca. Prometer de más no vende más, solo transfiere riesgo a la empresa."
               }
             ]
           }
         ],
         "quiz": [
           {
-            "q": "Se puede ofrecer garantia de 15 años en concreto?",
+            "q": "¿Se puede ofrecer garantía de 15 años en concreto?",
             "opts": [
-              "Si, siempre",
+              "Sí, siempre",
               "Solo con descuento",
-              "No, nunca (concreto es 5, exposicion 17500)",
+              "No, nunca (concreto es 5, exposición 17500)",
               "Solo por escrito"
             ],
             "a": 2,
-            "ex": "Nunca. 15 años es solo asfalto bajo el Pledge; en concreto seria publicidad falsa bajo 17500."
+            "ex": "Nunca. 15 años es solo asfalto bajo el Pledge; en concreto sería publicidad falsa bajo 17500."
           },
           {
-            "q": "Como debe tratarse el Subcontractor Agreement hoy?",
+            "q": "¿Cómo debe tratarse el Subcontractor Agreement hoy?",
             "opts": [
               "Como vigente y aprobado",
               "Como bloqueado y no aprobado",
@@ -3891,10 +3891,10 @@ export const COURSES: Course[] = [
               "Como firmado"
             ],
             "a": 1,
-            "ex": "Esta BLOQUEADO: Elizabeth no lo reviso, tiene un typo critico y le falta el articulo de AB5."
+            "ex": "Está BLOQUEADO: Elizabeth no lo revisó, tiene un typo crítico y le falta el artículo de AB5."
           },
           {
-            "q": "Como se paga la labor directa?",
+            "q": "¿Cómo se paga la labor directa?",
             "opts": [
               "1099",
               "Subcontrato",
@@ -3905,9 +3905,9 @@ export const COURSES: Course[] = [
             "ex": "Labor directa es W-2 por hora solamente; AB5 sigue abierto."
           },
           {
-            "q": "Que se hace con un dato no confirmado (ej. el tipo fiscal de Pavific)?",
+            "q": "¿Qué se hace con un dato no confirmado (ej. el tipo fiscal de Pavific)?",
             "opts": [
-              "Se asume el mas probable",
+              "Se asume el más probable",
               "Se afirma con seguridad",
               "Se marca como pendiente, no se afirma",
               "Se inventa"
@@ -3936,21 +3936,21 @@ export const COURSES: Course[] = [
         "icon": "database",
         "dur": "25 min",
         "title": "Stack, CRM y flujo de leads",
-        "tag": "Donde vive el codigo, donde viven los datos y como viaja un lead de la landing al CRM.",
+        "tag": "Dónde vive el código, dónde viven los datos y cómo viaja un lead de la landing al CRM.",
         "objectives": [
-          "Saber donde esta la fuente de verdad del codigo y del dato.",
+          "Saber dónde está la fuente de verdad del código y del dato.",
           "Conocer el CRM, Pipedrive y Jobber como fuentes.",
           "Trazar el flujo del quote form de punta a punta."
         ],
         "lessons": [
           {
-            "t": "Donde vive el codigo y el stack",
+            "t": "Dónde vive el código y el stack",
             "blocks": [
               {
                 "type": "list",
                 "v": [
-                  "El codigo canonico del ERP, analytics y WLM vive en el repositorio, NO en el vault del brain; las notas del brain son descripciones (stubs), no la fuente de verdad del codigo.",
-                  "La IP hero del ecosistema es el stack de analytics y dashboards, no el ERP (decision D-026).",
+                  "El código canónico del ERP, analytics y WLM vive en el repositorio, NO en el vault del brain; las notas del brain son descripciones (stubs), no la fuente de verdad del código.",
+                  "La IP hero del ecosistema es el stack de analytics y dashboards, no el ERP (decisión D-026).",
                   "Los deploys conocidos corren en Vercel: wlpemail.vercel.app (motor de email) y marginfoundry.vercel.app.",
                   "La base de datos usa Supabase, con el ERP de WLP y un proyecto llamado WE LOVE MARKETING INTELLIGENCE."
                 ]
@@ -3958,7 +3958,7 @@ export const COURSES: Course[] = [
               {
                 "type": "rule",
                 "lab": "Regla de uso 1",
-                "v": "Para tocar codigo se va al repositorio. El vault solo describe, no es la fuente del codigo."
+                "v": "Para tocar código se va al repositorio. El vault solo describe, no es la fuente del código."
               }
             ]
           },
@@ -3968,10 +3968,10 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "El ERP en Supabase tiene las tablas leads y lead_activities, con un pipeline de 7 etapas y un catalogo lead_source normalizado.",
+                  "El ERP en Supabase tiene las tablas leads y lead_activities, con un pipeline de 7 etapas y un catálogo lead_source normalizado.",
                   "Existe un CRM de email en Supabase (crm_leads) con 687 leads registrados.",
                   "Las fuentes de datos del CRM son Jobber (538 jobs) y Pipedrive (2,359 clientes).",
-                  "El riesgo recurrente es el naming inconsistente de lead_source, que rompe el loop de atribucion de marketing."
+                  "El riesgo recurrente es el naming inconsistente de lead_source, que rompe el loop de atribución de marketing."
                 ]
               }
             ]
@@ -3983,9 +3983,9 @@ export const COURSES: Course[] = [
                 "type": "list",
                 "v": [
                   "El quote form vive en quote.welovepaving.com y su endpoint de leads es /api/submit.",
-                  "Ademas existe /api/health (GET 200) como blanco de monitoreo de uptime.",
+                  "Además existe /api/health (GET 200) como blanco de monitoreo de uptime.",
                   "El endpoint fue endurecido el 2026-06-21, pasando de CORS abierto a un esquema fail-open de 3 capas anti-abuso.",
-                  "El principio de diseño es fail-open: ningun lead humano legitimo se bloquea aunque las defensas esten activas."
+                  "El principio de diseño es fail-open: ningún lead humano legítimo se bloquea aunque las defensas estén activas."
                 ]
               },
               {
@@ -3999,7 +3999,7 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "Donde vive la fuente de verdad del codigo del ERP?",
+            "q": "¿Dónde vive la fuente de verdad del código del ERP?",
             "opts": [
               "En el vault del brain",
               "En el repositorio",
@@ -4007,10 +4007,10 @@ export const COURSES: Course[] = [
               "En Vercel"
             ],
             "a": 1,
-            "ex": "El codigo canonico vive en el repositorio; el vault solo describe."
+            "ex": "El código canónico vive en el repositorio; el vault solo describe."
           },
           {
-            "q": "Cuantos clientes aporta Pipedrive como fuente del CRM?",
+            "q": "¿Cuántos clientes aporta Pipedrive como fuente del CRM?",
             "opts": [
               "538",
               "687",
@@ -4021,7 +4021,7 @@ export const COURSES: Course[] = [
             "ex": "Pipedrive aporta 2,359 clientes; Jobber aporta 538 jobs."
           },
           {
-            "q": "Cual es el endpoint de leads del quote form?",
+            "q": "¿Cuál es el endpoint de leads del quote form?",
             "opts": [
               "/api/health",
               "/api/submit",
@@ -4032,7 +4032,7 @@ export const COURSES: Course[] = [
             "ex": "El endpoint de leads es /api/submit; /api/health es solo uptime."
           },
           {
-            "q": "Cuantas etapas tiene el pipeline del ERP en Supabase?",
+            "q": "¿Cuántas etapas tiene el pipeline del ERP en Supabase?",
             "opts": [
               "3",
               "5",
@@ -4050,11 +4050,11 @@ export const COURSES: Course[] = [
         "icon": "lock",
         "dur": "25 min",
         "title": "Seguridad y manejo de secretos",
-        "tag": "Las llaves del reino no se pegan en notas ni en el chat. Aqui esta la disciplina de seguridad de WLP.",
+        "tag": "Las llaves del reino no se pegan en notas ni en el chat. Aquí está la disciplina de seguridad de WLP.",
         "objectives": [
           "Conocer las 3 capas anti-abuso del quote form.",
-          "Aplicar las buenas practicas de manejo de secretos.",
-          "Ubicar las exposiciones abiertas y su remediacion."
+          "Aplicar las buenas prácticas de manejo de secretos.",
+          "Ubicar las exposiciones abiertas y su remediación."
         ],
         "lessons": [
           {
@@ -4064,15 +4064,15 @@ export const COURSES: Course[] = [
                 "type": "list",
                 "v": [
                   "Capa 1: rate limit del Vercel WAF, que permite 10 requests por 600 segundos por IP.",
-                  "Capa 2: validacion de origen en codigo, que solo devuelve 403 a un Origin explicito ajeno; un Origin ausente pasa.",
-                  "Capa 3: anti-spam silencioso con honeypot, time-trap (menos de 3 segundos) y deteccion de link-spam, que responde un fake-OK sin crear lead.",
-                  "El resultado del diseño es que ningun lead humano legitimo queda bloqueado."
+                  "Capa 2: validación de origen en código, que solo devuelve 403 a un Origin explícito ajeno; un Origin ausente pasa.",
+                  "Capa 3: anti-spam silencioso con honeypot, time-trap (menos de 3 segundos) y detección de link-spam, que responde un fake-OK sin crear lead.",
+                  "El resultado del diseño es que ningún lead humano legítimo queda bloqueado."
                 ]
               }
             ]
           },
           {
-            "t": "Manejo de secretos y buenas practicas",
+            "t": "Manejo de secretos y buenas prácticas",
             "blocks": [
               {
                 "type": "list",
@@ -4087,20 +4087,20 @@ export const COURSES: Course[] = [
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "C:\\tmp es scratch space. Si un proceso sigue regenerando copias de secretos ahi, hay que apuntarlo a la carpeta de secretos, no a tmp."
+                "v": "C:\\tmp es scratch space. Si un proceso sigue regenerando copias de secretos ahí, hay que apuntarlo a la carpeta de secretos, no a tmp."
               }
             ]
           },
           {
-            "t": "Exposiciones abiertas y remediacion",
+            "t": "Exposiciones abiertas y remediación",
             "blocks": [
               {
                 "type": "list",
                 "v": [
-                  "Hallazgos accionables: un token de Pipedrive en texto plano, una anon key de Supabase en un archivo publico y un Supabase de CRM editable por cualquiera con el link (sin auth).",
-                  "La accion D-007 (security-critical) sigue abierta: mover el archivo de accesos con passwords en texto plano a /08_restricted.",
-                  "El gestor de credenciales del equipo no esta resuelto: la decision entre 1Password y Bitwarden sigue pendiente.",
-                  "Patron correcto: las tablas SEM en Supabase se crearon con RLS prendido y politica service_role-only, no expuestas con anon key."
+                  "Hallazgos accionables: un token de Pipedrive en texto plano, una anon key de Supabase en un archivo público y un Supabase de CRM editable por cualquiera con el link (sin auth).",
+                  "La acción D-007 (security-critical) sigue abierta: mover el archivo de accesos con passwords en texto plano a /08_restricted.",
+                  "El gestor de credenciales del equipo no está resuelto: la decisión entre 1Password y Bitwarden sigue pendiente.",
+                  "Patrón correcto: las tablas SEM en Supabase se crearon con RLS prendido y política service_role-only, no expuestas con anon key."
                 ]
               },
               {
@@ -4113,29 +4113,29 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "Que hace la Capa 1 (Vercel WAF) del quote form?",
+            "q": "¿Qué hace la Capa 1 (Vercel WAF) del quote form?",
             "opts": [
               "Honeypot y time-trap",
               "Rate limit de 10 requests por 600 segundos por IP",
-              "Validacion de origen con 403",
+              "Validación de origen con 403",
               "Rotar tokens"
             ],
             "a": 1,
             "ex": "La Capa 1 es rate limit del WAF: 10 requests por 600 segundos por IP."
           },
           {
-            "q": "Donde deben ir los secretos, no las notas del vault?",
+            "q": "¿Dónde deben ir los secretos, no las notas del vault?",
             "opts": [
               "En C:\\tmp",
               "En el chat",
               "En /08_restricted",
-              "En un crm publico"
+              "En un crm público"
             ],
             "a": 2,
             "ex": "Regla dura: los secretos van a /08_restricted, nunca a notas del vault."
           },
           {
-            "q": "Que imprimen los scripts sobre los secretos?",
+            "q": "¿Qué imprimen los scripts sobre los secretos?",
             "opts": [
               "El valor completo del token",
               "Solo OK o FALTA",
@@ -4146,7 +4146,7 @@ export const COURSES: Course[] = [
             "ex": "Los scripts nunca loguean valores: solo OK o FALTA."
           },
           {
-            "q": "Que estado tiene la accion D-007?",
+            "q": "¿Qué estado tiene la acción D-007?",
             "opts": [
               "Cerrada",
               "Abierta y security-critical",
@@ -4179,8 +4179,8 @@ export const COURSES: Course[] = [
         "title": "Vender resultados, no productos",
         "tag": "Fundamento",
         "objectives": [
-          "Traducir cualquier caracteristica tecnica en un resultado de negocio para el cliente.",
-          "Anclar la conversacion en el valor antes de que aparezca el precio.",
+          "Traducir cualquier característica técnica en un resultado de negocio para el cliente.",
+          "Anclar la conversación en el valor antes de que aparezca el precio.",
           "Educar al prospecto en lugar de presionarlo."
         ],
         "lessons": [
@@ -4193,12 +4193,12 @@ export const COURSES: Course[] = [
               },
               {
                 "type": "p",
-                "v": "El vendedor promedio habla de lo que hace (\"ponemos 3 pulgadas de carpeta\"). El vendedor consultivo habla de lo que el cliente obtiene (\"tu piso aguanta el trafico de camiones 15 años sin baches\"). Es la misma obra, contada desde el lado del cliente."
+                "v": "El vendedor promedio habla de lo que hace (\"ponemos 3 pulgadas de carpeta\"). El vendedor consultivo habla de lo que el cliente obtiene (\"tu piso aguanta el tráfico de camiones 15 años sin baches\"). Es la misma obra, contada desde el lado del cliente."
               },
               {
                 "type": "table",
                 "head": [
-                  "Lo que dice el tecnico",
+                  "Lo que dice el técnico",
                   "Lo que oye el cliente"
                 ],
                 "rows": [
@@ -4207,7 +4207,7 @@ export const COURSES: Course[] = [
                     "Tu piso no se hunde ni se agrieta el primer invierno"
                   ],
                   [
-                    "Garantia de 15 años en asfalto",
+                    "Garantía de 15 años en asfalto",
                     "No vuelves a pagar por esto en mucho tiempo"
                   ],
                   [
@@ -4224,7 +4224,7 @@ export const COURSES: Course[] = [
                 "type": "callout",
                 "style": "tip",
                 "ci": "lightbulb",
-                "v": "Ejercicio: toma cualquier detalle tecnico de tu propuesta y termina la frase 'lo que significa para ti es...'. Si no puedes, todavia no lo entiendes como resultado."
+                "v": "Ejercicio: toma cualquier detalle técnico de tu propuesta y termina la frase 'lo que significa para ti es...'. Si no puedes, todavía no lo entiendes como resultado."
               }
             ]
           },
@@ -4233,7 +4233,7 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "El precio solo duele cuando el cliente no ve valor. Si abres con el numero, cualquier cifra parece alta porque no hay nada con que compararla. Si primero construyes el valor (el problema que resuelves, el costo de NO resolverlo, lo que arriesga con un competidor barato), el precio se vuelve una consecuencia logica, no un susto."
+                "v": "El precio solo duele cuando el cliente no ve valor. Si abres con el número, cualquier cifra parece alta porque no hay nada con qué compararla. Si primero construyes el valor (el problema que resuelves, el costo de NO resolverlo, lo que arriesga con un competidor barato), el precio se vuelve una consecuencia lógica, no un susto."
               },
               {
                 "type": "h",
@@ -4241,14 +4241,14 @@ export const COURSES: Course[] = [
               },
               {
                 "type": "p",
-                "v": "Un trabajo mal hecho no es mas barato: es mas caro en cuotas. La base mal compactada revienta, el cliente vuelve a pagar, pierde dias de operacion y la reputacion de su propiedad. Vender resultados incluye hacer visible ese costo oculto: no atacas al competidor, expones el riesgo."
+                "v": "Un trabajo mal hecho no es más barato: es más caro en cuotas. La base mal compactada revienta, el cliente vuelve a pagar, pierde días de operación y la reputación de su propiedad. Vender resultados incluye hacer visible ese costo oculto: no atacas al competidor, expones el riesgo."
               },
               {
                 "type": "list",
                 "v": [
                   "Primero el problema y su costo real (baches, demandas, mala imagen).",
-                  "Luego el resultado que entregas y por que dura.",
-                  "Al final el precio, ya enmarcado como inversion que se paga sola."
+                  "Luego el resultado que entregas y por qué dura.",
+                  "Al final el precio, ya enmarcado como inversión que se paga sola."
                 ]
               }
             ]
@@ -4258,31 +4258,31 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "La venta consultiva es enseñar. Un cliente que entiende por que la base lo es todo, por que una garantia larga solo la ofrece quien confia en su obra, y por que el precio mas bajo suele ser el mas caro, se vende solo. No cierras apretando: cierras aclarando."
+                "v": "La venta consultiva es enseñar. Un cliente que entiende por qué la base lo es todo, por qué una garantía larga solo la ofrece quien confía en su obra, y por qué el precio más bajo suele ser el más caro, se vende solo. No cierras apretando: cierras aclarando."
               },
               {
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "Presionar funciona una vez y quema el prospecto. Educar construye la confianza que trae la recompra y la referencia. En un negocio donde el cuello de botella es el volumen de leads, quemar uno es carisimo."
+                "v": "Presionar funciona una vez y quema el prospecto. Educar construye la confianza que trae la recompra y la referencia. En un negocio donde el cuello de botella es el volumen de leads, quemar uno es carísimo."
               }
             ]
           }
         ],
         "quiz": [
           {
-            "q": "Que compra realmente el cliente?",
+            "q": "¿Qué compra realmente el cliente?",
             "opts": [
               "Asfalto y concreto",
               "El resultado: un piso que dura y no lo demanda",
-              "La cuadrilla mas grande",
-              "El material mas caro"
+              "La cuadrilla más grande",
+              "El material más caro"
             ],
             "a": 1,
             "ex": "El cliente compra el resultado de negocio, no el material."
           },
           {
-            "q": "Cuando duele el precio?",
+            "q": "¿Cuándo duele el precio?",
             "opts": [
               "Siempre",
               "Cuando el cliente no ve valor",
@@ -4290,23 +4290,23 @@ export const COURSES: Course[] = [
               "Nunca"
             ],
             "a": 1,
-            "ex": "El precio solo duele cuando no se construyo valor primero."
+            "ex": "El precio solo duele cuando no se construyó valor primero."
           },
           {
-            "q": "Como se debe presentar una caracteristica tecnica?",
+            "q": "¿Cómo se debe presentar una característica técnica?",
             "opts": [
-              "Con terminos de ingenieria",
+              "Con términos de ingeniería",
               "Traducida al resultado para el cliente",
               "Con el precio por delante",
               "Sin explicarla"
             ],
             "a": 1,
-            "ex": "Toda caracteristica se traduce a un resultado de negocio."
+            "ex": "Toda característica se traduce a un resultado de negocio."
           },
           {
-            "q": "Que logra educar en vez de presionar?",
+            "q": "¿Qué logra educar en vez de presionar?",
             "opts": [
-              "Cierra mas rapido a la fuerza",
+              "Cierra más rápido a la fuerza",
               "Construye confianza, recompra y referencias",
               "Baja el precio",
               "Evita cotizar"
@@ -4321,7 +4321,7 @@ export const COURSES: Course[] = [
         "num": "02",
         "icon": "compass",
         "dur": "24 min",
-        "title": "Descubrimiento y calificacion",
+        "title": "Descubrimiento y calificación",
         "tag": "Proceso",
         "objectives": [
           "Hacer las preguntas correctas antes de cotizar.",
@@ -4334,7 +4334,7 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "Cotizar sin descubrir es adivinar. Antes de dar un numero necesitas entender el problema real, la urgencia, quien decide y cual es el presupuesto aproximado. Una propuesta hecha sobre supuestos se cae; una hecha sobre respuestas del cliente se defiende sola."
+                "v": "Cotizar sin descubrir es adivinar. Antes de dar un número necesitas entender el problema real, la urgencia, quién decide y cuál es el presupuesto aproximado. Una propuesta hecha sobre supuestos se cae; una hecha sobre respuestas del cliente se defiende sola."
               },
               {
                 "type": "h",
@@ -4343,18 +4343,18 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "Que problema esta resolviendo y desde cuando lo tiene.",
-                  "Que pasa si no lo resuelve (costo de no actuar).",
-                  "Quien mas participa en la decision.",
-                  "Que plazo tiene en mente.",
-                  "Ha trabajado con alguien antes y como le fue."
+                  "Qué problema está resolviendo y desde cuándo lo tiene.",
+                  "Qué pasa si no lo resuelve (costo de no actuar).",
+                  "Quién más participa en la decisión.",
+                  "Qué plazo tiene en mente.",
+                  "Ha trabajado con alguien antes y cómo le fue."
                 ]
               },
               {
                 "type": "callout",
                 "style": "tip",
                 "ci": "lightbulb",
-                "v": "Regla practica: el que hace las preguntas dirige la conversacion. Si el prospecto te esta entrevistando a ti, perdiste el control de la venta."
+                "v": "Regla práctica: el que hace las preguntas dirige la conversación. Si el prospecto te está entrevistando a ti, perdiste el control de la venta."
               }
             ]
           },
@@ -4363,7 +4363,7 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "Calificar es decidir a quien le inviertes tiempo. No todos los que piden precio van a comprar, y perseguir a todos por igual diluye tu energia. Aprende a leer las señales que separan a un comprador real de un curioso."
+                "v": "Calificar es decidir a quién le inviertes tiempo. No todos los que piden precio van a comprar, y perseguir a todos por igual diluye tu energía. Aprende a leer las señales que separan a un comprador real de un curioso."
               },
               {
                 "type": "table",
@@ -4381,7 +4381,7 @@ export const COURSES: Course[] = [
                   [
                     "Decision",
                     "Habla con quien firma",
-                    "No sabe quien decide"
+                    "No sabe quién decide"
                   ],
                   [
                     "Presupuesto",
@@ -4390,14 +4390,14 @@ export const COURSES: Course[] = [
                   ],
                   [
                     "Claridad",
-                    "Sabe que necesita",
+                    "Sabe qué necesita",
                     "Cambia de idea cada llamada"
                   ]
                 ]
               },
               {
                 "type": "p",
-                "v": "Calificar no es despreciar leads: es ordenarlos. Al que cierra le das velocidad y foco; al que aun no esta listo, seguimiento paciente sin quemar tu tiempo del dia."
+                "v": "Calificar no es despreciar leads: es ordenarlos. Al que cierra le das velocidad y foco; al que aún no está listo, seguimiento paciente sin quemar tu tiempo del día."
               }
             ]
           },
@@ -4406,53 +4406,53 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "El lead se enfria en minutos. Quien responde primero suele ganar la venta, aunque no sea el mas barato. En WLP el pico de llamadas es entre 9 y 11 de la mañana, cerca del 98% se contestan, y las que duran mas de 60 segundos son las de mayor calidad: eso confirma que estar disponible y responder rapido es una ventaja competitiva real, no un detalle."
+                "v": "El lead se enfría en minutos. Quien responde primero suele ganar la venta, aunque no sea el más barato. En WLP el pico de llamadas es entre 9 y 11 de la mañana, cerca del 98% se contestan, y las que duran más de 60 segundos son las de mayor calidad: eso confirma que estar disponible y responder rápido es una ventaja competitiva real, no un detalle."
               },
               {
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "Un lead sin responder es dinero que ya se gasto en atraerlo y se tira a la basura. La velocidad de respuesta es, muchas veces, la diferencia entre cerrar y perder frente a un competidor mas lento pero mas atento."
+                "v": "Un lead sin responder es dinero que ya se gastó en atraerlo y se tira a la basura. La velocidad de respuesta es, muchas veces, la diferencia entre cerrar y perder frente a un competidor más lento pero más atento."
               }
             ]
           }
         ],
         "quiz": [
           {
-            "q": "Que se debe hacer antes de cotizar?",
+            "q": "¿Qué se debe hacer antes de cotizar?",
             "opts": [
               "Dar el precio de inmediato",
-              "Descubrir el problema, urgencia y quien decide",
-              "Ofrecer el descuento mas grande",
-              "Enviar el catalogo"
+              "Descubrir el problema, urgencia y quién decide",
+              "Ofrecer el descuento más grande",
+              "Enviar el catálogo"
             ],
             "a": 1,
             "ex": "Cotizar sin descubrir es adivinar; primero se pregunta."
           },
           {
-            "q": "Que significa calificar un lead?",
+            "q": "¿Qué significa calificar un lead?",
             "opts": [
               "Despreciar a los pequeños",
-              "Decidir a quien invertir tiempo segun señales reales",
-              "Cobrar mas caro",
+              "Decidir a quién invertir tiempo según señales reales",
+              "Cobrar más caro",
               "Cerrar a todos igual"
             ],
             "a": 1,
             "ex": "Calificar es ordenar los leads por probabilidad de cierre."
           },
           {
-            "q": "Quien dirige la conversacion de venta?",
+            "q": "¿Quién dirige la conversación de venta?",
             "opts": [
-              "El que baja mas el precio",
+              "El que baja más el precio",
               "El que hace las preguntas",
-              "El que habla mas",
+              "El que habla más",
               "El que cotiza primero"
             ],
             "a": 1,
             "ex": "Quien pregunta dirige; si te entrevistan a ti, perdiste el control."
           },
           {
-            "q": "Por que importa la velocidad al lead?",
+            "q": "¿Por qué importa la velocidad al lead?",
             "opts": [
               "No importa",
               "Quien responde primero suele ganar la venta",
@@ -4460,7 +4460,7 @@ export const COURSES: Course[] = [
               "Para cobrar mas"
             ],
             "a": 1,
-            "ex": "El lead se enfria en minutos; responder rapido es ventaja competitiva."
+            "ex": "El lead se enfría en minutos; responder rápido es ventaja competitiva."
           }
         ]
       },
@@ -4472,37 +4472,37 @@ export const COURSES: Course[] = [
         "title": "Manejo de objeciones y el precio",
         "tag": "Cierre",
         "objectives": [
-          "Leer una objecion como una peticion de informacion, no como un rechazo.",
+          "Leer una objeción como una petición de información, no como un rechazo.",
           "Sostener el precio sin pelear ni regalar margen.",
-          "Saber cuando sostener y cuando retirarse de un trato."
+          "Saber cuándo sostener y cuándo retirarse de un trato."
         ],
         "lessons": [
           {
-            "t": "La objecion no es un no",
+            "t": "La objeción no es un no",
             "blocks": [
               {
                 "type": "p",
-                "v": "Cuando el cliente objeta, casi nunca dice 'no'. Dice 'todavia no me convences' o 'me falta informacion'. Una objecion es una puerta abierta: te esta diciendo exactamente que necesita resolver para avanzar. El vendedor que se asusta la cierra; el que escucha la usa."
+                "v": "Cuando el cliente objeta, casi nunca dice 'no'. Dice 'todavía no me convences' o 'me falta información'. Una objeción es una puerta abierta: te está diciendo exactamente qué necesita resolver para avanzar. El vendedor que se asusta la cierra; el que escucha la usa."
               },
               {
                 "type": "h",
-                "v": "Metodo de 5 pasos para cualquier objecion"
+                "v": "Método de 5 pasos para cualquier objeción"
               },
               {
                 "type": "ol",
                 "v": [
                   "Escucha completa, sin interrumpir ni defenderte.",
-                  "Reconoce: 'entiendo por que lo preguntas'.",
-                  "Aclara la objecion real (a veces 'esta caro' significa 'no veo el valor').",
+                  "Reconoce: 'entiendo por qué lo preguntas'.",
+                  "Aclara la objeción real (a veces 'está caro' significa 'no veo el valor').",
                   "Responde con un hecho o un resultado, no con una disculpa.",
-                  "Confirma: 'eso resuelve tu duda?' y avanza."
+                  "Confirma: '¿eso resuelve tu duda?' y avanza."
                 ]
               },
               {
                 "type": "callout",
                 "style": "tip",
                 "ci": "lightbulb",
-                "v": "La objecion mas comun no es sobre precio, es sobre confianza. 'Como se que van a hacerlo bien' se responde con garantia, con obras previas y con claridad, no con descuento."
+                "v": "La objeción más común no es sobre precio, es sobre confianza. 'Cómo sé que van a hacerlo bien' se responde con garantía, con obras previas y con claridad, no con descuento."
               }
             ]
           },
@@ -4511,49 +4511,49 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "Bajar el precio a la primera objecion enseña al cliente que tu numero era inflado y que puede exprimirte mas. Sostener el precio con calma comunica que vale lo que cuesta. Si tienes que mover algo, mueve el alcance (que incluye), no el valor por unidad: das menos por menos, no lo mismo por menos."
+                "v": "Bajar el precio a la primera objeción enseña al cliente que tu número era inflado y que puede exprimirte más. Sostener el precio con calma comunica que vale lo que cuesta. Si tienes que mover algo, mueve el alcance (qué incluye), no el valor por unidad: das menos por menos, no lo mismo por menos."
               },
               {
                 "type": "list",
                 "v": [
-                  "No te disculpes por tu precio: explicalo.",
+                  "No te disculpes por tu precio: explícalo.",
                   "Ancla en el resultado y en el costo de la alternativa barata.",
                   "Si concedes, pide algo a cambio (deposito, plazo, referencia).",
-                  "Nunca regales margen para cerrar rapido: matas la rentabilidad del trabajo."
+                  "Nunca regales margen para cerrar rápido: matas la rentabilidad del trabajo."
                 ]
               }
             ]
           },
           {
-            "t": "Cuando sostener y cuando retirarse",
+            "t": "Cuándo sostener y cuándo retirarse",
             "blocks": [
               {
                 "type": "p",
-                "v": "No todo trato se debe ganar. Un cliente que solo persigue el precio mas bajo, que regatea cada partida y que no valora la calidad, suele ser el que mas cuesta atender y el que peor paga. Saber retirarte con respeto protege tu tiempo y tu margen para los clientes que si valoran lo que haces."
+                "v": "No todo trato se debe ganar. Un cliente que solo persigue el precio más bajo, que regatea cada partida y que no valora la calidad, suele ser el que más cuesta atender y el que peor paga. Saber retirarte con respeto protege tu tiempo y tu margen para los clientes que sí valoran lo que haces."
               },
               {
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "Un trato cerrado a perdida no es una venta, es un problema que empieza. Es mejor perder un mal trato a tiempo que cargarlo meses. Retirarse tambien es una decision de venta."
+                "v": "Un trato cerrado a pérdida no es una venta, es un problema que empieza. Es mejor perder un mal trato a tiempo que cargarlo meses. Retirarse también es una decisión de venta."
               }
             ]
           }
         ],
         "quiz": [
           {
-            "q": "Que es realmente una objecion?",
+            "q": "¿Qué es realmente una objeción?",
             "opts": [
               "Un rechazo definitivo",
-              "Una peticion de informacion para avanzar",
+              "Una petición de información para avanzar",
               "Una señal de irse",
               "Un insulto"
             ],
             "a": 1,
-            "ex": "La objecion es una puerta abierta que indica que falta resolver."
+            "ex": "La objeción es una puerta abierta que indica qué falta resolver."
           },
           {
-            "q": "Cual es la objecion de fondo mas comun?",
+            "q": "¿Cuál es la objeción de fondo más común?",
             "opts": [
               "El color",
               "La confianza",
@@ -4561,10 +4561,10 @@ export const COURSES: Course[] = [
               "El clima"
             ],
             "a": 1,
-            "ex": "Detras de 'esta caro' suele haber falta de confianza o de valor percibido."
+            "ex": "Detrás de 'está caro' suele haber falta de confianza o de valor percibido."
           },
           {
-            "q": "Que se debe hacer al sostener el precio?",
+            "q": "¿Qué se debe hacer al sostener el precio?",
             "opts": [
               "Bajarlo a la primera",
               "Explicarlo y anclarlo en el resultado",
@@ -4572,18 +4572,18 @@ export const COURSES: Course[] = [
               "Regalar margen"
             ],
             "a": 1,
-            "ex": "Se sostiene el precio explicando el valor, no disculpandose."
+            "ex": "Se sostiene el precio explicando el valor, no disculpándose."
           },
           {
-            "q": "Cuando conviene retirarse de un trato?",
+            "q": "¿Cuándo conviene retirarse de un trato?",
             "opts": [
               "Nunca",
-              "Cuando el cliente solo persigue el precio mas bajo y saldria a perdida",
+              "Cuando el cliente solo persigue el precio más bajo y saldría a pérdida",
               "Siempre que objeten",
-              "Si pide garantia"
+              "Si pide garantía"
             ],
             "a": 1,
-            "ex": "Un trato a perdida es un problema; retirarse a tiempo protege el margen."
+            "ex": "Un trato a pérdida es un problema; retirarse a tiempo protege el margen."
           }
         ]
       },
@@ -4595,9 +4595,9 @@ export const COURSES: Course[] = [
         "title": "Seguimiento y disciplina de pipeline",
         "tag": "Sistema",
         "objectives": [
-          "Entender que la mayoria de las ventas se cierran en el seguimiento.",
+          "Entender que la mayoría de las ventas se cierran en el seguimiento.",
           "Usar el CRM como herramienta de venta, no como carga administrativa.",
-          "No dejar ningun lead sin trabajar."
+          "No dejar ningún lead sin trabajar."
         ],
         "lessons": [
           {
@@ -4605,13 +4605,13 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "La mayoria de los prospectos no compran en el primer contacto. El vendedor promedio se rinde despues de uno o dos intentos; el que da seguimiento constante y util es el que se lleva la venta. El seguimiento no es acosar: es aparecer con valor en el momento correcto (una duda resuelta, un recordatorio, un caso parecido)."
+                "v": "La mayoría de los prospectos no compran en el primer contacto. El vendedor promedio se rinde después de uno o dos intentos; el que da seguimiento constante y útil es el que se lleva la venta. El seguimiento no es acosar: es aparecer con valor en el momento correcto (una duda resuelta, un recordatorio, un caso parecido)."
               },
               {
                 "type": "callout",
                 "style": "tip",
                 "ci": "lightbulb",
-                "v": "Cada seguimiento debe aportar algo: una respuesta, un dato, una razon para avanzar. 'Solo checando' no es seguimiento, es ruido. 'Le consegui el dato que faltaba' si lo es."
+                "v": "Cada seguimiento debe aportar algo: una respuesta, un dato, una razón para avanzar. 'Solo checando' no es seguimiento, es ruido. 'Le conseguí el dato que faltaba' sí lo es."
               }
             ]
           },
@@ -4620,15 +4620,15 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "El CRM no es papeleo para el jefe: es tu memoria de ventas. Registrar cada contacto, cada objecion y cada proximo paso es lo que te permite dar un seguimiento que parece personal aunque manejes decenas de leads. El vendedor que confia en su memoria olvida; el que registra, cierra."
+                "v": "El CRM no es papeleo para el jefe: es tu memoria de ventas. Registrar cada contacto, cada objeción y cada próximo paso es lo que te permite dar un seguimiento que parece personal aunque manejes decenas de leads. El vendedor que confía en su memoria olvida; el que registra, cierra."
               },
               {
                 "type": "list",
                 "v": [
-                  "Anota el proximo paso y su fecha en cada lead, sin excepcion.",
-                  "Registra la objecion real para saber que resolver la proxima vez.",
-                  "Marca el origen del lead: sirve para saber que canal trae mejores clientes.",
-                  "Revisa tu pipeline todos los dias: lo que no se ve, no se cierra."
+                  "Anota el próximo paso y su fecha en cada lead, sin excepción.",
+                  "Registra la objeción real para saber qué resolver la próxima vez.",
+                  "Marca el origen del lead: sirve para saber qué canal trae mejores clientes.",
+                  "Revisa tu pipeline todos los días: lo que no se ve, no se cierra."
                 ]
               }
             ]
@@ -4638,34 +4638,34 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "Atraer un lead cuesta dinero. Dejarlo sin trabajar es tirar esa inversion. En WLP el cuello de botella del crecimiento no es el costo de conseguir clientes, es el volumen de leads que se logra atender bien: cada prospecto que se enfria por falta de seguimiento es crecimiento que se deja ir."
+                "v": "Atraer un lead cuesta dinero. Dejarlo sin trabajar es tirar esa inversión. En WLP el cuello de botella del crecimiento no es el costo de conseguir clientes, es el volumen de leads que se logra atender bien: cada prospecto que se enfría por falta de seguimiento es crecimiento que se deja ir."
               },
               {
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "Un pipeline lleno de leads sin trabajar es una ilusion de trabajo. La disciplina de seguir a cada uno hasta un si o un no claro es lo que convierte el esfuerzo de marketing en ingresos reales."
+                "v": "Un pipeline lleno de leads sin trabajar es una ilusión de trabajo. La disciplina de seguir a cada uno hasta un sí o un no claro es lo que convierte el esfuerzo de marketing en ingresos reales."
               }
             ]
           }
         ],
         "quiz": [
           {
-            "q": "Donde se cierra la mayoria de las ventas?",
+            "q": "¿Dónde se cierra la mayoría de las ventas?",
             "opts": [
               "En el primer contacto",
-              "En el seguimiento constante y util",
+              "En el seguimiento constante y útil",
               "En el descuento",
               "En el catalogo"
             ],
             "a": 1,
-            "ex": "La mayoria compra tras varios seguimientos, no en el primer contacto."
+            "ex": "La mayoría compra tras varios seguimientos, no en el primer contacto."
           },
           {
-            "q": "Que es un buen seguimiento?",
+            "q": "¿Qué es un buen seguimiento?",
             "opts": [
               "'Solo checando'",
-              "Aparecer con valor: una duda resuelta o un dato util",
+              "Aparecer con valor: una duda resuelta o un dato útil",
               "Llamar sin razon",
               "Bajar el precio cada vez"
             ],
@@ -4673,7 +4673,7 @@ export const COURSES: Course[] = [
             "ex": "Cada seguimiento debe aportar valor, no ser solo ruido."
           },
           {
-            "q": "Para que sirve el CRM al vendedor?",
+            "q": "¿Para qué sirve el CRM al vendedor?",
             "opts": [
               "Es papeleo para el jefe",
               "Es su memoria de ventas para seguir a cada lead",
@@ -4684,15 +4684,15 @@ export const COURSES: Course[] = [
             "ex": "El CRM es la memoria que permite un seguimiento que parece personal."
           },
           {
-            "q": "Por que no se debe dejar un lead sin trabajar?",
+            "q": "¿Por qué no se debe dejar un lead sin trabajar?",
             "opts": [
               "No importa",
-              "Atraerlo costo dinero y es crecimiento que se tira",
+              "Atraerlo costó dinero y es crecimiento que se tira",
               "Sobran leads",
-              "Para cerrar rapido"
+              "Para cerrar rápido"
             ],
             "a": 1,
-            "ex": "Cada lead sin trabajar es inversion de marketing desperdiciada."
+            "ex": "Cada lead sin trabajar es inversión de marketing desperdiciada."
           }
         ]
       }
@@ -4706,7 +4706,7 @@ export const COURSES: Course[] = [
     "accent": "#FB923C",
     "track": "Operaciones",
     "title": "Operaciones de campo",
-    "subtitle": "Habilidades de campo: planeacion, calidad, comunicacion, mas garantia, change orders y OSHA.",
+    "subtitle": "Habilidades de campo: planeación, calidad, comunicación, más garantía, change orders y OSHA.",
     "certName": "WLP Operaciones",
     "modules": [
       {
@@ -4714,43 +4714,43 @@ export const COURSES: Course[] = [
         "num": "01",
         "icon": "building",
         "dur": "30 min",
-        "title": "Contratos, cambios de alcance y garantias en obra",
-        "tag": "Lo que un lider de obra debe cobrar, prometer y documentar para no comerse el margen.",
+        "title": "Contratos, cambios de alcance y garantías en obra",
+        "tag": "Lo que un líder de obra debe cobrar, prometer y documentar para no comerse el margen.",
         "objectives": [
-          "Conocer las garantias que WLP promete y sus limites.",
-          "Manejar los change orders y como se cobran.",
-          "Vigilar el pago, la retencion y el prompt payment."
+          "Conocer las garantías que WLP promete y sus límites.",
+          "Manejar los change orders y cómo se cobran.",
+          "Vigilar el pago, la retención y el prompt payment."
         ],
         "lessons": [
           {
-            "t": "Garantias que WLP promete",
+            "t": "Garantías que WLP promete",
             "blocks": [
               {
                 "type": "list",
                 "v": [
-                  "El asfalto full-depth bajo el opt-in Paving Panda Pledge tiene garantia de hasta 15 años renovable (F010).",
-                  "El concreto tiene garantia default de 5 años estructural en el MSA 2026 y NO es elegible al tier Pledge.",
-                  "Sealcoat y striping 30 dias, parches menores a 1,000 SF 30 dias, y full-depth residencial de 2.5 a 3 pulgadas 1 año.",
-                  "Aunque venza la garantia, WLP sigue expuesto al statute of repose Civ 337.15: 10 años por defecto latente."
+                  "El asfalto full-depth bajo el opt-in Paving Panda Pledge tiene garantía de hasta 15 años renovable (F010).",
+                  "El concreto tiene garantía default de 5 años estructural en el MSA 2026 y NO es elegible al tier Pledge.",
+                  "Sealcoat y striping 30 días, parches menores a 1,000 SF 30 días, y full-depth residencial de 2.5 a 3 pulgadas 1 año.",
+                  "Aunque venza la garantía, WLP sigue expuesto al statute of repose Civ 337.15: 10 años por defecto latente."
                 ]
               },
               {
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "REGLA DURA: nunca prometer 15 años de concreto. El PDF viejo fue exposicion por publicidad falsa (17500) y quedo retirado (F024)."
+                "v": "REGLA DURA: nunca prometer 15 años de concreto. El PDF viejo fue exposición por publicidad falsa (17500) y quedó retirado (F024)."
               }
             ]
           },
           {
-            "t": "Change orders y como cobrarlos",
+            "t": "Change orders y cómo cobrarlos",
             "blocks": [
               {
                 "type": "list",
                 "v": [
                   "Todo trabajo extra o rework debe marcarse como change order en el closeout del job, no dejarse verbal.",
                   "El pricing schedule fija Standby en $575/hr por recurso y admin/back-charge en $97/hr, base para cotizar tiempo extra.",
-                  "Mobilization y remobilization tienen minimo de $5,000 con 6 horas minimo; el Permit Acquisition cuesta $1,100.",
+                  "Mobilization y remobilization tienen mínimo de $5,000 con 6 horas mínimo; el Permit Acquisition cuesta $1,100.",
                   "El markup correctivo es 25% en el Subcontrato y de 20 a 30% en el MSA."
                 ]
               },
@@ -4758,20 +4758,20 @@ export const COURSES: Course[] = [
                 "type": "callout",
                 "style": "tip",
                 "ci": "receipt",
-                "v": "Si las pulgadas de espesor cambian al romper el suelo, ahi aplica un change order. Se da aviso, no se absorbe en silencio."
+                "v": "Si las pulgadas de espesor cambian al romper el suelo, ahí aplica un change order. Se da aviso, no se absorbe en silencio."
               }
             ]
           },
           {
-            "t": "Pago, retencion y prompt payment",
+            "t": "Pago, retención y prompt payment",
             "blocks": [
               {
                 "type": "list",
                 "v": [
-                  "La regla de prompt pay obliga pago en 7 dias (B&P 7108.5); el backstop del contrato es 120 dias.",
-                  "La retencion es 5% (Civ 8811) con tope de retencion de 150%.",
-                  "El interes moratorio es 10% anual simple (Civ 3289b); el late fee de factura es $150 al mes.",
-                  "B&P 7113 obliga a pagar el trabajo completado aun en un contrato terminado."
+                  "La regla de prompt pay obliga pago en 7 días (B&P 7108.5); el backstop del contrato es 120 días.",
+                  "La retención es 5% (Civ 8811) con tope de retención de 150%.",
+                  "El interés moratorio es 10% anual simple (Civ 3289b); el late fee de factura es $150 al mes.",
+                  "B&P 7113 obliga a pagar el trabajo completado aún en un contrato terminado."
                 ]
               }
             ]
@@ -4779,7 +4779,7 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "Cuantos años de garantia tiene el concreto en el MSA 2026 default?",
+            "q": "¿Cuántos años de garantía tiene el concreto en el MSA 2026 default?",
             "opts": [
               "3 años",
               "5 años",
@@ -4787,32 +4787,32 @@ export const COURSES: Course[] = [
               "1 año"
             ],
             "a": 1,
-            "ex": "El concreto subio a 5 años estructural y no es elegible al Pledge."
+            "ex": "El concreto subió a 5 años estructural y no es elegible al Pledge."
           },
           {
-            "q": "Cual afirmacion de garantia esta PROHIBIDA en WLP?",
+            "q": "¿Cuál afirmación de garantía está PROHIBIDA en WLP?",
             "opts": [
               "Asfalto hasta 15 años",
               "Concreto hasta 15 años",
-              "Sealcoat 30 dias",
+              "Sealcoat 30 días",
               "Concreto 5 años"
             ],
             "a": 1,
-            "ex": "Prometer 15 años de concreto fue exposicion 17500 y quedo retirado (F024)."
+            "ex": "Prometer 15 años de concreto fue exposición 17500 y quedó retirado (F024)."
           },
           {
-            "q": "Cual es la regla de prompt payment que aplica?",
+            "q": "¿Cuál es la regla de prompt payment que aplica?",
             "opts": [
-              "30 dias",
-              "7 dias (B&P 7108.5)",
-              "120 dias",
-              "5 dias"
+              "30 días",
+              "7 días (B&P 7108.5)",
+              "120 días",
+              "5 días"
             ],
             "a": 1,
-            "ex": "El prompt pay obliga pago en 7 dias segun B&P 7108.5."
+            "ex": "El prompt pay obliga pago en 7 días según B&P 7108.5."
           },
           {
-            "q": "Cuanto cuesta el Standby por recurso en el pricing schedule?",
+            "q": "¿Cuánto cuesta el Standby por recurso en el pricing schedule?",
             "opts": [
               "$97/hr",
               "$575/hr",
@@ -4829,12 +4829,12 @@ export const COURSES: Course[] = [
         "num": "02",
         "icon": "alert",
         "dur": "25 min",
-        "title": "Seguridad OSHA y responsabilidad del lider",
+        "title": "Seguridad OSHA y responsabilidad del líder",
         "tag": "El marco de seguridad, los seguros que respaldan al equipo y el ciclo de vida del job.",
         "objectives": [
           "Conocer el marco Cal/OSHA aplicable a WLP.",
           "Ubicar los seguros vivos que respaldan la obra.",
-          "Entender la clasificacion laboral y el ciclo de vida del job."
+          "Entender la clasificación laboral y el ciclo de vida del job."
         ],
         "lessons": [
           {
@@ -4843,10 +4843,10 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "WLP opera bajo Cal/OSHA Title 8 CCR, el codigo de seguridad ocupacional de California.",
-                  "El Labor Code 6401.7 exige un IIPP (Injury and Illness Prevention Program) que el patron debe mantener.",
+                  "WLP opera bajo Cal/OSHA Title 8 CCR, el código de seguridad ocupacional de California.",
+                  "El Labor Code 6401.7 exige un IIPP (Injury and Illness Prevention Program) que el patrón debe mantener.",
                   "El control de zona de trabajo se referencia contra el estandar ATSSA de Work Zone Traffic Control Devices.",
-                  "Las especificaciones de obra publica se miden contra el APWA Greenbook y el asfalto contra estandares NAPA."
+                  "Las especificaciones de obra pública se miden contra el APWA Greenbook y el asfalto contra estándares NAPA."
                 ]
               }
             ]
@@ -4857,22 +4857,22 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "CGL mas Completed Ops con Champlain Specialty Insurance (poliza CSAR-CGL-000388202).",
-                  "Workers Comp con Everest Premier Insurance (poliza 7600023032251), clave si hay lesion en obra.",
-                  "CSLB Bond con Platte River Insurance por $25K (poliza PR2759750).",
-                  "A todo subcontratista se le exigen minimos: CGL $2M por $4M, Auto $1M, Umbrella $2M y Workers Comp statutory, con WLP como Additional Insured."
+                  "CGL más Completed Ops con Champlain Specialty Insurance (póliza CSAR-CGL-000388202).",
+                  "Workers Comp con Everest Premier Insurance (póliza 7600023032251), clave si hay lesión en obra.",
+                  "CSLB Bond con Platte River Insurance por $25K (póliza PR2759750).",
+                  "A todo subcontratista se le exigen mínimos: CGL $2M por $4M, Auto $1M, Umbrella $2M y Workers Comp statutory, con WLP como Additional Insured."
                 ]
               }
             ]
           },
           {
-            "t": "Clasificacion laboral y ciclo de vida del job",
+            "t": "Clasificación laboral y ciclo de vida del job",
             "blocks": [
               {
                 "type": "list",
                 "v": [
                   "Regla dura: la labor directa es W-2 por hora SOLAMENTE, nunca 1099 ni sub.",
-                  "El riesgo AB5 / Labor Code 2775 sigue abierto mientras el Subcontractor Agreement este bloqueado.",
+                  "El riesgo AB5 / Labor Code 2775 sigue abierto mientras el Subcontractor Agreement esté bloqueado.",
                   "El job vive en tres estados del ERP: In Progress, Completed y Cancelled; el status se pone manual.",
                   "Un rework se marca con is_rework = true; borrar un job es permanente y cascadea a pagos y gastos."
                 ]
@@ -4888,7 +4888,7 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "Bajo que marco de seguridad opera WLP?",
+            "q": "¿Bajo qué marco de seguridad opera WLP?",
             "opts": [
               "Federal OSHA solamente",
               "Cal/OSHA Title 8 CCR",
@@ -4899,18 +4899,18 @@ export const COURSES: Course[] = [
             "ex": "WLP opera bajo Cal/OSHA Title 8 CCR en California."
           },
           {
-            "q": "Que exige el Labor Code 6401.7?",
+            "q": "¿Qué exige el Labor Code 6401.7?",
             "opts": [
               "Un IIPP",
               "Un bond de $25K",
-              "Retencion 5%",
+              "Retención 5%",
               "Prompt pay"
             ],
             "a": 0,
             "ex": "El 6401.7 exige mantener un IIPP (programa de prevencion de lesiones)."
           },
           {
-            "q": "Como debe clasificarse la labor directa en WLP?",
+            "q": "¿Cómo debe clasificarse la labor directa en WLP?",
             "opts": [
               "Con 1099",
               "Por subcontrato",
@@ -4921,7 +4921,7 @@ export const COURSES: Course[] = [
             "ex": "La labor directa es W-2 por hora solamente, nunca 1099 ni sub."
           },
           {
-            "q": "Cuales son los tres estados oficiales de un job en el ERP?",
+            "q": "¿Cuáles son los tres estados oficiales de un job en el ERP?",
             "opts": [
               "Draft, Active, Done",
               "In Progress, Completed, Cancelled",
@@ -5343,11 +5343,11 @@ export const COURSES: Course[] = [
         "num": "01",
         "icon": "users",
         "dur": "22 min",
-        "title": "Que es Pavific y a quien le habla",
+        "title": "Qué es Pavific y a quién le habla",
         "tag": "Marca y ICP",
         "objectives": [
-          "Explicar que es Pavific Corp y sus dos DBAs (MarginFoundry y MarginRight).",
-          "Describir el cliente ideal (ICP) y por que ese rango de ingresos importa."
+          "Explicar qué es Pavific Corp y sus dos DBAs (MarginFoundry y MarginRight).",
+          "Describir el cliente ideal (ICP) y por qué ese rango de ingresos importa."
         ],
         "lessons": [
           {
@@ -5355,18 +5355,18 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "Pavific es la plataforma de marketing y operaciones detras de la marca. La entidad legal es Pavific Corp y opera bajo dos nombres comerciales (DBAs): MarginFoundry y MarginRight. No son empresas separadas: son la misma corporacion con dos frentes de marca."
+                "v": "Pavific es la plataforma de marketing y operaciones detrás de la marca. La entidad legal es Pavific Corp y opera bajo dos nombres comerciales (DBAs): MarginFoundry y MarginRight. No son empresas separadas: son la misma corporación con dos frentes de marca."
               },
               {
                 "type": "rule",
                 "lab": "Regla de entidad",
-                "v": "Pavific Corp = una sola corporacion. MarginFoundry y MarginRight son DBAs, no companias distintas. Nunca tratarlas como entidades separadas."
+                "v": "Pavific Corp = una sola corporación. MarginFoundry y MarginRight son DBAs, no compañías distintas. Nunca tratarlas como entidades separadas."
               },
               {
                 "type": "callout",
                 "style": "tip",
                 "ci": "lightbulb",
-                "v": "Pensarlo como una casa con dos puertas: el negocio es uno, la puerta por la que entra el cliente cambia segun el servicio."
+                "v": "Pensarlo como una casa con dos puertas: el negocio es uno, la puerta por la que entra el cliente cambia según el servicio."
               }
             ]
           },
@@ -5375,18 +5375,18 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "h",
-                "v": "A quien buscamos"
+                "v": "A quién buscamos"
               },
               {
                 "type": "p",
-                "v": "El ICP de la plataforma son empresas con ingresos aproximados de 1 a 25 millones de dolares. Ni tan chicas que no puedan pagar el servicio, ni tan grandes que ya tengan un equipo interno completo."
+                "v": "El ICP de la plataforma son empresas con ingresos aproximados de 1 a 25 millones de dólares. Ni tan chicas que no puedan pagar el servicio, ni tan grandes que ya tengan un equipo interno completo."
               },
               {
                 "type": "list",
                 "v": [
                   "Rango objetivo: 1M a 25M en ingresos anuales.",
-                  "Duenos o lideres que ya venden pero no tienen orden en marketing.",
-                  "Negocios que quieren margen, no solo mas trafico."
+                  "Dueños o líderes que ya venden pero no tienen orden en marketing.",
+                  "Negocios que quieren margen, no solo más tráfico."
                 ]
               },
               {
@@ -5402,7 +5402,7 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "El nombre lo dice: Margin. La plataforma no vende likes ni impresiones; vende decisiones que protegen el margen. Toda propuesta se justifica por su efecto en la utilidad del cliente, no por metricas de vanidad."
+                "v": "El nombre lo dice: Margin. La plataforma no vende likes ni impresiones; vende decisiones que protegen el margen. Toda propuesta se justifica por su efecto en la utilidad del cliente, no por métricas de vanidad."
               },
               {
                 "type": "rule",
@@ -5414,7 +5414,7 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "Que son MarginFoundry y MarginRight?",
+            "q": "¿Qué son MarginFoundry y MarginRight?",
             "opts": [
               "Dos empresas separadas",
               "Dos DBAs de Pavific Corp",
@@ -5422,40 +5422,40 @@ export const COURSES: Course[] = [
               "Dos productos de software"
             ],
             "a": 1,
-            "ex": "Son dos nombres comerciales (DBAs) de una sola corporacion: Pavific Corp."
+            "ex": "Son dos nombres comerciales (DBAs) de una sola corporación: Pavific Corp."
           },
           {
-            "q": "Cual es el rango de ingresos del ICP?",
+            "q": "¿Cuál es el rango de ingresos del ICP?",
             "opts": [
               "Menos de 500K",
               "1M a 25M",
               "25M a 100M",
-              "Cualquier tamano"
+              "Cualquier tamaño"
             ],
             "a": 1,
-            "ex": "El cliente ideal factura aproximadamente entre 1 y 25 millones al ano."
+            "ex": "El cliente ideal factura aproximadamente entre 1 y 25 millones al año."
           },
           {
-            "q": "Que vende la plataforma en el fondo?",
+            "q": "¿Qué vende la plataforma en el fondo?",
             "opts": [
               "Likes e impresiones",
               "Margen y leads calificados",
               "Solo trafico",
-              "Diseno grafico"
+              "Diseño gráfico"
             ],
             "a": 1,
-            "ex": "El foco es margen y leads calificados, no metricas de vanidad."
+            "ex": "El foco es margen y leads calificados, no métricas de vanidad."
           },
           {
-            "q": "Como se debe tratar a Pavific Corp y sus DBAs?",
+            "q": "¿Cómo se debe tratar a Pavific Corp y sus DBAs?",
             "opts": [
               "Como tres empresas",
-              "Como una corporacion con dos marcas",
+              "Como una corporación con dos marcas",
               "Como competidores",
               "Como socios externos"
             ],
             "a": 1,
-            "ex": "Es una sola corporacion (Pavific Corp) que opera bajo dos marcas."
+            "ex": "Es una sola corporación (Pavific Corp) que opera bajo dos marcas."
           }
         ]
       },
@@ -5465,7 +5465,7 @@ export const COURSES: Course[] = [
         "icon": "layers",
         "dur": "20 min",
         "title": "Voz, canales y como corre el equipo",
-        "tag": "Operacion de marca",
+        "tag": "Operación de marca",
         "objectives": [
           "Aplicar la voz de marca y las reglas de estilo en cualquier salida.",
           "Ubicar los roles del equipo y el motor de email de la plataforma."
@@ -5476,17 +5476,17 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "La voz es ejecutiva, directa y sin relleno. Se escribe como habla un operador que respeta el tiempo del lector: conclusion primero, dato con fuente, cero adornos."
+                "v": "La voz es ejecutiva, directa y sin relleno. Se escribe como habla un operador que respeta el tiempo del lector: conclusión primero, dato con fuente, cero adornos."
               },
               {
                 "type": "rule",
                 "lab": "Regla principal",
-                "v": "Prohibido usar guiones largos (em dash / en dash) en cualquier salida. Se reemplazan con punto, coma, dos puntos, parentesis o reformulando."
+                "v": "Prohibido usar guiones largos (em dash / en dash) en cualquier salida. Se reemplazan con punto, coma, dos puntos, paréntesis o reformulando."
               },
               {
                 "type": "rule",
-                "lab": "Regla de ortografia",
-                "v": "En espanol visible siempre se escribe la n con tilde y los acentos: campana se escribe campana, diseno se escribe diseno. No es la fuente, es teclear el caracter correcto."
+                "lab": "Regla de ortografía",
+                "v": "En español visible siempre se escribe la ñ con tilde y los acentos: campana se escribe campaña, diseno se escribe diseño. No es la fuente, es teclear el carácter correcto."
               },
               {
                 "type": "callout",
