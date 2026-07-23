@@ -125,7 +125,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     await (admin as any)
       .from('org_members')
       .insert({ org_id: wsOrgId, profile_id: user.id, role: 'member' })
-      .select()
+      .select('id')
       .then(() => null, () => null)  // ignorar duplicados
   }
 

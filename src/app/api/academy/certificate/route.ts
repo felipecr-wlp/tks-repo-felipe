@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   // Si ya tiene certificado, devolverlo.
   const { data: existing } = await admin
     .from('academy_certificates')
-    .select('*')
+    .select('id, profile_id, course_id, code, score, issued_at')
     .eq('profile_id', user.id)
     .eq('course_id', course.id)
     .maybeSingle()
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
   const { data: cert, error } = await (admin as any)
     .from('academy_certificates')
     .insert({ profile_id: user.id, course_id: course.id, code, score: avg })
-    .select('*')
+    .select('id, profile_id, course_id, code, score, issued_at')
     .single()
 
   if (error || !cert) {
