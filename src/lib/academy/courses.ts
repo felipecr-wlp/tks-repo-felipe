@@ -2,7 +2,7 @@
    Base extraida de C:/tmp/wlp_academy/index.html; desde 2026-07-22 se edita
    AQUI directamente. El curso SEM se dividio: publico (sem-google-ads) e
    interno de analista (sem-internal).
-   Cursos: 12 · Modulos: 46 · Lecciones: 142. */
+   Cursos: 12 · Modulos: 50 · Lecciones: 154. */
 import type { Course, ProfileMap } from './types';
 
 export const COURSES: Course[] = [
@@ -3112,6 +3112,154 @@ export const COURSES: Course[] = [
             "ex": "Las llamadas no traen gclid; ~75% de conversiones no están atribuidas a keyword, y esa palanca las modela."
           }
         ]
+      },
+      {
+        "id": "m3",
+        "num": "03",
+        "icon": "target",
+        "dur": "28 min",
+        "title": "Cuenta en producción: presupuesto, pujas y conversiones offline",
+        "tag": "El modelo dice cuánto invertir; esta parte es cómo se ejecuta en la cuenta real sin quemar dinero: dónde y cuándo poner el presupuesto, cómo puja el sistema y cómo se le enseña a buscar calidad, no solo clics.",
+        "objectives": [
+          "Aplicar el presupuesto dinámico y el dayparting a la ventana donde ocurren los leads.",
+          "Elegir estrategia de puja entendiendo Quality Score y el cuello de botella real.",
+          "Cerrar el loop con conversiones offline para optimizar por calidad de lead."
+        ],
+        "lessons": [
+          {
+            "t": "Presupuesto dinámico y dayparting",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "El presupuesto no es un número fijo diario parejo: es un total mensual repartido donde el lead sí ocurre. La cuenta de Google Ads es AW-746510497."
+              },
+              {
+                "type": "list",
+                "v": [
+                  "Presupuesto dinámico: ~$4,500 USD al mes EXCLUYENDO fines de semana, lo que da aproximadamente $204 por día laboral (no el viejo $185/día).",
+                  "Dayparting: las llamadas, que son el motor real de leads, tienen su pico entre 9 y 11am. Concentrar el gasto en horario y días laborales evita pagar clics cuando nadie contesta el teléfono.",
+                  "Excluir fin de semana del cálculo es una decisión de estructura: si el negocio no cierra leads sábado y domingo, el presupuesto no debe repartirse ahí.",
+                  "El objetivo del reparto es maximizar leads dentro del techo mensual, no gastar parejo por gastar."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "info",
+                "ci": "info",
+                "v": "El presupuesto dinámico ($204/día laboral) es un hecho verificado del SSOT SEM. Si un material viejo dice $185/día, está desactualizado."
+              }
+            ]
+          },
+          {
+            "t": "Puja y Quality Score: escalar, no abaratar",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "La estrategia de puja le dice al sistema qué optimizar. Elegir mal desalinea la máquina con el objetivo del negocio. Y el Quality Score decide cuánto pagas por cada clic para la misma posición."
+              },
+              {
+                "type": "list",
+                "v": [
+                  "Maximize Conversions optimiza el NÚMERO de conversiones. Si todas las conversiones tienen el mismo valor estático, la puja no distingue un lead bueno de uno malo.",
+                  "Quality Score se compone de CTR esperado, relevancia del anuncio y experiencia de la landing. Sube el Ad Rank y baja el CPC: mejor calidad, mismo dinero, más clics.",
+                  "El cuello de botella real de WLP es el VOLUMEN, no el precio del clic: aún el peor ad group está por debajo del breakeven de ~$1,796 de GP por lead. Se puja para escalar, no para abaratar.",
+                  "Fase de aprendizaje: tras un cambio grande de puja o presupuesto, el sistema re-aprende. Sobre-editar en pleno aprendizaje reinicia el proceso y desperdicia señal."
+                ]
+              },
+              {
+                "type": "rule",
+                "lab": "Regla de ejecucion",
+                "v": "El upload quirúrgico de cambios SEM (paquetes de operaciones validados) lo ejecuta ALAN en la UI de Google Ads, NO la IA. La IA modela y audita; la mano en la cuenta es humana."
+              }
+            ]
+          },
+          {
+            "t": "Conversiones offline: enseñarle al sistema qué es un buen lead",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "Si Google solo ve el envío de formulario, optimiza por formularios. Pero ~75% de los leads reales son llamadas que no traen gclid, y no todo lead cierra. Alimentar de vuelta los leads calificados y cerrados le enseña al algoritmo a buscar CALIDAD, no solo conteo."
+              },
+              {
+                "type": "ol",
+                "v": [
+                  "El lead entra con su gclid guardado (cuando existe).",
+                  "Cuando ese lead se califica o cierra, una Edge Function de Supabase (google-ads-conversions) lo expone como CSV con el gclid.",
+                  "El Scheduled Upload de Google Ads consume ese CSV y le devuelve al sistema la conversión offline real.",
+                  "Con eso, la puja aprende de resultados de negocio, no solo de clics en un botón."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "warn",
+                "ci": "alert",
+                "v": "Pendiente one-time: crear la Programación HTTPS del Scheduled Upload en la UI de Google Ads (lo hace Alan). Hasta que exista, el CSV se genera pero no se sube solo."
+              },
+              {
+                "type": "rule",
+                "lab": "Metodologia Fugas",
+                "v": "Al auditar, separar fugas reales de artefactos históricos usando SOLO datos LIVE por API, nunca los falsos positivos del XML o de reportes viejos. El dato vivo manda."
+              }
+            ]
+          }
+        ],
+        "quiz": [
+          {
+            "q": "¿Cuál es el presupuesto dinámico correcto de la cuenta?",
+            "opts": [
+              "$185/día todos los días",
+              "~$4,500/mes excluyendo fines de semana, ~$204/día laboral",
+              "$1,796/día",
+              "Sin techo mensual"
+            ],
+            "a": 1,
+            "ex": "Hecho del SSOT SEM: ~$4,500/mes sin fines de semana, aproximadamente $204 por día laboral."
+          },
+          {
+            "q": "¿Por qué se hace dayparting hacia las 9-11am?",
+            "opts": [
+              "Porque el clic es más barato de noche",
+              "Porque las llamadas, el motor real de leads, tienen su pico ahí",
+              "Porque Google lo obliga",
+              "Por el Quality Score"
+            ],
+            "a": 1,
+            "ex": "Las llamadas pican 9-11am; concentrar el gasto donde ocurre el lead evita pagar clics sin respuesta."
+          },
+          {
+            "q": "¿Qué mejora el Quality Score para el anunciante?",
+            "opts": [
+              "Sube el CPC",
+              "Sube el Ad Rank y baja el CPC para la misma posición",
+              "Elimina la fase de aprendizaje",
+              "Duplica el presupuesto"
+            ],
+            "a": 1,
+            "ex": "CTR esperado, relevancia y experiencia de landing suben el Ad Rank y abaratan el clic."
+          },
+          {
+            "q": "¿Quién ejecuta el upload quirúrgico de cambios en la UI de Google Ads?",
+            "opts": [
+              "La IA automáticamente",
+              "Alan, de forma manual en la UI",
+              "El WAF de Vercel",
+              "El Scheduled Upload"
+            ],
+            "a": 1,
+            "ex": "Regla de ejecución: la IA modela y audita; el upload lo hace Alan en la cuenta."
+          },
+          {
+            "q": "¿Para qué sirven las conversiones offline?",
+            "opts": [
+              "Para bajar el presupuesto",
+              "Para enseñarle al sistema a optimizar por calidad de lead, no solo por conteo",
+              "Para desactivar el gclid",
+              "Para reemplazar el dayparting"
+            ],
+            "a": 1,
+            "ex": "Alimentar leads calificados y cerrados (con gclid) hace que la puja aprenda de resultados de negocio."
+          }
+        ]
       }
     ]
   },
@@ -3355,6 +3503,176 @@ export const COURSES: Course[] = [
             ],
             "a": 1,
             "ex": "Google for Jobs con schema JobPosting es gratis."
+          }
+        ]
+      },
+      {
+        "id": "m3",
+        "num": "03",
+        "icon": "layers",
+        "dur": "30 min",
+        "title": "SEO técnico local: datos estructurados, Core Web Vitals y autoridad",
+        "tag": "Para un contratista local, ganar no es tener más páginas: es que Google entienda quién eres, dónde sirves y por qué confiar en ti, y que el sitio cargue rápido.",
+        "objectives": [
+          "Marcar el negocio con datos estructurados (JSON-LD) que Google pueda leer.",
+          "Entender y diagnosticar los Core Web Vitals de un sitio WordPress/Divi.",
+          "Construir autoridad local con GBP, NAP consistente y señales E-E-A-T."
+        ],
+        "lessons": [
+          {
+            "t": "Datos estructurados: enseñarle a Google quién eres",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "El texto de una página se lo lee un humano; los datos estructurados se los lee la máquina. Son un bloque de código JSON-LD (Schema.org) que declara, sin ambigüedad, que WLP es un contratista, qué servicios ofrece, dónde y con qué reputación. Bien puestos, habilitan resultados enriquecidos (estrellas, FAQ desplegables, empleos) y ayudan al entendimiento de entidad."
+              },
+              {
+                "type": "list",
+                "v": [
+                  "LocalBusiness (o el subtipo GeneralContractor / PavingContractor): nombre, dirección y teléfono (NAP), horario, zona servida (areaServed) y URL. Es la ficha de identidad del negocio.",
+                  "Service: un bloque por servicio real (asfalto, concreto, sealcoating, striping), enlazado al proveedor. Aterriza cada página de servicio como una oferta entendible.",
+                  "AggregateRating / Review: la reputación, SOLO si las reseñas son reales y visibles en la página. Inventarlas es causa directa de sanción manual de Google.",
+                  "FAQPage: preguntas frecuentes de la landing (garantía, tiempos, financiamiento). Puede ganar espacio extra en el SERP.",
+                  "JobPosting: para /careers, habilita Google for Jobs gratis (ya cubierto en el módulo 2)."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "warn",
+                "ci": "alert",
+                "v": "Regla de oro del schema: solo marca lo que el usuario VE en la página. Marcar una reseña, un precio o un servicio que no aparece en pantalla es spam estructurado y se penaliza. El schema describe la página, no la adorna."
+              },
+              {
+                "type": "rule",
+                "lab": "Aplicacion WLP",
+                "v": "Poner el número de licencia CSLB y la garantía (15 años en asfalto, 5 en concreto) como propiedades/contenido visible reforzadas con schema: son señales de confianza verificables, no marketing."
+              }
+            ]
+          },
+          {
+            "t": "Core Web Vitals: que el sitio no pierda por lento",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "Los Core Web Vitals son las tres métricas de experiencia que Google usa como factor de ranking. Se miden con datos de campo reales (CrUX, usuarios de Chrome), no solo con la prueba de laboratorio de Lighthouse. Un sitio lento pierde posición Y conversión al mismo tiempo."
+              },
+              {
+                "type": "table",
+                "head": ["Métrica", "Qué mide", "Umbral bueno"],
+                "rows": [
+                  ["LCP (Largest Contentful Paint)", "Cuánto tarda en pintarse el elemento principal", "2.5 s o menos"],
+                  ["INP (Interaction to Next Paint)", "Qué tan rápido responde a un clic o toque", "200 ms o menos"],
+                  ["CLS (Cumulative Layout Shift)", "Cuánto salta el layout mientras carga", "0.1 o menos"]
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "info",
+                "ci": "info",
+                "v": "Desde marzo de 2024, INP reemplazó a FID como Core Web Vital oficial. Si un material viejo menciona FID, está desactualizado."
+              },
+              {
+                "type": "list",
+                "v": [
+                  "welovepaving.com corre WordPress con tema Divi: Divi es pesado y suele inyectar CSS/JS que bloquea el render, lo que castiga el LCP. Es el sospechoso número uno.",
+                  "Palancas técnicas: servir imágenes en WebP y con lazy-load, diferir JS no crítico, purgar CSS no usado y apoyarse en el caché de Cloudflare (ya está en el stack).",
+                  "Presupuesto de rastreo: con 894 URLs y 462 solapadas (módulo 1), las páginas delgadas o duplicadas queman crawl budget que debería ir a las páginas que sí convierten.",
+                  "Todo se indexa mobile-first: la versión móvil es la que cuenta para ranking, no la de escritorio."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "tip",
+                "ci": "database",
+                "v": "El puntaje CWV real y actual del sitio hay que medirlo (PageSpeed Insights / Search Console), no suponerlo. Pendiente: capturar la línea base antes de optimizar para poder probar mejora."
+              }
+            ]
+          },
+          {
+            "t": "Autoridad local: GBP, NAP y E-E-A-T",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "Para búsquedas locales, Google arma el paquete de mapa (map pack) con tres factores: relevancia (qué tan bien coincides), distancia (qué tan cerca del que busca) y prominencia (qué tan conocido y confiable eres). El sitio web influye en relevancia y prominencia; el Google Business Profile es el corazón del map pack."
+              },
+              {
+                "type": "list",
+                "v": [
+                  "Google Business Profile (GBP): categoría principal correcta (Paving contractor), zonas de servicio, fotos reales de obra, publicaciones y respuestas a reseñas. La velocidad y frescura de reseñas pesa.",
+                  "NAP consistente: nombre, dirección y teléfono idénticos en el sitio, GBP y todos los directorios. Una dirección o teléfono distinto entre fuentes confunde al algoritmo local y diluye la prominencia.",
+                  "Citations: menciones del NAP en directorios (Yelp, BBB, directorios de construcción). Consistencia sobre cantidad.",
+                  "E-E-A-T para un contratista: experiencia y confianza demostrables, licencia CSLB visible, garantía por escrito, fotos de proyectos propios y reseñas reales. No son adornos, son las señales que Google y el cliente usan para confiar."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "tip",
+                "ci": "shield",
+                "v": "La confianza no se declara, se evidencia. Un número de licencia real, una garantía por escrito y fotos de obra propia valen más para SEO local que diez páginas geográficas casi iguales."
+              },
+              {
+                "type": "rule",
+                "lab": "Medicion",
+                "v": "Cerrar el ciclo con Search Console (impresiones, clics, posición por consulta y página) y GA4 (qué páginas y canales generan el lead). Sin medición, cada cambio de SEO es una apuesta a ciegas."
+              }
+            ]
+          }
+        ],
+        "quiz": [
+          {
+            "q": "¿Cuándo es válido marcar reseñas con AggregateRating en una página?",
+            "opts": [
+              "Siempre, aunque no se vean en la página",
+              "Solo si las reseñas son reales y están visibles en esa página",
+              "Solo en la home",
+              "Nunca, el schema de reseñas está prohibido"
+            ],
+            "a": 1,
+            "ex": "El schema solo debe marcar lo que el usuario ve. Marcar reseñas invisibles o inventadas es spam estructurado y causa sanción."
+          },
+          {
+            "q": "¿Qué métrica reemplazó a FID como Core Web Vital en marzo de 2024?",
+            "opts": [
+              "LCP",
+              "CLS",
+              "INP (Interaction to Next Paint)",
+              "TTFB"
+            ],
+            "a": 2,
+            "ex": "INP reemplazó a FID en marzo de 2024. Su umbral bueno es 200 ms o menos."
+          },
+          {
+            "q": "¿Cuál es el umbral bueno de LCP?",
+            "opts": [
+              "2.5 segundos o menos",
+              "10 segundos o menos",
+              "200 milisegundos o menos",
+              "0.1 o menos"
+            ],
+            "a": 0,
+            "ex": "LCP bueno es 2.5 s o menos. 200 ms es INP y 0.1 es CLS."
+          },
+          {
+            "q": "¿Por qué importa el NAP consistente para SEO local?",
+            "opts": [
+              "Porque cambia el color del map pack",
+              "Porque un NAP distinto entre fuentes confunde al algoritmo local y diluye la prominencia",
+              "Porque Google cobra por cada directorio",
+              "No importa, solo cuenta el sitio web"
+            ],
+            "a": 1,
+            "ex": "Nombre, dirección y teléfono deben ser idénticos en sitio, GBP y directorios; la inconsistencia debilita la señal local."
+          },
+          {
+            "q": "¿Qué señal E-E-A-T de un contratista pesa más que agregar páginas geográficas casi idénticas?",
+            "opts": [
+              "Más colores en la web",
+              "Licencia CSLB visible, garantía por escrito y fotos de obra propia",
+              "Más palabras clave repetidas",
+              "Un subdominio nuevo"
+            ],
+            "a": 1,
+            "ex": "La confianza se evidencia: licencia real, garantía (15 años asfalto / 5 concreto) y fotos propias valen más que la canibalización geográfica."
           }
         ]
       }
@@ -4135,6 +4453,162 @@ export const COURSES: Course[] = [
             ],
             "a": 1,
             "ex": "Un token o llave potencialmente expuesto se rota de inmediato; es una emergencia de seguridad."
+          }
+        ]
+      },
+      {
+        "id": "m3",
+        "num": "03",
+        "icon": "repeat",
+        "dur": "30 min",
+        "title": "Ciclo de vida del lead, atribución e integraciones",
+        "tag": "Un lead no es una fila en una tabla: es un viaje del clic al trabajo cerrado. Si el dato se rompe en cualquier tramo, marketing paga a ciegas y operaciones trabaja sin contexto.",
+        "objectives": [
+          "Trazar el viaje del lead del clic pagado al CRM y a operaciones.",
+          "Entender la atribución técnica: gclid, fbclid y conversiones offline.",
+          "Conocer las reglas de integración: Pipedrive como Lead, idempotencia y fail-open."
+        ],
+        "lessons": [
+          {
+            "t": "El viaje del lead: del clic al CRM",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "Cada lead recorre una cadena. Si entiendes la cadena completa, sabes dónde mirar cuando un lead no aparece o una conversión no dispara. El orden es siempre el mismo."
+              },
+              {
+                "type": "ol",
+                "v": [
+                  "El usuario llega a una landing pagada (Google/Meta) que trae parámetros de atribución en la URL (gclid, fbclid).",
+                  "Llena el quote form en quote.welovepaving.com y envía a POST /api/submit.",
+                  "El endpoint valida y pasa las 3 capas anti-abuso con principio fail-open: ningún humano legítimo se bloquea.",
+                  "El lead se persiste en Supabase con su fuente y su identificador de clic.",
+                  "Se hace push a Pipedrive como LEAD (nunca Deal), con el origen en la nota.",
+                  "Operaciones toma el lead calificado y lo trabaja en Jobber."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "warn",
+                "ci": "alert",
+                "v": "Landmine de conversión por ruta: cada landing pagada NUEVA debe agregarse a SEM_LANDING_PATHS en api/submit.js. Si no, el lead entra pero la conversión NO dispara y la campaña parece no rendir aunque sí venda."
+              },
+              {
+                "type": "rule",
+                "lab": "Regla dura",
+                "v": "Pipedrive SIEMPRE se puebla como Lead (POST /leads), JAMÁS como Deal. El origen (por ejemplo LEAD DE META) va en la nota, no en el tipo de registro."
+              }
+            ]
+          },
+          {
+            "t": "Atribución técnica: gclid, fbclid y conversiones offline",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "El clic y la venta ocurren en momentos y sistemas distintos. La atribución es el puente: guardar el identificador del clic al entrar el lead y devolvérselo a la plataforma cuando el lead se convierte en algo valioso (llamada calificada, trabajo cerrado). Sin ese puente, optimizas campañas con datos incompletos."
+              },
+              {
+                "type": "list",
+                "v": [
+                  "gclid (Google) y fbclid (Meta) se capturan en la landing y se guardan junto al lead. Son la llave para atribuir una venta offline al clic que la originó.",
+                  "Conversiones offline de Google: una Edge Function de Supabase (google-ads-conversions) sirve las llamadas calificadas con su gclid como CSV para el Scheduled Upload de Google Ads.",
+                  "Meta CAPI (Conversions API) manda eventos server-side desde el stack propio en WLI, más robusto que solo el pixel del navegador.",
+                  "El naming de lead_source debe ser normalizado: un catálogo inconsistente rompe el loop de atribución y ensucia el reporte de marketing."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "warn",
+                "ci": "alert",
+                "v": "Límite duro de Meta CAPI: rechaza eventos de más de 7 días de antigüedad y NO hay backfill. Una venta offline hay que subirla dentro de la ventana; si se pasa, ese dato de atribución se pierde para siempre."
+              },
+              {
+                "type": "callout",
+                "style": "info",
+                "ci": "info",
+                "v": "Por qué server-side y no solo pixel: la pérdida de cookies, el ITP de iOS y los bloqueadores rompen el rastreo de navegador. Un evento first-party desde el servidor sobrevive donde el pixel se cae."
+              }
+            ]
+          },
+          {
+            "t": "Integraciones que no se rompen: webhooks, idempotencia y fail-open",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "Conectar dos sistemas es fácil; conectarlos para que no se dupliquen, no se caigan y no bloqueen un lead legítimo es el trabajo real. Tres principios lo gobiernan."
+              },
+              {
+                "type": "list",
+                "v": [
+                  "Idempotencia: si un envío se reintenta (timeout, reintento del cliente), no debe crear un lead duplicado. Un identificador estable por envío evita el doble registro.",
+                  "Fail-open sobre fail-closed en el intake: ante duda, dejar pasar al humano. Perder un lead legítimo cuesta más que dejar entrar algo de ruido que se filtra después.",
+                  "Contrato de datos: el payload tiene una forma acordada (campos requeridos, tipos). Cambiarla sin avisar rompe al consumidor del otro lado.",
+                  "Observabilidad: /api/health (GET 200) es el blanco de monitoreo de uptime; si el endpoint cae, los leads se pierden en silencio hasta que alguien lo note."
+                ]
+              },
+              {
+                "type": "rule",
+                "lab": "Conectores MCP",
+                "v": "Al automatizar con conectores MCP, se identifican por el SUFIJO de la herramienta (por ejemplo __clickup_*, __qbo_*), no por el hash del servidor que cambia entre sesiones."
+              }
+            ]
+          }
+        ],
+        "quiz": [
+          {
+            "q": "¿Qué pasa si una landing pagada nueva NO se agrega a SEM_LANDING_PATHS en api/submit.js?",
+            "opts": [
+              "El lead se bloquea",
+              "El lead entra pero la conversión no dispara",
+              "El sitio se cae",
+              "Se duplica el lead"
+            ],
+            "a": 1,
+            "ex": "El lead se registra, pero sin la ruta en SEM_LANDING_PATHS la conversión no se marca y la campaña parece no rendir."
+          },
+          {
+            "q": "¿Cómo se puebla SIEMPRE Pipedrive en WLP?",
+            "opts": [
+              "Como Deal",
+              "Como Lead (POST /leads), con el origen en la nota",
+              "Como contacto sin nota",
+              "Como tarea"
+            ],
+            "a": 1,
+            "ex": "Regla dura: siempre Lead, nunca Deal. El origen va en la nota."
+          },
+          {
+            "q": "¿Para qué sirve capturar el gclid junto al lead?",
+            "opts": [
+              "Para ordenar la tabla",
+              "Para atribuir una venta offline al clic pagado que la originó",
+              "Para acelerar la web",
+              "Para el honeypot"
+            ],
+            "a": 1,
+            "ex": "El gclid es la llave que une una llamada o trabajo cerrado con el clic de Google Ads que lo trajo."
+          },
+          {
+            "q": "¿Cuál es el límite duro de Meta CAPI?",
+            "opts": [
+              "Máximo 100 eventos por día",
+              "Rechaza eventos de más de 7 días y no hay backfill",
+              "Solo acepta gclid",
+              "Requiere pixel obligatorio"
+            ],
+            "a": 1,
+            "ex": "CAPI rechaza eventos de más de 7 días de antigüedad; pasada la ventana, ese dato se pierde."
+          },
+          {
+            "q": "¿Qué evita la idempotencia en una integración?",
+            "opts": [
+              "Que el sitio sea lento",
+              "Que un reintento cree un lead duplicado",
+              "Que se exponga un secreto",
+              "Que falle el schema"
+            ],
+            "a": 1,
+            "ex": "Con un identificador estable por envío, un reintento no genera un segundo registro del mismo lead."
           }
         ]
       }
@@ -5562,6 +6036,169 @@ export const COURSES: Course[] = [
             ],
             "a": 0,
             "ex": "La meta es responder un lead calificado en menos de una hora."
+          }
+        ]
+      },
+      {
+        "id": "m3",
+        "num": "03",
+        "icon": "database",
+        "dur": "28 min",
+        "title": "Martech: funnel, atribución y entregabilidad de email",
+        "tag": "La marca dice qué prometes; el martech decide si el mensaje llega, a quién se le atribuye la venta y qué métrica es verdad. Sin esta capa, el marketing es opinión, no sistema.",
+        "objectives": [
+          "Leer el funnel por etapa con la métrica correcta en cada una.",
+          "Elegir un modelo de atribución entendiendo sus trampas.",
+          "Proteger la entregabilidad del email con autenticación y reputación."
+        ],
+        "lessons": [
+          {
+            "t": "El funnel y la métrica de cada etapa",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "Un prospecto no pasa de desconocido a cliente en un salto. Recorre etapas, y cada etapa se mide distinto. Usar la métrica equivocada en una etapa lleva a optimizar lo que no importa."
+              },
+              {
+                "type": "table",
+                "head": ["Etapa", "Objetivo", "Métrica clave"],
+                "rows": [
+                  ["TOFU (descubrimiento)", "Que te conozcan", "Alcance, impresiones"],
+                  ["MOFU (consideración)", "Que se interesen", "CTR, engagement, tasa de clic"],
+                  ["BOFU (decisión)", "Que conviertan", "CVR, costo por lead (CPL)"],
+                  ["Post-venta", "Que repitan y refieran", "LTV, referidos"]
+                ]
+              },
+              {
+                "type": "list",
+                "v": [
+                  "MQL vs SQL: un lead de marketing (MQL) mostró interés; uno calificado por ventas (SQL) cumple criterio de compra. No se tratan igual.",
+                  "La velocidad es producto: un lead calificado se contesta en menos de 1 hora, o se enfría.",
+                  "La estrella polar es margen, no vanidad: más leads baratos que no cierran no es un triunfo."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "info",
+                "ci": "info",
+                "v": "Métrica de vanidad vs métrica accionable: impresiones y likes se ven bien pero no pagan nómina. CPL, CVR y LTV son las que mueven decisiones."
+              }
+            ]
+          },
+          {
+            "t": "Atribución: a quién se le acredita la venta",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "Antes de convertir, un lead pudo ver un anuncio, abrir un email y buscarte en Google. ¿A cuál touchpoint le das el crédito? El modelo de atribución responde eso, y cada modelo cuenta una historia distinta del mismo dato."
+              },
+              {
+                "type": "table",
+                "head": ["Modelo", "A quién acredita", "Trampa"],
+                "rows": [
+                  ["Último clic", "Al último touchpoint", "Ignora todo lo que preparó la venta"],
+                  ["Primer clic", "Al primer touchpoint", "Ignora lo que cerró la venta"],
+                  ["Lineal", "Reparte parejo", "Trata igual a un touch débil y a uno decisivo"],
+                  ["Time-decay", "Más a los cercanos al cierre", "Subvalúa el descubrimiento"]
+                ]
+              },
+              {
+                "type": "list",
+                "v": [
+                  "La realidad es multi-touch: casi ningún lead cierra con una sola interacción. Un solo modelo nunca es la verdad completa.",
+                  "Higiene de UTM: los parámetros de campaña deben nombrarse de forma consistente. Un naming sucio rompe el reporte igual que el lead_source inconsistente rompe el CRM.",
+                  "Mundo sin cookies: el rastreo de navegador se degrada; los datos first-party y el server-side (CAPI) son la base confiable.",
+                  "Las aperturas de email ya NO son confiables: Apple Mail Privacy Protection las infla precargando el pixel. Clics y respuestas son la señal real."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "warn",
+                "ci": "alert",
+                "v": "No optimices por tasa de apertura: desde Apple MPP, un open puede ser el sistema de Apple, no una persona. Mide clics, respuestas y conversiones."
+              }
+            ]
+          },
+          {
+            "t": "Entregabilidad: que el email llegue a la bandeja",
+            "blocks": [
+              {
+                "type": "p",
+                "v": "El mejor copy no sirve si cae en spam. La entregabilidad es técnica antes que creativa: primero pruebas que eres quien dices ser, luego cuidas tu reputación de remitente. El motor de email de la plataforma es Brevo."
+              },
+              {
+                "type": "list",
+                "v": [
+                  "Autenticación, la base innegociable: SPF (qué servidores pueden enviar por tu dominio), DKIM (firma que prueba que el correo no fue alterado) y DMARC (política de qué hacer si SPF/DKIM fallan). Sin los tres, el correo tiende a spam.",
+                  "Reputación de remitente: warm-up gradual de un dominio nuevo, y mantener bajas las tasas de rebote y de queja. Los proveedores te puntúan por comportamiento.",
+                  "Higiene de lista: limpiar rebotes duros y desuscritos. Enviar a direcciones muertas destruye la reputación.",
+                  "Señales de contenido: una sola CTA clara, buena proporción texto/imagen y evitar disparadores de spam. Segmentar en vez de blast masivo."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "tip",
+                "ci": "send",
+                "v": "Orden correcto: primero SPF, DKIM y DMARC bien puestos; luego reputación y lista limpia; al final el copy. Un correo hermoso sin autenticación no llega."
+              }
+            ]
+          }
+        ],
+        "quiz": [
+          {
+            "q": "¿Qué métrica es accionable en vez de vanidad?",
+            "opts": [
+              "Likes e impresiones",
+              "CPL, CVR y LTV",
+              "Número de seguidores",
+              "Aperturas de email"
+            ],
+            "a": 1,
+            "ex": "Costo por lead, tasa de conversión y valor de vida mueven decisiones; likes e impresiones no pagan nómina."
+          },
+          {
+            "q": "¿Cuál es la trampa del modelo de atribución de último clic?",
+            "opts": [
+              "Sobrevalúa el descubrimiento",
+              "Ignora todo lo que preparó la venta antes del último touchpoint",
+              "No se puede medir",
+              "Solo funciona en email"
+            ],
+            "a": 1,
+            "ex": "El último clic da todo el crédito al cierre e ignora los touchpoints que calentaron al lead."
+          },
+          {
+            "q": "¿Por qué ya no se optimiza por tasa de apertura de email?",
+            "opts": [
+              "Porque Brevo no la mide",
+              "Porque Apple Mail Privacy Protection la infla precargando el pixel",
+              "Porque no importa el email",
+              "Porque siempre es 100%"
+            ],
+            "a": 1,
+            "ex": "Apple MPP precarga el pixel de apertura, así que un open puede ser el sistema de Apple y no una persona."
+          },
+          {
+            "q": "¿Cuáles son los tres pilares de autenticación de email?",
+            "opts": [
+              "HTTP, HTTPS y TLS",
+              "SPF, DKIM y DMARC",
+              "SEO, SEM y CRO",
+              "TOFU, MOFU y BOFU"
+            ],
+            "a": 1,
+            "ex": "SPF, DKIM y DMARC prueban que el correo es legítimo; sin ellos tiende a caer en spam."
+          },
+          {
+            "q": "¿Cuál es el orden correcto para que un email llegue a la bandeja?",
+            "opts": [
+              "Primero el copy bonito, luego lo técnico",
+              "Primero autenticación y reputación, luego el copy",
+              "Solo importa el asunto",
+              "Enviar en masa a toda la lista"
+            ],
+            "a": 1,
+            "ex": "Autenticación (SPF/DKIM/DMARC), reputación y lista limpia van primero; el copy es lo último."
           }
         ]
       }
