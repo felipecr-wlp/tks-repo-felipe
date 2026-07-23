@@ -8,6 +8,76 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-22 — Sprint de madurez ("que no se sienta v1"): 5 oleadas de agentes
+
+Auditoría de 4 agentes read-only + 5 oleadas de agentes implementadores en
+paralelo (scopes de archivos DISJUNTOS para no colisionar; el orquestador controla
+git y corre tsc/tests/build entre oleadas). Rama `feat/madurez-sprint`, 7 commits.
+tsc 0, 243 tests (incluidos los invariantes/tripwires) en verde, build limpio en
+cada oleada. Sin desplegar todavía (pendiente confirmación + aplicar migraciones).
+
+### Confiabilidad / seguridad (Oleada 1 y 2)
+- Borrado del duplicado divergente `supabase/migrations/0001_initial_schema.sql`
+  (ordenaba antes del canónico `20260421...` y corrompía entornos frescos).
+- Migración `20260722120000_fix_workspace_members_rls.sql`: arregla recursión
+  42P17 latente en `workspace_members_insert/_delete` con helper
+  `user_admin_workspace_ids()` (SECURITY DEFINER STABLE).
+- Migración `20260722130000_fix_team_project_members_rls.sql`: misma clase de
+  bomba 42P17 en team_members y project_members, con helpers
+  `user_admin_team_ids()`, `user_project_ids()`, `user_manager_project_ids()`.
+- `spaces_departments.sql` hecha idempotente (IF NOT EXISTS).
+- `rate-limit.ts` ahora falla CERRADO (429 + console.error) en producción si Redis
+  no está configurado o falla, en vez de fallar abierto en silencio.
+- Nuevo tripwire `migration-schema-invariant` (un solo initial_schema, sin CREATE
+  TABLE desnudo, lint de RLS self-reference); allowlist KNOWN_RISK vaciada.
+
+### Terminado de UI (Oleada 1)
+- ~12 sitios de loading/empty/error ruteados por primitivas Skeleton/EmptyState/
+  ErrorState con retry (MembersPanel, InvitesPanel, DepartmentsPanel, TeamsPanel,
+  AcademyAdminPanel, TaskListView, home del workspace).
+- Ortografía española correcta (tildes/ñ) en `academy/courses.ts`.
+
+### Búsqueda y navegación (Oleada 1, 3, 4)
+- `/api/search` reescrito con Promise.all (consultas por tipo en paralelo) y match
+  en cuerpo (description/content), no solo título. Página de resultados agrupada
+  `/w/[slug]/search`.
+- CommandPalette: iconos lucide, más acciones, hint Cmd+K, sección "Recientes"
+  persistida en localStorage (`wlo-cmdk-recents-${workspaceId}`).
+- Overlay de atajos de teclado ("?"), lista atajos reales (Cmd/Ctrl+K, C, /, ?).
+
+### Rendimiento (Oleada 1, 2)
+- Charts de scrum y tracking extraídos para lazy-load (next/dynamic ssr:false).
+- TaskListView virtualizado con useVirtualizer (scroll acotado).
+
+### Funciones que faltaban (Oleada 2, 3, 4, 5)
+- Bitácora del workspace: `/api/workspaces/[id]/activity` + `/w/[slug]/activity`
+  (feed "quién hizo qué", auth+membership recheck, paginado, verbos en español).
+- Vista Tabla densa y ordenable con campos personalizados inline (TaskTableView).
+- BulkActionBar (mover proyecto/etiqueta/fecha/sprint) + TaskFilterBar
+  (etiqueta/rango de vencimiento/campo personalizado).
+- Rollup de progreso de metas por tareas enlazadas (goal_tasks + categoría 'done')
+  en TODAS las metas, con barra secundaria en metas manuales.
+- Analytics: rollup de time_entries (horas totales, por persona, por proyecto).
+- Toggle de densidad (Cómoda/Compacta) con store zustand `useDensity`
+  (`wlo-density`), aplicado a list y table, virtualizer ajusta estimateSize.
+- Export CSV de tareas por proyecto (`/api/projects/[id]/export`, RFC4180 + BOM).
+- Import CSV de tareas (`/api/projects/[id]/import`) con preview cliente; authz
+  endurecida a membresía DIRECTA del proyecto (project_members, igual que POST
+  /api/tasks), tope 500 filas.
+- Inbox: agrupación por fecha (Hoy/Ayer/Esta semana/Anteriores), "Marcar todo como
+  leído" con alcance por workspace (anti-IDOR slug -> id), estados vacíos/error.
+- Mis tareas: agrupación por vencimiento (Vencidas/Hoy/Esta semana/Después/Sin
+  fecha).
+- SubtasksSection: indicador "N de M completadas" + barra de progreso (ARIA).
+
+### Deliberadamente NO tocado
+- `KanbanBoard.tsx` (landmine drag-and-drop + Fable).
+- Reescritura realtime -> react-query (demasiado invasiva para hacerla a ciegas).
+- Regeneración de tipos Supabase / limpieza masiva de `as any` (cross-cutting,
+  se hará bajo control estricto, no en oleada paralela).
+
+---
+
 ## 2026-07-21 — Mejoras post-v2: chat en vivo, command palette y no leídos
 
 Cuatro mejoras sobre el chat y la búsqueda global (una quinta ya estaba lista).
