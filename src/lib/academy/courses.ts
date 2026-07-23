@@ -3131,14 +3131,14 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "El presupuesto no es un número fijo diario parejo: es un total mensual repartido donde el lead sí ocurre. La cuenta de Google Ads es AW-746510497."
+                "v": "El presupuesto no es un número fijo diario parejo: es un total mensual repartido donde el lead sí ocurre. El presupuesto diario que ves en la plataforma es solo el techo mensual dividido entre los días activos."
               },
               {
                 "type": "list",
                 "v": [
-                  "Presupuesto dinámico: ~$4,500 USD al mes EXCLUYENDO fines de semana, lo que da aproximadamente $204 por día laboral (no el viejo $185/día).",
-                  "Dayparting: las llamadas, que son el motor real de leads, tienen su pico entre 9 y 11am. Concentrar el gasto en horario y días laborales evita pagar clics cuando nadie contesta el teléfono.",
-                  "Excluir fin de semana del cálculo es una decisión de estructura: si el negocio no cierra leads sábado y domingo, el presupuesto no debe repartirse ahí.",
+                  "Presupuesto dinámico: se fija un techo mensual y se reparte solo en los días donde el negocio realmente atiende. Si un negocio no cierra leads en fin de semana, excluir sábado y domingo sube el gasto efectivo por día laboral.",
+                  "Dayparting: si las llamadas son el motor real de leads y pican en una franja concreta (por ejemplo, media mañana), concentrar el gasto ahí evita pagar clics cuando nadie contesta el teléfono.",
+                  "Excluir horarios muertos del cálculo es una decisión de estructura: el presupuesto no debe repartirse donde no hay quién convierta el lead.",
                   "El objetivo del reparto es maximizar leads dentro del techo mensual, no gastar parejo por gastar."
                 ]
               },
@@ -3146,7 +3146,7 @@ export const COURSES: Course[] = [
                 "type": "callout",
                 "style": "info",
                 "ci": "info",
-                "v": "El presupuesto dinámico ($204/día laboral) es un hecho verificado del SSOT SEM. Si un material viejo dice $185/día, está desactualizado."
+                "v": "Antes de fijar dayparting, valida la franja horaria con datos reales de la cuenta (informe por hora del día), no con la intuición. Cada negocio tiene su propio pico."
               }
             ]
           },
@@ -3162,14 +3162,14 @@ export const COURSES: Course[] = [
                 "v": [
                   "Maximize Conversions optimiza el NÚMERO de conversiones. Si todas las conversiones tienen el mismo valor estático, la puja no distingue un lead bueno de uno malo.",
                   "Quality Score se compone de CTR esperado, relevancia del anuncio y experiencia de la landing. Sube el Ad Rank y baja el CPC: mejor calidad, mismo dinero, más clics.",
-                  "El cuello de botella real de WLP es el VOLUMEN, no el precio del clic: aún el peor ad group está por debajo del breakeven de ~$1,796 de GP por lead. Se puja para escalar, no para abaratar.",
+                  "Diagnóstico clave: si aún el peor ad group deja margen (su costo por lead está muy por debajo de lo que el negocio gana por lead cerrado), el cuello de botella es el VOLUMEN, no el precio del clic. En ese caso se puja para escalar, no para abaratar.",
                   "Fase de aprendizaje: tras un cambio grande de puja o presupuesto, el sistema re-aprende. Sobre-editar en pleno aprendizaje reinicia el proceso y desperdicia señal."
                 ]
               },
               {
                 "type": "rule",
-                "lab": "Regla de ejecucion",
-                "v": "El upload quirúrgico de cambios SEM (paquetes de operaciones validados) lo ejecuta ALAN en la UI de Google Ads, NO la IA. La IA modela y audita; la mano en la cuenta es humana."
+                "lab": "Separación de roles",
+                "v": "Buena práctica: quien modela y audita los cambios no es necesariamente quien los aplica en la cuenta. Separar el análisis de la ejecución, y validar el paquete de cambios antes de subirlo, evita errores caros e irreversibles en producción."
               }
             ]
           },
@@ -3184,8 +3184,8 @@ export const COURSES: Course[] = [
                 "type": "ol",
                 "v": [
                   "El lead entra con su gclid guardado (cuando existe).",
-                  "Cuando ese lead se califica o cierra, una Edge Function de Supabase (google-ads-conversions) lo expone como CSV con el gclid.",
-                  "El Scheduled Upload de Google Ads consume ese CSV y le devuelve al sistema la conversión offline real.",
+                  "Cuando ese lead se califica o cierra, un proceso del lado del servidor lo expone como archivo (por ejemplo, un CSV) con el gclid y el valor real de esa conversión.",
+                  "El Scheduled Upload de Google Ads consume ese archivo y le devuelve al sistema la conversión offline real.",
                   "Con eso, la puja aprende de resultados de negocio, no solo de clics en un botón."
                 ]
               },
@@ -3193,12 +3193,12 @@ export const COURSES: Course[] = [
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "Pendiente one-time: crear la Programación HTTPS del Scheduled Upload en la UI de Google Ads (lo hace Alan). Hasta que exista, el CSV se genera pero no se sube solo."
+                "v": "El upload de conversiones offline debe quedar programado y monitoreado: si el archivo se genera pero nadie configura la carga automática, el dato existe pero nunca llega a la plataforma, y la puja sigue optimizando a ciegas."
               },
               {
                 "type": "rule",
-                "lab": "Metodologia Fugas",
-                "v": "Al auditar, separar fugas reales de artefactos históricos usando SOLO datos LIVE por API, nunca los falsos positivos del XML o de reportes viejos. El dato vivo manda."
+                "lab": "Auditar con dato vivo",
+                "v": "Al auditar una cuenta, separa los problemas reales de los artefactos históricos usando SOLO datos actuales de la fuente (API o informes en vivo), nunca exports viejos o cachés que ya no reflejan el estado real. El dato vivo manda."
               }
             ]
           }
@@ -3515,7 +3515,7 @@ export const COURSES: Course[] = [
         "tag": "Para un contratista local, ganar no es tener más páginas: es que Google entienda quién eres, dónde sirves y por qué confiar en ti, y que el sitio cargue rápido.",
         "objectives": [
           "Marcar el negocio con datos estructurados (JSON-LD) que Google pueda leer.",
-          "Entender y diagnosticar los Core Web Vitals de un sitio WordPress/Divi.",
+          "Entender y diagnosticar los Core Web Vitals de cualquier sitio.",
           "Construir autoridad local con GBP, NAP consistente y señales E-E-A-T."
         ],
         "lessons": [
@@ -3524,16 +3524,16 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "El texto de una página se lo lee un humano; los datos estructurados se los lee la máquina. Son un bloque de código JSON-LD (Schema.org) que declara, sin ambigüedad, que WLP es un contratista, qué servicios ofrece, dónde y con qué reputación. Bien puestos, habilitan resultados enriquecidos (estrellas, FAQ desplegables, empleos) y ayudan al entendimiento de entidad."
+                "v": "El texto de una página se lo lee un humano; los datos estructurados se los lee la máquina. Son un bloque de código JSON-LD (Schema.org) que declara, sin ambigüedad, que un negocio es (por ejemplo) un contratista, qué servicios ofrece, dónde y con qué reputación. Bien puestos, habilitan resultados enriquecidos (estrellas, FAQ desplegables, empleos) y ayudan al entendimiento de entidad."
               },
               {
                 "type": "list",
                 "v": [
-                  "LocalBusiness (o el subtipo GeneralContractor / PavingContractor): nombre, dirección y teléfono (NAP), horario, zona servida (areaServed) y URL. Es la ficha de identidad del negocio.",
-                  "Service: un bloque por servicio real (asfalto, concreto, sealcoating, striping), enlazado al proveedor. Aterriza cada página de servicio como una oferta entendible.",
+                  "LocalBusiness (o el subtipo que aplique, p. ej. GeneralContractor, Restaurant, Dentist): nombre, dirección y teléfono (NAP), horario, zona servida (areaServed) y URL. Es la ficha de identidad del negocio.",
+                  "Service: un bloque por servicio real, enlazado al proveedor. Aterriza cada página de servicio como una oferta entendible.",
                   "AggregateRating / Review: la reputación, SOLO si las reseñas son reales y visibles en la página. Inventarlas es causa directa de sanción manual de Google.",
                   "FAQPage: preguntas frecuentes de la landing (garantía, tiempos, financiamiento). Puede ganar espacio extra en el SERP.",
-                  "JobPosting: para /careers, habilita Google for Jobs gratis (ya cubierto en el módulo 2)."
+                  "JobPosting: para la página de empleos, habilita Google for Jobs gratis."
                 ]
               },
               {
@@ -3544,8 +3544,8 @@ export const COURSES: Course[] = [
               },
               {
                 "type": "rule",
-                "lab": "Aplicacion WLP",
-                "v": "Poner el número de licencia CSLB y la garantía (15 años en asfalto, 5 en concreto) como propiedades/contenido visible reforzadas con schema: son señales de confianza verificables, no marketing."
+                "lab": "Principio",
+                "v": "Poner las credenciales verificables del negocio (número de licencia, años de garantía por escrito, certificaciones) como contenido visible reforzado con schema: son señales de confianza comprobables, no marketing."
               }
             ]
           },
@@ -3574,9 +3574,9 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "welovepaving.com corre WordPress con tema Divi: Divi es pesado y suele inyectar CSS/JS que bloquea el render, lo que castiga el LCP. Es el sospechoso número uno.",
-                  "Palancas técnicas: servir imágenes en WebP y con lazy-load, diferir JS no crítico, purgar CSS no usado y apoyarse en el caché de Cloudflare (ya está en el stack).",
-                  "Presupuesto de rastreo: con 894 URLs y 462 solapadas (módulo 1), las páginas delgadas o duplicadas queman crawl budget que debería ir a las páginas que sí convierten.",
+                  "Los constructores de páginas visuales (page builders) y los temas pesados suelen inyectar CSS/JS que bloquea el render, lo que castiga el LCP. Es el sospechoso número uno en muchos sitios.",
+                  "Palancas técnicas: servir imágenes en WebP y con lazy-load, diferir JS no crítico, purgar CSS no usado y apoyarse en una CDN con caché frente al servidor.",
+                  "Presupuesto de rastreo: cuando un sitio tiene cientos de páginas casi iguales o delgadas, esas duplicadas queman crawl budget que debería ir a las páginas que sí convierten.",
                   "Todo se indexa mobile-first: la versión móvil es la que cuenta para ranking, no la de escritorio."
                 ]
               },
@@ -3584,7 +3584,7 @@ export const COURSES: Course[] = [
                 "type": "callout",
                 "style": "tip",
                 "ci": "database",
-                "v": "El puntaje CWV real y actual del sitio hay que medirlo (PageSpeed Insights / Search Console), no suponerlo. Pendiente: capturar la línea base antes de optimizar para poder probar mejora."
+                "v": "El puntaje CWV real y actual de un sitio hay que medirlo (PageSpeed Insights / Search Console), no suponerlo. Buena práctica: capturar la línea base antes de optimizar para poder probar la mejora."
               }
             ]
           },
@@ -3598,17 +3598,17 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "Google Business Profile (GBP): categoría principal correcta (Paving contractor), zonas de servicio, fotos reales de obra, publicaciones y respuestas a reseñas. La velocidad y frescura de reseñas pesa.",
+                  "Google Business Profile (GBP): categoría principal correcta, zonas de servicio, fotos reales, publicaciones y respuestas a reseñas. La velocidad y frescura de reseñas pesa.",
                   "NAP consistente: nombre, dirección y teléfono idénticos en el sitio, GBP y todos los directorios. Una dirección o teléfono distinto entre fuentes confunde al algoritmo local y diluye la prominencia.",
-                  "Citations: menciones del NAP en directorios (Yelp, BBB, directorios de construcción). Consistencia sobre cantidad.",
-                  "E-E-A-T para un contratista: experiencia y confianza demostrables, licencia CSLB visible, garantía por escrito, fotos de proyectos propios y reseñas reales. No son adornos, son las señales que Google y el cliente usan para confiar."
+                  "Citations: menciones del NAP en directorios (Yelp, BBB, directorios del sector). Consistencia sobre cantidad.",
+                  "E-E-A-T: experiencia y confianza demostrables, número de licencia o credencial visible, garantía por escrito, fotos de trabajos propios y reseñas reales. No son adornos, son las señales que Google y el cliente usan para confiar."
                 ]
               },
               {
                 "type": "callout",
                 "style": "tip",
                 "ci": "shield",
-                "v": "La confianza no se declara, se evidencia. Un número de licencia real, una garantía por escrito y fotos de obra propia valen más para SEO local que diez páginas geográficas casi iguales."
+                "v": "La confianza no se declara, se evidencia. Un número de licencia real, una garantía por escrito y fotos de trabajos propios valen más para SEO local que diez páginas geográficas casi iguales."
               },
               {
                 "type": "rule",
@@ -3664,15 +3664,15 @@ export const COURSES: Course[] = [
             "ex": "Nombre, dirección y teléfono deben ser idénticos en sitio, GBP y directorios; la inconsistencia debilita la señal local."
           },
           {
-            "q": "¿Qué señal E-E-A-T de un contratista pesa más que agregar páginas geográficas casi idénticas?",
+            "q": "¿Qué señal E-E-A-T pesa más que agregar páginas geográficas casi idénticas?",
             "opts": [
               "Más colores en la web",
-              "Licencia CSLB visible, garantía por escrito y fotos de obra propia",
+              "Número de licencia o credencial visible, garantía por escrito y fotos de trabajos propios",
               "Más palabras clave repetidas",
               "Un subdominio nuevo"
             ],
             "a": 1,
-            "ex": "La confianza se evidencia: licencia real, garantía (15 años asfalto / 5 concreto) y fotos propias valen más que la canibalización geográfica."
+            "ex": "La confianza se evidencia: credencial real, garantía por escrito y fotos propias valen más que la canibalización geográfica."
           }
         ]
       }
@@ -4466,7 +4466,7 @@ export const COURSES: Course[] = [
         "objectives": [
           "Trazar el viaje del lead del clic pagado al CRM y a operaciones.",
           "Entender la atribución técnica: gclid, fbclid y conversiones offline.",
-          "Conocer las reglas de integración: Pipedrive como Lead, idempotencia y fail-open."
+          "Conocer las reglas de integración: capturar la fuente, idempotencia y fail-open."
         ],
         "lessons": [
           {
@@ -4480,23 +4480,23 @@ export const COURSES: Course[] = [
                 "type": "ol",
                 "v": [
                   "El usuario llega a una landing pagada (Google/Meta) que trae parámetros de atribución en la URL (gclid, fbclid).",
-                  "Llena el quote form en quote.welovepaving.com y envía a POST /api/submit.",
-                  "El endpoint valida y pasa las 3 capas anti-abuso con principio fail-open: ningún humano legítimo se bloquea.",
-                  "El lead se persiste en Supabase con su fuente y su identificador de clic.",
-                  "Se hace push a Pipedrive como LEAD (nunca Deal), con el origen en la nota.",
-                  "Operaciones toma el lead calificado y lo trabaja en Jobber."
+                  "Llena el formulario de cotización y lo envía al endpoint del servidor.",
+                  "El endpoint valida y pasa las capas anti-abuso con principio fail-open: ningún humano legítimo se bloquea.",
+                  "El lead se persiste en la base de datos con su fuente y su identificador de clic.",
+                  "Se sincroniza con el CRM registrando la fuente de origen junto al contacto.",
+                  "Operaciones toma el lead calificado y lo trabaja en la herramienta de campo."
                 ]
               },
               {
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "Landmine de conversión por ruta: cada landing pagada NUEVA debe agregarse a SEM_LANDING_PATHS en api/submit.js. Si no, el lead entra pero la conversión NO dispara y la campaña parece no rendir aunque sí venda."
+                "v": "Trampa clásica de conversión por ruta: cada landing pagada NUEVA debe registrarse en la lista de rutas que disparan la conversión. Si no, el lead entra pero la conversión NO dispara y la campaña parece no rendir aunque sí venda."
               },
               {
                 "type": "rule",
-                "lab": "Regla dura",
-                "v": "Pipedrive SIEMPRE se puebla como Lead (POST /leads), JAMÁS como Deal. El origen (por ejemplo LEAD DE META) va en la nota, no en el tipo de registro."
+                "lab": "Principio",
+                "v": "Al sincronizar con el CRM, conserva SIEMPRE la fuente de origen del lead (por ejemplo, campaña de Meta) en un campo o nota. Perder el origen ciega la medición de qué canal trae negocio."
               }
             ]
           },
@@ -4511,9 +4511,9 @@ export const COURSES: Course[] = [
                 "type": "list",
                 "v": [
                   "gclid (Google) y fbclid (Meta) se capturan en la landing y se guardan junto al lead. Son la llave para atribuir una venta offline al clic que la originó.",
-                  "Conversiones offline de Google: una Edge Function de Supabase (google-ads-conversions) sirve las llamadas calificadas con su gclid como CSV para el Scheduled Upload de Google Ads.",
-                  "Meta CAPI (Conversions API) manda eventos server-side desde el stack propio en WLI, más robusto que solo el pixel del navegador.",
-                  "El naming de lead_source debe ser normalizado: un catálogo inconsistente rompe el loop de atribución y ensucia el reporte de marketing."
+                  "Conversiones offline de Google: se suben las ventas o llamadas calificadas con su gclid (por ejemplo, un CSV para el Scheduled Upload de Google Ads) para que la plataforma sepa qué clics generaron negocio real.",
+                  "Meta CAPI (Conversions API) manda eventos server-side desde el servidor, más robusto que solo el pixel del navegador.",
+                  "El naming de la fuente del lead debe ser normalizado: un catálogo inconsistente rompe el loop de atribución y ensucia el reporte de marketing."
                 ]
               },
               {
@@ -4543,13 +4543,13 @@ export const COURSES: Course[] = [
                   "Idempotencia: si un envío se reintenta (timeout, reintento del cliente), no debe crear un lead duplicado. Un identificador estable por envío evita el doble registro.",
                   "Fail-open sobre fail-closed en el intake: ante duda, dejar pasar al humano. Perder un lead legítimo cuesta más que dejar entrar algo de ruido que se filtra después.",
                   "Contrato de datos: el payload tiene una forma acordada (campos requeridos, tipos). Cambiarla sin avisar rompe al consumidor del otro lado.",
-                  "Observabilidad: /api/health (GET 200) es el blanco de monitoreo de uptime; si el endpoint cae, los leads se pierden en silencio hasta que alguien lo note."
+                  "Observabilidad: un endpoint de salud (health check que responde 200) es el blanco de monitoreo de uptime; si el servicio cae, los leads se pierden en silencio hasta que alguien lo note."
                 ]
               },
               {
                 "type": "rule",
-                "lab": "Conectores MCP",
-                "v": "Al automatizar con conectores MCP, se identifican por el SUFIJO de la herramienta (por ejemplo __clickup_*, __qbo_*), no por el hash del servidor que cambia entre sesiones."
+                "lab": "Principio",
+                "v": "Toda integración crítica necesita monitoreo activo y alertas: un fallo silencioso en el tramo de captura de leads no se descubre por el reporte de ventas, sino cuando ya se perdieron días de negocio."
               }
             ]
           }
@@ -4567,15 +4567,15 @@ export const COURSES: Course[] = [
             "ex": "Si una ruta nueva no se registra en la config de conversión, el lead entra pero el evento no se marca: la campaña parece no rendir aunque venda. Lección transferible: toda landing pagada nueva se da de alta en el tracking."
           },
           {
-            "q": "¿Cómo se puebla SIEMPRE Pipedrive en WLP?",
+            "q": "Al sincronizar un lead con el CRM, ¿qué NUNCA se debe perder?",
             "opts": [
-              "Como Deal",
-              "Como Lead (POST /leads), con el origen en la nota",
-              "Como contacto sin nota",
-              "Como tarea"
+              "El color de la etiqueta",
+              "La fuente de origen del lead (qué campaña o canal lo trajo)",
+              "La hora exacta en milisegundos",
+              "El tipo de navegador"
             ],
             "a": 1,
-            "ex": "Regla dura: siempre Lead, nunca Deal. El origen va en la nota."
+            "ex": "Sin la fuente de origen no puedes medir qué canal genera negocio; conservarla en un campo o nota es innegociable."
           },
           {
             "q": "¿Para qué sirve capturar el gclid junto al lead?",
@@ -6124,7 +6124,7 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "El mejor copy no sirve si cae en spam. La entregabilidad es técnica antes que creativa: primero pruebas que eres quien dices ser, luego cuidas tu reputación de remitente. El motor de email de la plataforma es Brevo."
+                "v": "El mejor copy no sirve si cae en spam. La entregabilidad es técnica antes que creativa: primero pruebas que eres quien dices ser, luego cuidas tu reputación de remitente. Esto aplica a cualquier plataforma de envío (Brevo, Mailchimp, SendGrid, etc.); la técnica es la misma."
               },
               {
                 "type": "list",
@@ -6170,7 +6170,7 @@ export const COURSES: Course[] = [
           {
             "q": "¿Por qué ya no se optimiza por tasa de apertura de email?",
             "opts": [
-              "Porque Brevo no la mide",
+              "Porque ningún proveedor la mide",
               "Porque Apple Mail Privacy Protection la infla precargando el pixel",
               "Porque no importa el email",
               "Porque siempre es 100%"
