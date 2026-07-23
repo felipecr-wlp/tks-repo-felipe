@@ -6,10 +6,29 @@
  * Auth: requiere usuario autenticado. Sin sesión → 401.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { streamText, type CoreMessage } from 'ai'
 import { createClient } from '@/lib/supabase/server'
 import { geminiFlash, KERN_SYSTEM_PROMPT } from '@/lib/ai/client'
 import { applyRateLimit } from '@/lib/rate-limit'
+
+// Estructura del payload de chat. El rol se RESTRINGE a 'user'/'assistant': el cliente
+// NO puede mandar un mensaje 'system' (ni 'tool') para inyectar instrucciones y
+// secuestrar a KERN (prompt/role injection, CWE-20). El system prompt es del servidor
+// y va aparte. Se quedan solo role+content (lo unico que consume streamText); cualquier
+// campo extra del AI SDK (id, createdAt, ...) se descarta, sin over-posting. Los techos
+// (.max) acotan el consumo de recursos (OWASP API4).
+const bodySchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.union([z.string().max(24000), z.array(z.unknown()).max(50)]),
+      }),
+    )
+    .min(1)
+    .max(100),
+})
 
 // El streaming necesita el runtime de Node (no edge) para usar el server client
 export const maxDuration = 30
@@ -42,10 +61,11 @@ export async function POST(request: NextRequest) {
   let messages: CoreMessage[]
   try {
     const body = await request.json()
-    messages = body.messages
-    if (!Array.isArray(messages) || messages.length === 0) {
+    const parsed = bodySchema.safeParse(body)
+    if (!parsed.success) {
       return NextResponse.json({ error: 'Mensajes inválidos' }, { status: 400 })
     }
+    messages = parsed.data.messages as CoreMessage[]
     // Topes anti-abuso: KERN corre sobre un LLM de pago. Sin límites, un cliente
     // podría mandar historiales gigantes y disparar el costo (o inyectar prompts
     // enormes). Acotamos cantidad y tamaño total antes de tocar el modelo.
