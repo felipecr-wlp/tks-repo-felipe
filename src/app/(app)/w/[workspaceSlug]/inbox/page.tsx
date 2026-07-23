@@ -48,7 +48,7 @@ export default async function InboxPage({ params }: InboxPageProps) {
   // Se ocultan las pospuestas (snooze) cuya hora aun no llega: snoozed_until es
   // null (nunca pospuesta) o ya quedo en el pasado (reaparece sola, sin cron).
   const nowIso = new Date().toISOString()
-  const { data: notifications } = await admin
+  const { data: notifications, error: loadError } = await admin
     .from('notifications')
     .select(`
       id, type, object_type, object_id, object_title, is_read, created_at, snoozed_until,
@@ -73,6 +73,7 @@ export default async function InboxPage({ params }: InboxPageProps) {
         initial={notifications ?? []}
         workspaceSlug={params.workspaceSlug}
         currentUserId={user.id}
+        loadError={Boolean(loadError)}
       />
     </div>
   )

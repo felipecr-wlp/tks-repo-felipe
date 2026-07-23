@@ -9,6 +9,7 @@ import { MobileTopBar } from '@/components/sidebar/MobileTopBar'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
 import { FloatingChat } from '@/components/chat/FloatingChat'
 import { GlobalNewTaskModal } from '@/components/tasks/GlobalNewTaskModal'
+import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp'
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode
@@ -233,6 +234,9 @@ export default async function WorkspaceLayout({
 
       {/* Modal global "Nueva tarea" (atajo C) */}
       <GlobalNewTaskModal teams={teams} />
+
+      {/* Overlay de ayuda de atajos de teclado (atajo ?) */}
+      <KeyboardShortcutsHelp />
 
       {/* Sidebar */}
       <Sidebar

@@ -9,9 +9,11 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import Link from 'next/link'
-import { Check, Loader2, ArrowRight, Clock } from 'lucide-react'
+import { Check, Loader2, ArrowRight, Clock, Inbox as InboxIcon } from 'lucide-react'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { ErrorState } from '@/components/ui/ErrorState'
 
 interface Notification {
   id: string
@@ -53,6 +55,43 @@ interface InboxListProps {
   initial: Notification[]
   workspaceSlug: string
   currentUserId: string
+  loadError?: boolean
+}
+
+// Buckets de fecha para la lista, ordenados de mas reciente a mas antiguo.
+type DateBucket = 'Hoy' | 'Ayer' | 'Esta semana' | 'Anteriores'
+const BUCKET_ORDER: DateBucket[] = ['Hoy', 'Ayer', 'Esta semana', 'Anteriores']
+
+// Clasifica una notificacion segun su created_at respecto a "ahora" (local).
+// "Esta semana" = ultimos 7 dias sin contar hoy/ayer. Funcion pura.
+function bucketFor(createdAt: string, now: Date): DateBucket {
+  const created = new Date(createdAt)
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const today = startOfDay(now)
+  const createdDay = startOfDay(created)
+  const dayMs = 86_400_000
+  const diffDays = Math.round((today.getTime() - createdDay.getTime()) / dayMs)
+  if (diffDays <= 0) return 'Hoy'
+  if (diffDays === 1) return 'Ayer'
+  if (diffDays <= 7) return 'Esta semana'
+  return 'Anteriores'
+}
+
+// Agrupa la lista (ya ordenada por created_at desc) en buckets no vacios,
+// preservando el orden dentro de cada bucket. Devuelve solo los buckets con
+// contenido, en el orden Hoy -> Ayer -> Esta semana -> Anteriores.
+function groupByDate(items: Notification[]): { bucket: DateBucket; items: Notification[] }[] {
+  const now = new Date()
+  const map = new Map<DateBucket, Notification[]>()
+  for (const n of items) {
+    const b = bucketFor(n.created_at, now)
+    const arr = map.get(b)
+    if (arr) arr.push(n)
+    else map.set(b, [n])
+  }
+  return BUCKET_ORDER
+    .filter(b => map.has(b))
+    .map(b => ({ bucket: b, items: map.get(b)! }))
 }
 
 const VERB_LABELS: Record<string, string> = {
@@ -80,7 +119,7 @@ const VERB_LABELS: Record<string, string> = {
   'workspace.member_joined': 'se unió al workspace',
 }
 
-export function InboxList({ initial, workspaceSlug, currentUserId }: InboxListProps) {
+export function InboxList({ initial, workspaceSlug, currentUserId, loadError = false }: InboxListProps) {
   const router = useRouter()
   const [notifications, setNotifications] = useState(initial)
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
@@ -163,7 +202,11 @@ export function InboxList({ initial, workspaceSlug, currentUserId }: InboxListPr
     const affected = before.filter(n => !n.is_read).map(n => n.id)
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
     try {
-      const res = await fetch(`/api/notifications/mark-all-read`, { method: 'POST' })
+      const res = await fetch(`/api/notifications/mark-all-read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspace: workspaceSlug }),
+      })
       if (!res.ok) throw new Error()
       toast.success(`${affected.length} notificación(es) marcadas como leídas`, {
         action: {
@@ -231,25 +274,32 @@ export function InboxList({ initial, workspaceSlug, currentUserId }: InboxListPr
     }
   }
 
+  // Error de carga: la consulta del servidor fallo. Reintentar recarga la ruta.
+  if (loadError && notifications.length === 0) {
+    return (
+      <ErrorState
+        title="No pudimos cargar tu bandeja"
+        description="Ocurrió un problema al traer tus notificaciones. Inténtalo de nuevo."
+        onRetry={() => router.refresh()}
+      />
+    )
+  }
+
   if (notifications.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-border p-12 text-center">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted text-muted-foreground mb-3">
-          <InboxEmpty />
-        </div>
-        <h3 className="text-sm font-medium text-foreground mb-1">
-          Bandeja vacía
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Cuando alguien te asigne una tarea o te mencione, aparecerá aquí.
-        </p>
-        <Link
-          href={`/w/${workspaceSlug}/my-tasks`}
-          className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-muted transition-colors"
-        >
-          Ver mis tareas <ArrowRight className="w-3 h-3" />
-        </Link>
-      </div>
+      <EmptyState
+        icon={<InboxIcon className="h-5 w-5" />}
+        title="Bandeja vacía"
+        description="Cuando alguien te asigne una tarea o te mencione, aparecerá aquí."
+        action={
+          <Link
+            href={`/w/${workspaceSlug}/my-tasks`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-muted transition-colors"
+          >
+            Ver mis tareas <ArrowRight className="w-3 h-3" />
+          </Link>
+        }
+      />
     )
   }
 
@@ -284,123 +334,134 @@ export function InboxList({ initial, workspaceSlug, currentUserId }: InboxListPr
         )}
       </div>
 
-      {/* Lista */}
-      <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
-        {filtered.length === 0 ? (
+      {/* Lista agrupada por fecha */}
+      {filtered.length === 0 ? (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
           <p className="text-center text-sm text-muted-foreground py-10">
             No hay notificaciones sin leer
           </p>
-        ) : (
-          filtered.map(notif => (
-            <div
-              key={notif.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => handleClick(notif)}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(notif) } }}
-              className={cn(
-                'w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-accent/50 transition-colors group relative cursor-pointer',
-                !notif.is_read && 'bg-primary/[0.03]'
-              )}
-            >
-              {!notif.is_read && (
-                <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary" />
-              )}
-
-              {/* Avatar */}
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted overflow-hidden flex items-center justify-center">
-                {notif.subject?.avatar_url ? (
-                  <Image
-                    src={notif.subject.avatar_url}
-                    alt={notif.subject.display_name}
-                    width={32}
-                    height={32}
-                    className="object-cover"
-                  />
-                ) : (
-                  <span className="text-[11px] font-medium text-muted-foreground">
-                    {getInitials(notif.subject?.display_name ?? '?')}
-                  </span>
-                )}
-              </div>
-
-              {/* Contenido */}
-              <div className="flex-1 min-w-0">
-                <p className={cn(
-                  'text-sm leading-snug',
-                  !notif.is_read ? 'text-foreground' : 'text-muted-foreground'
-                )}>
-                  <span className="font-medium text-foreground">
-                    {notif.subject?.display_name ?? 'Sistema'}
-                  </span>{' '}
-                  <span className={!notif.is_read ? 'text-foreground/80' : ''}>
-                    {VERB_LABELS[notif.type] ?? notif.type}
-                  </span>
-                  {notif.object_title && (
-                    <>
-                      {' '}
-                      <span className="font-medium text-foreground">
-                        {notif.object_title}
-                      </span>
-                    </>
-                  )}
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {timeAgo(notif.created_at)}
-                </p>
-              </div>
-
-              {/* Acciones (hover): posponer + marcar leído */}
-              <div className="flex-shrink-0 flex items-center gap-0.5 relative">
-                <button
-                  onClick={e => { e.stopPropagation(); setSnoozeMenu(snoozeMenu === notif.id ? null : notif.id) }}
-                  className={cn(
-                    'text-muted-foreground hover:text-foreground transition-all p-1 rounded hover:bg-background',
-                    snoozeMenu === notif.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                  )}
-                  title="Posponer"
-                  aria-label="Posponer"
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                </button>
-
-                {snoozeMenu === notif.id && (
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {groupByDate(filtered).map(group => (
+            <section key={group.bucket}>
+              <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 px-1">
+                {group.bucket}
+              </h2>
+              <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
+                {group.items.map(notif => (
                   <div
-                    className="absolute right-0 top-8 z-20 w-40 bg-popover border border-border rounded-lg shadow-lg py-1"
-                    onClick={e => e.stopPropagation()}
+                    key={notif.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleClick(notif)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(notif) } }}
+                    className={cn(
+                      'w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-accent/50 transition-colors group relative cursor-pointer',
+                      !notif.is_read && 'bg-primary/[0.03]'
+                    )}
                   >
-                    <p className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Posponer hasta
-                    </p>
-                    {snoozePresets().map(p => (
+                    {!notif.is_read && (
+                      <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary" />
+                    )}
+
+                    {/* Avatar */}
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted overflow-hidden flex items-center justify-center">
+                      {notif.subject?.avatar_url ? (
+                        <Image
+                          src={notif.subject.avatar_url}
+                          alt={notif.subject.display_name}
+                          width={32}
+                          height={32}
+                          className="object-cover"
+                        />
+                      ) : (
+                        <span className="text-[11px] font-medium text-muted-foreground">
+                          {getInitials(notif.subject?.display_name ?? '?')}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Contenido */}
+                    <div className="flex-1 min-w-0">
+                      <p className={cn(
+                        'text-sm leading-snug',
+                        !notif.is_read ? 'text-foreground' : 'text-muted-foreground'
+                      )}>
+                        <span className="font-medium text-foreground">
+                          {notif.subject?.display_name ?? 'Sistema'}
+                        </span>{' '}
+                        <span className={!notif.is_read ? 'text-foreground/80' : ''}>
+                          {VERB_LABELS[notif.type] ?? notif.type}
+                        </span>
+                        {notif.object_title && (
+                          <>
+                            {' '}
+                            <span className="font-medium text-foreground">
+                              {notif.object_title}
+                            </span>
+                          </>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {timeAgo(notif.created_at)}
+                      </p>
+                    </div>
+
+                    {/* Acciones (hover): posponer + marcar leído */}
+                    <div className="flex-shrink-0 flex items-center gap-0.5 relative">
                       <button
-                        key={p.label}
-                        onClick={e => { e.stopPropagation(); snooze(notif, p.at, p.label) }}
-                        className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors"
+                        onClick={e => { e.stopPropagation(); setSnoozeMenu(snoozeMenu === notif.id ? null : notif.id) }}
+                        className={cn(
+                          'text-muted-foreground hover:text-foreground transition-all p-1 rounded hover:bg-background',
+                          snoozeMenu === notif.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                        )}
+                        title="Posponer"
+                        aria-label="Posponer"
                       >
-                        {p.label}
+                        <Clock className="w-3.5 h-3.5" />
                       </button>
-                    ))}
+
+                      {snoozeMenu === notif.id && (
+                        <div
+                          className="absolute right-0 top-8 z-20 w-40 bg-popover border border-border rounded-lg shadow-lg py-1"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <p className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Posponer hasta
+                          </p>
+                          {snoozePresets().map(p => (
+                            <button
+                              key={p.label}
+                              onClick={e => { e.stopPropagation(); snooze(notif, p.at, p.label) }}
+                              className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors"
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {!notif.is_read && (
+                        <button
+                          onClick={e => { e.stopPropagation(); markRead(notif.id) }}
+                          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-all p-1 rounded hover:bg-background"
+                          title="Marcar como leído"
+                          aria-label="Marcar como leído"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                )}
-
-                {!notif.is_read && (
-                  <button
-                    onClick={e => { e.stopPropagation(); markRead(notif.id) }}
-                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-all p-1 rounded hover:bg-background"
-                    title="Marcar como leído"
-                    aria-label="Marcar como leído"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                  </button>
-                )}
+                ))}
               </div>
-            </div>
-          ))
-        )}
-      </div>
+            </section>
+          ))}
+        </div>
+      )}
 
-      <p className="text-[11px] text-muted-foreground mt-3 text-center">
+      <p className="text-[11px] text-muted-foreground mt-4 text-center">
         Workspace: <span className="font-mono">{workspaceSlug}</span>
       </p>
     </div>
@@ -438,14 +499,5 @@ function FilterPill({
         </span>
       )}
     </button>
-  )
-}
-
-function InboxEmpty() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 12h-6l-2 3h-4l-2-3H2" />
-      <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-    </svg>
   )
 }
