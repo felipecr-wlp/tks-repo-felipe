@@ -8,7 +8,7 @@ import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getWorkspaceAdminContext } from '@/lib/workspace-admin'
 import { listPendingRequests, listAccessMatrix } from '@/lib/academy/data'
-import { COURSES } from '@/lib/academy/courses'
+import { COURSES, PROFILES } from '@/lib/academy/courses'
 import { AcademyAdminPanel } from './AcademyAdminPanel'
 
 export default async function AcademiaSettingsPage({
@@ -46,6 +46,18 @@ export default async function AcademiaSettingsPage({
     .sort((a, b) => a.display_name.localeCompare(b.display_name))
 
   const courses = COURSES.map((c) => ({ id: c.id, title: c.title, track: c.track }))
+  const allCourseIds = COURSES.map((c) => c.id)
+
+  // Presets por rol: resuelve los bundles de PROFILES ("*" = todos los cursos)
+  // y descarta cursos que ya no existan, para que el panel asigne por rol de un clic.
+  const presets = Object.entries(PROFILES).map(([key, def]) => ({
+    key,
+    label: def.label,
+    courseIds:
+      def.courses === '*'
+        ? allCourseIds
+        : def.courses.filter((id) => allCourseIds.includes(id)),
+  }))
 
   return (
     <AcademyAdminPanel
@@ -60,6 +72,7 @@ export default async function AcademiaSettingsPage({
       matrix={matrix}
       members={members}
       courses={courses}
+      presets={presets}
     />
   )
 }

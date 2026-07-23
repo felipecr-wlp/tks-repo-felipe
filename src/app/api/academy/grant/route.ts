@@ -1,7 +1,10 @@
 /**
- * POST /api/academy/grant  { profileId, courseId, action: 'grant' | 'revoke' }
- *   Solo admin/owner de la org. Concede o revoca acceso a un curso de forma
- *   directa (sin pasar por una solicitud), para asignacion por perfil.
+ * POST /api/academy/grant
+ *   Concede o revoca acceso a uno o varios cursos de forma directa (sin pasar
+ *   por una solicitud), para asignacion por persona/rol. Solo admin/owner.
+ *   Acepta:
+ *     { profileId, courseId, action }           -> un curso (compat)
+ *     { profileId, courseIds: [...], action }    -> varios cursos (bulk)
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -10,11 +13,16 @@ import { applyRateLimit } from '@/lib/rate-limit'
 import { isOrgAdmin } from '@/lib/academy/data'
 import { COURSE_BY_ID } from '@/lib/academy/courses'
 
-const schema = z.object({
-  profileId: z.string().uuid(),
-  courseId: z.string().min(1).max(64),
-  action: z.enum(['grant', 'revoke']),
-})
+const schema = z
+  .object({
+    profileId: z.string().uuid(),
+    courseId: z.string().min(1).max(64).optional(),
+    courseIds: z.array(z.string().min(1).max(64)).min(1).max(64).optional(),
+    action: z.enum(['grant', 'revoke']),
+  })
+  .refine((d) => d.courseId || (d.courseIds && d.courseIds.length > 0), {
+    message: 'Falta courseId o courseIds',
+  })
 
 export async function POST(request: NextRequest) {
   const limited = await applyRateLimit(request, 'api')
@@ -30,19 +38,22 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: 'Datos inválidos' }, { status: 422 })
-  if (!COURSE_BY_ID[parsed.data.courseId]) {
-    return NextResponse.json({ error: 'Curso no encontrado' }, { status: 404 })
+
+  const { profileId, action } = parsed.data
+  // Normaliza a lista, deduplica y valida que cada curso exista.
+  const ids = Array.from(new Set(parsed.data.courseIds ?? [parsed.data.courseId!]))
+  const unknown = ids.filter((id) => !COURSE_BY_ID[id])
+  if (unknown.length > 0) {
+    return NextResponse.json({ error: `Curso no encontrado: ${unknown.join(', ')}` }, { status: 404 })
   }
 
   const admin = createAdminClient()
 
-  if (parsed.data.action === 'grant') {
+  if (action === 'grant') {
+    const rows = ids.map((course_id) => ({ profile_id: profileId, course_id, granted_by: user.id }))
     const { error } = await admin
       .from('academy_access')
-      .upsert(
-        { profile_id: parsed.data.profileId, course_id: parsed.data.courseId, granted_by: user.id },
-        { onConflict: 'profile_id,course_id' },
-      )
+      .upsert(rows, { onConflict: 'profile_id,course_id' })
     if (error) {
       console.error('[academy grant] error:', error)
       return NextResponse.json({ error: 'No se pudo conceder' }, { status: 500 })
@@ -51,13 +62,13 @@ export async function POST(request: NextRequest) {
     const { error } = await admin
       .from('academy_access')
       .delete()
-      .eq('profile_id', parsed.data.profileId)
-      .eq('course_id', parsed.data.courseId)
+      .eq('profile_id', profileId)
+      .in('course_id', ids)
     if (error) {
       console.error('[academy revoke] error:', error)
       return NextResponse.json({ error: 'No se pudo revocar' }, { status: 500 })
     }
   }
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, count: ids.length })
 }

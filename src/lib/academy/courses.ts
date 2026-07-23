@@ -3205,15 +3205,15 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "¿Cuál es el presupuesto dinámico correcto de la cuenta?",
+            "q": "¿Qué principio guía el reparto de un presupuesto dinámico?",
             "opts": [
-              "$185/día todos los días",
-              "~$4,500/mes excluyendo fines de semana, ~$204/día laboral",
-              "$1,796/día",
-              "Sin techo mensual"
+              "Gastar lo mismo todos los días del mes",
+              "Concentrar un techo mensual en los días y horas donde sí ocurre el lead",
+              "Gastar todo el presupuesto el primer día",
+              "Nunca poner techo mensual"
             ],
             "a": 1,
-            "ex": "Hecho del SSOT SEM: ~$4,500/mes sin fines de semana, aproximadamente $204 por día laboral."
+            "ex": "El presupuesto es un techo mensual repartido donde ocurre el lead (días laborales, horario de llamadas), no un gasto parejo por gastar."
           },
           {
             "q": "¿Por qué se hace dayparting hacia las 9-11am?",
@@ -3238,15 +3238,15 @@ export const COURSES: Course[] = [
             "ex": "CTR esperado, relevancia y experiencia de landing suben el Ad Rank y abaratan el clic."
           },
           {
-            "q": "¿Quién ejecuta el upload quirúrgico de cambios en la UI de Google Ads?",
+            "q": "¿Por qué conviene NO sobre-editar pujas o presupuesto en plena fase de aprendizaje?",
             "opts": [
-              "La IA automáticamente",
-              "Alan, de forma manual en la UI",
-              "El WAF de Vercel",
-              "El Scheduled Upload"
+              "Porque cada edición cuesta dinero",
+              "Porque un cambio grande reinicia el aprendizaje y desperdicia la señal de conversión acumulada",
+              "Porque Google prohíbe editar",
+              "Porque baja el Quality Score al instante"
             ],
             "a": 1,
-            "ex": "Regla de ejecución: la IA modela y audita; el upload lo hace Alan en la cuenta."
+            "ex": "Tras un cambio grande el sistema re-aprende; editar de más reinicia ese proceso y tira la señal que ya había juntado."
           },
           {
             "q": "¿Para qué sirven las conversiones offline?",
@@ -4556,15 +4556,15 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "¿Qué pasa si una landing pagada nueva NO se agrega a SEM_LANDING_PATHS en api/submit.js?",
+            "q": "Una landing pagada nueva registra leads, pero la campaña marca 0 conversiones. ¿Causa más probable?",
             "opts": [
-              "El lead se bloquea",
-              "El lead entra pero la conversión no dispara",
-              "El sitio se cae",
-              "Se duplica el lead"
+              "El formulario está roto",
+              "La ruta nueva no se dio de alta en la configuración de conversión, así que el evento no dispara",
+              "Google pausó la cuenta",
+              "El lead se duplicó"
             ],
             "a": 1,
-            "ex": "El lead se registra, pero sin la ruta en SEM_LANDING_PATHS la conversión no se marca y la campaña parece no rendir."
+            "ex": "Si una ruta nueva no se registra en la config de conversión, el lead entra pero el evento no se marca: la campaña parece no rendir aunque venda. Lección transferible: toda landing pagada nueva se da de alta en el tracking."
           },
           {
             "q": "¿Cómo se puebla SIEMPRE Pipedrive en WLP?",

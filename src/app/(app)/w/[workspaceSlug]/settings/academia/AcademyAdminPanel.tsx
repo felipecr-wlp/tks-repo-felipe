@@ -1,12 +1,12 @@
 'use client'
 
-/* Panel admin de la Academia: aprobar solicitudes, ver la matriz de acceso y
-   certificados, y asignar acceso directo por persona/curso. */
-import { useState } from 'react'
+/* Panel admin de la Academia: aprobar solicitudes, asignar acceso por persona
+   (toggles por curso + presets por rol) y ver la matriz de quien tiene que. */
+import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Check, X, Award, UserPlus, Trash2, Inbox, GraduationCap } from 'lucide-react'
+import { Check, X, Award, Trash2, Inbox, GraduationCap, Users, Layers } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 
 interface Profile {
@@ -38,6 +38,11 @@ interface CourseLite {
   title: string
   track: string
 }
+interface Preset {
+  key: string
+  label: string
+  courseIds: string[]
+}
 
 function initials(name: string | null | undefined) {
   if (!name) return '?'
@@ -55,21 +60,53 @@ export function AcademyAdminPanel({
   matrix,
   members,
   courses,
+  presets,
 }: {
   workspaceId: string
   pending: PendingReq[]
   matrix: MatrixRow[]
   members: Member[]
   courses: CourseLite[]
+  presets: Preset[]
 }) {
   const router = useRouter()
-  const [busy, setBusy] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const [selMember, setSelMember] = useState('')
-  const [selCourse, setSelCourse] = useState('')
   const courseTitle = (id: string) => courses.find((c) => c.id === id)?.title ?? id
+  const allCourseIds = useMemo(() => courses.map((c) => c.id), [courses])
+
+  // Accesos y certificados por persona (derivados de la matriz).
+  const accessByProfile = useMemo(() => {
+    const m = new Map<string, Set<string>>()
+    for (const row of matrix) m.set(row.profile.id, new Set(row.access))
+    return m
+  }, [matrix])
+  const certByProfile = useMemo(() => {
+    const m = new Map<string, Set<string>>()
+    for (const row of matrix) m.set(row.profile.id, new Set(row.certified))
+    return m
+  }, [matrix])
+
+  // Cursos agrupados por track (respetando el orden de aparicion).
+  const groupedCourses = useMemo(() => {
+    const order: string[] = []
+    const map = new Map<string, CourseLite[]>()
+    for (const c of courses) {
+      if (!map.has(c.track)) {
+        map.set(c.track, [])
+        order.push(c.track)
+      }
+      map.get(c.track)!.push(c)
+    }
+    return order.map((track) => ({ track, items: map.get(track)! }))
+  }, [courses])
+
+  const selAccess = selMember ? accessByProfile.get(selMember) ?? new Set<string>() : new Set<string>()
+  const selCerts = selMember ? certByProfile.get(selMember) ?? new Set<string>() : new Set<string>()
+  const selMemberObj = members.find((m) => m.id === selMember)
 
   async function decide(requestId: string, action: 'approve' | 'reject') {
-    setBusy(requestId + action)
+    setBusy(true)
     try {
       const res = await fetch(`/api/academy/access/${requestId}`, {
         method: 'PATCH',
@@ -85,32 +122,42 @@ export function AcademyAdminPanel({
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error')
     } finally {
-      setBusy(null)
+      setBusy(false)
     }
   }
 
-  async function grant(profileId: string, courseId: string, action: 'grant' | 'revoke') {
-    if (!profileId || !courseId) {
-      toast.error('Elige persona y curso')
+  async function grant(profileId: string, courseIds: string[], action: 'grant' | 'revoke') {
+    if (!profileId) {
+      toast.error('Elige una persona primero')
       return
     }
-    setBusy(profileId + courseId + action)
+    if (courseIds.length === 0) return
+    setBusy(true)
     try {
       const res = await fetch('/api/academy/grant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileId, courseId, action }),
+        body: JSON.stringify({ profileId, courseIds, action }),
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
         throw new Error(j.error || 'Error')
       }
-      toast.success(action === 'grant' ? 'Acceso asignado' : 'Acceso revocado')
+      const n = courseIds.length
+      toast.success(
+        action === 'grant'
+          ? n === 1
+            ? 'Acceso asignado'
+            : `${n} cursos asignados`
+          : n === 1
+            ? 'Acceso revocado'
+            : `${n} accesos revocados`,
+      )
       router.refresh()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error')
     } finally {
-      setBusy(null)
+      setBusy(false)
     }
   }
 
@@ -162,14 +209,14 @@ export function AcademyAdminPanel({
                 </div>
                 <button
                   onClick={() => decide(r.id, 'approve')}
-                  disabled={busy === r.id + 'approve'}
+                  disabled={busy}
                   className="flex items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
                 >
                   <Check className="h-3.5 w-3.5" /> Aprobar
                 </button>
                 <button
                   onClick={() => decide(r.id, 'reject')}
-                  disabled={busy === r.id + 'reject'}
+                  disabled={busy}
                   className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-50"
                 >
                   <X className="h-3.5 w-3.5" /> Rechazar
@@ -180,43 +227,107 @@ export function AcademyAdminPanel({
         )}
       </section>
 
-      {/* Asignacion directa */}
+      {/* Asignar acceso por persona */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Asignar acceso directo
+        <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          <Users className="h-4 w-4" /> Asignar acceso por persona
         </h2>
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">
+        <p className="mb-3 text-xs text-muted-foreground">
+          Elige a alguien, aplica un rol de un clic o activa cursos sueltos. Verde = ya tiene acceso.
+        </p>
+
+        <div className="rounded-xl border border-border bg-card p-3">
           <select
             value={selMember}
             onChange={(e) => setSelMember(e.target.value)}
-            className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
-            <option value="">Persona...</option>
+            <option value="">Selecciona una persona...</option>
             {members.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.display_name}
+                {m.email ? ` — ${m.email}` : ''}
               </option>
             ))}
           </select>
-          <select
-            value={selCourse}
-            onChange={(e) => setSelCourse(e.target.value)}
-            className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          >
-            <option value="">Curso...</option>
-            {courses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => grant(selMember, selCourse, 'grant')}
-            disabled={busy === selMember + selCourse + 'grant'}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-          >
-            <UserPlus className="h-4 w-4" /> Asignar
-          </button>
+
+          {!selMember ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Selecciona una persona para ver y editar sus cursos.
+            </p>
+          ) : (
+            <div className="mt-4 space-y-4">
+              {/* Presets por rol */}
+              <div>
+                <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Layers className="h-3.5 w-3.5" /> Aplicar un rol (agrega los cursos del rol)
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {presets.map((p) => (
+                    <button
+                      key={p.key}
+                      onClick={() => grant(selMember, p.courseIds, 'grant')}
+                      disabled={busy}
+                      title={p.courseIds.map(courseTitle).join(', ')}
+                      className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary disabled:opacity-50"
+                    >
+                      + {p.label}
+                      <span className="ml-1 text-muted-foreground">({p.courseIds.length})</span>
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => grant(selMember, allCourseIds, 'revoke')}
+                    disabled={busy || selAccess.size === 0}
+                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500/10 disabled:opacity-40"
+                  >
+                    Quitar todo
+                  </button>
+                </div>
+              </div>
+
+              {/* Cursos por track (toggles) */}
+              <div className="space-y-3">
+                {groupedCourses.map(({ track, items }) => (
+                  <div key={track}>
+                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {track}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {items.map((c) => {
+                        const has = selAccess.has(c.id)
+                        const certified = selCerts.has(c.id)
+                        return (
+                          <button
+                            key={c.id}
+                            onClick={() => grant(selMember, [c.id], has ? 'revoke' : 'grant')}
+                            disabled={busy}
+                            className={
+                              'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ' +
+                              (has
+                                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                : 'border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground')
+                            }
+                          >
+                            {has ? <Check className="h-3.5 w-3.5" /> : null}
+                            {c.title}
+                            {certified && <Award className="h-3 w-3 text-emerald-500" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {selMemberObj && (
+                <p className="text-xs text-muted-foreground">
+                  {selAccess.size === 0
+                    ? `${selMemberObj.display_name} no tiene ningún curso asignado.`
+                    : `${selMemberObj.display_name} tiene ${selAccess.size} curso${selAccess.size === 1 ? '' : 's'} asignado${selAccess.size === 1 ? '' : 's'}.`}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
@@ -230,7 +341,7 @@ export function AcademyAdminPanel({
             compact
             icon={<GraduationCap className="h-5 w-5" />}
             title="Nadie tiene acceso asignado todavía"
-            description="Usa Asignar acceso directo para dar de alta a tu equipo en un curso."
+            description="Usa Asignar acceso por persona para dar de alta a tu equipo en un curso."
           />
         ) : (
           <div className="space-y-2">
@@ -241,6 +352,12 @@ export function AcademyAdminPanel({
                   <p className="text-sm font-medium text-foreground">
                     {row.profile.display_name || row.profile.email}
                   </p>
+                  <button
+                    onClick={() => setSelMember(row.profile.id)}
+                    className="ml-auto text-xs font-medium text-primary hover:underline"
+                  >
+                    Editar
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {row.access.map((cid) => {
@@ -253,8 +370,8 @@ export function AcademyAdminPanel({
                         {certified && <Award className="h-3 w-3 text-emerald-500" />}
                         {courseTitle(cid)}
                         <button
-                          onClick={() => grant(row.profile.id, cid, 'revoke')}
-                          disabled={busy === row.profile.id + cid + 'revoke'}
+                          onClick={() => grant(row.profile.id, [cid], 'revoke')}
+                          disabled={busy}
                           title="Revocar acceso"
                           className="rounded-full p-0.5 text-muted-foreground opacity-0 transition hover:bg-red-500/10 hover:text-red-500 group-hover:opacity-100 disabled:opacity-50"
                         >
