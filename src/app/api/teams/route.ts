@@ -71,8 +71,7 @@ export async function POST(request: NextRequest) {
   if (existing) slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`
 
   type TeamResult = { id: string; name: string; slug: string }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: team, error: insertError } = await (admin as any)
+  const { data: team, error: insertError } = await admin
     .from('teams')
     .insert({
       workspace_id,
@@ -91,8 +90,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Agregar al creador como admin del equipo
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any)
+  await admin
     .from('team_members')
     .insert({ team_id: team.id, profile_id: user.id, role: 'admin' })
 

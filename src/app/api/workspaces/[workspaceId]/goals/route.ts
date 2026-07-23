@@ -173,8 +173,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   const d = parsed.data
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any)
+  const { data, error } = await admin
     .from('goals')
     .insert({
       workspace_id:  params.workspaceId,

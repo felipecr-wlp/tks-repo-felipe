@@ -83,8 +83,7 @@ export async function POST(
   if (alreadyMember) return NextResponse.json({ error: 'Ya eres miembro de este proyecto' }, { status: 409 })
 
   type AppResult = { id: string; status: string; created_at: string }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: application, error } = await (admin as any)
+  const { data: application, error } = await admin
     .from('project_applications')
     .insert({
       project_id:   project.id,

@@ -160,8 +160,7 @@ export async function POST(request: NextRequest) {
     icon: string | null
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: note, error: insertError } = await (admin as any)
+  const { data: note, error: insertError } = await admin
     .from('notes')
     .insert({
       workspace_id,

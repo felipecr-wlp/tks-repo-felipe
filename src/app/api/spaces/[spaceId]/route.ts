@@ -71,8 +71,7 @@ export async function PATCH(
     is_restricted: boolean
     is_archived: boolean
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error } = (await (admin as any)
+  const { data: updated, error } = (await admin
     .from('spaces')
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.spaceId)
@@ -101,8 +100,7 @@ export async function DELETE(
   if (!auth) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
   if (!auth.isAdmin) return NextResponse.json({ error: 'Se requiere rol admin' }, { status: 403 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).from('spaces').delete().eq('id', params.spaceId)
+  const { error } = await admin.from('spaces').delete().eq('id', params.spaceId)
   if (error) return NextResponse.json({ error: 'Error al eliminar el departamento' }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

@@ -124,8 +124,7 @@ export async function POST(
     .maybeSingle()) as { data: { profile_id: string } | null; error: unknown }
   if (existing) return NextResponse.json({ error: 'Ya es miembro del departamento' }, { status: 409 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).from('space_members').insert({
+  const { error } = await admin.from('space_members').insert({
     space_id: params.spaceId,
     profile_id: parsed.data.profile_id,
     role: parsed.data.role ?? 'member',

@@ -44,8 +44,7 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient()
   const completed = parsed.data.score >= PASS_SCORE
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('academy_progress')
     .upsert(
       {

@@ -231,8 +231,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error } = await (admin as any)
+  const { data: updated, error } = await admin
     .from('notes')
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.noteId)
@@ -330,8 +329,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     )
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('notes')
     .delete()
     .eq('id', params.noteId)

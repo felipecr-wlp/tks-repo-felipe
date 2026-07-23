@@ -34,8 +34,7 @@ export default async function CalendarPage({ params }: CalendarPageProps) {
   if (!row?.workspaces) redirect('/')
 
   // Detectar si ya hay conexion de Google (solo para el estado inicial de la UI).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: conn } = await (admin as any)
+  const { data: conn } = await admin
     .from('google_connections')
     .select('email, scopes')
     .eq('profile_id', user.id)

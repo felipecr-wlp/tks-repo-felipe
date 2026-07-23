@@ -67,8 +67,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   type NoteResult = { id: string; title: string; icon: string | null; parent_note_id: string | null }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: copy, error } = await (admin as any)
+  const { data: copy, error } = await admin
     .from('notes')
     .insert({
       workspace_id:   source.workspace_id,

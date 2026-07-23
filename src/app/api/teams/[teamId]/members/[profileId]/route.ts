@@ -82,8 +82,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Debe quedar al menos un admin' }, { status: 409 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('team_members')
     .update({ role: parsed.data.role })
     .eq('team_id', params.teamId)
@@ -118,8 +117,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Debe quedar al menos un admin' }, { status: 409 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('team_members')
     .delete()
     .eq('team_id', params.teamId)

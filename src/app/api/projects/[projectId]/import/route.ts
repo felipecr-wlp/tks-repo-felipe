@@ -170,8 +170,7 @@ export async function POST(
   })
 
   // Insercion en una sola llamada (lote validado completo, sin escritura parcial).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
   const { data: created, error: insertErr } = await db
     .from('tasks')
     .insert(inserts)

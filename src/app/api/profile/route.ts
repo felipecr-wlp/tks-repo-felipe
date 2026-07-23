@@ -69,8 +69,7 @@ export async function PATCH(request: NextRequest) {
   if (parsed.data.email_notifications !== undefined) patch.email_notifications = parsed.data.email_notifications
 
   type ProfileResult = { id: string; display_name: string; avatar_url: string | null; email_notifications: boolean }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error } = await (admin as any)
+  const { data: updated, error } = await admin
     .from('profiles')
     .update(patch)
     .eq('id', user.id)

@@ -120,8 +120,7 @@ export async function POST(
     mentioned_by: user.id,
     source:       parsed.data.source,
   }))
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: insErr } = await (admin as any).from('task_mentions').insert(rows)
+  const { error: insErr } = await admin.from('task_mentions').insert(rows)
   if (insErr) {
     console.error('[mentions POST] insert error:', insErr)
     return NextResponse.json({ error: 'Error al registrar las menciones' }, { status: 500 })

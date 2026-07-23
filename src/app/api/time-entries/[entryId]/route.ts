@@ -12,6 +12,7 @@ import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import type { Database } from '@/lib/supabase/types'
 
 const patchSchema = z.object({
   started_at: z.string().datetime().optional(),
@@ -57,8 +58,7 @@ export async function PATCH(
   const nextStart = parsed.data.started_at ?? existing.started_at
   const nextEnd = parsed.data.ended_at ?? existing.ended_at
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const patch: any = { ...parsed.data }
+  const patch: Database['public']['Tables']['time_entries']['Update'] = { ...parsed.data }
   if (nextEnd) {
     const startMs = new Date(nextStart).getTime()
     const endMs = new Date(nextEnd).getTime()
@@ -68,8 +68,7 @@ export async function PATCH(
     patch.duration_sec = Math.round((endMs - startMs) / 1000)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: entry, error } = await (admin as any)
+  const { data: entry, error } = await admin
     .from('time_entries')
     .update(patch)
     .eq('id', params.entryId)
@@ -110,8 +109,7 @@ export async function DELETE(
   if (!existing) return NextResponse.json({ error: 'Entrada no encontrada' }, { status: 404 })
   if (existing.profile_id !== user.id) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('time_entries')
     .delete()
     .eq('id', params.entryId)

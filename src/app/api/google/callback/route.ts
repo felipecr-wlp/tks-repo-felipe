@@ -68,8 +68,7 @@ export async function GET(request: NextRequest) {
     const admin = createAdminClient()
 
     // refresh_token existente (si Google no lo devuelve esta vez, lo conservamos).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing } = await (admin as any)
+    const { data: existing } = await admin
       .from('google_connections')
       .select('refresh_token')
       .eq('profile_id', user.id)
@@ -79,8 +78,7 @@ export async function GET(request: NextRequest) {
     const scopes = typeof tokens.scope === 'string' ? tokens.scope.split(' ').filter(Boolean) : []
     const tokenExpiry = tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: upsertError } = await (admin as any)
+    const { error: upsertError } = await admin
       .from('google_connections')
       .upsert(
         {

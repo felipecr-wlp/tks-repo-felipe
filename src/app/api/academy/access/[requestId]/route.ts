@@ -58,8 +58,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   const newStatus = parsed.data.action === 'approve' ? 'approved' : 'rejected'
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: updErr } = await (admin as any)
+  const { error: updErr } = await admin
     .from('academy_access_requests')
     .update({ status: newStatus, decided_by: user.id, decided_at: new Date().toISOString() })
     .eq('id', req.id)
@@ -69,8 +68,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   if (parsed.data.action === 'approve') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: accErr } = await (admin as any)
+    const { error: accErr } = await admin
       .from('academy_access')
       .upsert(
         { profile_id: req.profile_id, course_id: req.course_id, granted_by: user.id },

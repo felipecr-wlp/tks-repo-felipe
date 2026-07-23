@@ -51,8 +51,7 @@ export async function POST(request: NextRequest) {
   const endedAt = new Date()
   const durationSec = Math.max(0, Math.round((endedAt.getTime() - new Date(running.started_at).getTime()) / 1000))
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: entry, error } = await (admin as any)
+  const { data: entry, error } = await admin
     .from('time_entries')
     .update({
       ended_at:     endedAt.toISOString(),

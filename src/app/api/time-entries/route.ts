@@ -85,8 +85,7 @@ export async function POST(request: NextRequest) {
   if (!access) return NextResponse.json({ error: 'Tarea sin acceso' }, { status: 403 })
 
   const admin = createAdminClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: entry, error } = await (admin as any)
+  const { data: entry, error } = await admin
     .from('time_entries')
     .insert({
       task_id,

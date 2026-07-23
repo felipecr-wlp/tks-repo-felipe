@@ -48,8 +48,7 @@ export async function recomputeNoteLinks(
   }
 
   // Reescribir: borrar todas las aristas de este source y reinsertar las validas.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any).from('note_links').delete().eq('source_note_id', sourceNoteId)
+  await admin.from('note_links').delete().eq('source_note_id', sourceNoteId)
 
   if (validTargets.length === 0) return
 
@@ -58,6 +57,5 @@ export async function recomputeNoteLinks(
     source_note_id: sourceNoteId,
     target_note_id: targetId,
   }))
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any).from('note_links').upsert(rows, { onConflict: 'source_note_id,target_note_id', ignoreDuplicates: true })
+  await admin.from('note_links').upsert(rows, { onConflict: 'source_note_id,target_note_id', ignoreDuplicates: true })
 }

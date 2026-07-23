@@ -69,8 +69,7 @@ export async function PATCH(
   const nowIso = new Date().toISOString()
   const approving = parsed.data.decision === 'approve'
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('projects')
     .update({
       approval_status:       approving ? 'approved' : 'rejected',

@@ -12,6 +12,7 @@ import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import type { Database } from '@/lib/supabase/types'
 
 interface RouteParams {
   params: { projectId: string; fieldId: string }
@@ -90,7 +91,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Campo no encontrado' }, { status: 404 })
   }
 
-  const patch: Record<string, unknown> = {}
+  const patch: Database['public']['Tables']['custom_field_definitions']['Update'] = {}
   if (parsed.data.name !== undefined) patch.name = parsed.data.name
   if (parsed.data.position !== undefined) patch.position = parsed.data.position
   if (parsed.data.options !== undefined) patch.options = parsed.data.options
@@ -98,8 +99,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
   const { data, error } = await db
     .from('custom_field_definitions')
     .update(patch)
@@ -139,8 +139,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Campo no encontrado' }, { status: 404 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
   const { error } = await db
     .from('custom_field_definitions')
     .delete()

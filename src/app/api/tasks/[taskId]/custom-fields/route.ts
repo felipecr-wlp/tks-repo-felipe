@@ -179,8 +179,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Valor inválido para el tipo de campo' }, { status: 422 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
   const { data, error } = await db
     .from('task_custom_field_values')
     .upsert(

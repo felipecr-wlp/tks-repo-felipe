@@ -78,8 +78,7 @@ export async function POST(request: NextRequest) {
 
   // Crear proyecto
   type ProjectResult = { id: string; name: string; slug: string; icon: string | null }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: project, error: insertError } = await (admin as any)
+  const { data: project, error: insertError } = await admin
     .from('projects')
     .insert({
       team_id,
@@ -119,14 +118,12 @@ export async function POST(request: NextRequest) {
     memberRows.push({ project_id: project.id, profile_id: user.id, role: 'manager' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any)
+  await admin
     .from('project_members')
     .upsert(memberRows, { onConflict: 'project_id,profile_id' })
 
   // Crear statuses por defecto
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any).rpc('create_default_statuses', { p_project_id: project.id })
+  await admin.rpc('create_default_statuses', { p_project_id: project.id })
 
   // ─── Siembra de plantilla (opcional) ─────────────────────────────────────────
   // Si el proyecto se creó desde una plantilla (ej. "Obra de pavimentación"),
@@ -136,8 +133,7 @@ export async function POST(request: NextRequest) {
   const tpl = getProjectTemplate(template)
   if (tpl) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db = admin as any
+      const db = admin
 
       // Status inicial (posición 0, categoría todo)
       type StatusRow = { id: string }

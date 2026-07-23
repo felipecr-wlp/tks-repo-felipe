@@ -117,8 +117,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle() as { data: { role: string } | null; error: unknown }
   if (!membership) return NextResponse.json({ error: 'Sin acceso al workspace' }, { status: 403 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: space, error } = await (admin as any)
+  const { data: space, error } = await admin
     .from('spaces')
     .insert({
       organization_id: ws.org_id,
@@ -140,8 +139,7 @@ export async function POST(request: NextRequest) {
   }
 
   // El creador queda como owner del departamento
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any)
+  await admin
     .from('space_members')
     .insert({ space_id: space.id, profile_id: user.id, role: 'owner', added_by: user.id })
 

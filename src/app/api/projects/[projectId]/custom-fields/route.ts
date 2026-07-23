@@ -122,8 +122,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .maybeSingle() as { data: { position: number } | null }
   const position = (last?.position ?? -1) + 1
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
   const { data, error } = await db
     .from('custom_field_definitions')
     .insert({

@@ -58,8 +58,7 @@ export async function POST(request: NextRequest) {
   if (existing) slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`
 
   type WsResult = { id: string; name: string; slug: string }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: workspace, error: insertError } = await (admin as any)
+  const { data: workspace, error: insertError } = await admin
     .from('workspaces')
     .insert({ org_id, name, slug })
     .select('id, name, slug')
@@ -71,8 +70,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Agregar al creador como admin
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any)
+  await admin
     .from('workspace_members')
     .insert({ workspace_id: workspace.id, profile_id: user.id, role: 'admin' })
 

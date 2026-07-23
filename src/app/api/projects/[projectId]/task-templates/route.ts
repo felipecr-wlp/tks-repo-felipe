@@ -191,8 +191,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     checklist = (items ?? []).map(i => ({ text: i.title }))
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any)
+  const { data, error } = await admin
     .from('task_templates')
     .insert({
       workspace_id: project.workspace_id,

@@ -76,8 +76,7 @@ export async function POST(
     .eq('emoji', emoji)
     .maybeSingle() as { data: { id: string } | null }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
 
   if (existing) {
     const { error } = await db.from('team_message_reactions').delete().eq('id', existing.id)

@@ -98,8 +98,7 @@ export async function POST(request: NextRequest) {
 
   if (!team) return NextResponse.json({ error: 'Equipo no encontrado' }, { status: 404 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sprint, error } = await (admin as any)
+  const { data: sprint, error } = await admin
     .from('sprints')
     .insert({
       team_id,

@@ -20,8 +20,7 @@ export async function autoWatch(
   profileId: string,
 ): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any)
+    await admin
       .from('task_watchers')
       .upsert(
         { task_id: taskId, project_id: projectId, profile_id: profileId },

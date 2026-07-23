@@ -16,6 +16,7 @@ import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import type { Database } from '@/lib/supabase/types'
 
 interface RouteParams {
   params: { projectId: string }
@@ -101,8 +102,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
   let error: unknown = null
 
   if (action.type === 'delete') {
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .in('id', validIds)
     error = r.error
   } else {
-    const patch: Record<string, unknown> = {}
+    const patch: Database['public']['Tables']['tasks']['Update'] = {}
     if (action.type === 'status') patch.status_id = action.statusId
     if (action.type === 'priority') patch.priority = action.priority
     if (action.type === 'assignee') patch.assignee_id = action.assigneeId

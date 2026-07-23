@@ -99,8 +99,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const patch: Record<string, unknown> = { ...parsed.data, updated_at: new Date().toISOString() }
   if ('due_date' in patch && !patch.due_date) patch.due_date = null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any)
+  const { data, error } = await admin
     .from('goals')
     .update(patch)
     .eq('id', params.goalId)
@@ -143,8 +142,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: access.status === 404 ? 'Meta no encontrada' : 'Sin acceso' }, { status: access.status })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).from('goals').delete().eq('id', params.goalId)
+  const { error } = await admin.from('goals').delete().eq('id', params.goalId)
   if (error) {
     console.error('[goals DELETE] error:', error)
     return NextResponse.json({ error: 'Error al borrar la meta' }, { status: 500 })

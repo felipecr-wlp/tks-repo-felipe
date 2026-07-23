@@ -114,8 +114,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     )
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
   let label: LabelRow | null = null
 
   if ('labelId' in parsed.data) {
@@ -199,8 +198,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     )
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('task_labels')
     .delete()
     .eq('task_id', params.taskId)

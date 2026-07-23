@@ -57,8 +57,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     checklist_id: string
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any)
+  const { data, error } = await admin
     .from('task_checklist_items')
     .update({
       ...parsed.data,
@@ -98,8 +97,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     )
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('task_checklist_items')
     .delete()
     .eq('id', params.itemId)

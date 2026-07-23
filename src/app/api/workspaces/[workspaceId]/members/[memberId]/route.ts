@@ -78,8 +78,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Debe quedar al menos un owner' }, { status: 409 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('workspace_members')
     .update({ role: parsed.data.role })
     .eq('workspace_id', params.workspaceId)
@@ -114,8 +113,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Debe quedar al menos un owner' }, { status: 409 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('workspace_members')
     .delete()
     .eq('workspace_id', params.workspaceId)

@@ -90,8 +90,7 @@ export async function GET(
     }))
 
   // Reputacion agregada (k-anonimato dentro de la funcion). RPC devuelve 1 fila.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: repRows } = await (admin as any)
+  const { data: repRows } = await admin
     .rpc('profile_reputation', { p_profile_id: params.profileId }) as {
       data: {
         review_count: number

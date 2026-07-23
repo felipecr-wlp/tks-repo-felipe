@@ -80,8 +80,7 @@ export async function POST(
   if (!ids.has(user.id)) return NextResponse.json({ error: 'No eres miembro de este proyecto' }, { status: 403 })
   if (!ids.has(parsed.data.reviewee_id)) return NextResponse.json({ error: 'El evaluado no es miembro del proyecto' }, { status: 422 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: review, error } = await (admin as any)
+  const { data: review, error } = await admin
     .from('project_reviews')
     .insert({
       project_id:    project.id,

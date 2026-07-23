@@ -100,8 +100,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const { board, status } = await loadWithAccess(admin, params.whiteboardId, user.id)
   if (!board) return NextResponse.json({ error: 'No encontrada' }, { status })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error } = await (admin as any)
+  const { data: updated, error } = await admin
     .from('whiteboards')
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.whiteboardId)
@@ -166,8 +165,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).from('whiteboards').delete().eq('id', params.whiteboardId)
+  const { error } = await admin.from('whiteboards').delete().eq('id', params.whiteboardId)
   if (error) return NextResponse.json({ error: 'Error al eliminar' }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import type { Database, Json } from '@/lib/supabase/types'
 
 interface RouteParams {
   params: { projectId: string; viewId: string }
@@ -86,14 +87,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (!membership) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
   // Solo el dueño (profile_id) puede modificar su vista.
-  const patch: Record<string, unknown> = {}
+  const patch: Database['public']['Tables']['task_saved_views']['Update'] = {}
   if (parsed.data.name !== undefined) patch.name = parsed.data.name
-  if (parsed.data.filters !== undefined) patch.filters = parsed.data.filters
-  if (parsed.data.sort !== undefined) patch.sort = parsed.data.sort
+  if (parsed.data.filters !== undefined) patch.filters = parsed.data.filters as Json
+  if (parsed.data.sort !== undefined) patch.sort = parsed.data.sort as Json
   if (parsed.data.isShared !== undefined) patch.is_shared = parsed.data.isShared
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any)
+  const { data, error } = await admin
     .from('task_saved_views')
     .update(patch)
     .eq('id', params.viewId)
@@ -134,8 +134,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     .maybeSingle() as { data: { role: string } | null; error: unknown }
   if (!membership) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('task_saved_views')
     .delete()
     .eq('id', params.viewId)

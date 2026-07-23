@@ -70,8 +70,7 @@ export async function PATCH(
   if ('start_date' in payload && !payload.start_date) payload.start_date = null
   if ('end_date' in payload && !payload.end_date) payload.end_date = null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error } = await (auth.admin as any)
+  const { data: updated, error } = await auth.admin
     .from('sprints')
     .update(payload)
     .eq('id', params.sprintId)
@@ -103,8 +102,7 @@ export async function DELETE(
   const auth = await authorize(params.sprintId, user.id)
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (auth.admin as any)
+  const { error } = await auth.admin
     .from('sprints')
     .delete()
     .eq('id', params.sprintId)

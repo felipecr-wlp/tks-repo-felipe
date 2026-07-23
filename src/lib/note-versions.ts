@@ -57,8 +57,7 @@ export async function snapshotNoteVersion(
 
   if (latest && withinWindow && sameAuthor) {
     // Coalesce: actualizar la version mas reciente en sitio.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any)
+    await admin
       .from('note_versions')
       .update({ title, content: normalized, updated_at: new Date().toISOString() })
       .eq('id', latest.id)
@@ -66,8 +65,7 @@ export async function snapshotNoteVersion(
   }
 
   // Version nueva.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any).from('note_versions').insert({
+  await admin.from('note_versions').insert({
     note_id:      noteId,
     workspace_id: workspaceId,
     title,

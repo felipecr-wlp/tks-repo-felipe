@@ -61,8 +61,7 @@ export async function GET(request: NextRequest) {
   const timeMax = parsed.data.to ?? new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000).toISOString()
 
   const admin = createAdminClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: conn } = await (admin as any)
+  const { data: conn } = await admin
     .from('google_connections')
     .select('access_token, refresh_token, token_expiry, scopes')
     .eq('profile_id', user.id)
@@ -85,8 +84,7 @@ export async function GET(request: NextRequest) {
     if (tokens.access_token) patch.access_token = tokens.access_token
     if (tokens.refresh_token) patch.refresh_token = tokens.refresh_token
     if (tokens.expiry_date) patch.token_expiry = new Date(tokens.expiry_date).toISOString()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    void (admin as any).from('google_connections').update(patch).eq('profile_id', user.id)
+    void admin.from('google_connections').update(patch).eq('profile_id', user.id)
   })
 
   try {

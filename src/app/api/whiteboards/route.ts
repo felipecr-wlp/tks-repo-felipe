@@ -98,8 +98,7 @@ export async function POST(request: NextRequest) {
   if (!membership) return NextResponse.json({ error: 'Sin acceso al workspace' }, { status: 403 })
 
   type WhiteboardInsert = { id: string; title: string; created_at: string }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: board, error } = await (admin as any)
+  const { data: board, error } = await admin
     .from('whiteboards')
     .insert({
       workspace_id,

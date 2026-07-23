@@ -117,8 +117,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   // Reubicar incompletas (al backlog o al sprint destino) en un solo update.
   if (incomplete.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: moveErr } = await (admin as any)
+    const { error: moveErr } = await admin
       .from('tasks')
       .update({ sprint_id: carryTo, updated_at: new Date().toISOString() })
       .in('id', incomplete)
@@ -129,8 +128,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   // Cerrar el sprint.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error } = await (admin as any)
+  const { data: updated, error } = await admin
     .from('sprints')
     .update({ status: 'completed', updated_at: new Date().toISOString() })
     .eq('id', params.sprintId)

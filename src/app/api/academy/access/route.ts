@@ -59,8 +59,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, status: 'pending', requestId: pending.id })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: created, error } = await (admin as any)
+  const { data: created, error } = await admin
     .from('academy_access_requests')
     .insert({
       profile_id: user.id,

@@ -46,8 +46,7 @@ export async function attemptDomainOrgJoin(
   const domain = email.split('@')[1]
   if (!domain) return null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
 
   // 1. Buscar org por dominio (unica por indice).
   const { data: org } = await db

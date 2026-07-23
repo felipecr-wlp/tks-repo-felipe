@@ -100,8 +100,7 @@ export async function POST(
   const { ok, workspaceId } = await canManageProject(admin, params.projectId, user.id)
   if (!ok || !workspaceId) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rule, error } = await (admin as any)
+  const { data: rule, error } = await admin
     .from('automations')
     .insert({
       workspace_id:   workspaceId,

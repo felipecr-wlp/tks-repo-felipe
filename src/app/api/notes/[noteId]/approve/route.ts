@@ -167,8 +167,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     approved_version: note.sop_version,
     sop_status:       'active',
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).from('notes').update(stamp).eq('id', note.id)
+  const { error } = await admin.from('notes').update(stamp).eq('id', note.id)
   if (error) {
     console.error('[sop approve POST] update error:', error)
     return NextResponse.json({ error: 'Error al aprobar' }, { status: 500 })
@@ -204,8 +203,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     approved_version: null,
     sop_status:       'review',
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).from('notes').update(cleared).eq('id', note.id)
+  const { error } = await admin.from('notes').update(cleared).eq('id', note.id)
   if (error) {
     return NextResponse.json({ error: 'Error al revocar la aprobación' }, { status: 500 })
   }

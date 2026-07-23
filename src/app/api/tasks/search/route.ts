@@ -42,8 +42,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Sin acceso al equipo' }, { status: 403 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (admin as any)
+  let query = admin
     .from('tasks')
     .select('id, title, priority, status:task_statuses ( name, color ), projects!inner ( name, team_id )')
     .eq('projects.team_id', team_id)

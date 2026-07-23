@@ -17,6 +17,7 @@ import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
+import type { Database } from '@/lib/supabase/types'
 
 const schema = z.object({
   scope:                 z.string().max(4000).trim().nullable().optional(),
@@ -87,15 +88,14 @@ export async function PATCH(
     }
   }
 
-  const patch: Record<string, unknown> = { ...parsed.data, updated_at: new Date().toISOString() }
+  const patch: Database['public']['Tables']['projects']['Update'] = { ...parsed.data, updated_at: new Date().toISOString() }
 
   type Updated = {
     id: string; scope: string | null; rules: string | null; deliverables: string | null
     lead_id: string | null; open_for_applications: boolean
     application_deadline: string | null; max_members: number | null
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error } = await (admin as any)
+  const { data: updated, error } = await admin
     .from('projects')
     .update(patch)
     .eq('id', params.projectId)

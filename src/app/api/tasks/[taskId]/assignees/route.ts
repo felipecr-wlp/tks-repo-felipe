@@ -125,8 +125,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const belongs = await profileInProject(admin, access.projectId as string, profileId)
   if (!belongs) return NextResponse.json({ error: 'Ese usuario no pertenece al proyecto' }, { status: 422 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
   const { error: insErr } = await db
     .from('task_assignees')
     .upsert(
@@ -178,8 +177,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     )
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
   const { error } = await db
     .from('task_assignees')
     .delete()

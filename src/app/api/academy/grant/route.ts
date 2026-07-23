@@ -37,8 +37,7 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient()
 
   if (parsed.data.action === 'grant') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (admin as any)
+    const { error } = await admin
       .from('academy_access')
       .upsert(
         { profile_id: parsed.data.profileId, course_id: parsed.data.courseId, granted_by: user.id },

@@ -47,8 +47,7 @@ export async function PATCH(
 
   const admin = createAdminClient()
   type WsResult = { id: string; name: string; slug: string; description: string | null }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error } = (await (admin as any)
+  const { data: updated, error } = (await admin
     .from('workspaces')
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.workspaceId)

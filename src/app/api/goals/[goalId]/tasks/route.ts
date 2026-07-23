@@ -121,8 +121,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Tarea no encontrada en este workspace' }, { status: 404 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: link, error } = await (admin as any)
+  const { data: link, error } = await admin
     .from('goal_tasks')
     .upsert({ goal_id: params.goalId, task_id: parsed.data.task_id }, { onConflict: 'goal_id,task_id', ignoreDuplicates: false })
     .select('id')
@@ -159,8 +158,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: access.status === 404 ? 'Meta no encontrada' : 'Sin acceso' }, { status: access.status })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('goal_tasks')
     .delete()
     .eq('goal_id', params.goalId)

@@ -120,8 +120,7 @@ export async function POST(
     .maybeSingle()) as { data: { profile_id: string } | null; error: unknown }
   if (existing) return NextResponse.json({ error: 'Ya es miembro del equipo' }, { status: 409 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('team_members')
     .insert({ team_id: params.teamId, profile_id: parsed.data.profile_id, role: parsed.data.role ?? 'member' })
 

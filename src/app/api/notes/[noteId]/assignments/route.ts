@@ -341,8 +341,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   // Upsert idempotente por (nota, tipo, objetivo).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: insErr } = await (admin as any)
+  const { error: insErr } = await admin
     .from('sop_assignments')
     .upsert({
       note_id:      note.id,
@@ -370,8 +369,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       object_id:    note.id,
       object_title: note.title,
     }))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any).from('notifications').insert(rows)
+    await admin.from('notifications').insert(rows)
   }
 
   return NextResponse.json({ ok: true }, { status: 201 })
@@ -404,8 +402,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Faltan parámetros target_type/target_id' }, { status: 400 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: delErr } = await (admin as any)
+  const { error: delErr } = await admin
     .from('sop_assignments')
     .delete()
     .eq('note_id', note.id)

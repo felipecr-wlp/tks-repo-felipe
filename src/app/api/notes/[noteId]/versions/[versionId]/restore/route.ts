@@ -85,8 +85,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }).catch(console.error)
 
   // Aplicar la versión a la nota.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error } = await (admin as any)
+  const { data: updated, error } = await admin
     .from('notes')
     // Saneado defensivo: una version historica pudo escribirse ANTES de que
     // existiera el saneado al escribir (S21). Al restaurar no reintroducimos

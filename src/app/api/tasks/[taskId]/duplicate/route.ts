@@ -87,8 +87,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const sortOrder = generateKeyBetween(lastTask?.sort_order ?? null, null)
 
   type TaskResult = { id: string; title: string }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: copy, error } = await (admin as any)
+  const { data: copy, error } = await admin
     .from('tasks')
     .insert({
       project_id:          source.project_id,

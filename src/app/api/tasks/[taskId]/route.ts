@@ -172,8 +172,7 @@ export async function PATCH(
     created_by_profile: { id: string; display_name: string; avatar_url: string | null } | null
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error: updateError } = await (admin as any)
+  const { data: updated, error: updateError } = await admin
     .from('tasks')
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.taskId)
@@ -282,8 +281,7 @@ export async function PATCH(
       const nextAssignee = updated.assignee?.id ?? existing.assignee_id ?? null
 
       type SpawnResult = { id: string; title: string }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: spawned, error: spawnError } = await (admin as any)
+      const { data: spawned, error: spawnError } = await admin
         .from('tasks')
         .insert({
           project_id: existing.project_id,
@@ -321,8 +319,7 @@ export async function PATCH(
         if (nextAssignee && nextAssignee !== user.id) {
           autoWatch(admin, spawned.id, existing.project_id, nextAssignee).catch(console.error)
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ;(admin as any).from('notifications').insert({
+          admin.from('notifications').insert({
             workspace_id: existing.workspace_id,
             recipient_id: nextAssignee,
             subject_id: null, // generado por el sistema de recurrencia, no por el actor
@@ -401,8 +398,7 @@ export async function DELETE(
   if (!membership) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
   // Soft delete (archivar)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: archiveError } = await (admin as any)
+  const { error: archiveError } = await admin
     .from('tasks')
     .update({ is_archived: true, updated_at: new Date().toISOString() })
     .eq('id', params.taskId)

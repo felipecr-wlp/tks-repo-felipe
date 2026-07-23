@@ -130,8 +130,7 @@ export async function POST(
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
 
   // 1. Membresia del workspace (idempotente).
   const { error: wsErr } = await db

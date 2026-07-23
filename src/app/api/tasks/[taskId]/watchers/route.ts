@@ -92,8 +92,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .eq('profile_id', user.id)
     .maybeSingle() as { data: { id: string } | null }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
 
   if (existing) {
     const { error } = await db.from('task_watchers').delete().eq('id', existing.id)

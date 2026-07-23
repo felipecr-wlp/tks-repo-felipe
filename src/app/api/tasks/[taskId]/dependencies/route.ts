@@ -136,8 +136,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   // Insertar idempotente sobre UNIQUE (task_id, depends_on)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: insErr } = await (admin as any)
+  const { error: insErr } = await admin
     .from('task_dependencies')
     .upsert(
       { task_id: params.taskId, depends_on: dependsOnId },
@@ -177,8 +176,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     )
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('task_dependencies')
     .delete()
     .eq('task_id', params.taskId)

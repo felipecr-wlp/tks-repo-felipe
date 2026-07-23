@@ -60,8 +60,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Debe quedar al menos un owner' }, { status: 409 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('space_members')
     .delete()
     .eq('space_id', params.spaceId)

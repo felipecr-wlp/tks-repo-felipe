@@ -130,8 +130,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   if (!note) return NextResponse.json({ error: 'No encontrada o sin acceso' }, { status })
 
   // Upsert: un acuse por (nota, usuario). Re-acusar actualiza versión + fecha.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: upsertError } = await (admin as any)
+  const { error: upsertError } = await admin
     .from('note_acknowledgements')
     .upsert({
       note_id:         note.id,
@@ -166,8 +165,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const { note, status } = await loadNote(admin, params.noteId, user.id)
   if (!note) return NextResponse.json({ error: 'No encontrada o sin acceso' }, { status })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: delError } = await (admin as any)
+  const { error: delError } = await admin
     .from('note_acknowledgements')
     .delete()
     .eq('note_id', note.id)

@@ -110,8 +110,7 @@ export async function POST(request: NextRequest) {
   const approvalStatus = isAdmin ? 'approved' : 'pending'
 
   type ProjResult = { id: string; name: string; slug: string; icon: string | null; approval_status: string; open_for_applications: boolean }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: project, error: insertError } = await (admin as any)
+  const { data: project, error: insertError } = await admin
     .from('projects')
     .insert({
       team_id: teamId,
@@ -142,14 +141,12 @@ export async function POST(request: NextRequest) {
   }
 
   // El proponente entra como manager (y es el lider).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any)
+  await admin
     .from('project_members')
     .upsert({ project_id: project.id, profile_id: user.id, role: 'manager', joined_at: nowIso }, { onConflict: 'project_id,profile_id' })
 
   // Statuses por defecto para que el tablero de tareas funcione desde el inicio.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any).rpc('create_default_statuses', { p_project_id: project.id })
+  await admin.rpc('create_default_statuses', { p_project_id: project.id })
 
   logActivity({
     verb: isAdmin ? ActivityVerbs.PROJECT_CREATED : ActivityVerbs.PROJECT_PROPOSED,

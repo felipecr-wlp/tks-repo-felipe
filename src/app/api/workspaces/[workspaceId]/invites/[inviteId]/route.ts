@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isUuid } from '@/lib/validation'
 import { createClient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/supabase/types'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
 
@@ -24,10 +25,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
   // RLS ya restringe a admins; la query falla si no tiene permisos
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  // El cliente RLS de @supabase/ssr tipa el parametro de .update() como `never`
+  // para esta tabla, asi que se castea SOLO el payload (no el cliente) a su tipo
+  // Update real. Ver types.ts (Update de workspace_invites).
+  const revokePatch = {
+    revoked_at: new Date().toISOString(),
+  } as Database['public']['Tables']['workspace_invites']['Update']
+  const { data, error } = await supabase
     .from('workspace_invites')
-    .update({ revoked_at: new Date().toISOString() })
+    .update(revokePatch as never)
     .eq('id', params.inviteId)
     .eq('workspace_id', params.workspaceId)
     .is('revoked_at', null)

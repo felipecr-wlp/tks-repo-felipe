@@ -112,8 +112,7 @@ export async function POST(
     .eq('id', params.teamId)
     .maybeSingle() as { data: { workspace_id: string } | null }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reminder, error } = await (admin as any)
+  const { data: reminder, error } = await admin
     .from('reminders')
     .insert({
       workspace_id: team?.workspace_id ?? null,

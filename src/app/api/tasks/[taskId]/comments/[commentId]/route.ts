@@ -62,8 +62,7 @@ export async function PATCH(
     created_at: string
     author: { id: string; display_name: string; avatar_url: string | null } | null
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: raw, error } = await (admin as any)
+  const { data: raw, error } = await admin
     .from('task_comments')
     .update({ content: parsed.data.body, updated_at: new Date().toISOString() })
     .eq('id', params.commentId)

@@ -93,8 +93,7 @@ export async function PATCH(
   }
 
   type TeamResult = { id: string; name: string; slug: string; is_archived: boolean }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error } = await (admin as any)
+  const { data: updated, error } = await admin
     .from('teams')
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.teamId)
@@ -131,8 +130,7 @@ export async function DELETE(
   if (!auth) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
   if (!auth.isAdmin) return NextResponse.json({ error: 'Se requiere rol admin' }, { status: 403 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).from('teams').delete().eq('id', params.teamId)
+  const { error } = await admin.from('teams').delete().eq('id', params.teamId)
   if (error) return NextResponse.json({ error: 'Error al eliminar el equipo' }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

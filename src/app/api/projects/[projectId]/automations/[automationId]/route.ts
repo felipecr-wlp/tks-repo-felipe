@@ -82,8 +82,7 @@ export async function PATCH(
   const { admin, error } = await guard(params.projectId, params.automationId, user.id)
   if (error) return error
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rule, error: updErr } = await (admin as any)
+  const { data: rule, error: updErr } = await admin
     .from('automations')
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.automationId)
@@ -115,8 +114,7 @@ export async function DELETE(
   const { admin, error } = await guard(params.projectId, params.automationId, user.id)
   if (error) return error
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: delErr } = await (admin as any)
+  const { error: delErr } = await admin
     .from('automations')
     .delete()
     .eq('id', params.automationId)

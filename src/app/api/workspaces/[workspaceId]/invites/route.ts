@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/supabase/types'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { hashPassword } from '@/lib/password'
 import { generateInviteCode } from '@/lib/invite-code'
@@ -195,18 +196,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     created_at: string
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: invite, error } = await (supabase as any)
+  // El cliente RLS de @supabase/ssr tipa el parametro de .insert() como `never`
+  // para esta tabla, asi que se castea SOLO el payload (no el cliente) a su tipo
+  // Insert real. Ver types.ts (Insert de workspace_invites).
+  const invitePayload = {
+    workspace_id:  params.workspaceId,
+    code,
+    password_hash: password ? hashPassword(password) : null,
+    role,
+    max_uses:      max_uses ?? null,
+    expires_at,
+    created_by:    user.id,
+  } as Database['public']['Tables']['workspace_invites']['Insert']
+  const { data: invite, error } = await supabase
     .from('workspace_invites')
-    .insert({
-      workspace_id:  params.workspaceId,
-      code,
-      password_hash: password ? hashPassword(password) : null,
-      role,
-      max_uses:      max_uses ?? null,
-      expires_at,
-      created_by:    user.id,
-    })
+    .insert(invitePayload as never)
     .select('id, code, role, max_uses, uses_count, expires_at, created_at')
     .single() as { data: InviteInsert | null; error: unknown }
 
@@ -214,8 +218,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     console.error('[invites POST] insert error:', error)
     // Re-intentar una vez con código nuevo si fue colisión
     const admin = createAdminClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: retry } = await (admin as any)
+    const { data: retry } = await admin
       .from('workspace_invites')
       .insert({
         workspace_id:  params.workspaceId,
@@ -261,8 +264,7 @@ async function respondWithInvite(
   if (email && isEmailConfigured()) {
     try {
       const admin = createAdminClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db = admin as any
+      const db = admin
       const [{ data: ws }, { data: inviter }] = await Promise.all([
         db.from('workspaces').select('name').eq('id', workspaceId).maybeSingle(),
         db.from('profiles').select('display_name').eq('id', userId).maybeSingle(),

@@ -52,8 +52,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (parsed.data.snoozed_until && parsed.data.is_read === undefined) update.is_read = true
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('notifications')
     .update(update)
     .eq('id', params.id)
@@ -78,8 +77,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
   const admin = createAdminClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('notifications')
     .delete()
     .eq('id', params.id)

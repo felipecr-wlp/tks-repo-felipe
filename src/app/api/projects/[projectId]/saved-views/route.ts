@@ -124,8 +124,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any)
+  const { data, error } = await admin
     .from('task_saved_views')
     .insert({
       project_id: params.projectId,

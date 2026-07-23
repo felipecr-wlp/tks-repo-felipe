@@ -109,8 +109,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   // Asignar org_id si el usuario no tiene
   if (!profile?.org_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: profileError } = await (admin as any)
+    const { error: profileError } = await admin
       .from('profiles')
       .update({ org_id: wsOrgId, org_role: profile?.org_role ?? 'member' })
       .eq('id', user.id)
@@ -121,8 +120,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Agregar a org_members
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any)
+    await admin
       .from('org_members')
       .insert({ org_id: wsOrgId, profile_id: user.id, role: 'member' })
       .select('id')
@@ -147,8 +145,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // el cupo con un UPDATE guardado en la DB (SECURITY DEFINER) que garantiza que
   // dos redenciones concurrentes no rebasen max_uses. Devuelve el nuevo conteo o
   // null/sin filas si ya está agotado.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: redeemed, error: redeemError } = await (admin as any)
+  const { data: redeemed, error: redeemError } = await admin
     .rpc('redeem_invite_slot', { p_invite_id: invite.id })
 
   if (redeemError) {
@@ -160,8 +157,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   // ── Insertar membership ────────────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: memberError } = await (admin as any)
+  const { error: memberError } = await admin
     .from('workspace_members')
     .insert({
       workspace_id: invite.workspace_id,
@@ -172,8 +168,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   if (memberError) {
     console.error('[join] workspace_members insert error:', memberError)
     // Devolver el cupo reservado para no "quemar" un uso por un fallo de insert.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any).rpc('release_invite_slot', { p_invite_id: invite.id })
+    await admin.rpc('release_invite_slot', { p_invite_id: invite.id })
     return NextResponse.json({ error: 'Error al unirse al workspace' }, { status: 500 })
   }
 

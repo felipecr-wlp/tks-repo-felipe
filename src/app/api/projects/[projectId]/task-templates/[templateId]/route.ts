@@ -54,8 +54,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('task_templates')
     .delete()
     .eq('id', params.templateId)

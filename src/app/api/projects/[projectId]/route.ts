@@ -52,8 +52,7 @@ export async function PATCH(
   }
 
   type ProjResult = { id: string; name: string; slug: string; icon: string | null; status: string }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error } = await (admin as any)
+  const { data: updated, error } = await admin
     .from('projects')
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.projectId)
@@ -91,8 +90,7 @@ export async function DELETE(
   }
 
   // Soft delete, archivar el proyecto
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('projects')
     .update({ is_archived: true, status: 'archived', updated_at: new Date().toISOString() })
     .eq('id', params.projectId)

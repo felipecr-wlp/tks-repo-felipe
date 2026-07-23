@@ -144,8 +144,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     mentioned_by: user.id,
     source:       parsed.data.source,
   }))
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: insErr } = await (admin as any).from('note_mentions').insert(rows)
+  const { error: insErr } = await admin.from('note_mentions').insert(rows)
   if (insErr) {
     console.error('[note mentions POST] insert error:', insErr)
     return NextResponse.json({ error: 'Error al registrar las menciones' }, { status: 500 })

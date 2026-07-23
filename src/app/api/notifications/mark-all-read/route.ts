@@ -38,8 +38,7 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (admin as any)
+  let query = admin
     .from('notifications')
     .update({ is_read: true })
     .eq('recipient_id', user.id)

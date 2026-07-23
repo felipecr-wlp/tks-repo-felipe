@@ -105,8 +105,7 @@ export async function POST(
     return NextResponse.json({ error: 'Sin acceso al proyecto' }, { status: 403 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: message, error } = await (admin as any)
+  const { data: message, error } = await admin
     .from('project_messages')
     .insert({
       project_id:   params.projectId,

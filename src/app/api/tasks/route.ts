@@ -11,6 +11,7 @@ import { sanitizeRichText } from '@/lib/sanitize'
 import { logActivity, notify, ActivityVerbs, NotificationTypes } from '@/lib/activity'
 import { autoWatch } from '@/lib/watchers'
 import { runAutomations } from '@/lib/automations'
+import type { Database } from '@/lib/supabase/types'
 
 const createSchema = z.object({
   project_id: z.string().uuid(),
@@ -137,8 +138,7 @@ export async function POST(request: NextRequest) {
     assignee: { id: string; display_name: string; avatar_url: string | null } | null
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
   const { data: newTask, error: insertError } = await db
     .from('tasks')
     .insert({
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
       if (visible && template) {
         // El body crudo dice si el usuario suministro cada campo (no lo pisamos).
         const raw = (body ?? {}) as Record<string, unknown>
-        const patch: Record<string, unknown> = {}
+        const patch: Database['public']['Tables']['tasks']['Update'] = {}
 
         // La descripcion no esta en createSchema, asi que el usuario nunca la
         // manda aqui: si la plantilla la trae, se aplica.
@@ -219,8 +219,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (Object.keys(patch).length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (admin as any).from('tasks').update(patch).eq('id', newTask.id)
+          await admin.from('tasks').update(patch).eq('id', newTask.id)
         }
 
         // Sembrar la checklist: se crea una checklist default y sus items.
@@ -229,8 +228,7 @@ export async function POST(request: NextRequest) {
           .filter(Boolean)
 
         if (items.length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: checklist } = await (admin as any)
+          const { data: checklist } = await admin
             .from('task_checklists')
             .insert({ task_id: newTask.id, title: 'Subtareas', position: 0 })
             .select('id')
@@ -243,8 +241,7 @@ export async function POST(request: NextRequest) {
               title,
               position,
             }))
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (admin as any).from('task_checklist_items').insert(rows)
+            await admin.from('task_checklist_items').insert(rows)
           }
         }
       }

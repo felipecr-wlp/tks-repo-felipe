@@ -144,8 +144,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (existing) return NextResponse.json({ relation: { id: existing.id, type, task: target } }, { status: 200 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any
+  const db = admin
   const { data, error } = await db
     .from('task_relations')
     .upsert(
@@ -201,8 +200,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Relacion no encontrada' }, { status: 404 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).from('task_relations').delete().eq('id', relationId)
+  const { error } = await admin.from('task_relations').delete().eq('id', relationId)
   if (error) {
     console.error('[task relations DELETE] error:', error)
     return NextResponse.json({ error: 'Error al quitar la relacion' }, { status: 500 })

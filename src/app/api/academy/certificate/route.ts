@@ -71,8 +71,7 @@ export async function POST(request: NextRequest) {
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
   const code = `WLP-${coursePrefix(course.id)}-${avg}-${year}-${rand}`
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: cert, error } = await (admin as any)
+  const { data: cert, error } = await admin
     .from('academy_certificates')
     .insert({ profile_id: user.id, course_id: course.id, code, score: avg })
     .select('id, profile_id, course_id, code, score, issued_at')

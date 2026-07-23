@@ -132,8 +132,7 @@ export async function POST(
     created_at: string
     author: { id: string; display_name: string; avatar_url: string | null } | null
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: raw, error: insertError } = await (admin as any)
+  const { data: raw, error: insertError } = await admin
     .from('task_comments')
     .insert({
       task_id: params.taskId,

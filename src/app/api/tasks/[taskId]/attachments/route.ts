@@ -149,8 +149,7 @@ export async function POST(
     return NextResponse.json({ error: 'Error al subir el archivo' }, { status: 500 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: row, error: insErr } = await (admin as any)
+  const { data: row, error: insErr } = await admin
     .from('task_attachments')
     .insert({
       task_id:      params.taskId,

@@ -215,8 +215,7 @@ export async function POST(request: NextRequest) {
     .eq('id', team_id)
     .maybeSingle() as { data: { workspace_id: string } | null; error: unknown }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: message, error } = await (admin as any)
+  const { data: message, error } = await admin
     .from('messages')
     .insert({
       team_id,

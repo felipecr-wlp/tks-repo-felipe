@@ -127,8 +127,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     created_at: string
     author: { id: string; display_name: string; avatar_url: string | null } | null
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: raw, error: insertError } = await (admin as any)
+  const { data: raw, error: insertError } = await admin
     .from('note_comments')
     .insert({
       note_id: params.noteId,

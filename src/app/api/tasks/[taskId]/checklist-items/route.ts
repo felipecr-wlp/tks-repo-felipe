@@ -39,8 +39,7 @@ async function getOrCreateDefaultChecklist(
   // Insert idempotente: task_checklists tiene un indice unico en task_id, asi que
   // dos requests concurrentes no crean dos checklists. El que pierde la carrera
   // recibe conflicto (ignoreDuplicates -> data null) y cae al re-select de abajo.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: created } = await (admin as any)
+  const { data: created } = await admin
     .from('task_checklists')
     .upsert({ task_id: taskId, title: 'Subtareas', position: 0 }, { onConflict: 'task_id', ignoreDuplicates: true })
     .select('id')
@@ -165,8 +164,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     checklist_id: string
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: item, error } = await (admin as any)
+  const { data: item, error } = await admin
     .from('task_checklist_items')
     .insert({
       checklist_id: checklistId,

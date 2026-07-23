@@ -74,8 +74,7 @@ export async function PATCH(
   if (parsed.data.status === 'withdrawn') {
     if (!isApplicant) return NextResponse.json({ error: 'Solo puedes retirar tu propia postulación' }, { status: 403 })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (admin as any)
+    const { error } = await admin
       .from('project_applications')
       .update({ status: 'withdrawn', decided_by: user.id, decided_at: new Date().toISOString() })
       .eq('id', application.id)
@@ -131,8 +130,7 @@ export async function PATCH(
 
     // Alta como miembro del proyecto (idempotente por onConflict). El titulo
     // alimenta el CV interno; por defecto usa el rol deseado en la postulacion.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any)
+    await admin
       .from('project_members')
       .upsert(
         {
@@ -157,8 +155,7 @@ export async function PATCH(
         .select('profile_id', { count: 'exact', head: true })
         .eq('project_id', project.id) as { count: number | null }
       if ((after ?? 0) > project.max_members) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (admin as any)
+        await admin
           .from('project_members')
           .delete()
           .eq('project_id', project.id)
@@ -168,8 +165,7 @@ export async function PATCH(
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await admin
     .from('project_applications')
     .update({ status: parsed.data.status, decided_by: user.id, decided_at: nowIso })
     .eq('id', application.id)

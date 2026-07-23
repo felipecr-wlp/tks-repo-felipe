@@ -58,8 +58,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Sin acceso al equipo' }, { status: 403 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rows, error: rowsError } = (await (admin as any)
+  const { data: rows, error: rowsError } = (await admin
     .from('tasks')
     .select(`
       id, title, priority,
