@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ListTodo, Search, X, Layers, Filter, CheckCircle2, AlertTriangle, CalendarClock } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { TaskRow as TaskItem } from './TaskRow'
 import { CreateTaskInline } from './CreateTaskInline'
@@ -485,19 +486,11 @@ export function TaskListView({
 
       {/* Mensaje vacío total */}
       {tasks.length === 0 && (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/70 bg-muted/20 py-14 px-6 text-center">
-          <span className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary">
-            <ListTodo className="w-6 h-6" aria-hidden />
-          </span>
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-foreground">
-              No hay tareas en este proyecto todavía
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Haz clic en &quot;+ Nueva tarea&quot; debajo de cualquier estado para comenzar.
-            </p>
-          </div>
-        </div>
+        <EmptyState
+          icon={<ListTodo className="h-5 w-5" aria-hidden />}
+          title="No hay tareas en este proyecto todavía"
+          description={'Haz clic en "+ Nueva tarea" debajo de cualquier estado para comenzar.'}
+        />
       )}
 
       {/* Barra flotante de acciones masivas */}

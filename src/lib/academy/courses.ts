@@ -1708,7 +1708,7 @@ export const COURSES: Course[] = [
     "accent": "#34D399",
     "track": "Finanzas",
     "title": "Finanzas de WLP",
-    "subtitle": "Como gana dinero la empresa: margen, breakeven, NOI y economia unitaria. Numeros verificados.",
+    "subtitle": "Cómo gana dinero la empresa: margen, breakeven, NOI y economía unitaria. Números verificados.",
     "certName": "WLP Finanzas Esenciales",
     "modules": [
       {
@@ -1716,10 +1716,10 @@ export const COURSES: Course[] = [
         "num": "1",
         "icon": "landmark",
         "dur": "25 min",
-        "title": "Como gana dinero WLP",
+        "title": "Cómo gana dinero WLP",
         "tag": "El modelo de negocio y la cascada de la utilidad.",
         "objectives": [
-          "Explicar en una frase como WLP convierte un trabajo de pavimento en utilidad.",
+          "Explicar en una frase cómo WLP convierte un trabajo de pavimento en utilidad.",
           "Distinguir ingreso, utilidad bruta (GP) y utilidad operativa (NOI).",
           "Leer la cascada de la P&L de arriba hacia abajo sin perderte."
         ],
@@ -1729,7 +1729,7 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "WLP vende y ejecuta proyectos de pavimento (asfalto y concreto) para clientes comerciales y residenciales. El dinero entra como <b>ingreso por proyecto</b>; de ahi se pagan los costos directos de ejecutar la obra, y lo que queda cubre la operacion de la empresa y deja utilidad."
+                "v": "WLP vende y ejecuta proyectos de pavimento (asfalto y concreto) para clientes comerciales y residenciales. El dinero entra como <b>ingreso por proyecto</b>; de ahí se pagan los costos directos de ejecutar la obra, y lo que queda cubre la operación de la empresa y deja utilidad."
               },
               {
                 "type": "callout",
@@ -1739,7 +1739,7 @@ export const COURSES: Course[] = [
             ]
           },
           {
-            "t": "Los tres numeros que importan",
+            "t": "Los tres números que importan",
             "blocks": [
               {
                 "type": "h",
@@ -1747,7 +1747,7 @@ export const COURSES: Course[] = [
               },
               {
                 "type": "p",
-                "v": "Lo que factura el proyecto. Es la linea de arriba."
+                "v": "Lo que factura el proyecto. Es la línea de arriba."
               },
               {
                 "type": "h",
@@ -1763,19 +1763,19 @@ export const COURSES: Course[] = [
               },
               {
                 "type": "p",
-                "v": "Lo que queda despues de restar tambien el gasto de operar la empresa (OPEX). Es la utilidad real del mes."
+                "v": "Lo que queda después de restar también el gasto de operar la empresa (OPEX). Es la utilidad real del mes."
               },
               {
                 "type": "table",
                 "head": [
-                  "Linea",
-                  "Que es",
+                  "Línea",
+                  "Qué es",
                   "Referencia WLP"
                 ],
                 "rows": [
                   [
                     "Ingreso",
-                    "Facturacion del proyecto",
+                    "Facturación del proyecto",
                     "Variable"
                   ],
                   [
@@ -1803,14 +1803,14 @@ export const COURSES: Course[] = [
             ]
           },
           {
-            "t": "Por que esto le importa a todo el equipo",
+            "t": "Por qué esto le importa a todo el equipo",
             "blocks": [
               {
                 "type": "list",
                 "v": [
                   "Un descuento agresivo no sale del ingreso: sale directo del GP, que es lo que sostiene la empresa.",
                   "Un reproceso (volver a hacer una obra) se come el margen de varios trabajos buenos.",
-                  "Vender mas volumen con margen sano es lo que mueve el NOI, no bajar el precio."
+                  "Vender más volumen con margen sano es lo que mueve el NOI, no bajar el precio."
                 ]
               }
             ]
@@ -1818,7 +1818,7 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "Cual es el orden correcto de la cascada?",
+            "q": "¿Cuál es el orden correcto de la cascada?",
             "opts": [
               "Ingreso, NOI, GP",
               "Ingreso, GP, NOI",
@@ -1829,7 +1829,7 @@ export const COURSES: Course[] = [
             "ex": "Ingreso arriba, se resta COGS para llegar a GP, se resta OPEX para llegar a NOI."
           },
           {
-            "q": "Alrededor de que porcentaje opera el GP de WLP (conservador)?",
+            "q": "¿Alrededor de qué porcentaje opera el GP de WLP (conservador)?",
             "opts": [
               "25%",
               "40%",
@@ -1840,7 +1840,7 @@ export const COURSES: Course[] = [
             "ex": "WLP opera alrededor de 55% de utilidad bruta como cifra conservadora."
           },
           {
-            "q": "De donde sale un descuento agresivo?",
+            "q": "¿De dónde sale un descuento agresivo?",
             "opts": [
               "Del ingreso, no afecta la utilidad",
               "Directo del GP, que sostiene la empresa",
@@ -1848,15 +1848,15 @@ export const COURSES: Course[] = [
               "No afecta a nadie"
             ],
             "a": 1,
-            "ex": "El descuento se resta del margen bruto, justo lo que financia la operacion y la garantia."
+            "ex": "El descuento se resta del margen bruto, justo lo que financia la operación y la garantía."
           },
           {
-            "q": "Que mueve mas el NOI de forma sana?",
+            "q": "¿Qué mueve más el NOI de forma sana?",
             "opts": [
               "Bajar el precio",
-              "Mas volumen con margen sano",
+              "Más volumen con margen sano",
               "Reprocesos",
-              "Recortar la garantia"
+              "Recortar la garantía"
             ],
             "a": 1,
             "ex": "El volumen rentable, no el descuento, es lo que hace crecer la utilidad operativa."
@@ -1869,15 +1869,15 @@ export const COURSES: Course[] = [
         "icon": "receipt",
         "dur": "25 min",
         "title": "El margen bruto: el 55%",
-        "tag": "Que entra en el costo directo y por que el margen se cuida.",
+        "tag": "Qué entra en el costo directo y por qué el margen se cuida.",
         "objectives": [
-          "Enumerar que costos viven dentro del COGS de un proyecto.",
+          "Enumerar qué costos viven dentro del COGS de un proyecto.",
           "Entender el rango real de GP y su tendencia 2025 a 2026.",
           "Reconocer las tres fugas que erosionan el margen bruto."
         ],
         "lessons": [
           {
-            "t": "Que hay dentro del costo directo (COGS)",
+            "t": "Qué hay dentro del costo directo (COGS)",
             "blocks": [
               {
                 "type": "list",
@@ -1892,16 +1892,16 @@ export const COURSES: Course[] = [
                 "type": "callout",
                 "ci": "alert",
                 "style": "warn",
-                "v": "Merma de material: se planea alrededor de 3% de desperdicio. No es error, es fisica del oficio; se contempla en el costo para no comerse el margen."
+                "v": "Merma de material: se planea alrededor de 3% de desperdicio. No es error, es física del oficio; se contempla en el costo para no comerse el margen."
               }
             ]
           },
           {
-            "t": "El numero real y su tendencia",
+            "t": "El número real y su tendencia",
             "blocks": [
               {
                 "type": "p",
-                "v": "El GP no es un numero unico, es un rango que se ha movido hacia arriba:"
+                "v": "El GP no es un número único, es un rango que se ha movido hacia arriba:"
               },
               {
                 "type": "table",
@@ -1914,7 +1914,7 @@ export const COURSES: Course[] = [
                   [
                     "2025 (cierre)",
                     "55.8%",
-                    "Base solida"
+                    "Base sólida"
                   ],
                   [
                     "2026 (YTD)",
@@ -1931,7 +1931,7 @@ export const COURSES: Course[] = [
               {
                 "type": "rule",
                 "lab": "Regla de finanzas",
-                "v": "Para planear y decidir usamos 55% (conservador). Celebrar el 60% esta bien; presupuestar sobre el 60% no, porque un mal trimestre te deja corto."
+                "v": "Para planear y decidir usamos 55% (conservador). Celebrar el 60% está bien; presupuestar sobre el 60% no, porque un mal trimestre te deja corto."
               }
             ]
           },
@@ -1943,7 +1943,7 @@ export const COURSES: Course[] = [
                 "v": [
                   "Descuento sin justificar: cada punto de descuento es un punto directo de GP.",
                   "Reproceso: rehacer una obra duplica el COGS de ese trabajo.",
-                  "Mala estimacion: si mediste mal o subestimaste base y elevaciones, el costo real supera al presupuestado."
+                  "Mala estimación: si mediste mal o subestimaste base y elevaciones, el costo real supera al presupuestado."
                 ]
               }
             ]
@@ -1951,7 +1951,7 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "Cual de estos NO es parte del COGS directo?",
+            "q": "¿Cuál de estos NO es parte del COGS directo?",
             "opts": [
               "Material de la obra",
               "Mano de obra de campo",
@@ -1962,7 +1962,7 @@ export const COURSES: Course[] = [
             "ex": "La renta de oficina es OPEX (operar la empresa), no costo directo de una obra."
           },
           {
-            "q": "Que porcentaje de merma de material se planea?",
+            "q": "¿Qué porcentaje de merma de material se planea?",
             "opts": [
               "0%",
               "~3%",
@@ -1973,7 +1973,7 @@ export const COURSES: Course[] = [
             "ex": "Se contempla alrededor de 3% de desperdicio en el costo."
           },
           {
-            "q": "Que GP se usa para planear internamente?",
+            "q": "¿Qué GP se usa para planear internamente?",
             "opts": [
               "60.8%",
               "55% conservador",
@@ -1984,7 +1984,7 @@ export const COURSES: Course[] = [
             "ex": "Se planea con 55% conservador aunque el YTD 2026 vaya en 60.8%."
           },
           {
-            "q": "Por que un reproceso es tan caro?",
+            "q": "¿Por qué un reproceso es tan caro?",
             "opts": [
               "Solo cuesta disculpas",
               "Duplica el COGS de ese trabajo",
@@ -2002,7 +2002,7 @@ export const COURSES: Course[] = [
         "icon": "database",
         "dur": "25 min",
         "title": "OPEX, breakeven y NOI",
-        "tag": "Cuanto cuesta tener las luces prendidas y cuando empiezas a ganar.",
+        "tag": "Cuánto cuesta tener las luces prendidas y cuándo empiezas a ganar.",
         "objectives": [
           "Definir OPEX y ubicar su rango mensual en WLP.",
           "Calcular por que el punto de equilibrio ronda los $120K de ingreso.",
@@ -2014,12 +2014,12 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "OPEX es todo lo que cuesta operar la empresa aunque no haya una obra especifica: administracion, oficina, software, nomina no de campo, marketing, seguros. En WLP ronda <b>$60,000 a $70,000 al mes</b>."
+                "v": "OPEX es todo lo que cuesta operar la empresa aunque no haya una obra específica: administración, oficina, software, nómina no de campo, marketing, seguros. En WLP ronda <b>$60,000 a $70,000 al mes</b>."
               },
               {
                 "type": "callout",
                 "ci": "lightbulb",
-                "v": "El OPEX es en gran parte fijo: existe tengas 5 o 15 proyectos. Por eso el volumen ayuda tanto: reparte el mismo OPEX entre mas trabajos."
+                "v": "El OPEX es en gran parte fijo: existe tengas 5 o 15 proyectos. Por eso el volumen ayuda tanto: reparte el mismo OPEX entre más trabajos."
               }
             ]
           },
@@ -2036,7 +2036,7 @@ export const COURSES: Course[] = [
               },
               {
                 "type": "p",
-                "v": "Por debajo de ~$120K de ingreso mensual la empresa no cubre su operacion; por arriba, cada dolar de ingreso aporta ~55 centavos de GP que ya son utilidad."
+                "v": "Por debajo de ~$120K de ingreso mensual la empresa no cubre su operación; por arriba, cada dólar de ingreso aporta ~55 centavos de GP que ya son utilidad."
               }
             ]
           },
@@ -2071,14 +2071,14 @@ export const COURSES: Course[] = [
               {
                 "type": "rule",
                 "lab": "Regla de finanzas",
-                "v": "El NOI vive entre 8% y 13.5%. Es un negocio de margen sano pero no infinito: por eso cada punto de GP y cada dolar de OPEX cuentan."
+                "v": "El NOI vive entre 8% y 13.5%. Es un negocio de margen sano pero no infinito: por eso cada punto de GP y cada dólar de OPEX cuentan."
               }
             ]
           }
         ],
         "quiz": [
           {
-            "q": "Que es el OPEX?",
+            "q": "¿Qué es el OPEX?",
             "opts": [
               "El costo directo de una obra",
               "El costo de operar la empresa exista o no la obra",
@@ -2089,7 +2089,7 @@ export const COURSES: Course[] = [
             "ex": "OPEX es el costo de tener la empresa funcionando, en gran parte fijo."
           },
           {
-            "q": "Cual es el rango mensual de OPEX en WLP?",
+            "q": "¿Cuál es el rango mensual de OPEX en WLP?",
             "opts": [
               "$5-10K",
               "$20-30K",
@@ -2097,7 +2097,7 @@ export const COURSES: Course[] = [
               "$200K+"
             ],
             "a": 2,
-            "ex": "El OPEX ronda entre 60 y 70 mil dolares al mes."
+            "ex": "El OPEX ronda entre 60 y 70 mil dólares al mes."
           },
           {
             "q": "Con OPEX ~$66K y GP 55%, el breakeven ronda:",
@@ -2111,7 +2111,7 @@ export const COURSES: Course[] = [
             "ex": "66K dividido entre 0.55 da aproximadamente 120K de ingreso mensual."
           },
           {
-            "q": "Cual es el rango realista de NOI?",
+            "q": "¿Cuál es el rango realista de NOI?",
             "opts": [
               "0-2%",
               "8% a 13.5%",
@@ -2128,12 +2128,12 @@ export const COURSES: Course[] = [
         "num": "4",
         "icon": "target",
         "dur": "30 min",
-        "title": "Economia unitaria y CAC",
-        "tag": "Cuanto vale un lead, un trabajo, y hasta cuanto pagar por un cliente.",
+        "title": "Economía unitaria y CAC",
+        "tag": "Cuánto vale un lead, un trabajo, y hasta cuánto pagar por un cliente.",
         "objectives": [
-          "Recorrer la economia de un lead hasta el trabajo ganado.",
-          "Entender el CPA de equilibrio y por que el objetivo es tan bajo.",
-          "Manejar con honestidad que numeros son solidos y cuales direccionales."
+          "Recorrer la economía de un lead hasta el trabajo ganado.",
+          "Entender el CPA de equilibrio y por qué el objetivo es tan bajo.",
+          "Manejar con honestidad qué números son sólidos y cuáles direccionales."
         ],
         "lessons": [
           {
@@ -2141,12 +2141,12 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "Estos numeros describen cuanto produce cada lead en promedio. Importan para decidir cuanto podemos gastar en marketing por cada cliente nuevo (CAC / CPA)."
+                "v": "Estos números describen cuánto produce cada lead en promedio. Importan para decidir cuánto podemos gastar en marketing por cada cliente nuevo (CAC / CPA)."
               },
               {
                 "type": "table",
                 "head": [
-                  "Metrica",
+                  "Métrica",
                   "Valor",
                   "Nota"
                 ],
@@ -2191,7 +2191,7 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "El CPA de equilibrio es lo maximo que podrias pagar por un cliente sin perder dinero: es igual al GP que deja un lead."
+                "v": "El CPA de equilibrio es lo máximo que podrías pagar por un cliente sin perder dinero: es igual al GP que deja un lead."
               },
               {
                 "type": "script",
@@ -2199,28 +2199,28 @@ export const COURSES: Course[] = [
               },
               {
                 "type": "p",
-                "v": "Es decir: en teoria podrias pagar hasta ~$1,796 por adquirir un cliente y aun asi salir a mano en margen bruto. Pero ese es el techo, no la meta."
+                "v": "Es decir: en teoría podrías pagar hasta ~$1,796 por adquirir un cliente y aún así salir a mano en margen bruto. Pero ese es el techo, no la meta."
               }
             ]
           },
           {
-            "t": "La meta real es mucho mas baja",
+            "t": "La meta real es mucho más baja",
             "blocks": [
               {
                 "type": "rule",
                 "lab": "Regla de finanzas",
-                "v": "El CPA objetivo es ~$95, ultra conservador. La distancia enorme entre el techo ($1,796) y la meta ($95) es el colchon que hace rentable el marketing pagado de WLP."
+                "v": "El CPA objetivo es ~$95, ultra conservador. La distancia enorme entre el techo ($1,796) y la meta ($95) es el colchón que hace rentable el marketing pagado de WLP."
               },
               {
                 "type": "p",
-                "v": "Conclusion: el marketing de WLP no esta limitado por el costo de adquirir clientes. Hay muchisimo margen entre lo que un cliente deja y lo que cuesta traerlo."
+                "v": "Conclusión: el marketing de WLP no está limitado por el costo de adquirir clientes. Hay muchísimo margen entre lo que un cliente deja y lo que cuesta traerlo."
               }
             ]
           }
         ],
         "quiz": [
           {
-            "q": "Como se estima el GP por trabajo?",
+            "q": "¿Cómo se estima el GP por trabajo?",
             "opts": [
               "Valor del trabajo por 55%",
               "Valor del trabajo por 14.2%",
@@ -2245,7 +2245,7 @@ export const COURSES: Course[] = [
             "q": "El CPA de equilibrio (~$1,796) representa:",
             "opts": [
               "La meta a pagar por cliente",
-              "El maximo teorico antes de perder margen",
+              "El máximo teórico antes de perder margen",
               "El OPEX mensual",
               "El valor de un trabajo"
             ],
@@ -2253,9 +2253,9 @@ export const COURSES: Course[] = [
             "ex": "Es el techo (igual al GP por lead), no la meta operativa."
           },
           {
-            "q": "Que dice la brecha entre $1,796 y la meta de ~$95?",
+            "q": "¿Qué dice la brecha entre $1,796 y la meta de ~$95?",
             "opts": [
-              "Que el marketing es carisimo",
+              "Que el marketing es carísimo",
               "Que hay enorme colchon y el CAC no es el limite",
               "Que hay que subir precios",
               "Que no conviene hacer marketing"
@@ -2271,35 +2271,35 @@ export const COURSES: Course[] = [
         "icon": "compass",
         "dur": "20 min",
         "title": "El cuello de botella real: volumen, no CAC",
-        "tag": "Donde esta el limite del crecimiento y que optimizar de verdad.",
+        "tag": "Dónde está el límite del crecimiento y qué optimizar de verdad.",
         "objectives": [
           "Identificar el verdadero cuello de botella del negocio.",
-          "Traducir la economia unitaria en decisiones diarias.",
+          "Traducir la economía unitaria en decisiones diarias.",
           "Cerrar con el criterio financiero que guia al equipo."
         ],
         "lessons": [
           {
-            "t": "El diagnostico",
+            "t": "El diagnóstico",
             "blocks": [
               {
                 "type": "p",
-                "v": "Juntando todo: el margen es sano (55% GP), la utilidad es real (8-13.5% NOI) y adquirir un cliente es barato frente a lo que deja (meta ~$95 contra un techo de ~$1,796). Entonces, que frena el crecimiento?"
+                "v": "Juntando todo: el margen es sano (55% GP), la utilidad es real (8-13.5% NOI) y adquirir un cliente es barato frente a lo que deja (meta ~$95 contra un techo de ~$1,796). Entonces, ¿qué frena el crecimiento?"
               },
               {
                 "type": "rule",
-                "lab": "Conclusion central",
-                "v": "El cuello de botella es el VOLUMEN (capacidad de generar y ejecutar mas trabajos), no el costo de adquirir clientes (CAC). El negocio no esta limitado por lo que cuesta traer clientes."
+                "lab": "Conclusión central",
+                "v": "El cuello de botella es el VOLUMEN (capacidad de generar y ejecutar más trabajos), no el costo de adquirir clientes (CAC). El negocio no está limitado por lo que cuesta traer clientes."
               }
             ]
           },
           {
-            "t": "Que significa en el dia a dia",
+            "t": "Qué significa en el día a día",
             "blocks": [
               {
                 "type": "list",
                 "v": [
-                  "Vale la pena invertir en generar mas leads: hay margen de sobra para pagarlos.",
-                  "Cuidar el margen por trabajo (estimacion, merma, reproceso) importa mas que exprimir el CPA.",
+                  "Vale la pena invertir en generar más leads: hay margen de sobra para pagarlos.",
+                  "Cuidar el margen por trabajo (estimación, merma, reproceso) importa más que exprimir el CPA.",
                   "La capacidad de ejecutar (cuadrillas, equipo) es lo que hay que escalar junto con la demanda.",
                   "Bajar precios para 'ganar volumen' es un error: el volumen ya es rentable a precio sano."
                 ]
@@ -2312,36 +2312,36 @@ export const COURSES: Course[] = [
               {
                 "type": "callout",
                 "ci": "trophy",
-                "v": "Regla de oro financiera de WLP: proteger el margen, crecer el volumen con margen sano, y no confundir descuento con estrategia. La utilidad financia la garantia, y la garantia es la promesa de marca."
+                "v": "Regla de oro financiera de WLP: proteger el margen, crecer el volumen con margen sano, y no confundir descuento con estrategia. La utilidad financia la garantía, y la garantía es la promesa de marca."
               }
             ]
           }
         ],
         "quiz": [
           {
-            "q": "Cual es el verdadero cuello de botella de WLP?",
+            "q": "¿Cuál es el verdadero cuello de botella de WLP?",
             "opts": [
               "El costo de adquirir clientes (CAC)",
-              "El volumen: generar y ejecutar mas trabajos",
+              "El volumen: generar y ejecutar más trabajos",
               "El margen bruto",
-              "La garantia"
+              "La garantía"
             ],
             "a": 1,
-            "ex": "El limite es el volumen, no el CAC; adquirir clientes es barato frente a lo que dejan."
+            "ex": "El límite es el volumen, no el CAC; adquirir clientes es barato frente a lo que dejan."
           },
           {
-            "q": "Que conviene mas segun la economia unitaria?",
+            "q": "¿Qué conviene más según la economía unitaria?",
             "opts": [
               "Bajar precios para ganar volumen",
-              "Invertir en mas leads y cuidar el margen por trabajo",
+              "Invertir en más leads y cuidar el margen por trabajo",
               "Recortar el marketing",
               "Subir el CPA objetivo a $1,796"
             ],
             "a": 1,
-            "ex": "Hay colchon para pagar mas leads; el foco es margen y capacidad, no descuento."
+            "ex": "Hay colchón para pagar más leads; el foco es margen y capacidad, no descuento."
           },
           {
-            "q": "Por que es un error bajar precios para ganar volumen?",
+            "q": "¿Por qué es un error bajar precios para ganar volumen?",
             "opts": [
               "Porque el volumen ya es rentable a precio sano",
               "Porque no hay demanda",
@@ -2352,15 +2352,15 @@ export const COURSES: Course[] = [
             "ex": "El volumen ya deja margen sano; descontar solo regala GP sin necesidad."
           },
           {
-            "q": "Que financia la utilidad, segun el cierre del curso?",
+            "q": "¿Qué financia la utilidad, según el cierre del curso?",
             "opts": [
               "Nada en particular",
-              "La garantia, que es la promesa de marca",
+              "La garantía, que es la promesa de marca",
               "Solo bonos",
               "El descuento"
             ],
             "a": 1,
-            "ex": "El margen sostiene la garantia (15/5 años), y esa promesa es la marca."
+            "ex": "El margen sostiene la garantía (15/5 años), y esa promesa es la marca."
           }
         ]
       }
@@ -2374,7 +2374,7 @@ export const COURSES: Course[] = [
     "accent": "#60A5FA",
     "track": "Marketing / Paid Search",
     "title": "Google Ads y Paid Search",
-    "subtitle": "La cuenta, el presupuesto dinamico, dayparting, landings y el import de conversiones offline.",
+    "subtitle": "La cuenta, el presupuesto dinámico, dayparting, landings y el import de conversiones offline.",
     "certName": "WLP Paid Search",
     "modules": [
       {
@@ -2382,24 +2382,24 @@ export const COURSES: Course[] = [
         "num": "01",
         "icon": "target",
         "dur": "25 min",
-        "title": "Fundamentos de la cuenta y economia del lead",
-        "tag": "Antes de tocar una puja, entiende como gana dinero cada clic en WLP.",
+        "title": "Fundamentos de la cuenta y economía del lead",
+        "tag": "Antes de tocar una puja, entiende cómo gana dinero cada clic en WLP.",
         "objectives": [
           "Explicar el modelo de negocio y el ICP de WLP en paid search.",
-          "Conocer la cuenta, el tag de conversion y el presupuesto real.",
-          "Leer el rendimiento por ad group y por dispositivo con numeros vivos."
+          "Conocer la cuenta, el tag de conversión y el presupuesto real.",
+          "Leer el rendimiento por ad group y por dispositivo con números vivos."
         ],
         "lessons": [
           {
-            "t": "Negocio, target y economia del lead",
+            "t": "Negocio, target y economía del lead",
             "blocks": [
               {
                 "type": "p",
-                "v": "WLP hace paving comercial y residencial en Northern California, cubriendo 19 condados (Sacramento, Bay Area y Peninsula). El ICP primario en paid search son property managers y HOAs, y la venta se cierra por telefono, no dentro del formulario."
+                "v": "WLP hace paving comercial y residencial en Northern California, cubriendo 19 condados (Sacramento, Bay Area y Península). El ICP primario en paid search son property managers y HOAs, y la venta se cierra por teléfono, no dentro del formulario."
               },
               {
                 "type": "h",
-                "v": "Los numeros que sostienen cada puja"
+                "v": "Los números que sostienen cada puja"
               },
               {
                 "type": "list",
@@ -2407,14 +2407,14 @@ export const COURSES: Course[] = [
                   "Valor promedio por job: cerca de $23,000 ($11.37M entre 492 jobs, cruce Jobber con Pipedrive al 91% de match).",
                   "Close rate de lead a job: 14.2% (425 won de 2,992 deals, pull Pipedrive 2026-06-04).",
                   "Margen bruto conservador para SEM: 55%, que da GP por job de ~$12,650 y GP por lead de ~$1,796.",
-                  "Target CPA actual: $95 por conversion, ultra conservador (5% del GP por lead)."
+                  "Target CPA actual: $95 por conversión, ultra conservador (5% del GP por lead)."
                 ]
               },
               {
                 "type": "callout",
                 "style": "tip",
                 "ci": "lightbulb",
-                "v": "El cuello de botella de WLP es el VOLUMEN de leads, no el CAC. La meta es traer mas leads calificados, no abaratar el clic."
+                "v": "El cuello de botella de WLP es el VOLUMEN de leads, no el CAC. La meta es traer más leads calificados, no abaratar el clic."
               }
             ]
           },
@@ -2424,10 +2424,10 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "La cuenta se llama wlp ad account 1 y el tag de conversion verificado es AW-746510497.",
+                  "La cuenta se llama wlp ad account 1 y el tag de conversión verificado es AW-746510497.",
                   "La campaña activa es tipo Search con puja Maximize Conversions y timezone Pacific (GMT-7).",
-                  "Presupuesto dinamico: $4,500 USD al mes excluyendo fines de semana, o sea ~$204 por dia laboral sobre ~22 dias habiles.",
-                  "Solo 4 ad groups estan ENABLED: AG_Commercial_Paving, AG_Commercial_Concrete, AG_Parking_Lot_Striping y AG_Sealcoating. Otros 5 estan PAUSED."
+                  "Presupuesto dinámico: $4,500 USD al mes excluyendo fines de semana, o sea ~$204 por día laboral sobre ~22 días hábiles.",
+                  "Solo 4 ad groups están ENABLED: AG_Commercial_Paving, AG_Commercial_Concrete, AG_Parking_Lot_Striping y AG_Sealcoating. Otros 5 están PAUSED."
                 ]
               },
               {
@@ -2447,7 +2447,7 @@ export const COURSES: Course[] = [
               {
                 "type": "table",
                 "head": [
-                  "Metrica",
+                  "Métrica",
                   "Valor"
                 ],
                 "rows": [
@@ -2472,7 +2472,7 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "El numero 1 convertidor fue AG_Parking_Lot_Striping con 7.0 conversiones y CPA $207.",
+                  "El número 1 convertidor fue AG_Parking_Lot_Striping con 7.0 conversiones y CPA $207.",
                   "El mejor CPA fue AG_Sealcoating con $152 (5.5 conv), candidato a escalar.",
                   "El freno fue AG_Commercial_Paving con $2,070 de gasto y CPA $460.",
                   "Por dispositivo: MOBILE dio 19 conversiones a CPA $186 vs DESKTOP 6 a CPA $510. Todo el geo es California."
@@ -2483,7 +2483,7 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "Cual es el valor promedio por job de WLP?",
+            "q": "¿Cuál es el valor promedio por job de WLP?",
             "opts": [
               "$12,650",
               "$23,000",
@@ -2494,18 +2494,18 @@ export const COURSES: Course[] = [
             "ex": "El valor promedio por job es ~$23,000, derivado de $11.37M entre 492 jobs."
           },
           {
-            "q": "Cuanto es el presupuesto diario laboral de la campaña?",
+            "q": "¿Cuánto es el presupuesto diario laboral de la campaña?",
             "opts": [
-              "$185 al dia",
-              "$95 al dia",
-              "~$204 por dia laboral",
-              "$4,500 al dia"
+              "$185 al día",
+              "$95 al día",
+              "~$204 por día laboral",
+              "$4,500 al día"
             ],
             "a": 2,
-            "ex": "Son $4,500 al mes sin fines de semana, o sea ~$204 por dia sobre ~22 dias habiles."
+            "ex": "Son $4,500 al mes sin fines de semana, o sea ~$204 por día sobre ~22 días hábiles."
           },
           {
-            "q": "Cuantos ad groups estan ENABLED en la cuenta?",
+            "q": "¿Cuántos ad groups están ENABLED en la cuenta?",
             "opts": [
               "8",
               "5",
@@ -2513,10 +2513,10 @@ export const COURSES: Course[] = [
               "2"
             ],
             "a": 2,
-            "ex": "Solo hay 4 ad groups ENABLED; 5 mas estan PAUSED."
+            "ex": "Solo hay 4 ad groups ENABLED; 5 más están PAUSED."
           },
           {
-            "q": "Cual ad group fue el numero 1 convertidor en jun-jul 2026?",
+            "q": "¿Cuál ad group fue el número 1 convertidor en jun-jul 2026?",
             "opts": [
               "AG_Commercial_Paving",
               "AG_Parking_Lot_Striping",
@@ -2533,11 +2533,11 @@ export const COURSES: Course[] = [
         "num": "02",
         "icon": "repeat",
         "dur": "30 min",
-        "title": "Tracking, atribucion y conversiones offline",
-        "tag": "El gclid es la cadena que conecta un clic pagado con un job ganado. Aqui vive esa cadena.",
+        "title": "Tracking, atribución y conversiones offline",
+        "tag": "El gclid es la cadena que conecta un clic pagado con un job ganado. Aquí vive esa cadena.",
         "objectives": [
           "Entender el dayparting real y el comportamiento por dispositivo.",
-          "Saber por que la conversion dispara por RUTA y no por form_source.",
+          "Saber por qué la conversión dispara por RUTA y no por form_source.",
           "Explicar el loop del gclid y la subida de conversiones offline."
         ],
         "lessons": [
@@ -2547,16 +2547,16 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "La señal valida de horario viene de Call details (491 llamadas con hora-cliente Pacific), no de los add_time de Pipedrive.",
+                  "La señal válida de horario viene de Call details (491 llamadas con hora-cliente Pacific), no de los add_time de Pipedrive.",
                   "El motor de llamadas va de 8am a 3pm con pico de 9 a 11am; cae fuerte tras las 4pm y es casi cero antes de las 7am.",
-                  "El 98% de llamadas se contestan y el 53% son de calidad (60s o mas). Los dias top son martes, lunes y miercoles.",
-                  "El horario final Fase 2 para Alan es Lun a Vie 7am-5pm, Sab 8am-3pm, Dom 9am-1pm."
+                  "El 98% de llamadas se contestan y el 53% son de calidad (60s o más). Los días top son martes, lunes y miércoles.",
+                  "El horario final Fase 2 para Alan es Lun a Vie 7am-5pm, Sáb 8am-3pm, Dom 9am-1pm."
                 ]
               }
             ]
           },
           {
-            "t": "Landing pages y taxonomia de form_source",
+            "t": "Landing pages y taxonomía de form_source",
             "blocks": [
               {
                 "type": "list",
@@ -2569,40 +2569,40 @@ export const COURSES: Course[] = [
               {
                 "type": "rule",
                 "lab": "Regla dura de conversion",
-                "v": "AW-746510497 dispara por RUTA, no por marcador. isSemLanding devuelve true solo si la ruta esta en SEM_LANDING_PATHS. Cada landing pagada nueva DEBE agregarse a esa lista o la conversion no dispara."
+                "v": "AW-746510497 dispara por RUTA, no por marcador. isSemLanding devuelve true solo si la ruta está en SEM_LANDING_PATHS. Cada landing pagada nueva DEBE agregarse a esa lista o la conversión no dispara."
               },
               {
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "La regla vieja por form_source causaba fuga: el loader ponia sem_landing_detail por default a TODO form del sitio, inflando una conversion falsa desde /contact/ (fix commit d054576)."
+                "v": "La regla vieja por form_source causaba fuga: el loader ponía sem_landing_detail por default a TODO form del sitio, inflando una conversión falsa desde /contact/ (fix commit d054576)."
               }
             ]
           },
           {
-            "t": "Flujo gclid y conversion offline",
+            "t": "Flujo gclid y conversión offline",
             "blocks": [
               {
                 "type": "list",
                 "v": [
                   "El form de wlpquote captura el gclid (campo ft_gclid, rescatado de la cookie _gcl_aw) y lo guarda en Supabase (wlp_quotes) y pegado al deal en Pipedrive.",
-                  "Cuando el deal pasa a Won, el gclid se sube de vuelta a Google Ads via ClickConversionUploadService (UPLOAD_CLICKS) contra la accion wlp_sem_deal_won.",
-                  "wlp_sem_deal_won es tipo UPLOAD_CLICKS, categoria CONVERTED_LEAD, con valor default $23,000, ONE_PER_CLICK y ENABLED.",
-                  "Hueco critico: el loop offline solo cubre leads de FORMULARIO; las llamadas no traen gclid, por eso ~75% de las conversiones reales (llamadas) no estan atribuidas a keyword."
+                  "Cuando el deal pasa a Won, el gclid se sube de vuelta a Google Ads vía ClickConversionUploadService (UPLOAD_CLICKS) contra la acción wlp_sem_deal_won.",
+                  "wlp_sem_deal_won es tipo UPLOAD_CLICKS, categoría CONVERTED_LEAD, con valor default $23,000, ONE_PER_CLICK y ENABLED.",
+                  "Hueco crítico: el loop offline solo cubre leads de FORMULARIO; las llamadas no traen gclid, por eso ~75% de las conversiones reales (llamadas) no están atribuidas a keyword."
                 ]
               },
               {
                 "type": "callout",
                 "style": "tip",
                 "ci": "lightbulb",
-                "v": "Maximize Conversions optimiza por NUMERO de conversiones, no por valor. Un valor estatico no cambia como puja el algoritmo, solo informa el reporte."
+                "v": "Maximize Conversions optimiza por NÚMERO de conversiones, no por valor. Un valor estático no cambia cómo puja el algoritmo, solo informa el reporte."
               }
             ]
           }
         ],
         "quiz": [
           {
-            "q": "De donde viene la señal valida de dayparting de WLP?",
+            "q": "¿De dónde viene la señal válida de dayparting de WLP?",
             "opts": [
               "De los add_time de Pipedrive",
               "De Call details con hora-cliente Pacific",
@@ -2610,10 +2610,10 @@ export const COURSES: Course[] = [
               "De encuestas a clientes"
             ],
             "a": 1,
-            "ex": "La señal valida son 491 Call details con hora-cliente exacta; los add_time de Pipedrive se invalidaron."
+            "ex": "La señal válida son 491 Call details con hora-cliente exacta; los add_time de Pipedrive se invalidaron."
           },
           {
-            "q": "Que determina que dispare la conversion AW-746510497?",
+            "q": "¿Qué determina que dispare la conversión AW-746510497?",
             "opts": [
               "El valor de form_source",
               "La ruta en SEM_LANDING_PATHS",
@@ -2621,10 +2621,10 @@ export const COURSES: Course[] = [
               "El tipo de dispositivo"
             ],
             "a": 1,
-            "ex": "La conversion dispara por RUTA (isSemLanding contra SEM_LANDING_PATHS), no por el marcador."
+            "ex": "La conversión dispara por RUTA (isSemLanding contra SEM_LANDING_PATHS), no por el marcador."
           },
           {
-            "q": "Que valor default tiene la accion offline wlp_sem_deal_won?",
+            "q": "¿Qué valor default tiene la acción offline wlp_sem_deal_won?",
             "opts": [
               "$95",
               "$1,796",
@@ -2635,12 +2635,12 @@ export const COURSES: Course[] = [
             "ex": "wlp_sem_deal_won es UPLOAD_CLICKS con valor default $23,000."
           },
           {
-            "q": "Por que ~75% de las conversiones reales no estan atribuidas a keyword?",
+            "q": "¿Por qué ~75% de las conversiones reales no están atribuidas a keyword?",
             "opts": [
               "El gclid expira",
               "Las llamadas no traen gclid",
               "Google borra los datos",
-              "El form esta roto"
+              "El form está roto"
             ],
             "a": 1,
             "ex": "El loop offline solo cubre leads de formulario; las llamadas no traen gclid."
@@ -2769,11 +2769,11 @@ export const COURSES: Course[] = [
         "num": "01",
         "icon": "database",
         "dur": "25 min",
-        "title": "Auditar la cuenta sin adivinar: fugas y verificacion por API",
-        "tag": "Regla dura: el dato vivo manda. Ningun conteo se afirma de memoria.",
+        "title": "Auditar la cuenta sin adivinar: fugas y verificación por API",
+        "tag": "Regla dura: el dato vivo manda. Ningún conteo se afirma de memoria.",
         "objectives": [
           "Verificar cualquier conteo de la cuenta contra el dato vivo (API), nunca de memoria.",
-          "Distinguir fugas reales de artefactos historicos de tracking.",
+          "Distinguir fugas reales de artefactos históricos de tracking.",
           "Leer el ranking de ad groups por conversiones y ubicar el freno real."
         ],
         "lessons": [
@@ -2782,14 +2782,14 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "Antes de afirmar cualquier numero de la cuenta (ad groups activos, keywords, negativos, conversiones) se cruza contra el dato vivo (volcado sem_data.json o query a la Ads API), NUNCA de memoria ni de un eval viejo. El error historico fue confundir el plan del doc 34 (consolidar a 5 grupos) con la realidad: el dato vivo dice 4 ENABLED / 5 PAUSED."
+                "v": "Antes de afirmar cualquier número de la cuenta (ad groups activos, keywords, negativos, conversiones) se cruza contra el dato vivo (volcado sem_data.json o query a la Ads API), NUNCA de memoria ni de un eval viejo. El error histórico fue confundir el plan del doc 34 (consolidar a 5 grupos) con la realidad: el dato vivo dice 4 ENABLED / 5 PAUSED."
               },
               {
                 "type": "list",
                 "v": [
                   "Cuenta = wlp ad account 1 (customer 5306980523, login MCC 5646779148).",
-                  "Tag unico verificado = AW-746510497, cargado via GTM-PK7NCDS.",
-                  "Campana viva UNICA = WLP-New Campaign (id 22218942692), puja Maximize Conversions.",
+                  "Tag único verificado = AW-746510497, cargado vía GTM-PK7NCDS.",
+                  "Campaña viva ÚNICA = WLP-New Campaign (id 22218942692), puja Maximize Conversions.",
                   "4 ad groups ENABLED: Parking_Lot_Striping, Commercial_Concrete, Sealcoating, Commercial_Paving."
                 ]
               },
@@ -2797,22 +2797,22 @@ export const COURSES: Course[] = [
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "Inventario: 4,675 keywords positivas + 2,081 negativas cargadas, pero solo ~74 SIRVEN de verdad. El resto esta pausado, removido o sin impresiones. Contar sobre el total infla la lectura."
+                "v": "Inventario: 4,675 keywords positivas + 2,081 negativas cargadas, pero solo ~74 SIRVEN de verdad. El resto está pausado, removido o sin impresiones. Contar sobre el total infla la lectura."
               }
             ]
           },
           {
-            "t": "Fugas reales vs artefactos historicos",
+            "t": "Fugas reales vs artefactos históricos",
             "blocks": [
               {
                 "type": "p",
-                "v": "La auditoria Fugas (julio 2026, sitio wlpauditjul.vercel.app, PDF doc 46) desarmo una premisa enganosa: la idea de clicks baratisimos + 15 llamadas + 7,000 impresiones todo barato FUSIONA dos eras distintas que nunca fueron simultaneas."
+                "v": "La auditoría Fugas (julio 2026, sitio wlpauditjul.vercel.app, PDF doc 46) desarmó una premisa engañosa: la idea de clicks baratísimos + 15 llamadas + 7,000 impresiones todo barato FUSIONA dos eras distintas que nunca fueron simultáneas."
               },
               {
                 "type": "table",
                 "head": [
                   "Era",
-                  "Que era realmente",
+                  "Qué era realmente",
                   "CPC"
                 ],
                 "rows": [
@@ -2823,25 +2823,25 @@ export const COURSES: Course[] = [
                   ],
                   [
                     "Call Campaign (mar-2023)",
-                    "78 clicks, ~$1,700, 15 llamadas caras. No eran del trafico de $0.17.",
+                    "78 clicks, ~$1,700, 15 llamadas caras. No eran del tráfico de $0.17.",
                     "~$21.80"
                   ],
                   [
                     "Search comercial hoy (mar-2026)",
-                    "Trafico real de intencion comercial en Search.",
+                    "Tráfico real de intención comercial en Search.",
                     "$18.25"
                   ]
                 ]
               },
               {
                 "type": "p",
-                "v": "El barato es un artefacto de Display + soft conversions, no replicable hoy. Ademas los ads apuntaban al home (no a landings dedicadas), lo que castiga el Quality Score y sube el CPC actual."
+                "v": "El barato es un artefacto de Display + soft conversions, no replicable hoy. Además los ads apuntaban al home (no a landings dedicadas), lo que castiga el Quality Score y sube el CPC actual."
               },
               {
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "Los convertidores historicos estrella (paving companies near me con 11 conv, construction companies in california con 10 conv) son de eras con tracking impreciso. En la ventana LIMPIA (3-jun a 7-jul-2026) paving companies near me gasto $11.47 con 0 conv. Nunca citar convertidores pre-3-jun como vigentes."
+                "v": "Los convertidores históricos estrella (paving companies near me con 11 conv, construction companies in california con 10 conv) son de eras con tracking impreciso. En la ventana LIMPIA (3-jun a 7-jul-2026) paving companies near me gastó $11.47 con 0 conv. Nunca citar convertidores pre-3-jun como vigentes."
               }
             ]
           },
@@ -2850,7 +2850,7 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "En la ventana viva verificada por API (2026-06-09 a 07-06): $6,596 de gasto, 346 clics, 25 conversiones, CPA $263.86 (coincide con el CPA ~$264 que asumia el blueprint). Mezcla: 17 llamadas + 8 formularios."
+                "v": "En la ventana viva verificada por API (2026-06-09 a 07-06): $6,596 de gasto, 346 clics, 25 conversiones, CPA $263.86 (coincide con el CPA ~$264 que asumía el blueprint). Mezcla: 17 llamadas + 8 formularios."
               },
               {
                 "type": "table",
@@ -2874,7 +2874,7 @@ export const COURSES: Course[] = [
                     "6.0",
                     "$1,399",
                     "$233",
-                    "QS mas bajo (2.4), revisar landing"
+                    "QS más bajo (2.4), revisar landing"
                   ],
                   [
                     "Sealcoating",
@@ -2888,30 +2888,30 @@ export const COURSES: Course[] = [
                     "4.5",
                     "$2,070",
                     "$460",
-                    "Mas gasto y peor CPA = el freno real"
+                    "Más gasto y peor CPA = el freno real"
                   ]
                 ]
               },
               {
                 "type": "list",
                 "v": [
-                  "Fuga accionable = $1,475.59 en 84 terminos de busqueda (competidores nombrados, fuera de area, DIY/costo): candidatos a negativa.",
-                  "Limpieza estructural: 79 campanas viejas removidas por API para dejar de ensuciar la lectura.",
-                  "Movil es el motor (19 conv, CPA $186) vs Desktop (6 conv, CPA $510, pero submedido; no se excluye)."
+                  "Fuga accionable = $1,475.59 en 84 términos de búsqueda (competidores nombrados, fuera de área, DIY/costo): candidatos a negativa.",
+                  "Limpieza estructural: 79 campañas viejas removidas por API para dejar de ensuciar la lectura.",
+                  "Móvil es el motor (19 conv, CPA $186) vs Desktop (6 conv, CPA $510, pero submedido; no se excluye)."
                 ]
               },
               {
                 "type": "callout",
                 "style": "tip",
                 "ci": "lightbulb",
-                "v": "F026: WLP atiende residencial Y comercial. Antes de podar cualquier negativa residencial/HOA hay que validar termino por termino: matar residencial mataria a los HOAs, un segmento recurrente atractivo."
+                "v": "F026: WLP atiende residencial Y comercial. Antes de podar cualquier negativa residencial/HOA hay que validar término por término: matar residencial mataría a los HOAs, un segmento recurrente atractivo."
               }
             ]
           }
         ],
         "quiz": [
           {
-            "q": "Cuantos ad groups estan ENABLED en la cuenta viva?",
+            "q": "¿Cuántos ad groups están ENABLED en la cuenta viva?",
             "opts": [
               "8",
               "5",
@@ -2922,18 +2922,18 @@ export const COURSES: Course[] = [
             "ex": "El dato vivo dice 4 ENABLED / 5 PAUSED; el 8 y el 5 son historia y plan del doc 34, no el estado actual."
           },
           {
-            "q": "Por que el CPC de $0.17 de 2023 no es replicable hoy?",
+            "q": "¿Por qué el CPC de $0.17 de 2023 no es replicable hoy?",
             "opts": [
-              "Google subio precios",
+              "Google subió precios",
               "Era Display con conversiones soft de page-view, no Search comercial",
-              "Se acabo el presupuesto",
-              "Cambio la moneda"
+              "Se acabó el presupuesto",
+              "Cambió la moneda"
             ],
             "a": 1,
             "ex": "El barato era un artefacto de Display + soft conversions; el Search comercial hoy corre a ~$18 de CPC."
           },
           {
-            "q": "Cual ad group es el verdadero freno de eficiencia?",
+            "q": "¿Cuál ad group es el verdadero freno de eficiencia?",
             "opts": [
               "Parking_Lot_Striping",
               "Sealcoating",
@@ -2941,10 +2941,10 @@ export const COURSES: Course[] = [
               "Commercial_Concrete"
             ],
             "a": 2,
-            "ex": "Commercial_Paving: mas gasto ($2,070) y peor CPA ($460) de la ventana viva."
+            "ex": "Commercial_Paving: más gasto ($2,070) y peor CPA ($460) de la ventana viva."
           },
           {
-            "q": "Antes de afirmar un conteo de la cuenta, que se hace?",
+            "q": "Antes de afirmar un conteo de la cuenta, ¿qué se hace?",
             "opts": [
               "Se cita el doc 34 de memoria",
               "Se cruza contra el dato vivo (API o volcado)",
@@ -2964,13 +2964,13 @@ export const COURSES: Course[] = [
         "title": "El laboratorio Monte Carlo: modelar presupuesto sin quemar dinero",
         "tag": "Simular el embudo antes de mover una puja real.",
         "objectives": [
-          "Explicar la economia del lead y por que el cuello de botella es volumen, no CAC.",
-          "Entender que simula el laboratorio Monte Carlo y sus palancas.",
-          "Saber por que Maximize Conversions optimiza CONTEO, no valor."
+          "Explicar la economía del lead y por qué el cuello de botella es volumen, no CAC.",
+          "Entender qué simula el laboratorio Monte Carlo y sus palancas.",
+          "Saber por qué Maximize Conversions optimiza CONTEO, no valor."
         ],
         "lessons": [
           {
-            "t": "La economia del lead, cerrada",
+            "t": "La economía del lead, cerrada",
             "blocks": [
               {
                 "type": "p",
@@ -2979,7 +2979,7 @@ export const COURSES: Course[] = [
               {
                 "type": "table",
                 "head": [
-                  "Metrica",
+                  "Métrica",
                   "Calculo",
                   "Resultado"
                 ],
@@ -3008,22 +3008,22 @@ export const COURSES: Course[] = [
               },
               {
                 "type": "p",
-                "v": "El target CPA de $95 NO es una restriccion economica: es ultra-conservador, apenas 5% del GP por lead. Incluso el peor ad group (Commercial_Paving, CPA $460 a $1,091) sigue por debajo del breakeven bruto de $1,796."
+                "v": "El target CPA de $95 NO es una restricción económica: es ultra-conservador, apenas 5% del GP por lead. Incluso el peor ad group (Commercial_Paving, CPA $460 a $1,091) sigue por debajo del breakeven bruto de $1,796."
               },
               {
                 "type": "callout",
                 "style": "tip",
                 "ci": "lightbulb",
-                "v": "El cuello de botella de WLP NO es el CAC, es el VOLUMEN/presupuesto. Subir el target de $95 a un CAC sano de ~$250-450 por lead desbloquearia volumen manteniendo contribucion positiva, siempre paceando contra caja (NOI delgado ~8%)."
+                "v": "El cuello de botella de WLP NO es el CAC, es el VOLUMEN/presupuesto. Subir el target de $95 a un CAC sano de ~$250-450 por lead desbloquearía volumen manteniendo contribución positiva, siempre paceando contra caja (NOI delgado ~8%)."
               }
             ]
           },
           {
-            "t": "Que es el laboratorio Monte Carlo",
+            "t": "Qué es el laboratorio Monte Carlo",
             "blocks": [
               {
                 "type": "p",
-                "v": "En WLI Marketing OS (wli-marketing-os.vercel.app/montecarlo) vive un simulador de embudo de paid search: corre miles de iteraciones con incertidumbre. Embudo: busquedas -> clics (CTR) -> leads (CVR x fuerza de CTA) -> ganados (lead a won) -> ingreso (ticket) -> GP -> neto. El presupuesto actua como TOPE (fraccion capturada = budget / costo)."
+                "v": "En WLI Marketing OS (wli-marketing-os.vercel.app/montecarlo) vive un simulador de embudo de paid search: corre miles de iteraciones con incertidumbre. Embudo: búsquedas -> clics (CTR) -> leads (CVR x fuerza de CTA) -> ganados (lead a won) -> ingreso (ticket) -> GP -> neto. El presupuesto actúa como TOPE (fracción capturada = budget / costo)."
               },
               {
                 "type": "h",
@@ -3035,8 +3035,8 @@ export const COURSES: Course[] = [
                   "Concordancia por keyword (Exacta 1.0 / Frase x1.6 / Amplia x2.8, con castigo de CVR).",
                   "Quality Score 1-10 (multiplicador de CPC via Ad Rank, ~0.55x a 1.6x).",
                   "IS maximo 0-1 (techo de impression share alcanzable aunque sobre budget).",
-                  "Estacionalidad 0.3-1.8 por campana (multiplicador de demanda del mes).",
-                  "Ratio de llamadas 0-3 (modela el hueco de atribucion telefonica, ~75%)."
+                  "Estacionalidad 0.3-1.8 por campaña (multiplicador de demanda del mes).",
+                  "Ratio de llamadas 0-3 (modela el hueco de atribución telefónica, ~75%)."
                 ]
               },
               {
@@ -3047,9 +3047,9 @@ export const COURSES: Course[] = [
                 "type": "list",
                 "v": [
                   "Guardados: versiona escenarios (solo navegador, localStorage).",
-                  "Comparar A/B: delta de neto esperado y P(ganar) campana por campana.",
+                  "Comparar A/B: delta de neto esperado y P(ganar) campaña por campaña.",
                   "Umbrales/stress: barre una palanca 0.4x-1.6x y detecta el breakeven donde el neto cruza cero.",
-                  "Optimizar presupuesto: reparto greedy marginal de un pool fijo entre campanas.",
+                  "Optimizar presupuesto: reparto greedy marginal de un pool fijo entre campañas.",
                   "Backtest: contrasta el modelo contra la cuenta Google Ads real (CTR/CPC/CVR/CPA)."
                 ]
               },
@@ -3057,7 +3057,7 @@ export const COURSES: Course[] = [
                 "type": "callout",
                 "style": "warn",
                 "ci": "alert",
-                "v": "La IA estratega del laboratorio (solo maestro) opera SOLO sobre datos del universo WLI/SEM y NUNCA fuga info de otras entidades del brain. Con DeepSeek (servidores en China) solo viajan numeros agregados de embudo, sin PII."
+                "v": "La IA estratega del laboratorio (solo maestro) opera SOLO sobre datos del universo WLI/SEM y NUNCA fuga info de otras entidades del brain. Con DeepSeek (servidores en China) solo viajan números agregados de embudo, sin PII."
               }
             ]
           },
@@ -3066,29 +3066,29 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "Correccion conceptual clave de la auditoria: Maximize Conversions optimiza por NUMERO de conversiones, NO por valor. Un valor estatico de $1,796 en la accion NO cambia como puja el algoritmo (ni lo mira)."
+                "v": "Corrección conceptual clave de la auditoría: Maximize Conversions optimiza por NÚMERO de conversiones, NO por valor. Un valor estático de $1,796 en la acción NO cambia cómo puja el algoritmo (ni lo mira)."
               },
               {
                 "type": "list",
                 "v": [
                   "Cargar el valor sirve para ver ROAS real en reporte y preparar el campo, no para optimizar.",
-                  "La senal de valor REAL y diferenciada (job $5k vs $50k) viene del Offline Conversion Import con GP real, no del placeholder.",
+                  "La señal de valor REAL y diferenciada (job $5k vs $50k) viene del Offline Conversion Import con GP real, no del placeholder.",
                   "Migrar a Max Conversion Value / tROAS SOLO con volumen suficiente + valores diferenciados.",
-                  "El loop offline hoy solo cubre FORMULARIOS; las llamadas no traen gclid, por eso ~75% de conversiones (llamadas) no estan atribuidas a keyword."
+                  "El loop offline hoy solo cubre FORMULARIOS; las llamadas no traen gclid, por eso ~75% de conversiones (llamadas) no están atribuidas a keyword."
                 ]
               },
               {
                 "type": "callout",
                 "style": "tip",
                 "ci": "lightbulb",
-                "v": "Por eso el laboratorio incluye el ratio de llamadas: modela ese ~75% que el tracking aun no atribuye, para que la decision de presupuesto no ignore el motor real de leads (las llamadas, pico 9-11am)."
+                "v": "Por eso el laboratorio incluye el ratio de llamadas: modela ese ~75% que el tracking aún no atribuye, para que la decisión de presupuesto no ignore el motor real de leads (las llamadas, pico 9-11am)."
               }
             ]
           }
         ],
         "quiz": [
           {
-            "q": "Cuanto aporta en bruto (GP) un lead de WLP?",
+            "q": "¿Cuánto aporta en bruto (GP) un lead de WLP?",
             "opts": [
               "$95",
               "$1,796",
@@ -3096,10 +3096,10 @@ export const COURSES: Course[] = [
               "$263"
             ],
             "a": 1,
-            "ex": "GP por lead = $12,650 x 0.142 ~= $1,796; ese es tambien el CPA breakeven bruto."
+            "ex": "GP por lead = $12,650 x 0.142 ~= $1,796; ese es también el CPA breakeven bruto."
           },
           {
-            "q": "Cual es el verdadero cuello de botella de WLP en paid search?",
+            "q": "¿Cuál es el verdadero cuello de botella de WLP en paid search?",
             "opts": [
               "El CAC es muy alto",
               "El volumen/presupuesto",
@@ -3107,29 +3107,29 @@ export const COURSES: Course[] = [
               "El close rate"
             ],
             "a": 1,
-            "ex": "Aun el peor ad group esta debajo del breakeven de $1,796; falta VOLUMEN, no abaratar el clic."
+            "ex": "Aún el peor ad group está debajo del breakeven de $1,796; falta VOLUMEN, no abaratar el clic."
           },
           {
-            "q": "Que optimiza Maximize Conversions?",
+            "q": "¿Qué optimiza Maximize Conversions?",
             "opts": [
-              "El valor de cada conversion",
-              "El NUMERO de conversiones",
+              "El valor de cada conversión",
+              "El NÚMERO de conversiones",
               "El ROAS objetivo",
               "El Quality Score"
             ],
             "a": 1,
-            "ex": "Optimiza conteo; un valor estatico identico para todas las conversiones no cambia como puja."
+            "ex": "Optimiza conteo; un valor estático idéntico para todas las conversiones no cambia cómo puja."
           },
           {
-            "q": "Que modela la palanca ratio de llamadas del laboratorio?",
+            "q": "¿Qué modela la palanca ratio de llamadas del laboratorio?",
             "opts": [
               "El costo por clic",
-              "El hueco de atribucion telefonica (~75%)",
+              "El hueco de atribución telefónica (~75%)",
               "La estacionalidad",
               "El Quality Score"
             ],
             "a": 1,
-            "ex": "Las llamadas no traen gclid; ~75% de conversiones no estan atribuidas a keyword, y esa palanca las modela."
+            "ex": "Las llamadas no traen gclid; ~75% de conversiones no están atribuidas a keyword, y esa palanca las modela."
           }
         ]
       }
@@ -5501,11 +5501,11 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "h",
-                "v": "Como sale un correo"
+                "v": "Cómo sale un correo"
               },
               {
                 "type": "p",
-                "v": "El envio de correo de la plataforma corre sobre Brevo como motor de email. Las secuencias se disenan con foco en el ICP y respetan la misma voz de marca que el resto."
+                "v": "El envío de correo de la plataforma corre sobre Brevo como motor de email. Las secuencias se diseñan con foco en el ICP y respetan la misma voz de marca que el resto."
               },
               {
                 "type": "callout",
@@ -5520,12 +5520,12 @@ export const COURSES: Course[] = [
             "blocks": [
               {
                 "type": "p",
-                "v": "El equipo de marketing (Xtra Marketing) tiene roles definidos. Alan es junior, no Specialist: es un hecho canonico del brain y no se infla su titulo."
+                "v": "El equipo de marketing (Xtra Marketing) tiene roles definidos. Alan es junior, no Specialist: es un hecho canónico del brain y no se infla su título."
               },
               {
                 "type": "list",
                 "v": [
-                  "Cada rol tiene alcance claro; no se improvisan titulos.",
+                  "Cada rol tiene alcance claro; no se improvisan títulos.",
                   "Los Paving Advisors del lado operativo responden un lead en menos de una hora.",
                   "Las escrituras con efecto (enviar, publicar, cambiar settings) se confirman antes de ejecutar."
                 ]
@@ -5540,18 +5540,18 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "Cual es la regla principal de estilo en toda salida?",
+            "q": "¿Cuál es la regla principal de estilo en toda salida?",
             "opts": [
               "Usar muchos emojis",
               "Prohibido el guion largo",
-              "Escribir en ingles",
-              "Usar mayusculas"
+              "Escribir en inglés",
+              "Usar mayúsculas"
             ],
             "a": 1,
-            "ex": "La regla principal es no usar em dash ni en dash en ningun output."
+            "ex": "La regla principal es no usar em dash ni en dash en ningún output."
           },
           {
-            "q": "Sobre que motor corre el email de la plataforma?",
+            "q": "¿Sobre qué motor corre el email de la plataforma?",
             "opts": [
               "Mailchimp",
               "Brevo",
@@ -5562,7 +5562,7 @@ export const COURSES: Course[] = [
             "ex": "El motor de email de la plataforma es Brevo."
           },
           {
-            "q": "Como se clasifica el titulo de Alan en el equipo?",
+            "q": "¿Cómo se clasifica el título de Alan en el equipo?",
             "opts": [
               "Specialist",
               "Junior",
@@ -5570,10 +5570,10 @@ export const COURSES: Course[] = [
               "Manager"
             ],
             "a": 1,
-            "ex": "Alan es junior, no Specialist: es un hecho canonico que no se infla."
+            "ex": "Alan es junior, no Specialist: es un hecho canónico que no se infla."
           },
           {
-            "q": "En cuanto tiempo se responde un lead calificado?",
+            "q": "¿En cuánto tiempo se responde un lead calificado?",
             "opts": [
               "En menos de 1 hora",
               "En 24 horas",

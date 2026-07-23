@@ -21,7 +21,7 @@
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ── Tabla: spaces (departamentos) ───────────────────────────────────────────
-CREATE TABLE spaces (
+CREATE TABLE IF NOT EXISTS spaces (
   id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   workspace_id    uuid        NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -48,7 +48,7 @@ CREATE TRIGGER trg_spaces_updated_at
 -- ── Tabla: space_members (pertenencia por departamento) ─────────────────────
 -- role es `text` para ser consistente con workspace_members/team_members en prod
 -- (prod NO usa el enum workspace_role). Valores: 'owner' | 'admin' | 'member'.
-CREATE TABLE space_members (
+CREATE TABLE IF NOT EXISTS space_members (
   space_id   uuid        NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
   profile_id uuid        NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   role       text        NOT NULL DEFAULT 'member',

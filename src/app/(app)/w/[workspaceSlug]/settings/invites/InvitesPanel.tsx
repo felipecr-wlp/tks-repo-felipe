@@ -6,7 +6,10 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
-import { Lock } from 'lucide-react'
+import { Lock, Ticket } from 'lucide-react'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { ErrorState } from '@/components/ui/ErrorState'
 
 interface Invite {
   id: string
@@ -28,6 +31,7 @@ interface InvitesPanelProps {
 export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) {
   const [invites, setInvites] = useState<Invite[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
 
   // Form state
@@ -39,12 +43,15 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
   const [submitting, setSubmitting] = useState(false)
 
   async function load() {
+    setLoading(true)
+    setError(false)
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/invites`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Error')
       setInvites(data.invites ?? [])
     } catch (err) {
+      setError(true)
       toast.error(err instanceof Error ? err.message : 'Error al cargar')
     } finally {
       setLoading(false)
@@ -225,11 +232,33 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
 
       {/* Lista */}
       {loading ? (
-        <p className="text-sm text-muted-foreground">Cargando...</p>
-      ) : invites.length === 0 ? (
-        <div className="bg-muted/30 border border-border rounded-lg px-4 py-8 text-center">
-          <p className="text-sm text-muted-foreground">No hay invites todavía</p>
+        <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="px-4 py-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-56" />
+              </div>
+              <Skeleton className="h-6 w-16 rounded" />
+            </div>
+          ))}
         </div>
+      ) : error ? (
+        <ErrorState onRetry={load} retrying={loading} />
+      ) : invites.length === 0 ? (
+        <EmptyState
+          icon={<Ticket className="h-5 w-5" />}
+          title="No hay invitaciones todavía"
+          description="Genera un código para que tu equipo pueda unirse al workspace."
+          action={
+            <button
+              onClick={() => setShowCreate(true)}
+              className="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90"
+            >
+              + Generar invite
+            </button>
+          }
+        />
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
           {invites.map(inv => {

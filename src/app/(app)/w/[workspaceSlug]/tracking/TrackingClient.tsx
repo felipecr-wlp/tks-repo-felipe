@@ -10,15 +10,20 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
-import {
-  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid,
-} from 'recharts'
 import {
   Clock, Timer, CalendarDays, FolderGit2, Plus, Pencil, Trash2, X, Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+// recharts se carga aparte (ssr: false) para no inflar el bundle inicial del
+// timesheet: solo baja cuando esta vista se monta en el cliente.
+const WeeklyHoursChart = dynamic(() => import('@/components/tracking/TrackingCharts'), {
+  ssr: false,
+  loading: () => <div className="h-full w-full rounded-lg bg-muted/30 animate-pulse" />,
+})
 
 export interface TimeEntry {
   id: string
@@ -174,19 +179,7 @@ export function TrackingClient({
       <section className="bg-card border border-border rounded-xl p-5">
         <h2 className="text-sm font-semibold text-foreground mb-4">Horas por día (esta semana)</h2>
         <div className="h-52 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} allowDecimals />
-              <Tooltip
-                cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }}
-                contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                formatter={(v: number) => [`${v} h`, 'Horas']}
-              />
-              <Bar dataKey="horas" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} maxBarSize={44} />
-            </BarChart>
-          </ResponsiveContainer>
+          <WeeklyHoursChart data={chartData} />
         </div>
       </section>
 

@@ -14,6 +14,21 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { toast } from 'sonner'
+import {
+  Search,
+  Home,
+  ListChecks,
+  Inbox,
+  FileText,
+  Plus,
+  CircleDot,
+  Users,
+  Settings,
+  BarChart3,
+  Calendar,
+  GraduationCap,
+  CornerDownLeft,
+} from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { ProjectIcon } from '@/lib/project-icons'
 import { useCommandPalette } from '@/stores/command-palette'
@@ -85,6 +100,14 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
   const [activeIndex, setActiveIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+
+  // Afijo Cmd (Mac) vs Ctrl (resto) para el hint del atajo.
+  const [modKey, setModKey] = useState('Ctrl')
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)) {
+      setModKey('Cmd')
+    }
+  }, [])
 
   // Crea una nota rápida (en blanco o con el texto tecleado como título) y salta
   // al editor. Reutiliza POST /api/notes, el mismo endpoint del botón "Nueva nota".
@@ -175,7 +198,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
           type: 'action',
           label: 'Ir al inicio del workspace',
           href: `/w/${workspaceSlug}`,
-          icon: <HomeIcon />,
+          icon: <Home className="w-3.5 h-3.5" />,
           group: 'Navegación',
         },
         {
@@ -183,7 +206,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
           type: 'action',
           label: 'Mis tareas',
           href: `/w/${workspaceSlug}/my-tasks`,
-          icon: <TasksIcon />,
+          icon: <ListChecks className="w-3.5 h-3.5" />,
           group: 'Navegación',
         },
         {
@@ -191,7 +214,39 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
           type: 'action',
           label: 'Bandeja',
           href: `/w/${workspaceSlug}/inbox`,
-          icon: <InboxIcon />,
+          icon: <Inbox className="w-3.5 h-3.5" />,
+          group: 'Navegación',
+        },
+        {
+          id: 'a-calendar',
+          type: 'action',
+          label: 'Calendario',
+          href: `/w/${workspaceSlug}/calendar`,
+          icon: <Calendar className="w-3.5 h-3.5" />,
+          group: 'Navegación',
+        },
+        {
+          id: 'a-analytics',
+          type: 'action',
+          label: 'Analítica',
+          href: `/w/${workspaceSlug}/analytics`,
+          icon: <BarChart3 className="w-3.5 h-3.5" />,
+          group: 'Navegación',
+        },
+        {
+          id: 'a-academia',
+          type: 'action',
+          label: 'Academia',
+          href: `/w/${workspaceSlug}/academia`,
+          icon: <GraduationCap className="w-3.5 h-3.5" />,
+          group: 'Navegación',
+        },
+        {
+          id: 'a-settings',
+          type: 'action',
+          label: 'Configuración',
+          href: `/w/${workspaceSlug}/settings`,
+          icon: <Settings className="w-3.5 h-3.5" />,
           group: 'Navegación',
         },
         {
@@ -199,7 +254,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
           type: 'action',
           label: 'Crear nota',
           onSelect: () => createNote('Sin título'),
-          icon: <NoteIcon />,
+          icon: <FileText className="w-3.5 h-3.5" />,
           group: 'Acciones',
         },
         // Crear equipo: solo administradores del workspace.
@@ -208,7 +263,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
           type: 'action' as const,
           label: 'Crear equipo',
           href: `/w/${workspaceSlug}/teams/new`,
-          icon: <PlusIcon />,
+          icon: <Plus className="w-3.5 h-3.5" />,
           group: 'Acciones',
         }] : []),
         {
@@ -216,7 +271,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
           type: 'action',
           label: 'Crear workspace',
           href: `/settings/workspaces/new`,
-          icon: <PlusIcon />,
+          icon: <Plus className="w-3.5 h-3.5" />,
           group: 'Acciones',
         },
       ]
@@ -231,7 +286,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
       type: 'action',
       label: `Crear nota «${query.trim()}»`,
       onSelect: () => createNote(query.trim()),
-      icon: <PlusIcon />,
+      icon: <Plus className="w-3.5 h-3.5" />,
       group: 'Crear',
     })
     results.tasks.forEach(t => flat.push({
@@ -242,7 +297,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
       href: t.team_slug && t.project_slug
         ? `/w/${workspaceSlug}/t/${t.team_slug}/p/${t.project_slug}`
         : undefined,
-      icon: <TaskIcon />,
+      icon: <CircleDot className="w-3.5 h-3.5" />,
       group: 'Tareas',
     }))
     results.projects.forEach(p => flat.push({
@@ -258,7 +313,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
       type: 'team',
       label: t.name,
       href: `/w/${workspaceSlug}/t/${t.slug}`,
-      icon: <TeamIcon />,
+      icon: <Users className="w-3.5 h-3.5" />,
       group: 'Equipos',
     }))
     results.notes.forEach(n => flat.push({
@@ -267,7 +322,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
       label: n.title || 'Sin título',
       sublabel: n.doc_kind && n.doc_kind !== 'note' ? 'Documento' : undefined,
       href: `/w/${workspaceSlug}/notes/${n.id}`,
-      icon: <NoteIcon />,
+      icon: <FileText className="w-3.5 h-3.5" />,
       group: 'Notas',
     }))
     results.members.forEach(m => flat.push({
@@ -305,6 +360,29 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
     }
   }, [router, setOpen])
 
+  // Enter sobre una query sin match exacto: ir a la página de resultados.
+  const goToResultsPage = useCallback(() => {
+    const q = query.trim()
+    if (!q) return
+    setOpen(false)
+    router.push(`/w/${workspaceSlug}/search?q=${encodeURIComponent(q)}`)
+  }, [query, workspaceSlug, router, setOpen])
+
+  // ¿Hay un resultado cuyo título coincide EXACTAMENTE con lo tecleado?
+  const hasExactMatch = useMemo(() => {
+    if (!results) return false
+    const q = query.trim().toLowerCase()
+    if (!q) return false
+    const all = [
+      ...results.tasks.map(t => t.title),
+      ...results.projects.map(p => p.name),
+      ...results.teams.map(t => t.name),
+      ...results.notes.map(n => n.title),
+      ...results.members.map(m => m.display_name),
+    ]
+    return all.some(label => (label ?? '').trim().toLowerCase() === q)
+  }, [results, query])
+
   useEffect(() => {
     if (!open) return
     function onKey(e: KeyboardEvent) {
@@ -318,12 +396,21 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
       } else if (e.key === 'Enter') {
         e.preventDefault()
         const item = items[activeIndex]
+        // Con query y sin match exacto: Enter abre la página de resultados,
+        // salvo que el usuario haya movido la selección a un resultado concreto
+        // (algo distinto de las acciones "Crear …" que van primero).
+        const q = query.trim()
+        const onAction = item?.type === 'action'
+        if (q && !hasExactMatch && (onAction || !item)) {
+          goToResultsPage()
+          return
+        }
         if (item) select(item)
       }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [open, items, activeIndex, select])
+  }, [open, items, activeIndex, select, query, hasExactMatch, goToResultsPage])
 
   // Auto-scroll item activo
   useEffect(() => {
@@ -351,7 +438,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
         >
           {/* Input */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
-            <SearchIcon />
+            <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             <input
               ref={inputRef}
               value={query}
@@ -370,8 +457,17 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
           {/* Lista */}
           <div ref={listRef} className="flex-1 overflow-y-auto py-1">
             {items.length === 0 && query.trim() && !loading && (
-              <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-                Sin resultados para «{query}»
+              <div className="px-4 py-10 text-center">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Sin resultados para «{query}»
+                </p>
+                <button
+                  onClick={goToResultsPage}
+                  className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  Ver la página de búsqueda
+                </button>
               </div>
             )}
 
@@ -431,6 +527,19 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
                 })}
               </div>
             ))}
+
+            {/* Afijo: ir a la página completa de resultados */}
+            {query.trim() && results && !loading && (
+              <button
+                onClick={goToResultsPage}
+                className="w-full flex items-center gap-3 px-3 py-2 text-left border-t border-border text-muted-foreground hover:bg-accent/50 transition-colors"
+              >
+                <div className="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center">
+                  <CornerDownLeft className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-sm">Ver todos los resultados de «{query.trim()}»</span>
+              </button>
+            )}
           </div>
 
           {/* Footer */}
@@ -442,80 +551,16 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
               </span>
               <span className="flex items-center gap-1">
                 <kbd className="font-mono px-1.5 py-0.5 bg-background rounded border border-border">↵</kbd>
-                Abrir
+                {query.trim() ? 'Ver resultados' : 'Abrir'}
               </span>
             </div>
-            <span className="text-muted-foreground/70">
-              {items.length} resultado{items.length !== 1 ? 's' : ''}
+            <span className="flex items-center gap-1 text-muted-foreground/70">
+              <kbd className="font-mono px-1.5 py-0.5 bg-background rounded border border-border">{modKey}+K</kbd>
+              para abrir
             </span>
           </div>
         </div>
       </div>
     </>
-  )
-}
-
-// ── Icons ───────────────────────────────────────────────────────────────────
-function SearchIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-muted-foreground">
-      <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
-function HomeIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <path d="M2 6l5-4 5 4v6H2V6z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-    </svg>
-  )
-}
-function TasksIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <rect x="2" y="2" width="3" height="3" rx="0.5" stroke="currentColor" strokeWidth="1.3" />
-      <rect x="2" y="9" width="3" height="3" rx="0.5" stroke="currentColor" strokeWidth="1.3" />
-      <path d="M7 3.5h5M7 10.5h5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    </svg>
-  )
-}
-function InboxIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <path d="M1 7l1.5-4h9L13 7v5H1V7z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-      <path d="M1 7h3l1 2h4l1-2h3" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-    </svg>
-  )
-}
-function PlusIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
-function TaskIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.3" />
-    </svg>
-  )
-}
-function NoteIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <path d="M3 1.5h5L11 4.5V12a.5.5 0 0 1-.5.5h-7A.5.5 0 0 1 3 12V1.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-      <path d="M8 1.5v3h3M5 7.5h4M5 9.5h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-function TeamIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <circle cx="5" cy="5" r="2" stroke="currentColor" strokeWidth="1.3" />
-      <circle cx="10" cy="6" r="1.6" stroke="currentColor" strokeWidth="1.3" />
-      <path d="M1.5 12c0-2 1.5-3.5 3.5-3.5s3.5 1.5 3.5 3.5M9 12c.5-1.5 1.5-2.5 3-2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    </svg>
   )
 }

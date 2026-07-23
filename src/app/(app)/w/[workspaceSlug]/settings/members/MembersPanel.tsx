@@ -6,8 +6,12 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
+import { Users } from 'lucide-react'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { getInitials } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { ErrorState } from '@/components/ui/ErrorState'
 
 const ROLES = ['owner', 'admin', 'manager', 'member', 'viewer'] as const
 type Role = (typeof ROLES)[number]
@@ -30,15 +34,19 @@ export function MembersPanel({
 }) {
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
 
   async function load() {
+    setLoading(true)
+    setError(false)
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/members`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Error')
       setMembers(data.members ?? [])
     } catch (err) {
+      setError(true)
       toast.error(err instanceof Error ? err.message : 'Error al cargar')
     } finally {
       setLoading(false)
@@ -61,7 +69,14 @@ export function MembersPanel({
       setMembers((prev) => prev.map((m) => (m.profile_id === profileId ? { ...m, role } : m)))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error desconocido')
-      await load()
+      // Reconciliar el rol optimista con el servidor sin parpadear el skeleton.
+      try {
+        const res = await fetch(`/api/workspaces/${workspaceId}/members`)
+        const data = await res.json()
+        if (res.ok) setMembers(data.members ?? [])
+      } catch {
+        /* si falla, dejamos el estado actual y el toast ya avisó */
+      }
     } finally {
       setBusy(null)
     }
@@ -94,7 +109,37 @@ export function MembersPanel({
     }
   }
 
-  if (loading) return <p className="text-sm text-muted-foreground">Cargando...</p>
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-4 w-40" />
+        <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="px-4 py-3 flex items-center gap-3">
+              <Skeleton className="h-8 w-8 rounded-full flex-shrink-0" />
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <Skeleton className="h-3.5 w-32" />
+                <Skeleton className="h-3 w-48" />
+              </div>
+              <Skeleton className="h-7 w-24 rounded-lg" />
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) return <ErrorState onRetry={load} retrying={loading} />
+
+  if (members.length === 0) {
+    return (
+      <EmptyState
+        icon={<Users className="h-5 w-5" />}
+        title="Sin miembros todavía"
+        description="Invita a tu equipo desde la pestaña Invitaciones para que aparezcan aquí."
+      />
+    )
+  }
 
   return (
     <div className="space-y-4">

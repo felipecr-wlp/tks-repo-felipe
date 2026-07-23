@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { FolderKanban, Plus, Pencil, Check, X, Lock, Globe, Users, UserPlus } from 'lucide-react'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 interface Space {
   id: string
@@ -274,10 +276,21 @@ export function DepartmentsPanel({
       )}
 
       {spaces.length === 0 ? (
-        <div className="bg-muted/30 border border-border rounded-lg px-4 py-10 text-center">
-          <FolderKanban className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Aún no hay departamentos.</p>
-        </div>
+        <EmptyState
+          icon={<FolderKanban className="h-5 w-5" />}
+          title="Aún no hay departamentos"
+          description="Crea un departamento para organizar notas, tareas y equipos por área."
+          action={
+            !showCreate ? (
+              <button
+                onClick={() => setShowCreate(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90"
+              >
+                <Plus size={14} /> Nuevo departamento
+              </button>
+            ) : undefined
+          }
+        />
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
           {spaces.map((s) => (
@@ -420,7 +433,14 @@ export function DepartmentsPanel({
 
                 {/* Lista de asignados */}
                 {loadingMembers && memberList.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-2">Cargando...</p>
+                  <ul className="space-y-1" aria-label="Cargando miembros">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <li key={i} className="flex items-center gap-2 py-1">
+                        <Skeleton className="h-6 w-6 rounded-full flex-shrink-0" />
+                        <Skeleton className="h-3.5 w-40" />
+                      </li>
+                    ))}
+                  </ul>
                 ) : memberList.length === 0 ? (
                   <p className="text-xs text-muted-foreground py-2">
                     Nadie asignado aún. Usa el selector de arriba para agregar a tu equipo.

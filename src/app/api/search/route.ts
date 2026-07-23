@@ -1,12 +1,23 @@
 /**
- * GET /api/search?q=texto&workspace_id=xxx
+ * GET /api/search?q=texto&workspace_id=xxx[&full=1][&limit=N]
  *
  * Búsqueda global en un workspace. Devuelve tasks, projects, teams, members y notes.
- * Usa ILIKE simple, para escala añadir tsvector + GIN en futuro.
+ *
+ * Matching: además del título/nombre se busca en el cuerpo (task.description,
+ * note.content, project.description). Con ILIKE simple. Los índices GIN trigram
+ * existentes cubren tasks.title y notes.title; para el body a esta escala el
+ * ILIKE sin índice es aceptable. Ruta de escala futura: columna tsvector
+ * materializada + índice GIN (to_tsvector) y `websearch_to_tsquery`, o pg_trgm
+ * GIN sobre las columnas de cuerpo.
+ *
+ * Las consultas por tipo son INDEPENDIENTES: corren en paralelo con Promise.all.
  *
  * Las notes respetan la visibilidad app-layer (reflejo del RLS): notas privadas
  * solo las ve su autor y las de departamentos restringidos solo sus miembros o
  * los admins de la org. Nunca se filtra contenido restringido en la búsqueda.
+ *
+ * `full=1` (o `limit=N`) sube el tope por tipo para la página de resultados;
+ * sin él se usa el tope pequeño del preview del command palette.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -16,9 +27,12 @@ import { applyRateLimit } from '@/lib/rate-limit'
 const querySchema = z.object({
   q:            z.string().min(1).max(80).trim(),
   workspace_id: z.string().uuid(),
+  full:         z.coerce.boolean().optional(),
+  limit:        z.coerce.number().int().min(1).max(50).optional(),
 })
 
-const PER_TYPE_LIMIT = 5
+const PREVIEW_LIMIT = 5
+const FULL_LIMIT = 25
 
 interface SearchResult {
   tasks: Array<{
@@ -68,12 +82,15 @@ export async function GET(request: NextRequest) {
   const parsed = querySchema.safeParse({
     q: url.searchParams.get('q'),
     workspace_id: url.searchParams.get('workspace_id'),
+    full: url.searchParams.get('full') ?? undefined,
+    limit: url.searchParams.get('limit') ?? undefined,
   })
   if (!parsed.success) {
     return NextResponse.json(EMPTY_RESULT satisfies SearchResult)
   }
 
-  const { q, workspace_id } = parsed.data
+  const { q, workspace_id, full, limit } = parsed.data
+  const perType = limit ?? (full ? FULL_LIMIT : PREVIEW_LIMIT)
   const admin = createAdminClient()
 
   // Verificar acceso al workspace
@@ -89,25 +106,20 @@ export async function GET(request: NextRequest) {
   }
 
   const escaped = `%${q.replace(/[%_]/g, '\\$&')}%`
+  // Filtro OR de PostgREST: matchea en el título/nombre O en el cuerpo.
+  const taskMatch    = `title.ilike.${escaped},description.ilike.${escaped}`
+  const projectMatch = `name.ilike.${escaped},description.ilike.${escaped}`
+  const noteMatch    = `title.ilike.${escaped},content.ilike.${escaped}`
 
-  // ── Tasks (con relaciones para navegación) ────────────────────────────────
+  // Notas: se trae un margen extra (tope alto) porque el filtro de visibilidad
+  // de espacios restringidos se aplica en memoria; luego se recorta a perType.
+  const noteFetch = Math.max(perType * 4, 30)
+
   type TaskRow = {
     id: string
     title: string
     project: { slug: string; name: string; team: { slug: string } | null } | null
   }
-  const { data: tasksRaw } = await admin
-    .from('tasks')
-    .select(`
-      id, title,
-      project:projects ( slug, name, team:teams ( slug ) )
-    `)
-    .eq('workspace_id', workspace_id)
-    .eq('is_archived', false)
-    .ilike('title', escaped)
-    .limit(PER_TYPE_LIMIT) as { data: TaskRow[] | null; error: unknown }
-
-  // ── Projects ─────────────────────────────────────────────────────────────
   type ProjectRow = {
     id: string
     name: string
@@ -115,27 +127,7 @@ export async function GET(request: NextRequest) {
     icon: string | null
     team: { slug: string } | null
   }
-  const { data: projectsRaw } = await admin
-    .from('projects')
-    .select(`
-      id, name, slug, icon,
-      team:teams ( slug )
-    `)
-    .eq('workspace_id', workspace_id)
-    .eq('is_archived', false)
-    .ilike('name', escaped)
-    .limit(PER_TYPE_LIMIT) as { data: ProjectRow[] | null; error: unknown }
-
-  // ── Teams ────────────────────────────────────────────────────────────────
   type TeamRow = { id: string; name: string; slug: string }
-  const { data: teamsRaw } = await admin
-    .from('teams')
-    .select('id, name, slug')
-    .eq('workspace_id', workspace_id)
-    .ilike('name', escaped)
-    .limit(PER_TYPE_LIMIT) as { data: TeamRow[] | null; error: unknown }
-
-  // ── Members del workspace ─────────────────────────────────────────────────
   type WsMemberRow = {
     profile: {
       id: string
@@ -144,16 +136,6 @@ export async function GET(request: NextRequest) {
       email: string | null
     } | null
   }
-  const { data: membersRaw } = await admin
-    .from('workspace_members')
-    .select('profile:profiles!inner ( id, display_name, avatar_url, email )')
-    .eq('workspace_id', workspace_id)
-    .ilike('profile.display_name', escaped)
-    .limit(PER_TYPE_LIMIT) as { data: WsMemberRow[] | null; error: unknown }
-
-  // ── Notes (respetando visibilidad app-layer) ─────────────────────────────
-  // Se trae un margen extra (limit alto) porque el filtro de visibilidad se
-  // aplica en memoria; luego se recorta a PER_TYPE_LIMIT.
   type NoteRow = {
     id: string
     title: string
@@ -163,19 +145,69 @@ export async function GET(request: NextRequest) {
     created_by: string | null
     space_id: string | null
   }
-  const { data: notesRaw } = await admin
-    .from('notes')
-    .select('id, title, icon, doc_kind, visibility, created_by, space_id')
-    .eq('workspace_id', workspace_id)
-    .ilike('title', escaped)
-    // Privadas ajenas fuera en la consulta (antes del limit), para no gastar
-    // slots con notas que igual se ocultarian. El gating de espacios
-    // restringidos queda en JS: depende de las membresias que se calculan abajo.
-    .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
-    .order('updated_at', { ascending: false })
-    .limit(30) as { data: NoteRow[] | null; error: unknown }
 
-  // Departamentos restringidos que el user NO puede ver (reflejo del RLS).
+  // ── Consultas independientes en PARALELO ──────────────────────────────────
+  const [
+    { data: tasksRaw },
+    { data: projectsRaw },
+    { data: teamsRaw },
+    { data: membersRaw },
+    { data: notesRaw },
+  ] = await Promise.all([
+    // Tasks (título o descripción)
+    admin
+      .from('tasks')
+      .select(`
+        id, title,
+        project:projects ( slug, name, team:teams ( slug ) )
+      `)
+      .eq('workspace_id', workspace_id)
+      .eq('is_archived', false)
+      .or(taskMatch)
+      .limit(perType) as Promise<{ data: TaskRow[] | null; error: unknown }>,
+
+    // Projects (nombre o descripción)
+    admin
+      .from('projects')
+      .select(`
+        id, name, slug, icon,
+        team:teams ( slug )
+      `)
+      .eq('workspace_id', workspace_id)
+      .eq('is_archived', false)
+      .or(projectMatch)
+      .limit(perType) as Promise<{ data: ProjectRow[] | null; error: unknown }>,
+
+    // Teams (solo nombre)
+    admin
+      .from('teams')
+      .select('id, name, slug')
+      .eq('workspace_id', workspace_id)
+      .ilike('name', escaped)
+      .limit(perType) as Promise<{ data: TeamRow[] | null; error: unknown }>,
+
+    // Members del workspace (por display_name)
+    admin
+      .from('workspace_members')
+      .select('profile:profiles!inner ( id, display_name, avatar_url, email )')
+      .eq('workspace_id', workspace_id)
+      .ilike('profile.display_name', escaped)
+      .limit(perType) as Promise<{ data: WsMemberRow[] | null; error: unknown }>,
+
+    // Notes (título o contenido). Privadas ajenas fuera en la consulta;
+    // el gating de espacios restringidos queda en JS (depende de membresias).
+    admin
+      .from('notes')
+      .select('id, title, icon, doc_kind, visibility, created_by, space_id')
+      .eq('workspace_id', workspace_id)
+      .or(noteMatch)
+      .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
+      .order('updated_at', { ascending: false })
+      .limit(noteFetch) as Promise<{ data: NoteRow[] | null; error: unknown }>,
+  ])
+
+  // ── Gating de espacios restringidos (reflejo del RLS, igual que /api/notes) ─
+  // Departamentos restringidos que el user NO puede ver.
   let blockedSpaceIds = new Set<string>()
   if ((notesRaw ?? []).some(n => n.space_id)) {
     const { data: myProfile } = await admin
@@ -186,15 +218,18 @@ export async function GET(request: NextRequest) {
     const isOrgAdmin = myProfile?.org_role === 'owner' || myProfile?.org_role === 'admin'
 
     if (!isOrgAdmin) {
-      const { data: rawSpaces } = await admin
-        .from('spaces')
-        .select('id, is_restricted')
-        .eq('workspace_id', workspace_id)
-        .limit(500) as { data: { id: string; is_restricted: boolean }[] | null; error: unknown }
-      const { data: myMemberships } = await admin
-        .from('space_members')
-        .select('space_id')
-        .eq('profile_id', user.id) as { data: { space_id: string }[] | null; error: unknown }
+      const [{ data: rawSpaces }, { data: myMemberships }] = await Promise.all([
+        admin
+          .from('spaces')
+          .select('id, is_restricted')
+          .eq('workspace_id', workspace_id)
+          .eq('is_restricted', true)
+          .limit(500) as Promise<{ data: { id: string; is_restricted: boolean }[] | null; error: unknown }>,
+        admin
+          .from('space_members')
+          .select('space_id')
+          .eq('profile_id', user.id) as Promise<{ data: { space_id: string }[] | null; error: unknown }>,
+      ])
       const mySpaceIds = new Set((myMemberships ?? []).map(m => m.space_id))
       blockedSpaceIds = new Set(
         (rawSpaces ?? [])
@@ -211,7 +246,7 @@ export async function GET(request: NextRequest) {
       if (n.space_id && blockedSpaceIds.has(n.space_id)) return false
       return true
     })
-    .slice(0, PER_TYPE_LIMIT)
+    .slice(0, perType)
 
   const result: SearchResult = {
     tasks: (tasksRaw ?? []).map(t => ({

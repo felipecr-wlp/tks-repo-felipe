@@ -14,15 +14,18 @@
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { usePresence, type Viewer } from '@/hooks/usePresence'
-import {
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip,
-  CartesianGrid, Legend,
-} from 'recharts'
+// recharts se carga aparte (ssr: false) para no incluirlo en el bundle inicial
+// de este componente cliente de ~2100 lineas: solo baja al abrir el Dashboard.
+const ScrumChart = dynamic(() => import('./ScrumCharts'), {
+  ssr: false,
+  loading: () => <div className="h-[220px] w-full rounded-lg bg-muted/30 animate-pulse" />,
+})
 import {
   Inbox, Loader2, CheckCircle2, Circle,
   ChevronsUp, ChevronUp, ChevronDown, Equal, Minus,
@@ -1803,30 +1806,12 @@ function DashboardView({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ChartCard title="Mix por área (story points)" icon={PieIcon}>
           {areaData.length === 0 ? <Empty hint="Este sprint aún no tiene tareas asignadas." /> : (
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie data={areaData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={86} paddingAngle={2} stroke="hsl(var(--card))" strokeWidth={2}>
-                  {areaData.map((_, i) => <Cell key={i} fill={AREA_COLORS[i % AREA_COLORS.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={TOOLTIP_STYLE} />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
+            <ScrumChart variant="areaPie" data={areaData} height={240} />
           )}
         </ChartCard>
         <ChartCard title="Carga por persona (SP)" icon={Users}>
           {personData.length === 0 ? <Empty hint="Este sprint aún no tiene tareas asignadas." /> : (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={personData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} axisLine={false} tickLine={false} width={28} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="committed" name="Comprometido" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                <Bar dataKey="done" name="Hecho" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
+            <ScrumChart variant="personSP" data={personData} height={240} />
           )}
         </ChartCard>
       </div>
@@ -1907,45 +1892,17 @@ function KanbanDashboard({ tasks, members }: { tasks: ScrumTask[]; members: Scru
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ChartCard title="Distribución por columna" icon={Columns3}>
           {k.total === 0 ? <Empty hint="Este equipo aún no tiene tareas." /> : (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={flowData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} axisLine={false} tickLine={false} width={28} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} />
-                <Bar dataKey="value" name="Tareas" radius={[6, 6, 0, 0]} maxBarSize={64}>
-                  {flowData.map((_, i) => <Cell key={i} fill={AREA_COLORS[i % AREA_COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <ScrumChart variant="flowBars" data={flowData} height={220} />
           )}
         </ChartCard>
         <ChartCard title="Carga por persona (tareas)" icon={Users}>
           {personData.length === 0 ? <Empty hint="Este equipo aún no tiene tareas." /> : (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={personData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} axisLine={false} tickLine={false} width={28} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="activas" name="En curso" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                <Bar dataKey="hechas" name="Hechas" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
+            <ScrumChart variant="personTasks" data={personData} height={220} />
           )}
         </ChartCard>
         <ChartCard title="Mix por área (tareas)" icon={PieIcon} span2>
           {areaData.length === 0 ? <Empty hint="Aún no hay tareas con área asignada." /> : (
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie data={areaData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={86} paddingAngle={2} stroke="hsl(var(--card))" strokeWidth={2}>
-                  {areaData.map((_, i) => <Cell key={i} fill={AREA_COLORS[i % AREA_COLORS.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={TOOLTIP_STYLE} />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
+            <ScrumChart variant="areaPie" data={areaData} height={240} />
           )}
         </ChartCard>
       </div>
@@ -2093,15 +2050,6 @@ function ChartCard({ title, icon: Icon, span2, children }: {
     </div>
   )
 }
-
-// Estilo compartido para tooltips de recharts: tarjeta limpia acorde al tema.
-const TOOLTIP_STYLE = {
-  borderRadius: 10,
-  border: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--card))',
-  fontSize: 12,
-  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-} as const
 
 function PointsSelect({ value, onChange }: { value: number | null; onChange: (p: number | null) => void }) {
   return (

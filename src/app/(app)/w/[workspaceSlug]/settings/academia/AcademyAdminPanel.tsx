@@ -6,7 +6,8 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Check, X, Award, UserPlus, Trash2 } from 'lucide-react'
+import { Check, X, Award, UserPlus, Trash2, Inbox, GraduationCap } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 interface Profile {
   id: string
@@ -136,9 +137,12 @@ export function AcademyAdminPanel({
           Solicitudes pendientes {pending.length > 0 && `(${pending.length})`}
         </h2>
         {pending.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-            No hay solicitudes pendientes.
-          </p>
+          <EmptyState
+            compact
+            icon={<Inbox className="h-5 w-5" />}
+            title="No hay solicitudes pendientes"
+            description="Cuando alguien pida acceso a un curso, aparecerá aquí para aprobar o rechazar."
+          />
         ) : (
           <div className="space-y-2">
             {pending.map((r) => (
@@ -222,9 +226,12 @@ export function AcademyAdminPanel({
           Quién tiene acceso
         </h2>
         {matrix.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-            Nadie tiene acceso asignado todavía.
-          </p>
+          <EmptyState
+            compact
+            icon={<GraduationCap className="h-5 w-5" />}
+            title="Nadie tiene acceso asignado todavía"
+            description="Usa Asignar acceso directo para dar de alta a tu equipo en un curso."
+          />
         ) : (
           <div className="space-y-2">
             {matrix.map((row) => (

@@ -13,6 +13,8 @@ import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { getInitials } from '@/lib/utils'
 import { UsersRound, Plus, Pencil, Check, X, ChevronDown, ChevronRight, UserPlus, Archive, ArchiveRestore, Lock, Building2 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 interface Team {
   id: string
@@ -466,7 +468,14 @@ export function TeamsPanel({
                 {isOpen && (
                   <div className="px-4 pb-4 pl-14 bg-muted/20 border-t border-border">
                     {loadingMembers === t.id ? (
-                      <p className="text-sm text-muted-foreground py-3">Cargando miembros...</p>
+                      <div className="space-y-2 pt-3" aria-label="Cargando miembros">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                          <div key={i} className="flex items-center gap-2.5">
+                            <Skeleton className="h-7 w-7 rounded-full flex-shrink-0" />
+                            <Skeleton className="h-3.5 w-44" />
+                          </div>
+                        ))}
+                      </div>
                     ) : (
                       <div className="space-y-2 pt-3">
                         {members.length === 0 ? (
@@ -562,10 +571,19 @@ export function TeamsPanel({
       </div>
 
       {teams.length === 0 ? (
-        <div className="bg-muted/30 border border-border rounded-lg px-4 py-10 text-center">
-          <UsersRound className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Aún no hay equipos.</p>
-        </div>
+        <EmptyState
+          icon={<UsersRound className="h-5 w-5" />}
+          title="Aún no hay equipos"
+          description="Crea un equipo para agrupar personas por proyecto o metodología de trabajo."
+          action={
+            <Link
+              href={`/w/${workspaceSlug}/teams/new`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90"
+            >
+              <Plus size={14} /> Nuevo equipo
+            </Link>
+          }
+        />
       ) : (
         <div className="space-y-5">
           {groups.map((g) => (

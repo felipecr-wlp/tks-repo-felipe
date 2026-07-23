@@ -17,6 +17,27 @@ import { NextRequest, NextResponse } from 'next/server'
 // Lazy-initialized para evitar errores en build si las vars no están seteadas
 let redis: Redis | null = null
 
+// Warn-once en no-producción para no inundar los logs de desarrollo.
+let warnedUnconfigured = false
+
+/**
+ * Respuesta 429 "bloqueado" que los callers esperan (mismo shape que cuando se
+ * excede el límite real). Se usa para fail-closed en producción.
+ */
+function blockedResponse(): NextResponse {
+  return NextResponse.json(
+    { error: 'Demasiadas solicitudes. Intenta de nuevo más tarde.' },
+    {
+      status: 429,
+      headers: {
+        'X-RateLimit-Limit': '0',
+        'X-RateLimit-Remaining': '0',
+        'Retry-After': '60',
+      },
+    }
+  )
+}
+
 function getRedis(): Redis {
   if (!redis) {
     redis = new Redis({
@@ -85,8 +106,23 @@ export async function applyRateLimit(
   request: NextRequest,
   type: 'api' | 'ai' | 'auth' = 'api'
 ): Promise<NextResponse | null> {
-  // Skip rate limiting si no hay Redis configurado (desarrollo local sin Upstash)
+  // Redis no configurado. En producción esto es un fallo de infra: NO se puede
+  // rate-limitar, así que se falla CERRADO (429) y se grita en los logs. En
+  // desarrollo se es permisivo (se avisa una sola vez y se deja pasar).
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error(
+        '[rate-limit] UPSTASH_REDIS_REST_URL/TOKEN no configurado en producción. ' +
+          'Fallando CERRADO (429) para no dejar los endpoints sin protección.'
+      )
+      return blockedResponse()
+    }
+    if (!warnedUnconfigured) {
+      warnedUnconfigured = true
+      console.warn(
+        '[rate-limit] Redis no configurado; rate limiting DESHABILITADO (solo en desarrollo).'
+      )
+    }
     return null
   }
 
@@ -117,9 +153,15 @@ export async function applyRateLimit(
     }
 
     return null
-  } catch {
-    // Si Redis falla, no bloqueamos el request (fail open)
-    console.error('[rate-limit] Redis error, skipping rate limit')
+  } catch (err) {
+    // Redis lanzó (timeout, red, credenciales inválidas). En producción se falla
+    // CERRADO (429): sin Redis no hay garantía anti-abuso, mejor rechazar que
+    // dejar la puerta abierta. En desarrollo se deja pasar para no bloquear.
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[rate-limit] Redis error en producción, fallando CERRADO (429):', err)
+      return blockedResponse()
+    }
+    console.warn('[rate-limit] Redis error en desarrollo, dejando pasar (fail open):', err)
     return null
   }
 }

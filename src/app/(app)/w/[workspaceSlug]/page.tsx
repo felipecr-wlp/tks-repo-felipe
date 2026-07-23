@@ -11,6 +11,7 @@ import { isWorkspaceAdminById } from '@/lib/workspace-admin'
 import { redirect } from 'next/navigation'
 import { formatDate, timeAgo, getInitials } from '@/lib/utils'
 import { LayoutDashboard, CheckSquare, Activity } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
 import MiDia from './MiDia'
 import { OnboardingGuide } from './OnboardingGuide'
 import { DashboardWidgets, type DashboardWidgetsData } from './DashboardWidgets'
@@ -285,14 +286,25 @@ export default async function WorkspaceDashboardPage({
 
           <div className="space-y-1">
             {!myTasks || myTasks.length === 0 ? (
-              <div className="bg-muted/20 border border-dashed border-border rounded-xl px-4 py-10 text-center">
-                <CheckSquare className="mx-auto mb-2 h-6 w-6 text-muted-foreground/70" />
-                <p className="text-sm text-muted-foreground">
-                  {hasTeams
-                    ? 'No tienes tareas asignadas'
-                    : 'Crea un equipo para empezar a gestionar tareas'}
-                </p>
-              </div>
+              <EmptyState
+                icon={<CheckSquare className="h-5 w-5" />}
+                title={hasTeams ? 'No tienes tareas asignadas' : 'Empieza creando un equipo'}
+                description={
+                  hasTeams
+                    ? 'Cuando te asignen una tarea, aparecerá aquí para que la sigas de cerca.'
+                    : 'Crea un equipo para organizar proyectos y empezar a gestionar tareas.'
+                }
+                action={
+                  !hasTeams ? (
+                    <Link
+                      href={`/w/${params.workspaceSlug}/teams/new`}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                    >
+                      Crear equipo
+                    </Link>
+                  ) : undefined
+                }
+              />
             ) : (
               myTasks.map(task => (
                 <div
@@ -339,14 +351,15 @@ export default async function WorkspaceDashboardPage({
             </h2>
           </div>
 
-          <div className="space-y-0 bg-card border border-border rounded-xl px-3 py-1 shadow-soft">
-            {!recentActivity || recentActivity.length === 0 ? (
-              <div className="py-8 text-center">
-                <Activity className="mx-auto mb-2 h-6 w-6 text-muted-foreground/70" />
-                <p className="text-xs text-muted-foreground">Sin actividad aún</p>
-              </div>
-            ) : (
-              recentActivity.map(event => (
+          {!recentActivity || recentActivity.length === 0 ? (
+            <EmptyState
+              icon={<Activity className="h-5 w-5" />}
+              title="Sin actividad aún"
+              description="Los cambios recientes de tu equipo (tareas, comentarios y notas) aparecerán aquí."
+            />
+          ) : (
+            <div className="space-y-0 bg-card border border-border rounded-xl px-3 py-1 shadow-soft">
+              {recentActivity.map(event => (
                 <div
                   key={event.id}
                   className="flex items-start gap-2.5 py-2.5 border-b border-border/50 last:border-0"
@@ -372,9 +385,9 @@ export default async function WorkspaceDashboardPage({
                     </p>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
 
