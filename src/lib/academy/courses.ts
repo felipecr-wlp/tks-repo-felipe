@@ -2386,8 +2386,8 @@ export const COURSES: Course[] = [
         "tag": "Antes de tocar una puja, entiende cómo gana dinero cada clic en WLP.",
         "objectives": [
           "Explicar el modelo de negocio y el ICP de WLP en paid search.",
-          "Conocer la cuenta, el tag de conversión y el presupuesto real.",
-          "Leer el rendimiento por ad group y por dispositivo con números vivos."
+          "Entender la economía del lead: valor por job, margen y CPA objetivo.",
+          "Adoptar la disciplina de leer la cuenta con el dato vivo, nunca de memoria."
         ],
         "lessons": [
           {
@@ -2404,8 +2404,8 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "Valor promedio por job: cerca de $23,000 ($11.37M entre 492 jobs, cruce Jobber con Pipedrive al 91% de match).",
-                  "Close rate de lead a job: 14.2% (425 won de 2,992 deals, pull Pipedrive 2026-06-04).",
+                  "Valor promedio por job: cerca de $23,000 (direccional, cruce Jobber con Pipedrive; no verificado en GL).",
+                  "Close rate de lead a job: ~14% (direccional, de Pipedrive; se revalida periódicamente).",
                   "Margen bruto conservador para SEM: 55%, que da GP por job de ~$12,650 y GP por lead de ~$1,796.",
                   "Target CPA actual: $95 por conversión, ultra conservador (5% del GP por lead)."
                 ]
@@ -2424,10 +2424,10 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "La cuenta se llama wlp ad account 1 y el tag de conversión verificado es AW-746510497.",
-                  "La campaña activa es tipo Search con puja Maximize Conversions y timezone Pacific (GMT-7).",
-                  "Presupuesto dinámico: $4,500 USD al mes excluyendo fines de semana, o sea ~$204 por día laboral sobre ~22 días hábiles.",
-                  "Solo 4 ad groups están ENABLED: AG_Commercial_Paving, AG_Commercial_Concrete, AG_Parking_Lot_Striping y AG_Sealcoating. Otros 5 están PAUSED."
+                  "El nombre de cuenta, el ID de conversión y los IDs de campaña se consultan en el panel; nunca se citan de memoria.",
+                  "La campaña activa es tipo Search con puja Maximize Conversions y timezone Pacific.",
+                  "El presupuesto es dinámico: se define por mes y se reparte solo en días hábiles, no en fines de semana.",
+                  "Los ad groups activos cubren las líneas de servicio (paving comercial, concreto, parking lot striping, sealcoating); otros quedan en PAUSED según la estrategia. El conteo exacto se verifica en la cuenta, no de memoria."
                 ]
               },
               {
@@ -2438,45 +2438,25 @@ export const COURSES: Course[] = [
             ]
           },
           {
-            "t": "Rendimiento vivo por ad group",
+            "t": "Cómo se lee el rendimiento (método, no fechas quemadas)",
             "blocks": [
               {
                 "type": "p",
-                "v": "Ventana del 3 de junio al 7 de julio de 2026, con una sola campaña ENABLED (WLP-New Campaign, id 22218942692)."
-              },
-              {
-                "type": "table",
-                "head": [
-                  "Métrica",
-                  "Valor"
-                ],
-                "rows": [
-                  [
-                    "Gasto total",
-                    "$6,596.49"
-                  ],
-                  [
-                    "Clics",
-                    "346"
-                  ],
-                  [
-                    "Conversiones",
-                    "25 (17 llamada, 8 form)"
-                  ],
-                  [
-                    "CPC / CPA",
-                    "$19.06 / $263.86"
-                  ]
-                ]
+                "v": "El rendimiento se lee siempre sobre una ventana definida y con el dato vivo, no con cifras de memoria. Importa el método, no un número congelado que caduca."
               },
               {
                 "type": "list",
                 "v": [
-                  "El número 1 convertidor fue AG_Parking_Lot_Striping con 7.0 conversiones y CPA $207.",
-                  "El mejor CPA fue AG_Sealcoating con $152 (5.5 conv), candidato a escalar.",
-                  "El freno fue AG_Commercial_Paving con $2,070 de gasto y CPA $460.",
-                  "Por dispositivo: MOBILE dio 19 conversiones a CPA $186 vs DESKTOP 6 a CPA $510. Todo el geo es California."
+                  "Compara ad groups por CPA y por conversiones dentro de la MISMA ventana de tiempo.",
+                  "Separa por dispositivo (mobile suele convertir mejor que desktop) y por geo antes de concluir.",
+                  "Un ad group con CPA muy alto y gasto grande es un freno: se revisa o se recorta. Uno con CPA bajo y volumen es candidato a escalar."
                 ]
+              },
+              {
+                "type": "callout",
+                "style": "info",
+                "ci": "info",
+                "v": "El detalle con números vivos, verificación por API y modelado de presupuesto vive en el curso interno \"Auditoría y Modelado SEM\", no en este curso base."
               }
             ]
           }
@@ -2505,26 +2485,26 @@ export const COURSES: Course[] = [
             "ex": "Son $4,500 al mes sin fines de semana, o sea ~$204 por día sobre ~22 días hábiles."
           },
           {
-            "q": "¿Cuántos ad groups están ENABLED en la cuenta?",
+            "q": "Antes de afirmar cuántos ad groups o keywords hay en la cuenta, ¿qué se hace?",
             "opts": [
-              "8",
-              "5",
-              "4",
-              "2"
-            ],
-            "a": 2,
-            "ex": "Solo hay 4 ad groups ENABLED; 5 más están PAUSED."
-          },
-          {
-            "q": "¿Cuál ad group fue el número 1 convertidor en jun-jul 2026?",
-            "opts": [
-              "AG_Commercial_Paving",
-              "AG_Parking_Lot_Striping",
-              "AG_Sealcoating",
-              "AG_Commercial_Concrete"
+              "Se dice de memoria",
+              "Se cruza contra el dato vivo o la API",
+              "Se estima al ojo",
+              "Se pregunta al cliente"
             ],
             "a": 1,
-            "ex": "AG_Parking_Lot_Striping dio 7.0 conversiones con CPA $207."
+            "ex": "Regla dura: nunca afirmar conteos ni IDs de memoria; siempre cruzar contra el dato vivo o la API."
+          },
+          {
+            "q": "¿Qué hace rentable el marketing pagado de WLP?",
+            "opts": [
+              "Bajar el CPC al mínimo",
+              "La brecha entre el GP por lead (~$1,796) y el CPA objetivo (~$95)",
+              "Gastar más los fines de semana",
+              "Pausar todos los ad groups"
+            ],
+            "a": 1,
+            "ex": "El colchón entre lo que deja un lead (~$1,796 de GP) y lo que cuesta traerlo (~$95) es lo que hace rentable el paid search."
           }
         ]
       },
@@ -3733,14 +3713,14 @@ export const COURSES: Course[] = [
             ]
           },
           {
-            "t": "Caso vivo: el asunto L01",
+            "t": "Caso práctico: cómo se sostiene (o se cae) un lien",
             "blocks": [
               {
                 "type": "list",
                 "v": [
-                  "Parker Stanbury LLP (Alex L. Shia) envió demand letter el 2026-04-27, re Zero Impact Solutions / Arden Acres Inc.",
-                  "Contrato de $14,861.04; monto demandado $17,136.04; lien grabado el 2026-03-03; deadline de foreclosure 2026-06-01 (Civ 8460).",
-                  "Pendiente crítico real: verificar el servicio del 20-Day Preliminary Notice (Civ 8200) a Arden Acres, y localizar el número de instrumento del lien grabado."
+                  "Un cobro se vuelve disputa cuando el cliente no paga y llega una carta de demanda del abogado de la contraparte.",
+                  "Ahí el lien es el respaldo, pero solo sirve si el 20-Day Preliminary Notice (Civ 8200) se sirvió a tiempo y el lien se grabó dentro de su ventana (Civ 8460).",
+                  "Pendiente crítico típico: verificar el servicio del 20-Day Notice y localizar el número de instrumento del lien grabado. Sin eso, el respaldo es solo papel."
                 ]
               },
               {
@@ -4092,21 +4072,21 @@ export const COURSES: Course[] = [
             ]
           },
           {
-            "t": "Exposiciones abiertas y remediación",
+            "t": "Cuando algo se expone: cómo se remedia",
             "blocks": [
               {
                 "type": "list",
                 "v": [
-                  "Hallazgos accionables: un token de Pipedrive en texto plano, una anon key de Supabase en un archivo público y un Supabase de CRM editable por cualquiera con el link (sin auth).",
-                  "La acción D-007 (security-critical) sigue abierta: mover el archivo de accesos con passwords en texto plano a /08_restricted.",
-                  "El gestor de credenciales del equipo no está resuelto: la decisión entre 1Password y Bitwarden sigue pendiente.",
-                  "Patrón correcto: las tablas SEM en Supabase se crearon con RLS prendido y política service_role-only, no expuestas con anon key."
+                  "Si un token o llave pudo quedar expuesto, se ROTA de inmediato; los tokens regenerables existen justo para eso.",
+                  "Ninguna base de datos se deja accesible con el solo link ni con la anon key: va con RLS prendido y política acorde al rol (patrón correcto: tablas sensibles con RLS y acceso service_role-only).",
+                  "Los archivos con accesos o passwords en texto plano se mueven a la carpeta restringida y salen de cualquier repo.",
+                  "El equipo usa un gestor de credenciales dedicado; compartir por chat o por archivo suelto no es aceptable."
                 ]
               },
               {
                 "type": "rule",
                 "lab": "Prioridad alta",
-                "v": "Rotar el token y la anon key expuestos, cerrar el Supabase abierto y cerrar D-007. Son llaves vivas."
+                "v": "Ante cualquier sospecha de exposición: rotar la llave, cerrar el acceso abierto y registrar la acción. Una llave viva expuesta es una emergencia, no un pendiente."
               }
             ]
           }
@@ -4146,15 +4126,15 @@ export const COURSES: Course[] = [
             "ex": "Los scripts nunca loguean valores: solo OK o FALTA."
           },
           {
-            "q": "¿Qué estado tiene la acción D-007?",
+            "q": "Si se sospecha que un token quedó expuesto, ¿qué se hace primero?",
             "opts": [
-              "Cerrada",
-              "Abierta y security-critical",
-              "No existe",
-              "Resuelta con Bitwarden"
+              "Esperar a ver si pasa algo",
+              "Rotarlo de inmediato",
+              "Anotarlo para después",
+              "Compartirlo por chat para avisar"
             ],
             "a": 1,
-            "ex": "D-007 sigue abierta (security-critical): mover el archivo de passwords a /08_restricted."
+            "ex": "Un token o llave potencialmente expuesto se rota de inmediato; es una emergencia de seguridad."
           }
         ]
       }
