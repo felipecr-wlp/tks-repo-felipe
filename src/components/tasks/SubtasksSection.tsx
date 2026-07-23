@@ -114,6 +114,10 @@ export function SubtasksSection({ taskId, projectId, statuses, onOpenTask }: Sub
     }
   }
 
+  // Completitud: se reutiliza la MISMA señal que usan handleToggle y el render
+  // de cada fila (status.category === 'done'). No se inventa un criterio nuevo
+  // ni se hace un fetch extra: todo se deriva del estado `items` ya cargado, por
+  // lo que los conteos se recalculan solos cuando se agrega/toggle/elimina.
   const completed = items.filter(i => i.status?.category === 'done').length
   const total = items.length
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0
@@ -123,11 +127,18 @@ export function SubtasksSection({ taskId, projectId, statuses, onOpenTask }: Sub
       <div className="flex items-center justify-between mb-2.5">
         <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
           <ListTree className="w-3.5 h-3.5" />
-          Subtareas {total > 0 && <span className="ml-0.5 normal-case tracking-normal text-muted-foreground/70">({completed}/{total})</span>}
+          Subtareas {total > 0 && <span className="ml-0.5 normal-case tracking-normal text-muted-foreground/70">{completed} de {total} completadas</span>}
         </p>
         {total > 0 && (
           <div className="flex items-center gap-2">
-            <div className="w-20 h-1 bg-muted rounded-full overflow-hidden">
+            <div
+              className="w-20 h-1 bg-muted rounded-full overflow-hidden"
+              role="progressbar"
+              aria-label="Progreso de subtareas"
+              aria-valuenow={progress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
               <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
             <span className="text-[11px] text-muted-foreground tabular-nums">{progress}%</span>
