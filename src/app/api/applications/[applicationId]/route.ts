@@ -96,8 +96,8 @@ export async function PATCH(
 
   // ─── Decision (aceptar/rechazar): lider / manager / org admin ────────────────
   const [{ data: membership }, { data: profile }] = await Promise.all([
-    admin.from('project_members').select('role').eq('project_id', project.id).eq('profile_id', user.id).maybeSingle() as Promise<{ data: { role: string } | null }>,
-    admin.from('profiles').select('org_role').eq('id', user.id).maybeSingle() as Promise<{ data: { org_role: string } | null }>,
+    admin.from('project_members').select('role').eq('project_id', project.id).eq('profile_id', user.id).maybeSingle(),
+    admin.from('profiles').select('org_role').eq('id', user.id).maybeSingle(),
   ])
   const canDecide = project.lead_id === user.id
     || membership?.role === 'manager'

@@ -3,6 +3,7 @@
  * Lee la sesión desde cookies del request, NUNCA usar en el browser.
  */
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createClient as createSbClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import type { Database } from './types'
 
@@ -36,9 +37,7 @@ export function createClient() {
  * NUNCA exponer al browser.
  */
 export function createAdminClient() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { createClient: sb } = require('@supabase/supabase-js')
-  return sb(
+  return createSbClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }

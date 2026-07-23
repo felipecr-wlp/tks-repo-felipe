@@ -23,18 +23,19 @@ export default async function CertPage({ params }: PageProps) {
 
   const admin = createAdminClient()
   const [{ data: row }, { data: profile }] = await Promise.all([
+    // El join workspaces!inner infiere una forma (arreglo/no nulo) distinta a la anotada.
     admin
       .from('workspace_members')
       .select('workspaces!inner ( id )')
       .eq('profile_id', user.id)
       .eq('workspaces.slug', params.workspaceSlug)
       .limit(1)
-      .maybeSingle() as Promise<{ data: { workspaces: { id: string } | null } | null }>,
+      .maybeSingle() as unknown as Promise<{ data: { workspaces: { id: string } | null } | null }>,
     admin
       .from('profiles')
       .select('display_name, email')
       .eq('id', user.id)
-      .maybeSingle() as Promise<{ data: { display_name: string | null; email: string | null } | null }>,
+      .maybeSingle(),
   ])
   if (!row?.workspaces) redirect('/')
 

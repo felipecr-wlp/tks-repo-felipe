@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { google } from 'googleapis'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/supabase/types'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { getOAuthClient } from '@/lib/google/client'
 
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
     if (tokens.access_token) patch.access_token = tokens.access_token
     if (tokens.refresh_token) patch.refresh_token = tokens.refresh_token
     if (tokens.expiry_date) patch.token_expiry = new Date(tokens.expiry_date).toISOString()
-    void admin.from('google_connections').update(patch).eq('profile_id', user.id)
+    void admin.from('google_connections').update(patch as Database['public']['Tables']['google_connections']['Update']).eq('profile_id', user.id)
   })
 
   try {

@@ -41,10 +41,12 @@ const API = join(process.cwd(), 'src', 'app', 'api')
 
 // Registro: archivo (ruta relativa a src/app/api) -> primitiva de validacion de
 // scope del id tomado del cuerpo.
+// El `!?` acepta la asercion no-nula `access.projectId!` (valida tras el guard
+// !access.ok que garantiza projectId no nulo); la primitiva de scope es la misma.
 const LINKERS: Record<string, RegExp> = {
-  'tasks/[taskId]/dependencies/route.ts':  /\.eq\('project_id', access\.projectId\)/,
-  'tasks/[taskId]/relations/route.ts':     /\.eq\('project_id', access\.projectId\)/,
-  'tasks/[taskId]/labels/route.ts':        /\.eq\('project_id', access\.projectId\)/,
+  'tasks/[taskId]/dependencies/route.ts':  /\.eq\('project_id', access\.projectId!?\)/,
+  'tasks/[taskId]/relations/route.ts':     /\.eq\('project_id', access\.projectId!?\)/,
+  'tasks/[taskId]/labels/route.ts':        /\.eq\('project_id', access\.projectId!?\)/,
   'tasks/[taskId]/assignees/route.ts':     /profileInProject\(/,
   'tasks/[taskId]/custom-fields/route.ts': /field\.project_id !== access\.projectId/,
 }

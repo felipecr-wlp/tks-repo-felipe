@@ -164,7 +164,8 @@ export async function GET(request: NextRequest) {
       .eq('workspace_id', workspace_id)
       .eq('is_archived', false)
       .or(taskMatch)
-      .limit(perType) as Promise<{ data: TaskRow[] | null; error: unknown }>,
+      // as unknown as: el join embebido difiere de la forma TaskRow escrita a mano
+      .limit(perType) as unknown as Promise<{ data: TaskRow[] | null; error: unknown }>,
 
     // Projects (nombre o descripción)
     admin
@@ -176,7 +177,8 @@ export async function GET(request: NextRequest) {
       .eq('workspace_id', workspace_id)
       .eq('is_archived', false)
       .or(projectMatch)
-      .limit(perType) as Promise<{ data: ProjectRow[] | null; error: unknown }>,
+      // as unknown as: el join embebido difiere de la forma ProjectRow escrita a mano
+      .limit(perType) as unknown as Promise<{ data: ProjectRow[] | null; error: unknown }>,
 
     // Teams (solo nombre)
     admin
@@ -184,7 +186,7 @@ export async function GET(request: NextRequest) {
       .select('id, name, slug')
       .eq('workspace_id', workspace_id)
       .ilike('name', escaped)
-      .limit(perType) as Promise<{ data: TeamRow[] | null; error: unknown }>,
+      .limit(perType) as unknown as Promise<{ data: TeamRow[] | null; error: unknown }>,
 
     // Members del workspace (por display_name)
     admin
@@ -192,7 +194,8 @@ export async function GET(request: NextRequest) {
       .select('profile:profiles!inner ( id, display_name, avatar_url, email )')
       .eq('workspace_id', workspace_id)
       .ilike('profile.display_name', escaped)
-      .limit(perType) as Promise<{ data: WsMemberRow[] | null; error: unknown }>,
+      // as unknown as: el join embebido difiere de la forma WsMemberRow escrita a mano
+      .limit(perType) as unknown as Promise<{ data: WsMemberRow[] | null; error: unknown }>,
 
     // Notes (título o contenido). Privadas ajenas fuera en la consulta;
     // el gating de espacios restringidos queda en JS (depende de membresias).
@@ -203,7 +206,7 @@ export async function GET(request: NextRequest) {
       .or(noteMatch)
       .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
       .order('updated_at', { ascending: false })
-      .limit(noteFetch) as Promise<{ data: NoteRow[] | null; error: unknown }>,
+      .limit(noteFetch) as unknown as Promise<{ data: NoteRow[] | null; error: unknown }>,
   ])
 
   // ── Gating de espacios restringidos (reflejo del RLS, igual que /api/notes) ─
@@ -224,11 +227,11 @@ export async function GET(request: NextRequest) {
           .select('id, is_restricted')
           .eq('workspace_id', workspace_id)
           .eq('is_restricted', true)
-          .limit(500) as Promise<{ data: { id: string; is_restricted: boolean }[] | null; error: unknown }>,
+          .limit(500) as unknown as Promise<{ data: { id: string; is_restricted: boolean }[] | null; error: unknown }>,
         admin
           .from('space_members')
           .select('space_id')
-          .eq('profile_id', user.id) as Promise<{ data: { space_id: string }[] | null; error: unknown }>,
+          .eq('profile_id', user.id) as unknown as Promise<{ data: { space_id: string }[] | null; error: unknown }>,
       ])
       const mySpaceIds = new Set((myMemberships ?? []).map(m => m.space_id))
       blockedSpaceIds = new Set(

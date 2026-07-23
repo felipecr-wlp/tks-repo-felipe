@@ -78,9 +78,9 @@ export default async function ProjectsMarketplacePage({ params }: PageProps) {
   const memberCount = new Map<string, number>()
   if (openIds.length > 0) {
     const [{ data: myMemberships }, { data: myApps }, { data: allMembers }] = await Promise.all([
-      admin.from('project_members').select('project_id').eq('profile_id', user.id).in('project_id', openIds) as Promise<{ data: { project_id: string }[] | null }>,
-      admin.from('project_applications').select('project_id, status').eq('applicant_id', user.id).in('project_id', openIds) as Promise<{ data: { project_id: string; status: string }[] | null }>,
-      admin.from('project_members').select('project_id').in('project_id', openIds) as Promise<{ data: { project_id: string }[] | null }>,
+      admin.from('project_members').select('project_id').eq('profile_id', user.id).in('project_id', openIds),
+      admin.from('project_applications').select('project_id, status').eq('applicant_id', user.id).in('project_id', openIds),
+      admin.from('project_members').select('project_id').in('project_id', openIds),
     ])
     memberOf = new Set((myMemberships ?? []).map(m => m.project_id))
     for (const a of myApps ?? []) appStatus.set(a.project_id, a.status)

@@ -65,7 +65,8 @@ export default async function WorkspaceDashboardPage({
     .eq('profile_id', user.id)
     .eq('workspaces.slug', params.workspaceSlug)
     .limit(1)
-    .maybeSingle() as { data: WsFromMember | null; error: unknown }
+    // El join workspaces!inner infiere una forma (arreglo/no nulo) distinta a WsFromMember.
+    .maybeSingle() as unknown as { data: WsFromMember | null; error: unknown }
 
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
@@ -86,7 +87,8 @@ export default async function WorkspaceDashboardPage({
       .from('profiles')
       .select('display_name, avatar_url')
       .eq('id', user.id)
-      .maybeSingle() as Promise<{ data: { display_name: string | null; avatar_url: string | null } | null }>,
+      .maybeSingle(),
+    // El tipo inferido por Supabase para los joins anidados (team_members!inner, projects) difiere en forma y nulabilidad de TeamCard.
     admin
       .from('teams')
       .select(`
@@ -96,7 +98,8 @@ export default async function WorkspaceDashboardPage({
       `)
       .eq('workspace_id', workspace.id)
       .eq('team_members.profile_id', user.id)
-      .order('name', { ascending: true }) as Promise<{ data: TeamCard[] | null }>,
+      .order('name', { ascending: true }) as unknown as Promise<{ data: TeamCard[] | null }>,
+    // El tipo inferido por Supabase devuelve los joins (status, project, team) como arreglos, no como objeto unico de TaskSummary.
     admin
       .from('tasks')
       .select(`
@@ -111,7 +114,8 @@ export default async function WorkspaceDashboardPage({
       .eq('assignee_id', user.id)
       .eq('is_archived', false)
       .order('due_date', { ascending: true, nullsFirst: false })
-      .limit(6) as Promise<{ data: TaskSummary[] | null }>,
+      .limit(6) as unknown as Promise<{ data: TaskSummary[] | null }>,
+    // El tipo inferido por Supabase devuelve los joins (subject, project) como arreglos, no como objeto unico de ActivityEvent.
     admin
       .from('activity_events')
       .select(`
@@ -123,15 +127,15 @@ export default async function WorkspaceDashboardPage({
       `)
       .eq('workspace_id', workspace.id)
       .order('created_at', { ascending: false })
-      .limit(8) as Promise<{ data: ActivityEvent[] | null }>,
+      .limit(8) as unknown as Promise<{ data: ActivityEvent[] | null }>,
     admin
       .from('workspace_members')
       .select('profile_id', { count: 'exact', head: true })
-      .eq('workspace_id', workspace.id) as Promise<{ count: number | null }>,
+      .eq('workspace_id', workspace.id),
     admin
       .from('notes')
       .select('id', { count: 'exact', head: true })
-      .eq('workspace_id', workspace.id) as Promise<{ count: number | null }>,
+      .eq('workspace_id', workspace.id),
   ])
 
   const userName = profile?.display_name?.split(' ')[0] ??
@@ -187,7 +191,8 @@ export default async function WorkspaceDashboardPage({
   if (isAdmin || accessibleProjectIds.length > 0) {
     const { data } = await admin.rpc('workspace_dashboard_widgets', {
       p_workspace_id: workspace.id,
-      p_project_ids: isAdmin ? null : accessibleProjectIds,
+      // el RPC acepta NULL (DEFAULT NULL) para "todos los proyectos"; el tipo generado no lo refleja
+      p_project_ids: (isAdmin ? null : accessibleProjectIds) as string[],
       p_today: today0.toISOString(),
       p_in7: in7.toISOString(),
     }) as { data: WidgetsRpc | null }

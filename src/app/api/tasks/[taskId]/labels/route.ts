@@ -15,6 +15,7 @@ import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { checkTaskAccess } from '@/lib/task-access'
+import type { Database } from '@/lib/supabase/types'
 
 interface RouteParams {
   params: { taskId: string }
@@ -72,7 +73,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const { data: available, error: availableError } = await admin
     .from('labels')
     .select('id, name, color')
-    .eq('project_id', access.projectId)
+    // access.projectId es no-nulo tras el guard !access.ok de arriba
+    .eq('project_id', access.projectId!)
     .order('name', { ascending: true }) as { data: LabelRow[] | null; error: unknown }
 
   if (availableError) {
@@ -123,7 +125,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .from('labels')
       .select('id, name, color')
       .eq('id', parsed.data.labelId)
-      .eq('project_id', access.projectId)
+      // access.projectId es no-nulo tras el guard !access.ok de arriba
+      .eq('project_id', access.projectId!)
       .maybeSingle() as { data: LabelRow | null; error: unknown }
 
     if (!found) return NextResponse.json({ error: 'Etiqueta no encontrada' }, { status: 404 })
@@ -139,14 +142,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (!task) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
 
+    // access.projectId es no-nulo tras el guard !access.ok de arriba
+    const labelPayload = {
+      project_id: access.projectId!,
+      workspace_id: task.workspace_id,
+      name: parsed.data.name,
+      color: parsed.data.color ?? '#6b7280',
+    } satisfies Database['public']['Tables']['labels']['Insert']
     const { data: created, error: createErr } = await db
       .from('labels')
-      .insert({
-        project_id: access.projectId,
-        workspace_id: task.workspace_id,
-        name: parsed.data.name,
-        color: parsed.data.color ?? '#6b7280',
-      })
+      // as never: pitfall conocido de @supabase/ssr donde el parametro de escritura colapsa a never
+      .insert(labelPayload as never)
       .select('id, name, color')
       .single() as { data: LabelRow | null; error: unknown }
 

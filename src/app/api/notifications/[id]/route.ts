@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/supabase/types'
 import { applyRateLimit } from '@/lib/rate-limit'
 
 interface RouteParams {
@@ -54,7 +55,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   const { error } = await admin
     .from('notifications')
-    .update(update)
+    .update(update as Database['public']['Tables']['notifications']['Update'])
     .eq('id', params.id)
     .eq('recipient_id', user.id)  // solo el destinatario puede modificar
 

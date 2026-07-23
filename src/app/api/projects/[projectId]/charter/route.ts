@@ -65,8 +65,8 @@ export async function PATCH(
 
   // Autoridad: lider del proyecto, manager del proyecto, u org owner/admin
   const [{ data: membership }, { data: profile }] = await Promise.all([
-    admin.from('project_members').select('role').eq('project_id', params.projectId).eq('profile_id', user.id).maybeSingle() as Promise<{ data: { role: string } | null }>,
-    admin.from('profiles').select('org_role').eq('id', user.id).maybeSingle() as Promise<{ data: { org_role: string } | null }>,
+    admin.from('project_members').select('role').eq('project_id', params.projectId).eq('profile_id', user.id).maybeSingle(),
+    admin.from('profiles').select('org_role').eq('id', user.id).maybeSingle(),
   ])
   const isLead    = project.lead_id === user.id
   const isManager = membership?.role === 'manager'

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/supabase/types'
 import { applyRateLimit } from '@/lib/rate-limit'
 
 interface RouteParams {
@@ -101,7 +102,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   const { data, error } = await admin
     .from('goals')
-    .update(patch)
+    .update(patch as Database['public']['Tables']['goals']['Update'])
     .eq('id', params.goalId)
     .select('id, title, description, unit, progress_mode, target_value, current_value, status, due_date, owner_id, owner:profiles!goals_owner_id_fkey ( id, display_name, avatar_url ), created_at')
     .single()

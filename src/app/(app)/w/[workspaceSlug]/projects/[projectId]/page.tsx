@@ -46,8 +46,8 @@ export default async function ManageProjectPage({ params }: PageProps) {
 
   // Autoridad: lider / manager del proyecto / org owner-admin
   const [{ data: membership }, { data: profile }] = await Promise.all([
-    admin.from('project_members').select('role').eq('project_id', project.id).eq('profile_id', user.id).maybeSingle() as Promise<{ data: { role: string } | null }>,
-    admin.from('profiles').select('org_role').eq('id', user.id).maybeSingle() as Promise<{ data: { org_role: string } | null }>,
+    admin.from('project_members').select('role').eq('project_id', project.id).eq('profile_id', user.id).maybeSingle(),
+    admin.from('profiles').select('org_role').eq('id', user.id).maybeSingle(),
   ])
   const canManage = project.lead_id === user.id
     || membership?.role === 'manager'
@@ -56,24 +56,25 @@ export default async function ManageProjectPage({ params }: PageProps) {
 
   // Postulaciones + equipo actual + historial de chat (ultimos 100).
   // Las tres consultas solo dependen de project.id y son independientes entre si.
-  type ProjectMessageRow = { id: string; author_id: string; body: string; created_at: string }
   const [{ data: apps }, { data: members }, { data: rawChat }] = await Promise.all([
     admin
       .from('project_applications')
       .select('id, pitch, role_desired, status, created_at, applicant:profiles!project_applications_applicant_id_fkey(id, display_name, avatar_url, email)')
       .eq('project_id', project.id)
-      .order('created_at', { ascending: false }) as Promise<{ data: Application[] | null }>,
+      // El join applicant:profiles infiere una forma (arreglo) distinta a Application.
+      .order('created_at', { ascending: false }) as unknown as Promise<{ data: Application[] | null }>,
+    // El join profile:profiles infiere una forma (arreglo) distinta a Member.
     admin
       .from('project_members')
       .select('profile_id, role, title, joined_at, profile:profiles!project_members_profile_id_fkey(id, display_name, avatar_url)')
       .eq('project_id', project.id)
-      .order('joined_at', { ascending: true }) as Promise<{ data: Member[] | null }>,
+      .order('joined_at', { ascending: true }) as unknown as Promise<{ data: Member[] | null }>,
     admin
       .from('project_messages')
       .select('id, author_id, body, created_at')
       .eq('project_id', project.id)
       .order('created_at', { ascending: false })
-      .limit(100) as Promise<{ data: ProjectMessageRow[] | null }>,
+      .limit(100),
   ])
 
   const charter: Charter = {

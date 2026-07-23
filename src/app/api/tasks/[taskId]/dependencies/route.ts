@@ -116,7 +116,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .from('tasks')
     .select('id, title, status:task_statuses ( id, name, color, category )')
     .eq('id', dependsOnId)
-    .eq('project_id', access.projectId)
+    // access.projectId es no-nulo tras el guard !access.ok de arriba
+    .eq('project_id', access.projectId!)
     .maybeSingle() as { data: TargetRow | null; error: unknown }
 
   if (!target) return NextResponse.json({ error: 'Tarea objetivo no encontrada' }, { status: 404 })

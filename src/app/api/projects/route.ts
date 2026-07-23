@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/supabase/types'
 import { isWorkspaceAdminById } from '@/lib/workspace-admin'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { slugify } from '@/lib/utils'
@@ -168,16 +169,17 @@ export async function POST(request: NextRequest) {
 
       // Campos personalizados de la obra
       if (tpl.fields.length > 0) {
-        const fieldRows = tpl.fields.map((f, i) => ({
+        // options es TemplateFieldOption[] (compatible con JSON) pero se castea a Json para el tipo Insert
+        const fieldRows: Database['public']['Tables']['custom_field_definitions']['Insert'][] = tpl.fields.map((f, i) => ({
           project_id: project.id,
           workspace_id: team.workspace_id,
           name: f.name,
           field_type: f.field_type,
-          options: f.options ?? [],
+          options: (f.options ?? []) as unknown as Database['public']['Tables']['custom_field_definitions']['Insert']['options'],
           position: i,
           created_by: user.id,
         }))
-        await db.from('custom_field_definitions').insert(fieldRows)
+        await db.from('custom_field_definitions').insert(fieldRows as never)
       }
     } catch (seedErr) {
       console.error('[projects POST] template seed error:', seedErr)

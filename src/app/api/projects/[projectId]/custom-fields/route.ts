@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/supabase/types'
 import { applyRateLimit } from '@/lib/rate-limit'
 
 interface RouteParams {
@@ -123,17 +124,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const position = (last?.position ?? -1) + 1
 
   const db = admin
+  // workspace_id no es null cuando access.ok es true (garantizado por assertMember)
+  const insertRow: Database['public']['Tables']['custom_field_definitions']['Insert'] = {
+    project_id: params.projectId,
+    workspace_id: access.workspaceId as string,
+    name,
+    field_type,
+    options,
+    position,
+    created_by: user.id,
+  }
   const { data, error } = await db
     .from('custom_field_definitions')
-    .insert({
-      project_id: params.projectId,
-      workspace_id: access.workspaceId,
-      name,
-      field_type,
-      options,
-      position,
-      created_by: user.id,
-    })
+    .insert(insertRow as never)
     .select('id, name, field_type, options, position, created_at')
     .single()
 

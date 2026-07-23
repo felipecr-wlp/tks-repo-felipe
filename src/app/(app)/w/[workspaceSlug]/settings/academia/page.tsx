@@ -29,10 +29,11 @@ export default async function AcademiaSettingsPage({
   const [pending, matrix, { data: wsMembers }] = await Promise.all([
     listPendingRequests(),
     listAccessMatrix(),
+    // El join profiles infiere una forma (arreglo) distinta a WsMemberRow.
     admin
       .from('workspace_members')
       .select('profile_id, profiles ( id, display_name, email, avatar_url )')
-      .eq('workspace_id', ctx.workspace.id) as Promise<{ data: WsMemberRow[] | null }>,
+      .eq('workspace_id', ctx.workspace.id) as unknown as Promise<{ data: WsMemberRow[] | null }>,
   ])
 
   const members = (wsMembers ?? [])

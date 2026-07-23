@@ -17,6 +17,7 @@ import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { checkTaskAccess } from '@/lib/task-access'
+import type { Database } from '@/lib/supabase/types'
 
 interface RouteParams {
   params: { taskId: string }
@@ -101,11 +102,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Error al dejar de seguir' }, { status: 500 })
     }
   } else {
-    const { error } = await db.from('task_watchers').insert({
+    // access.projectId es no-nulo tras el guard !access.ok de arriba
+    const watcherPayload = {
       task_id:    params.taskId,
-      project_id: access.projectId,
+      project_id: access.projectId!,
       profile_id: user.id,
-    })
+    } satisfies Database['public']['Tables']['task_watchers']['Insert']
+    // as never: pitfall conocido de @supabase/ssr donde el parametro de escritura colapsa a never
+    const { error } = await db.from('task_watchers').insert(watcherPayload as never)
     if (error) {
       console.error('[task watchers POST] insert error:', error)
       return NextResponse.json({ error: 'Error al seguir la tarea' }, { status: 500 })

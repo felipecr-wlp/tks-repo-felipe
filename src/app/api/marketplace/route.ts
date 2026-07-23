@@ -56,9 +56,9 @@ export async function GET(request: NextRequest) {
 
   // Estado del solicitante frente a cada proyecto + conteo de miembros
   const [{ data: myMemberships }, { data: myApps }, { data: allMembers }] = await Promise.all([
-    admin.from('project_members').select('project_id').eq('profile_id', user.id).in('project_id', projectIds) as Promise<{ data: { project_id: string }[] | null }>,
-    admin.from('project_applications').select('project_id, status').eq('applicant_id', user.id).in('project_id', projectIds) as Promise<{ data: { project_id: string; status: string }[] | null }>,
-    admin.from('project_members').select('project_id').in('project_id', projectIds) as Promise<{ data: { project_id: string }[] | null }>,
+    admin.from('project_members').select('project_id').eq('profile_id', user.id).in('project_id', projectIds),
+    admin.from('project_applications').select('project_id, status').eq('applicant_id', user.id).in('project_id', projectIds),
+    admin.from('project_members').select('project_id').in('project_id', projectIds),
   ])
 
   const memberOf = new Set((myMemberships ?? []).map(m => m.project_id))

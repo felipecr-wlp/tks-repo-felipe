@@ -327,7 +327,7 @@ export async function PATCH(
             object_type: 'task',
             object_id: spawned.id,
             object_title: spawned.title,
-          }).then(() => {}).catch(console.error)
+          }).then(() => {}, console.error)
         }
       }
     }

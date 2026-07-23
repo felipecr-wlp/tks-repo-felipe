@@ -42,9 +42,9 @@ export async function DELETE(
 
   // Membresia + rol para decidir permiso de borrado.
   const [{ data: membership }, { data: project }, { data: profile }] = await Promise.all([
-    admin.from('project_members').select('role').eq('project_id', att.project_id).eq('profile_id', user.id).maybeSingle() as Promise<{ data: { role: string } | null }>,
-    admin.from('projects').select('lead_id').eq('id', att.project_id).maybeSingle() as Promise<{ data: { lead_id: string | null } | null }>,
-    admin.from('profiles').select('org_role').eq('id', user.id).maybeSingle() as Promise<{ data: { org_role: string } | null }>,
+    admin.from('project_members').select('role').eq('project_id', att.project_id).eq('profile_id', user.id).maybeSingle() as unknown as Promise<{ data: { role: string } | null }>,
+    admin.from('projects').select('lead_id').eq('id', att.project_id).maybeSingle() as unknown as Promise<{ data: { lead_id: string | null } | null }>,
+    admin.from('profiles').select('org_role').eq('id', user.id).maybeSingle() as unknown as Promise<{ data: { org_role: string } | null }>,
   ])
 
   if (!membership) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })

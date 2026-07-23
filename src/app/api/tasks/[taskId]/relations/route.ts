@@ -18,6 +18,7 @@ import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { checkTaskAccess } from '@/lib/task-access'
+import type { Database } from '@/lib/supabase/types'
 
 interface RouteParams {
   params: { taskId: string }
@@ -116,7 +117,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .from('tasks')
     .select(TASK_SELECT)
     .eq('id', target_task_id)
-    .eq('project_id', access.projectId)
+    // access.projectId es no-nulo tras el guard !access.ok de arriba
+    .eq('project_id', access.projectId!)
     .maybeSingle() as { data: RelTask | null }
   if (!target) return NextResponse.json({ error: 'Tarea objetivo no encontrada' }, { status: 404 })
 
@@ -145,16 +147,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   const db = admin
+  // access.projectId es no-nulo tras el guard !access.ok de arriba
+  const relationPayload = {
+    source_task_id: sourceId,
+    target_task_id: targetId,
+    relation_type: relationType,
+    project_id: access.projectId!,
+    created_by: user.id,
+  } satisfies Database['public']['Tables']['task_relations']['Insert']
   const { data, error } = await db
     .from('task_relations')
+    // as never: pitfall conocido de @supabase/ssr donde el parametro de escritura colapsa a never
     .upsert(
-      {
-        source_task_id: sourceId,
-        target_task_id: targetId,
-        relation_type: relationType,
-        project_id: access.projectId,
-        created_by: user.id,
-      },
+      relationPayload as never,
       { onConflict: 'source_task_id,target_task_id,relation_type', ignoreDuplicates: false },
     )
     .select('id')
