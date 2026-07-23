@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { q, workspace_id, full, limit } = parsed.data
-  const perType = limit ?? (full ? FULL_LIMIT : PREVIEW_LIMIT)
+  const perType = Math.min(limit ?? (full ? FULL_LIMIT : PREVIEW_LIMIT), FULL_LIMIT)
   const admin = createAdminClient()
 
   // Verificar acceso al workspace

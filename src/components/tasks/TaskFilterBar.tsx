@@ -17,10 +17,25 @@ import { cn } from '@/lib/utils'
 
 interface Status { id: string; name: string; color: string | null; category: string }
 interface Member { id: string; display_name: string; avatar_url: string | null }
+interface Label { id: string; name: string; color: string }
+interface CustomFieldFilterDef {
+  id: string
+  name: string
+  field_type: 'text' | 'number' | 'currency' | 'date' | 'checkbox' | 'url' | 'select' | 'multi_select'
+  options: { id: string; label: string; color?: string }[]
+}
 interface SavedView {
   id: string
   name: string
-  filters: { view?: string; status?: string; priority?: string; assignee?: string }
+  filters: {
+    view?: string; status?: string; priority?: string; assignee?: string
+    label?: string; dueFrom?: string; dueTo?: string; cfField?: string; cfValue?: string
+  }
+}
+
+type CurrentFilters = {
+  status?: string; priority?: string; assignee?: string
+  label?: string; dueFrom?: string; dueTo?: string; cfField?: string; cfValue?: string
 }
 
 interface TaskFilterBarProps {
@@ -29,7 +44,9 @@ interface TaskFilterBarProps {
   currentView: string
   statuses: Status[]
   members: Member[]
-  current: { status?: string; priority?: string; assignee?: string }
+  labels?: Label[]
+  customFields?: CustomFieldFilterDef[]
+  current: CurrentFilters
   savedViews: SavedView[]
 }
 
@@ -47,6 +64,8 @@ export function TaskFilterBar({
   currentView,
   statuses,
   members,
+  labels = [],
+  customFields = [],
   current,
   savedViews,
 }: TaskFilterBarProps) {
@@ -55,29 +74,47 @@ export function TaskFilterBar({
   const [menuOpen, setMenuOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const hasFilters = !!(current.status || current.priority || current.assignee)
+  const hasFilters = !!(
+    current.status || current.priority || current.assignee ||
+    current.label || current.dueFrom || current.dueTo || current.cfField
+  )
+
+  const cfDef = customFields.find(f => f.id === current.cfField) ?? null
 
   // Construye la URL preservando la vista actual y el resto de filtros.
-  function buildUrl(patch: Partial<typeof current> & { view?: string }): string {
+  function buildUrl(patch: Partial<CurrentFilters> & { view?: string }): string {
     const params = new URLSearchParams()
     const view = patch.view ?? currentView
     if (view && view !== 'list') params.set('view', view)
-    const status = 'status' in patch ? patch.status : current.status
-    const priority = 'priority' in patch ? patch.priority : current.priority
-    const assignee = 'assignee' in patch ? patch.assignee : current.assignee
-    if (status) params.set('status', status)
-    if (priority) params.set('priority', priority)
-    if (assignee) params.set('assignee', assignee)
+    const get = (k: keyof CurrentFilters) => (k in patch ? patch[k] : current[k])
+    const map: [string, keyof CurrentFilters][] = [
+      ['status', 'status'], ['priority', 'priority'], ['assignee', 'assignee'],
+      ['label', 'label'], ['due_from', 'dueFrom'], ['due_to', 'dueTo'],
+      ['cf_field', 'cfField'], ['cf_value', 'cfValue'],
+    ]
+    for (const [param, key] of map) {
+      const v = get(key)
+      if (v) params.set(param, v)
+    }
     const qs = params.toString()
     return qs ? `${basePath}?${qs}` : basePath
   }
 
-  function setFilter(key: 'status' | 'priority' | 'assignee', value: string) {
+  function setFilter(key: keyof CurrentFilters, value: string) {
     router.push(buildUrl({ [key]: value || undefined }))
   }
 
+  // Al cambiar el campo personalizado, resetea su valor (tipos incompatibles).
+  function setCfField(value: string) {
+    router.push(buildUrl({ cfField: value || undefined, cfValue: undefined }))
+  }
+
   function clearAll() {
-    router.push(buildUrl({ status: undefined, priority: undefined, assignee: undefined }))
+    router.push(buildUrl({
+      status: undefined, priority: undefined, assignee: undefined,
+      label: undefined, dueFrom: undefined, dueTo: undefined,
+      cfField: undefined, cfValue: undefined,
+    }))
   }
 
   async function saveCurrent() {
@@ -100,6 +137,11 @@ export function TaskFilterBar({
             status: current.status,
             priority: current.priority,
             assignee: current.assignee,
+            label: current.label,
+            dueFrom: current.dueFrom,
+            dueTo: current.dueTo,
+            cfField: current.cfField,
+            cfValue: current.cfValue,
           },
         }),
       })
@@ -124,6 +166,11 @@ export function TaskFilterBar({
       status: v.filters.status,
       priority: v.filters.priority,
       assignee: v.filters.assignee,
+      label: v.filters.label,
+      dueFrom: v.filters.dueFrom,
+      dueTo: v.filters.dueTo,
+      cfField: v.filters.cfField,
+      cfValue: v.filters.cfValue,
     }))
   }
 
@@ -182,6 +229,98 @@ export function TaskFilterBar({
           <option key={m.id} value={m.id}>{m.display_name}</option>
         ))}
       </select>
+
+      {/* Filtro por etiqueta */}
+      {labels.length > 0 && (
+        <select
+          value={current.label ?? ''}
+          onChange={e => setFilter('label', e.target.value)}
+          className={selectClass}
+          aria-label="Filtrar por etiqueta"
+        >
+          <option value="">Etiqueta: todas</option>
+          {labels.map(l => (
+            <option key={l.id} value={l.id}>{l.name}</option>
+          ))}
+        </select>
+      )}
+
+      {/* Filtro por rango de fecha de vencimiento */}
+      <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+        Vence
+        <input
+          type="date"
+          value={current.dueFrom ?? ''}
+          onChange={e => setFilter('dueFrom', e.target.value)}
+          className={selectClass}
+          aria-label="Vence desde"
+          title="Vence desde"
+        />
+        a
+        <input
+          type="date"
+          value={current.dueTo ?? ''}
+          onChange={e => setFilter('dueTo', e.target.value)}
+          className={selectClass}
+          aria-label="Vence hasta"
+          title="Vence hasta"
+        />
+      </label>
+
+      {/* Filtro por valor de campo personalizado */}
+      {customFields.length > 0 && (
+        <>
+          <select
+            value={current.cfField ?? ''}
+            onChange={e => setCfField(e.target.value)}
+            className={selectClass}
+            aria-label="Filtrar por campo personalizado"
+          >
+            <option value="">Campo: (ninguno)</option>
+            {customFields.map(f => (
+              <option key={f.id} value={f.id}>Campo: {f.name}</option>
+            ))}
+          </select>
+
+          {cfDef && (
+            (cfDef.field_type === 'select' || cfDef.field_type === 'multi_select') ? (
+              <select
+                value={current.cfValue ?? ''}
+                onChange={e => setFilter('cfValue', e.target.value)}
+                className={selectClass}
+                aria-label="Valor del campo"
+              >
+                <option value="">(cualquiera)</option>
+                {cfDef.options.map(o => (
+                  <option key={o.id} value={o.id}>{o.label}</option>
+                ))}
+              </select>
+            ) : cfDef.field_type === 'checkbox' ? (
+              <select
+                value={current.cfValue ?? ''}
+                onChange={e => setFilter('cfValue', e.target.value)}
+                className={selectClass}
+                aria-label="Valor del campo"
+              >
+                <option value="">(cualquiera)</option>
+                <option value="true">Si</option>
+                <option value="false">No</option>
+              </select>
+            ) : (
+              <select
+                value={current.cfValue ?? ''}
+                onChange={e => setFilter('cfValue', e.target.value)}
+                className={selectClass}
+                aria-label="Valor del campo"
+              >
+                <option value="">(cualquiera)</option>
+                <option value="__has__">Con valor</option>
+                <option value="__empty__">Sin valor</option>
+              </select>
+            )
+          )}
+        </>
+      )}
 
       {hasFilters && (
         <button

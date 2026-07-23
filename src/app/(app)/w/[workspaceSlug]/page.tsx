@@ -349,6 +349,12 @@ export default async function WorkspaceDashboardPage({
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Actividad
             </h2>
+            <Link
+              href={`/w/${params.workspaceSlug}/activity`}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Ver toda la actividad →
+            </Link>
           </div>
 
           {!recentActivity || recentActivity.length === 0 ? (

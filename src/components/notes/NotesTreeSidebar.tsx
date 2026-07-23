@@ -800,6 +800,14 @@ function SimpleRow({
 }
 
 // ── Tree node ───────────────────────────────────────────────────────────────
+// NOTA (virtualizacion, deliberadamente omitida): este arbol es recursivo y con
+// estado por nodo (expand/collapse desde localStorage) mas drag & drop de
+// @dnd-kit (cada TreeNode registra useDraggable + useDroppable). Virtualizar con
+// useVirtualizer exigiria aplanar el arbol visible a una lista lineal en cada
+// render y re-cablear los refs de dnd por fila, lo que rompe el reparentado por
+// arrastre y el resaltado de drop target. El costo de romperlo supera al
+// beneficio (la barra lateral rara vez pasa de unas decenas de nodos visibles a
+// la vez, ya que los colapsados no se montan). Se deja como esfuerzo aparte.
 function TreeNode({
   node, depth, expanded, toggleExpanded, currentNoteId, workspaceSlug,
   onCreateChild, creatingUnder, onToggleFav, favs,

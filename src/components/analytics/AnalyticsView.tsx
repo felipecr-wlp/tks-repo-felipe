@@ -20,12 +20,17 @@ import {
   CheckCircle2,
   BarChart3,
   TrendingDown,
+  Clock,
+  Users,
+  FolderKanban,
 } from 'lucide-react'
 import type {
   ThroughputWeek,
   CycleTime,
   VelocitySprint,
   BurndownPoint,
+  TimeRollup,
+  TimeRollupRow,
 } from '@/app/(app)/w/[workspaceSlug]/analytics/page'
 
 // ── Utilidades de formato ────────────────────────────────────────────────────
@@ -350,6 +355,114 @@ function BurndownChart({
   )
 }
 
+// ── Barras horizontales de un desglose de tiempo ─────────────────────────────
+function TimeBreakdown({
+  title,
+  icon,
+  rows,
+  emptyMessage,
+}: {
+  title: string
+  icon: React.ReactNode
+  rows: TimeRollupRow[]
+  emptyMessage: string
+}) {
+  const top = rows.slice(0, 8)
+  const maxHours = Math.max(1, ...top.map((r) => r.hours))
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 shadow-soft">
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-muted-foreground">{icon}</span>
+        <h3 className="text-sm font-medium text-foreground">{title}</h3>
+        <span className="ml-auto text-[11px] text-muted-foreground">horas registradas</span>
+      </div>
+
+      {top.length === 0 ? (
+        <p className="text-xs text-muted-foreground py-6 text-center">{emptyMessage}</p>
+      ) : (
+        <div className="space-y-2.5">
+          {top.map((r) => {
+            const pct = (r.hours / maxHours) * 100
+            return (
+              <div key={r.id} className="flex items-center gap-3">
+                <span className="w-32 flex-shrink-0 text-xs text-foreground truncate" title={r.name}>
+                  {r.name}
+                </span>
+                <div className="flex-1 h-4 rounded bg-muted/60 overflow-hidden">
+                  <div
+                    className="h-full rounded bg-primary/80"
+                    style={{ width: `${Math.max(pct, 2)}%` }}
+                    title={`${round1(r.hours)} h`}
+                  />
+                </div>
+                <span className="w-14 flex-shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                  {round1(r.hours)} h
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Seccion de time tracking (rollup de time_entries) ────────────────────────
+function TimeTrackingSection({
+  rollup,
+  days,
+}: {
+  rollup: TimeRollup
+  days: number
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          icon={<Clock className="w-4 h-4" />}
+          label="Horas registradas"
+          value={`${round1(rollup.totalHours)} h`}
+          hint={`últimos ${days} días`}
+        />
+        <StatCard
+          icon={<Activity className="w-4 h-4" />}
+          label="Entradas de tiempo"
+          value={rollup.entryCount.toLocaleString('es-MX')}
+          hint={`en ${days} días`}
+        />
+        <StatCard
+          icon={<Users className="w-4 h-4" />}
+          label="Personas activas"
+          value={rollup.byPerson.length.toLocaleString('es-MX')}
+          hint="con tiempo registrado"
+        />
+        <StatCard
+          icon={<FolderKanban className="w-4 h-4" />}
+          label="Proyectos con tiempo"
+          value={rollup.byProject.length.toLocaleString('es-MX')}
+          hint="con tiempo registrado"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <TimeBreakdown
+          title="Tiempo por persona"
+          icon={<Users className="w-4 h-4" />}
+          rows={rollup.byPerson}
+          emptyMessage="Nadie ha registrado tiempo en el periodo."
+        />
+        <TimeBreakdown
+          title="Tiempo por proyecto"
+          icon={<FolderKanban className="w-4 h-4" />}
+          rows={rollup.byProject}
+          emptyMessage="Aún no hay tiempo registrado por proyecto."
+        />
+      </div>
+    </div>
+  )
+}
+
 // ── Vista principal ──────────────────────────────────────────────────────────
 export function AnalyticsView({
   workspaceName,
@@ -360,6 +473,8 @@ export function AnalyticsView({
   velocity,
   burndown,
   activeSprintName,
+  timeRollup,
+  timeDays,
 }: {
   workspaceName: string
   weeks: number
@@ -369,6 +484,8 @@ export function AnalyticsView({
   velocity: VelocitySprint[]
   burndown: BurndownPoint[]
   activeSprintName: string | null
+  timeRollup: TimeRollup
+  timeDays: number
 }) {
   const totalTasks = throughput.reduce((sum, w) => sum + w.tasks_done, 0)
 
@@ -418,6 +535,18 @@ export function AnalyticsView({
 
       {/* Burndown del sprint activo */}
       <BurndownChart points={burndown} sprintName={activeSprintName} />
+
+      {/* Tiempo registrado (time tracking) */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Clock className="w-4 h-4 text-muted-foreground" />
+          <h2 className="text-lg font-semibold text-foreground">Tiempo registrado</h2>
+          <span className="ml-auto text-[11px] text-muted-foreground">
+            últimos {timeDays} días
+          </span>
+        </div>
+        <TimeTrackingSection rollup={timeRollup} days={timeDays} />
+      </div>
     </div>
   )
 }

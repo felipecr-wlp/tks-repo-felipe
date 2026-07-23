@@ -4,8 +4,9 @@
  * Vista de lista de tareas, muestra tareas agrupadas por estado.
  * Permite crear tareas inline y cambiar estado/prioridad.
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { toast } from 'sonner'
 import { ListTodo, Search, X, Layers, Filter, CheckCircle2, AlertTriangle, CalendarClock } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -249,6 +250,54 @@ export function TaskListView({
     router.refresh()
   }
 
+  // ── Virtualizacion ──────────────────────────────────────────────────────────
+  // La lista agrupada se aplana en un solo arreglo de filas (encabezado de grupo,
+  // fila de tarea, crear inline) para virtualizarla con una sola ventana de
+  // scroll. Asi el numero de filas montadas no depende del total de tareas.
+  // Un grupo colapsado aporta solo su encabezado. La altura de cada fila varia
+  // (etiquetas, campos personalizados que envuelven), por eso se mide en vivo.
+  type FlatRow =
+    | { kind: 'header'; group: RenderGroup; isCollapsed: boolean }
+    | { kind: 'task'; task: Task; group: RenderGroup }
+    | { kind: 'create'; group: RenderGroup }
+
+  const flatRows: FlatRow[] = []
+  for (const group of groups) {
+    // Durante una busqueda/filtro activo, ocultar grupos sin coincidencias.
+    if ((q !== '' || filterFieldId) && group.tasks.length === 0) continue
+    const isCollapsed = collapsedGroups.has(group.key)
+    flatRows.push({ kind: 'header', group, isCollapsed })
+    if (isCollapsed) continue
+    for (const task of group.tasks) flatRows.push({ kind: 'task', task, group })
+    const isDoneCategory = group.status?.category === 'done'
+    // Crear tarea inline: solo en modo estado, no-done, sin busqueda/filtro.
+    if (group.status && !isDoneCategory && q === '' && !filterFieldId) {
+      flatRows.push({ kind: 'create', group })
+    }
+  }
+  // Solo se muestra la region de grupos si no hay busqueda sin coincidencias.
+  const showGroups = q === '' || visibleTasks.length > 0
+
+  const scrollParentRef = useRef<HTMLDivElement | null>(null)
+  const rowVirtualizer = useVirtualizer({
+    count: flatRows.length,
+    getScrollElement: () => scrollParentRef.current,
+    // Estimacion inicial; la medida real la toma measureElement por fila.
+    estimateSize: (index: number) => {
+      const r = flatRows[index]
+      if (r.kind === 'header') return 32
+      if (r.kind === 'create') return 40
+      return 44
+    },
+    getItemKey: (index: number) => {
+      const r = flatRows[index]
+      if (r.kind === 'header') return `h:${r.group.key}`
+      if (r.kind === 'create') return `c:${r.group.key}`
+      return `t:${r.task.id}`
+    },
+    overscan: 8,
+  })
+
   return (
     <div className="px-6 py-4">
       {/* Panel de detalle de tarea */}
@@ -413,76 +462,92 @@ export function TaskListView({
         </div>
       )}
 
-      {/* Grupos de tareas (por estado o por campo personalizado) */}
-      {(q === '' || visibleTasks.length > 0) && groups.map(group => {
-        const isCollapsed = collapsedGroups.has(group.key)
-        const isDoneCategory = group.status?.category === 'done'
-
-        // Durante una búsqueda/filtro activo, ocultar grupos sin coincidencias.
-        if ((q !== '' || filterFieldId) && group.tasks.length === 0) return null
-
-        return (
-          <div key={group.key} className="mb-6">
-            {/* Header del grupo */}
-            <div className="flex items-center gap-2 mb-1.5 group/header">
-              <button
-                onClick={() => toggleGroup(group.key)}
-                className="flex items-center gap-2 text-sm font-medium hover:text-foreground transition-colors"
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  className={cn('text-muted-foreground transition-transform', isCollapsed ? '-rotate-90' : '')}
+      {/* Grupos de tareas (por estado o por campo personalizado), virtualizados.
+          El contenedor tiene altura acotada (una sola ventana de scroll) y solo
+          monta las filas visibles + overscan, sin importar cuantas tareas haya. */}
+      {showGroups && flatRows.length > 0 && (
+        <div
+          ref={scrollParentRef}
+          className="overflow-y-auto"
+          style={{ maxHeight: 'calc(100vh - 220px)' }}
+        >
+          <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
+            {rowVirtualizer.getVirtualItems().map(vi => {
+              const row = flatRows[vi.index]
+              return (
+                <div
+                  key={vi.key}
+                  data-index={vi.index}
+                  ref={rowVirtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${vi.start}px)`,
+                  }}
                 >
-                  <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <span
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: group.color ?? '#94a3b8' }}
-                />
-                <span className="text-foreground">{group.label}</span>
-                <span className="text-xs text-muted-foreground font-normal">
-                  {group.tasks.length}
-                </span>
-              </button>
-            </div>
+                  {row.kind === 'header' && (
+                    <div className="flex items-center gap-2 pt-4 pb-1.5 group/header">
+                      <button
+                        onClick={() => toggleGroup(row.group.key)}
+                        className="flex items-center gap-2 text-sm font-medium hover:text-foreground transition-colors"
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          className={cn('text-muted-foreground transition-transform', row.isCollapsed ? '-rotate-90' : '')}
+                        >
+                          <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <span
+                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: row.group.color ?? '#94a3b8' }}
+                        />
+                        <span className="text-foreground">{row.group.label}</span>
+                        <span className="text-xs text-muted-foreground font-normal">
+                          {row.group.tasks.length}
+                        </span>
+                      </button>
+                    </div>
+                  )}
 
-            {/* Tareas del grupo */}
-            {!isCollapsed && (
-              <div className="space-y-0.5">
-                {group.tasks.map(task => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    statuses={statuses}
-                    members={members}
-                    currentUserId={currentUserId}
-                    onUpdated={handleTaskUpdated}
-                    onDeleted={handleTaskDeleted}
-                    onOpen={() => setSelectedTaskId(task.id)}
-                    selected={selectedIds.has(task.id)}
-                    selectionActive={selectedIds.size > 0}
-                    onToggleSelect={toggleSelect}
-                    customFields={customFields}
-                    customValues={customValues[task.id]}
-                  />
-                ))}
+                  {row.kind === 'task' && (
+                    <div className="py-[1px]">
+                      <TaskItem
+                        task={row.task}
+                        statuses={statuses}
+                        members={members}
+                        currentUserId={currentUserId}
+                        onUpdated={handleTaskUpdated}
+                        onDeleted={handleTaskDeleted}
+                        onOpen={() => setSelectedTaskId(row.task.id)}
+                        selected={selectedIds.has(row.task.id)}
+                        selectionActive={selectedIds.size > 0}
+                        onToggleSelect={toggleSelect}
+                        customFields={customFields}
+                        customValues={customValues[row.task.id]}
+                      />
+                    </div>
+                  )}
 
-                {/* Crear tarea inline: solo en modo estado, no-done, sin búsqueda/filtro */}
-                {group.status && !isDoneCategory && q === '' && !filterFieldId && (
-                  <CreateTaskInline
-                    projectId={projectId}
-                    statusId={group.status.id}
-                    onCreated={handleTaskCreated}
-                  />
-                )}
-              </div>
-            )}
+                  {row.kind === 'create' && row.group.status && (
+                    <div className="pb-4">
+                      <CreateTaskInline
+                        projectId={projectId}
+                        statusId={row.group.status.id}
+                        onCreated={handleTaskCreated}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
-        )
-      })}
+        </div>
+      )}
 
       {/* Mensaje vacío total */}
       {tasks.length === 0 && (

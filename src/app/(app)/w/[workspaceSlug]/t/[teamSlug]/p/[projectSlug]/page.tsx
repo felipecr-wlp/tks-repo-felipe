@@ -6,9 +6,10 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { resolveProjectForViewer } from '@/lib/team-access'
-import { LayoutDashboard, Zap, GanttChartSquare } from 'lucide-react'
+import { LayoutDashboard, Zap, GanttChartSquare, Table2 } from 'lucide-react'
 import { ProjectIcon } from '@/lib/project-icons'
 import { TaskListView } from '@/components/tasks/TaskListView'
+import { TaskTableView } from '@/components/tasks/TaskTableView'
 import { TaskCalendarView } from '@/components/tasks/TaskCalendarView'
 import { TaskTimelineView } from '@/components/tasks/TaskTimelineView'
 import { TaskWorkloadView } from '@/components/tasks/TaskWorkloadView'
@@ -43,7 +44,10 @@ interface ProjectPageProps {
     teamSlug: string
     projectSlug: string
   }
-  searchParams: { view?: string; status?: string; assignee?: string; priority?: string; task?: string }
+  searchParams: {
+    view?: string; status?: string; assignee?: string; priority?: string; task?: string
+    label?: string; due_from?: string; due_to?: string; cf_field?: string; cf_value?: string
+  }
 }
 
 type StatusRow = {
@@ -109,6 +113,43 @@ export default async function ProjectPage({
     .eq('project_id', project.id)
     .order('position', { ascending: true }) as { data: StatusRow[] | null; error: unknown }
 
+  // ── Pre-resolucion de filtros por relacion (etiqueta y campo personalizado) ─
+  // Estos viven en tablas puente; se resuelven a un set de task_ids que luego
+  // acota la consulta principal con .in('id', ...). Interseccion cuando ambos
+  // filtros estan activos.
+  const idSets: string[][] = []
+
+  if (searchParams.label) {
+    const { data: lblRows } = await admin
+      .from('task_labels')
+      .select('task_id')
+      .eq('label_id', searchParams.label) as { data: { task_id: string }[] | null; error: unknown }
+    idSets.push((lblRows ?? []).map(r => r.task_id))
+  }
+
+  if (searchParams.cf_field && searchParams.cf_value) {
+    const { data: cfRows } = await admin
+      .from('task_custom_field_values')
+      .select('task_id, value')
+      .eq('project_id', project.id)
+      .eq('field_id', searchParams.cf_field) as { data: { task_id: string; value: unknown }[] | null; error: unknown }
+    const val = searchParams.cf_value
+    const matchIds = (cfRows ?? []).filter(r => {
+      if (val === '__has__') return r.value !== null && r.value !== undefined && r.value !== '' && !(Array.isArray(r.value) && r.value.length === 0)
+      if (val === '__empty__') return r.value === null || r.value === undefined || r.value === '' || (Array.isArray(r.value) && r.value.length === 0)
+      if (val === 'true') return r.value === true
+      if (val === 'false') return r.value !== true
+      if (Array.isArray(r.value)) return r.value.includes(val)
+      return r.value === val
+    }).map(r => r.task_id)
+    idSets.push(matchIds)
+  }
+
+  // Interseccion de los sets de filtros por relacion (null = sin filtro de este tipo).
+  const filterTaskIds: string[] | null = idSets.length === 0
+    ? null
+    : idSets.reduce((acc, ids) => acc.filter(id => ids.includes(id)))
+
   // ── Cargar tareas (paginado: 50 max, egress optimizado) ───────────────────
   let query = admin
     .from('tasks')
@@ -140,6 +181,17 @@ export default async function ProjectPage({
   }
   if (searchParams.assignee) {
     query = query.eq('assignee_id', searchParams.assignee)
+  }
+  if (searchParams.due_from) {
+    query = query.gte('due_date', searchParams.due_from)
+  }
+  if (searchParams.due_to) {
+    query = query.lte('due_date', searchParams.due_to)
+  }
+  if (filterTaskIds !== null) {
+    // Acotar a las tareas que pasaron los filtros por relacion. Si el set quedo
+    // vacio, forzar cero resultados (id imposible) en vez de ignorar el filtro.
+    query = query.in('id', filterTaskIds.length > 0 ? filterTaskIds : ['00000000-0000-0000-0000-000000000000'])
   }
 
   const { data: tasksRaw } = await query as { data: TaskRowRaw[] | null; error: unknown }
@@ -214,6 +266,48 @@ export default async function ProjectPage({
     .eq('project_id', project.id)
     .eq('profile_id', userId)
     .order('created_at', { ascending: true }) as { data: SavedViewRow[] | null; error: unknown }
+
+  // ── Etiquetas del proyecto (para filtro y accion masiva "agregar etiqueta") ─
+  type LabelRow = { id: string; name: string; color: string }
+  const { data: projectLabels } = await admin
+    .from('labels')
+    .select('id, name, color')
+    .eq('project_id', project.id)
+    .order('name', { ascending: true }) as { data: LabelRow[] | null; error: unknown }
+
+  // ── Definiciones de campos personalizados (para el filtro por campo) ────────
+  type CfDefRow = {
+    id: string; name: string
+    field_type: 'text' | 'number' | 'currency' | 'date' | 'checkbox' | 'url' | 'select' | 'multi_select'
+    options: { id: string; label: string; color?: string }[] | null
+  }
+  const { data: cfDefs } = await admin
+    .from('custom_field_definitions')
+    .select('id, name, field_type, options')
+    .eq('project_id', project.id)
+    .order('position', { ascending: true }) as { data: CfDefRow[] | null; error: unknown }
+
+  const customFieldDefs = (cfDefs ?? []).map(f => ({
+    id: f.id, name: f.name, field_type: f.field_type, options: f.options ?? [],
+  }))
+
+  // ── Sprints activos del equipo (para accion masiva "agregar a sprint") ──────
+  type SprintRow2 = { id: string; name: string; status: string }
+  const { data: teamSprints } = await admin
+    .from('sprints')
+    .select('id, name, status')
+    .eq('team_id', project.team_id)
+    .neq('status', 'completed')
+    .order('created_at', { ascending: false }) as { data: SprintRow2[] | null; error: unknown }
+
+  // ── Proyectos hermanos del equipo (para accion masiva "mover a proyecto") ───
+  type SiblingProjectRow = { id: string; name: string; icon: string | null }
+  const { data: siblingProjects } = await admin
+    .from('projects')
+    .select('id, name, icon')
+    .eq('team_id', project.team_id)
+    .eq('is_archived', false)
+    .order('name', { ascending: true }) as { data: SiblingProjectRow[] | null; error: unknown }
 
   const currentView = searchParams.view ?? 'list'
   const basePath = `/w/${params.workspaceSlug}/t/${params.teamSlug}/p/${params.projectSlug}`
@@ -309,6 +403,7 @@ export default async function ProjectPage({
         {/* Tabs de vista con subrayado */}
         <nav className="flex items-center gap-1 mt-1 overflow-x-auto scrollbar-none" aria-label="Vistas del proyecto">
           <ViewToggle href={`${basePath}?view=list`} active={currentView === 'list'} label="Lista" icon={<ListIcon />} />
+          <ViewToggle href={`${basePath}?view=table`} active={currentView === 'table'} label="Tabla" icon={<Table2 className="w-[13px] h-[13px]" />} />
           <ViewToggle href={`${basePath}?view=board`} active={currentView === 'board'} label="Tablero" icon={<BoardIcon />} />
           <ViewToggle href={`${basePath}?view=calendar`} active={currentView === 'calendar'} label="Calendario" icon={<CalIcon />} />
           <ViewToggle href={`${basePath}?view=timeline`} active={currentView === 'timeline'} label="Cronograma" icon={<GanttChartSquare className="w-[13px] h-[13px]" />} />
@@ -328,10 +423,17 @@ export default async function ProjectPage({
           currentView={currentView}
           statuses={statuses ?? []}
           members={memberProfiles}
+          labels={projectLabels ?? []}
+          customFields={customFieldDefs}
           current={{
             status: searchParams.status,
             priority: searchParams.priority,
             assignee: searchParams.assignee,
+            label: searchParams.label,
+            dueFrom: searchParams.due_from,
+            dueTo: searchParams.due_to,
+            cfField: searchParams.cf_field,
+            cfValue: searchParams.cf_value,
           }}
           savedViews={savedViews ?? []}
         />
@@ -371,6 +473,18 @@ export default async function ProjectPage({
               No tienes permiso para administrar las reglas de este proyecto.
             </div>
           )
+        ) : currentView === 'table' ? (
+          <TaskTableView
+            projectId={project.id}
+            tasks={tasks ?? []}
+            statuses={statuses ?? []}
+            members={memberProfiles}
+            currentUserId={userId}
+            initialTaskId={searchParams.task}
+            labels={projectLabels ?? []}
+            sprints={teamSprints ?? []}
+            projects={siblingProjects ?? []}
+          />
         ) : currentView === 'board' ? (
           <KanbanBoard
             projectId={project.id}

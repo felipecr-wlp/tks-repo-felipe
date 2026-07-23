@@ -4,22 +4,39 @@
  * Barra flotante de acciones masivas.
  *
  * Aparece anclada al fondo cuando hay una o mas tareas seleccionadas en la lista.
- * Ofrece cambiar estado, prioridad o asignado, y eliminar (archivar) en lote.
- * Delega la mutacion al endpoint /api/projects/[projectId]/tasks/bulk y avisa al
- * padre para limpiar la seleccion y refrescar.
+ * Ofrece cambiar estado, prioridad o asignado, y eliminar (archivar) en lote via
+ * el endpoint /api/projects/[projectId]/tasks/bulk.
+ *
+ * Acciones extendidas (fijar fecha, agregar a sprint, agregar etiqueta, mover a
+ * proyecto) NO tienen soporte en el endpoint bulk, asi que se aplican por-tarea
+ * con Promise.all sobre los endpoints existentes:
+ *  - fijar fecha  -> PATCH /api/tasks/[id]      (campo due_date)
+ *  - a sprint     -> PATCH /api/tasks/[id]      (campo sprint_id)
+ *  - etiqueta     -> POST  /api/tasks/[id]/labels
+ *  - mover        -> PATCH /api/tasks/[id]      (campo project_id, ver nota)
+ * Las tres primeras se apoyan en campos/endpoints ya existentes. "Mover a
+ * proyecto" depende de que el PATCH de tarea acepte project_id (hoy el schema
+ * strict no lo incluye); se deja cableado por-tarea y se avisa al usuario si el
+ * server lo rechaza, sin inventar un endpoint nuevo.
  */
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
+import { promptDialog } from '@/components/PromptDialog'
 import {
   ChevronsUp, ChevronUp, Equal, ChevronDown, Minus,
-  CircleDot, User, Trash2, X, Loader2, type LucideIcon,
+  CircleDot, User, Trash2, X, Loader2, CalendarClock, Tag, Zap, FolderInput,
+  type LucideIcon,
 } from 'lucide-react'
+import { ProjectIcon } from '@/lib/project-icons'
 import { cn, getInitials } from '@/lib/utils'
 
 interface Status { id: string; name: string; color: string | null; category: string; position?: number }
 interface Member { id: string; display_name: string; avatar_url: string | null }
+interface Label { id: string; name: string; color: string }
+interface Sprint { id: string; name: string; status: string }
+interface SiblingProject { id: string; name: string; icon: string | null }
 
 interface BulkActionBarProps {
   projectId: string
@@ -28,6 +45,11 @@ interface BulkActionBarProps {
   members: Member[]
   onClear: () => void
   onApplied: () => void
+  // Datos opcionales para las acciones extendidas. Si no vienen, esa accion se
+  // oculta (degrada de forma segura en vistas que aun no los pasan).
+  labels?: Label[]
+  sprints?: Sprint[]
+  projects?: SiblingProject[]
 }
 
 type BulkAction =
@@ -51,11 +73,96 @@ export function BulkActionBar({
   members,
   onClear,
   onApplied,
+  labels,
+  sprints,
+  projects,
 }: BulkActionBarProps) {
-  const [menu, setMenu] = useState<null | 'status' | 'priority' | 'assignee'>(null)
+  const [menu, setMenu] = useState<null | 'status' | 'priority' | 'assignee' | 'sprint' | 'label' | 'project'>(null)
   const [busy, setBusy] = useState(false)
 
   const count = selectedIds.length
+
+  // ── Acciones por-tarea (sin soporte en el endpoint bulk) ──────────────────
+  // Aplica el mismo cambio a cada tarea seleccionada en paralelo (Promise.all)
+  // usando los endpoints existentes. Reporta cuantas fallaron, si aplica.
+  async function applyPerTask(
+    label: string,
+    fn: (taskId: string) => Promise<Response>,
+  ) {
+    setMenu(null)
+    setBusy(true)
+    try {
+      const results = await Promise.allSettled(selectedIds.map(fn))
+      const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok)).length
+      const ok = selectedIds.length - failed
+      if (ok > 0) toast.success(`${ok} ${ok === 1 ? 'tarea actualizada' : 'tareas actualizadas'} (${label})`)
+      if (failed > 0) toast.error(`${failed} ${failed === 1 ? 'tarea fallo' : 'tareas fallaron'}`)
+      onApplied()
+    } catch {
+      toast.error('No se pudo aplicar')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Fijar fecha de vencimiento (PATCH due_date, ISO datetime).
+  async function setDueDate() {
+    const value = await promptDialog({
+      title: 'Fijar fecha de vencimiento',
+      label: 'Fecha (AAAA-MM-DD), vacio para quitar',
+      placeholder: '2026-08-15',
+      confirmLabel: 'Aplicar',
+    })
+    if (value === null) return
+    const trimmed = value.trim()
+    const dueIso = trimmed ? new Date(trimmed + 'T00:00:00').toISOString() : null
+    if (trimmed && Number.isNaN(Date.parse(dueIso as string))) {
+      toast.error('Fecha invalida')
+      return
+    }
+    await applyPerTask('fecha', taskId =>
+      fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ due_date: dueIso }),
+      }),
+    )
+  }
+
+  // Agregar a sprint (PATCH sprint_id).
+  async function addToSprint(sprintId: string | null) {
+    await applyPerTask('sprint', taskId =>
+      fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sprint_id: sprintId }),
+      }),
+    )
+  }
+
+  // Agregar etiqueta (POST /labels, idempotente en el server).
+  async function addLabel(labelId: string) {
+    await applyPerTask('etiqueta', taskId =>
+      fetch(`/api/tasks/${taskId}/labels`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labelId }),
+      }),
+    )
+  }
+
+  // Mover a proyecto (PATCH project_id). Ver nota de cabecera: si el server lo
+  // rechaza (schema strict sin project_id), applyPerTask lo reporta como fallo.
+  async function moveToProject(targetProjectId: string) {
+    if (targetProjectId === projectId) { setMenu(null); return }
+    await applyPerTask('proyecto', taskId =>
+      fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: targetProjectId }),
+      }),
+    )
+  }
 
   async function apply(action: BulkAction) {
     setMenu(null)
@@ -173,6 +280,87 @@ export function BulkActionBar({
             </FloatMenu>
           )}
         </div>
+
+        {/* Fijar fecha */}
+        <BarButton
+          icon={<CalendarClock className="w-3.5 h-3.5" />}
+          label="Fecha"
+          onClick={setDueDate}
+          disabled={busy}
+        />
+
+        {/* Agregar etiqueta */}
+        {labels && labels.length > 0 && (
+          <div className="relative">
+            <BarButton
+              icon={<Tag className="w-3.5 h-3.5" />}
+              label="Etiqueta"
+              active={menu === 'label'}
+              onClick={() => setMenu(menu === 'label' ? null : 'label')}
+              disabled={busy}
+            />
+            {menu === 'label' && (
+              <FloatMenu onClose={() => setMenu(null)}>
+                {labels.map(l => (
+                  <MenuItem key={l.id} onClick={() => addLabel(l.id)}>
+                    <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: l.color }} />
+                    <span className="truncate">{l.name}</span>
+                  </MenuItem>
+                ))}
+              </FloatMenu>
+            )}
+          </div>
+        )}
+
+        {/* Agregar a sprint */}
+        {sprints && sprints.length > 0 && (
+          <div className="relative">
+            <BarButton
+              icon={<Zap className="w-3.5 h-3.5" />}
+              label="Sprint"
+              active={menu === 'sprint'}
+              onClick={() => setMenu(menu === 'sprint' ? null : 'sprint')}
+              disabled={busy}
+            />
+            {menu === 'sprint' && (
+              <FloatMenu onClose={() => setMenu(null)}>
+                <MenuItem onClick={() => addToSprint(null)}>
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-muted-foreground/40" />
+                  Quitar del sprint
+                </MenuItem>
+                {sprints.map(s => (
+                  <MenuItem key={s.id} onClick={() => addToSprint(s.id)}>
+                    <Zap className="w-3.5 h-3.5 flex-shrink-0 text-amber-500" />
+                    <span className="truncate">{s.name}</span>
+                  </MenuItem>
+                ))}
+              </FloatMenu>
+            )}
+          </div>
+        )}
+
+        {/* Mover a proyecto */}
+        {projects && projects.length > 1 && (
+          <div className="relative">
+            <BarButton
+              icon={<FolderInput className="w-3.5 h-3.5" />}
+              label="Mover"
+              active={menu === 'project'}
+              onClick={() => setMenu(menu === 'project' ? null : 'project')}
+              disabled={busy}
+            />
+            {menu === 'project' && (
+              <FloatMenu onClose={() => setMenu(null)}>
+                {projects.filter(p => p.id !== projectId).map(p => (
+                  <MenuItem key={p.id} onClick={() => moveToProject(p.id)}>
+                    <ProjectIcon icon={p.icon} size={14} className="text-muted-foreground flex-shrink-0" />
+                    <span className="truncate">{p.name}</span>
+                  </MenuItem>
+                ))}
+              </FloatMenu>
+            )}
+          </div>
+        )}
 
         <span className="w-px h-5 bg-border mx-0.5" />
 

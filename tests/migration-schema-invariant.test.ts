@@ -91,18 +91,14 @@ describe('Invariante RLS: ninguna policy se auto-referencia sin helper SECURITY 
 
   // KNOWN-RISK allowlist: policies self-referenciales PREEXISTENTES en el schema
   // canonico (20260421000000) que aun NO tienen fix. Son la MISMA clase de bomba
-  // 42P17 que workspace_members, pero sobre team_members / project_members, y su
-  // arreglo (helpers SECURITY DEFINER user_team_ids/user_project_ids) esta fuera
-  // del alcance de este cambio. Se listan EXPLICITAMENTE para que el riesgo sea
-  // visible y auditable, nunca un silencio. Al arreglarlas, borrar su entrada
-  // aqui y el test las volvera a proteger.
-  const KNOWN_RISK = new Set<string>([
-    'team_members_insert',
-    'team_members_delete',
-    'project_members_select',
-    'project_members_insert',
-    'project_members_delete',
-  ])
+  // 42P17 que workspace_members. HISTORICO: team_members_insert/_delete y
+  // project_members_select/_insert/_delete estuvieron aqui hasta que
+  // 20260722130000 los reescribio con helpers SECURITY DEFINER
+  // (user_admin_team_ids / user_project_ids / user_manager_project_ids). Al
+  // quedar la allowlist vacia, el lint vuelve a proteger esas cinco policies
+  // activamente. Si aparece otra policy self-referencial sin fix, agregarla aqui
+  // EXPLICITAMENTE (nunca un silencio) y borrarla al arreglarla.
+  const KNOWN_RISK = new Set<string>([])
 
   /**
    * Extrae los bloques CREATE POLICY ... hasta el ';' de cierre a nivel superior.
