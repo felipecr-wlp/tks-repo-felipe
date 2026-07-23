@@ -2,7 +2,7 @@
    Base extraida de C:/tmp/wlp_academy/index.html; desde 2026-07-22 se edita
    AQUI directamente. El curso SEM se dividio: publico (sem-google-ads) e
    interno de analista (sem-internal).
-   Cursos: 11 · Modulos: 43 · Lecciones: 133. */
+   Cursos: 12 · Modulos: 46 · Lecciones: 142. */
 import type { Course, ProfileMap } from './types';
 
 export const COURSES: Course[] = [
@@ -6057,6 +6057,331 @@ export const COURSES: Course[] = [
         ]
       }
     ]
+  },
+  {
+    "id": "onboarding",
+    "status": "live",
+    "lang": "es",
+    "icon": "users",
+    "accent": "#22D3EE",
+    "track": "RH y Gente",
+    "title": "Bienvenida e inducción",
+    "subtitle": "Tu primer curso: quiénes somos, cómo trabajamos en WLO y a quién acudir.",
+    "certName": "WLP Inducción",
+    "modules": [
+      {
+        "id": "m1",
+        "num": "01",
+        "icon": "users",
+        "dur": "15 min",
+        "title": "Quiénes somos y cómo trabajamos",
+        "tag": "Bienvenido. Antes de cualquier tarea, entiende qué hace WLP, qué valores nos rigen y cómo es tu primer día.",
+        "objectives": [
+          "Saber qué hace WLP y a quién sirve.",
+          "Conocer los valores con los que trabajamos.",
+          "Saber qué esperar en tu primer día."
+        ],
+        "lessons": [
+          {
+            "t": "Qué es WLP y a quién sirve",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "WLP (We Love Paving) es la empresa de pavimento; atiende clientes tanto residenciales como comerciales.",
+                  "No vendemos solo asfalto y concreto: vendemos un trabajo bien hecho, respaldado por garantía y buen servicio.",
+                  "El equipo trabaja de forma colaborativa dentro de WLO, tu espacio de trabajo digital.",
+                  "Cada rol (campo, estimación, ventas, marketing, finanzas, seguridad) aporta a que el cliente quede satisfecho y el trabajo sea rentable."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "info",
+                "ci": "shield",
+                "v": "Estás en la Academia, dentro de WLO. Aquí aprendes lo que necesitas para tu rol, a tu ritmo, con certificado al terminar cada curso."
+              }
+            ]
+          },
+          {
+            "t": "Nuestros valores y forma de trabajar",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "Seguridad primero: ningún trabajo vale una lesión (ve el curso de Seguridad de campo).",
+                  "Calidad y garantía: hacemos las cosas para que duren y respondemos por ellas.",
+                  "Cliente y comunicación clara: se avisa a tiempo, no se prometen cosas que no se cumplen.",
+                  "Dueño de tu trabajo: cada quien es responsable de su parte y la documenta."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "tip",
+                "ci": "lightbulb",
+                "v": "Cuando dudes cómo actuar, elige lo seguro, lo honesto y lo que cuida al cliente. Casi siempre esa es la respuesta correcta."
+              }
+            ]
+          },
+          {
+            "t": "Tu primer día: qué esperar",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "Recibes tus accesos y configuras tu cuenta de WLO.",
+                  "Conoces a tu líder y a tu equipo, y sabes a quién reportas.",
+                  "Repasas las reglas básicas de seguridad antes de pisar cualquier obra.",
+                  "Completas esta inducción y los cursos que tu rol requiera en la Academia."
+                ]
+              }
+            ]
+          }
+        ],
+        "quiz": [
+          {
+            "q": "¿A qué tipo de clientes atiende WLP?",
+            "opts": [
+              "Solo comerciales",
+              "Solo residenciales",
+              "Residenciales y comerciales",
+              "Solo gobierno"
+            ],
+            "a": 2,
+            "ex": "WLP atiende tanto residenciales como comerciales."
+          },
+          {
+            "q": "¿Cuál es el primer valor de la lista?",
+            "opts": [
+              "Velocidad a toda costa",
+              "Seguridad primero",
+              "Precio más bajo",
+              "Vender más"
+            ],
+            "a": 1,
+            "ex": "Seguridad primero: ningún trabajo vale una lesión."
+          },
+          {
+            "q": "¿Dónde trabaja el equipo de forma colaborativa?",
+            "opts": [
+              "Solo por correo",
+              "En WLO, el espacio de trabajo",
+              "En papel",
+              "En ningún lado"
+            ],
+            "a": 1,
+            "ex": "WLO es el espacio de trabajo digital del equipo."
+          }
+        ]
+      },
+      {
+        "id": "m2",
+        "num": "02",
+        "icon": "layers",
+        "dur": "20 min",
+        "title": "Tu espacio de trabajo: cómo usar WLO",
+        "tag": "WLO es donde vive tu trabajo diario: tareas, proyectos, documentación y esta Academia. Así te mueves en él.",
+        "objectives": [
+          "Entender qué es WLO y qué contiene.",
+          "Usar tareas, proyectos y tableros.",
+          "Encontrar Docs, SOPs y la Academia."
+        ],
+        "lessons": [
+          {
+            "t": "Qué es WLO y qué contiene",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "WLO es un espacio de trabajo colaborativo: reúne tareas, proyectos, documentación y capacitación en un solo lugar.",
+                  "Tu organización tiene equipos y departamentos; ves lo que corresponde a tu rol.",
+                  "La barra lateral te lleva a las secciones principales: tareas, proyectos, notas, Academia e inbox.",
+                  "Las notificaciones (inbox) te avisan de lo que requiere tu atención."
+                ]
+              }
+            ]
+          },
+          {
+            "t": "Tareas, proyectos y tableros",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "El trabajo se organiza en tareas dentro de proyectos; cada tarea tiene responsable, estado y fecha.",
+                  "El tablero muestra el avance por columnas (por hacer, en progreso, hecho).",
+                  "La vista Mis tareas junta lo que te toca a ti, agrupado por fecha.",
+                  "Comenta y menciona a compañeros en la tarea para dejar todo por escrito, no verbal."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "tip",
+                "ci": "lightbulb",
+                "v": "Si algo se acordó, va en la tarea o la nota. Lo que no queda escrito, se pierde."
+              }
+            ]
+          },
+          {
+            "t": "Docs, SOPs y la Academia",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "Las notas y Docs guardan el conocimiento del equipo, organizadas por departamento.",
+                  "Los SOPs (procesos) explican cómo se hace cada cosa; algunos piden tu acuse de lectura.",
+                  "La Academia (donde estás) tiene los cursos de tu rol; pides acceso y un admin lo aprueba.",
+                  "Al terminar un curso con buen puntaje obtienes un certificado."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "info",
+                "ci": "shield",
+                "v": "Si un SOP te pide acuse de lectura, hazlo: es la constancia de que conoces el proceso vigente."
+              }
+            ]
+          }
+        ],
+        "quiz": [
+          {
+            "q": "¿Qué es WLO?",
+            "opts": [
+              "Un correo",
+              "Un espacio de trabajo colaborativo con tareas, proyectos, docs y Academia",
+              "Una red social",
+              "Un banco"
+            ],
+            "a": 1,
+            "ex": "WLO reúne el trabajo, la documentación y la capacitación en un solo lugar."
+          },
+          {
+            "q": "¿Qué muestra la vista Mis tareas?",
+            "opts": [
+              "Las tareas de todos",
+              "Lo que te toca a ti, agrupado por fecha",
+              "Solo tareas hechas",
+              "Nada"
+            ],
+            "a": 1,
+            "ex": "Mis tareas junta lo tuyo, agrupado por fecha."
+          },
+          {
+            "q": "¿Cómo obtienes acceso a un curso de la Academia?",
+            "opts": [
+              "Te lo dan solo",
+              "Lo solicitas y un admin lo aprueba",
+              "No se puede",
+              "Pagas aparte"
+            ],
+            "a": 1,
+            "ex": "Pides acceso y un administrador lo aprueba."
+          }
+        ]
+      },
+      {
+        "id": "m3",
+        "num": "03",
+        "icon": "mic",
+        "dur": "15 min",
+        "title": "Comunicación, conducta y a quién acudir",
+        "tag": "Cómo nos comunicamos, cómo nos comportamos y dónde pedir ayuda cuando lo necesites.",
+        "objectives": [
+          "Comunicarte de forma clara y respetuosa.",
+          "Conocer las reglas básicas de conducta y confidencialidad.",
+          "Saber a quién acudir con dudas."
+        ],
+        "lessons": [
+          {
+            "t": "Comunicación en el equipo",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "Comunica a tiempo y por escrito lo importante; usa las tareas y notas de WLO, no solo la memoria.",
+                  "Responde tus notificaciones; si algo te bloquea, avísalo pronto en vez de callarlo.",
+                  "Sé claro y respetuoso: un mensaje directo y amable evita malentendidos.",
+                  "Si un acuerdo cambia, actualízalo donde vive, para que todos vean lo vigente."
+                ]
+              }
+            ]
+          },
+          {
+            "t": "Conducta y confidencialidad",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "Trato de respeto: cero acoso, discriminación o violencia; todos merecen un lugar de trabajo seguro.",
+                  "Los datos de clientes son confidenciales; no se comparten fuera de los sistemas autorizados.",
+                  "Usa los sistemas y equipos de la empresa de forma responsable y solo para el trabajo.",
+                  "Ante un conflicto de interés o algo que no se sienta correcto, decláralo en vez de esconderlo."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "info",
+                "ci": "shield",
+                "v": "La información del cliente es un activo de confianza. Manejarla mal daña al cliente y a WLP; en la duda, pregunta antes de compartir."
+              }
+            ]
+          },
+          {
+            "t": "Dudas, RH y siguientes pasos",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "Tu primer punto de contacto es tu líder directo; para temas de personal, acude a RH.",
+                  "Para aprender más, pide acceso a los cursos de tu rol en la Academia.",
+                  "Reporta de inmediato cualquier tema de seguridad, acoso o riesgo; siempre es válido levantar la mano.",
+                  "Nadie espera que lo sepas todo el día uno: preguntar es parte de hacerlo bien."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "tip",
+                "ci": "lightbulb",
+                "v": "Preguntar a tiempo cuesta un minuto; adivinar mal puede costar un job. Pregunta."
+              }
+            ]
+          }
+        ],
+        "quiz": [
+          {
+            "q": "¿Cómo se maneja la información de los clientes?",
+            "opts": [
+              "Se comparte libremente",
+              "Es confidencial; solo en los sistemas autorizados",
+              "Se publica",
+              "No importa"
+            ],
+            "a": 1,
+            "ex": "Los datos de cliente son confidenciales y no salen de los sistemas autorizados."
+          },
+          {
+            "q": "¿Quién es tu primer punto de contacto para dudas del trabajo?",
+            "opts": [
+              "Nadie",
+              "Tu líder directo",
+              "El cliente",
+              "La competencia"
+            ],
+            "a": 1,
+            "ex": "Tu líder directo es el primer contacto; RH para temas de personal."
+          },
+          {
+            "q": "Si algo te bloquea o no lo sabes, ¿qué haces?",
+            "opts": [
+              "Lo callas",
+              "Avisas y preguntas a tiempo",
+              "Adivinas",
+              "Lo dejas pasar"
+            ],
+            "a": 1,
+            "ex": "Avisar y preguntar a tiempo es parte de hacerlo bien."
+          }
+        ]
+      }
+    ]
   }
 ];
 
@@ -6064,6 +6389,7 @@ export const PROFILES: ProfileMap = {
   "comercial": {
     "label": "Comercial",
     "courses": [
+      "onboarding",
       "comercial",
       "paving-advisor",
       "seguridad",
@@ -6073,6 +6399,7 @@ export const PROFILES: ProfileMap = {
   "operaciones": {
     "label": "Operaciones",
     "courses": [
+      "onboarding",
       "operations",
       "seguridad",
       "legal-contracts"
@@ -6081,6 +6408,7 @@ export const PROFILES: ProfileMap = {
   "marketing": {
     "label": "Marketing",
     "courses": [
+      "onboarding",
       "marketing-platform",
       "seo",
       "sem-google-ads",
@@ -6090,6 +6418,7 @@ export const PROFILES: ProfileMap = {
   "finanzas": {
     "label": "Finanzas",
     "courses": [
+      "onboarding",
       "finance",
       "legal-contracts"
     ]
@@ -6097,6 +6426,7 @@ export const PROFILES: ProfileMap = {
   "sistemas": {
     "label": "Sistemas",
     "courses": [
+      "onboarding",
       "systems-crm"
     ]
   },
