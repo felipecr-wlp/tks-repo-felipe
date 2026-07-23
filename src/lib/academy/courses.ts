@@ -2,7 +2,7 @@
    Base extraida de C:/tmp/wlp_academy/index.html; desde 2026-07-22 se edita
    AQUI directamente. El curso SEM se dividio: publico (sem-google-ads) e
    interno de analista (sem-internal).
-   Cursos: 10 · Modulos: 39 · Lecciones: 121. */
+   Cursos: 11 · Modulos: 43 · Lecciones: 133. */
 import type { Course, ProfileMap } from './types';
 
 export const COURSES: Course[] = [
@@ -5566,6 +5566,497 @@ export const COURSES: Course[] = [
         ]
       }
     ]
+  },
+  {
+    "id": "seguridad",
+    "status": "live",
+    "lang": "es",
+    "icon": "shield",
+    "accent": "#EF4444",
+    "track": "Seguridad",
+    "title": "Seguridad de campo",
+    "subtitle": "Cómo se trabaja seguro en pavimento: EPP, sílice, asfalto caliente, zona de trabajo, calor y emergencias.",
+    "certName": "WLP Seguridad de Campo",
+    "modules": [
+      {
+        "id": "m1",
+        "num": "01",
+        "icon": "shield",
+        "dur": "20 min",
+        "title": "Fundamentos de seguridad y EPP",
+        "tag": "La regla de oro, el marco Cal/OSHA que rige a WLP y el equipo de protección correcto para cada tarea.",
+        "objectives": [
+          "Entender por qué la seguridad va primero y tu derecho a parar un trabajo inseguro.",
+          "Conocer el IIPP y el marco Cal/OSHA que rige a WLP.",
+          "Usar el EPP correcto según la tarea."
+        ],
+        "lessons": [
+          {
+            "t": "La regla de oro: nadie se lastima hoy",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "Ningún job, plazo ni cliente vale una lesión. La meta diaria es que todos vuelvan a casa completos.",
+                  "Tienes derecho a parar un trabajo que consideres inseguro sin represalia (Labor Code 6311 y 6310); reportar un riesgo nunca cuesta el empleo.",
+                  "Si ves un peligro, se dice en voz alta y se corrige antes de seguir; el silencio es lo que causa accidentes.",
+                  "La seguridad es responsabilidad de todos, no solo del líder de obra."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "warn",
+                "ci": "alert",
+                "v": "Regla dura: ante la duda, se para. Un lead que presiona a trabajar inseguro para ganar tiempo está exponiendo a la cuadrilla y a WLP."
+              }
+            ]
+          },
+          {
+            "t": "El marco: IIPP y Cal/OSHA",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "WLP opera bajo Cal/OSHA Title 8 CCR, el código de seguridad ocupacional de California.",
+                  "El IIPP (Programa de Prevención de Lesiones y Enfermedades) es obligatorio (Labor Code 6401.7, detallado en T8 CCR 3203): capacitación, inspección y corrección de riesgos.",
+                  "Cada tarea nueva o riesgosa merece una plática de seguridad corta (toolbox talk) antes de empezar.",
+                  "Los incidentes y los cuasi-accidentes (near miss) se reportan; sirven para prevenir el siguiente."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "info",
+                "ci": "shield",
+                "v": "El IIPP no es papeleo: es el motivo por el que hay agua, sombra, señalización y EPP en obra. Úsalo."
+              }
+            ]
+          },
+          {
+            "t": "EPP: tu primera línea de defensa",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "Ropa de alta visibilidad ANSI/ISEA 107 Clase 2 o 3 siempre que haya tráfico o equipo en movimiento.",
+                  "Botas de trabajo, casco cuando haya riesgo de golpe, y guantes según la tarea.",
+                  "Protección ocular al cortar, soplar o manejar químicos; protección auditiva cerca de sierras y equipo ruidoso.",
+                  "El EPP dañado no protege: se revisa antes de usar y se reemplaza."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "tip",
+                "ci": "lightbulb",
+                "v": "El EPP correcto depende de la tarea. Cortar concreto pide respirador y lentes; dirigir tráfico pide chaleco Clase 3 y buena visibilidad."
+              }
+            ]
+          }
+        ],
+        "quiz": [
+          {
+            "q": "¿Qué haces si consideras que un trabajo es inseguro?",
+            "opts": [
+              "Lo haces rápido para terminar",
+              "Lo paras y lo reportas sin miedo a represalia",
+              "Esperas a que alguien más lo note",
+              "Lo dejas para el final"
+            ],
+            "a": 1,
+            "ex": "El Labor Code 6311 y 6310 te dan derecho a parar y reportar sin represalia."
+          },
+          {
+            "q": "¿Qué es el IIPP?",
+            "opts": [
+              "Un seguro",
+              "El Programa de Prevención de Lesiones y Enfermedades exigido por Cal/OSHA",
+              "Un permiso de obra",
+              "Una fianza"
+            ],
+            "a": 1,
+            "ex": "IIPP = programa obligatorio (Labor Code 6401.7 / T8 CCR 3203)."
+          },
+          {
+            "q": "¿Qué clase de ropa de alta visibilidad se usa con tráfico o equipo en movimiento?",
+            "opts": [
+              "Ninguna",
+              "Clase 1",
+              "Clase 2 o 3 (ANSI/ISEA 107)",
+              "Cualquier camiseta"
+            ],
+            "a": 2,
+            "ex": "Clase 2 o 3 según la exposición al tráfico y al equipo."
+          },
+          {
+            "q": "¿Bajo qué código de seguridad opera WLP?",
+            "opts": [
+              "Federal OSHA solamente",
+              "Cal/OSHA Title 8 CCR",
+              "Ninguno",
+              "APWA Greenbook"
+            ],
+            "a": 1,
+            "ex": "Cal/OSHA Title 8 CCR es el marco de seguridad ocupacional de California."
+          }
+        ]
+      },
+      {
+        "id": "m2",
+        "num": "02",
+        "icon": "alert",
+        "dur": "25 min",
+        "title": "Riesgos del pavimento: sílice y asfalto caliente",
+        "tag": "Los dos peligros propios del oficio: el polvo de sílice que no se ve y el asfalto que quema al contacto.",
+        "objectives": [
+          "Reconocer la sílice cristalina respirable y controlarla.",
+          "Manejar asfalto caliente sin quemaduras.",
+          "Protegerse de humos, polvo y químicos con la SDS."
+        ],
+        "lessons": [
+          {
+            "t": "Sílice cristalina respirable: el peligro invisible",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "Cortar, moler o romper concreto y asfalto libera sílice cristalina respirable, que causa silicosis y cáncer de pulmón; el daño es permanente y sin cura.",
+                  "Cal/OSHA lo regula en el estándar de sílice T8 CCR 1532.3, con controles obligatorios.",
+                  "Control primero: corte con agua (wet cutting) o sierra con captación de polvo (vacuum). Nunca cortar en seco sin control.",
+                  "Cuando el control no basta, respirador N95 o mejor, con ajuste correcto (fit)."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "warn",
+                "ci": "alert",
+                "v": "Regla dura: nada de corte en seco de concreto sin agua o aspiración. El polvo blanco que ves es sílice, y no se siente el daño hasta años después."
+              }
+            ]
+          },
+          {
+            "t": "Asfalto caliente: quemaduras y humos",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "La mezcla se coloca entre ~275 y 300 °F; el contacto directo causa quemaduras graves de inmediato.",
+                  "Manga larga, guantes y botas resistentes al calor cerca de la pavimentadora y el rodillo; nada de piel expuesta al material caliente.",
+                  "Los humos de asfalto irritan ojos y vías respiratorias; trabajar a favor del viento y ventilar cuando se pueda.",
+                  "Nunca meter manos ni herramientas donde no se puede ver bajo la máquina caliente."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "tip",
+                "ci": "lightbulb",
+                "v": "Si cae asfalto caliente en la piel, enfriar de inmediato con agua limpia y buscar atención; no intentar despegarlo en seco."
+              }
+            ]
+          },
+          {
+            "t": "Polvo, químicos y hoja de datos (SDS)",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "Sealer, solventes y combustibles tienen su hoja de datos de seguridad (SDS); saber dónde están y qué EPP piden.",
+                  "Etiquetar y almacenar los químicos correctamente; no mezclar ni trasvasar a envases sin etiqueta.",
+                  "Lavarse antes de comer o fumar; el material de obra no debe llegar a la boca.",
+                  "Reportar cualquier derrame o exposición al líder."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "info",
+                "ci": "shield",
+                "v": "La SDS (antes MSDS) es obligatoria por el Hazard Communication de Cal/OSHA. Si no sabes qué es un producto, no lo uses hasta preguntar."
+              }
+            ]
+          }
+        ],
+        "quiz": [
+          {
+            "q": "¿Cómo se controla la sílice al cortar concreto?",
+            "opts": [
+              "Cortando más rápido",
+              "Con agua o aspiración de polvo",
+              "Sin EPP",
+              "De noche"
+            ],
+            "a": 1,
+            "ex": "Wet cutting o captación de polvo, según T8 CCR 1532.3; nunca corte seco sin control."
+          },
+          {
+            "q": "¿Por qué es grave la sílice respirable?",
+            "opts": [
+              "Solo ensucia",
+              "Causa silicosis y cáncer de pulmón, sin cura",
+              "Se quita lavando",
+              "No pasa nada"
+            ],
+            "a": 1,
+            "ex": "El daño pulmonar es permanente y no se siente hasta años después."
+          },
+          {
+            "q": "¿A qué temperatura aproximada se coloca la mezcla de asfalto?",
+            "opts": [
+              "50 °F",
+              "100 °F",
+              "275 a 300 °F",
+              "1000 °F"
+            ],
+            "a": 2,
+            "ex": "Entre ~275 y 300 °F: quema la piel al contacto."
+          },
+          {
+            "q": "¿Qué haces antes de usar un químico desconocido en obra?",
+            "opts": [
+              "Lo pruebas",
+              "Consultas su SDS y preguntas",
+              "Lo mezclas con otro",
+              "Nada"
+            ],
+            "a": 1,
+            "ex": "La SDS indica riesgos y EPP; sin saber qué es, no se usa."
+          }
+        ]
+      },
+      {
+        "id": "m3",
+        "num": "03",
+        "icon": "wrench",
+        "dur": "25 min",
+        "title": "Zona de trabajo, tráfico y equipo pesado",
+        "tag": "El mayor riesgo mortal en obra vial: el tráfico y las máquinas. Cómo montar la zona y moverse cerca del equipo.",
+        "objectives": [
+          "Montar una zona de trabajo segura frente al tráfico.",
+          "Trabajar cerca de equipo pesado sin entrar a los puntos ciegos.",
+          "Comunicarse con señales claras."
+        ],
+        "lessons": [
+          {
+            "t": "Control de tráfico y zona de trabajo",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "El control temporal de tráfico sigue el California MUTCD Parte 6 y las prácticas ATSSA: conos, señales y transiciones (taper) bien puestas.",
+                  "El flagger (banderero) capacitado controla el paso; usa chaleco Clase 3, paleta STOP/SLOW y una posición con ruta de escape.",
+                  "Nunca dar la espalda al tráfico; mantener una zona de amortiguamiento (buffer) entre los autos y la cuadrilla.",
+                  "Delimitar el área y no dejar que peatones o clientes entren a la zona activa."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "warn",
+                "ci": "alert",
+                "v": "El mayor riesgo de muerte en obra vial es ser atropellado. Un cono mal puesto o un flagger distraído cuesta vidas."
+              }
+            ]
+          },
+          {
+            "t": "Equipo pesado y puntos ciegos",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "Pavimentadora, rodillo, dump trucks y skid steers tienen puntos ciegos grandes; asumir que el operador NO te ve.",
+                  "Hacer contacto visual con el operador antes de acercarse; nunca cruzar por detrás de un equipo en reversa.",
+                  "El spotter (guía) usa señales de mano acordadas y se mantiene fuera de la trayectoria.",
+                  "Distancia a las líneas eléctricas: mínimo 10 pies para el equipo, más si es alto voltaje (Cal/OSHA)."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "tip",
+                "ci": "lightbulb",
+                "v": "Si el operador no te ve en su espejo, él no sabe que existes. Haz contacto visual o no te muevas."
+              }
+            ]
+          },
+          {
+            "t": "Comunicación y señales en obra",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "Acordar señales de mano y de voz antes de arrancar; radio o silbato cuando hay ruido.",
+                  "Avisar en voz alta al mover equipo, retroceder o descargar material.",
+                  "El backup alarm (alarma de reversa) debe funcionar; si no suena, el equipo no opera.",
+                  "Un plan claro de quién hace qué evita que dos personas entren a la misma zona de riesgo."
+                ]
+              }
+            ]
+          }
+        ],
+        "quiz": [
+          {
+            "q": "¿Qué estándar guía el control temporal de tráfico?",
+            "opts": [
+              "Ninguno",
+              "California MUTCD Parte 6 y ATSSA",
+              "El código civil",
+              "El estándar NAPA"
+            ],
+            "a": 1,
+            "ex": "El California MUTCD Parte 6 y las prácticas ATSSA rigen la zona de trabajo."
+          },
+          {
+            "q": "¿Qué asumes sobre los puntos ciegos del equipo pesado?",
+            "opts": [
+              "Que el operador siempre te ve",
+              "Que el operador NO te ve; haces contacto visual",
+              "Que puedes cruzar por detrás",
+              "Que no hay riesgo"
+            ],
+            "a": 1,
+            "ex": "Se asume que el operador no te ve hasta hacer contacto visual."
+          },
+          {
+            "q": "¿Distancia mínima a las líneas eléctricas para el equipo?",
+            "opts": [
+              "1 pie",
+              "10 pies (más si es alto voltaje)",
+              "No importa",
+              "3 pies"
+            ],
+            "a": 1,
+            "ex": "Mínimo 10 pies, y más para alto voltaje según Cal/OSHA."
+          },
+          {
+            "q": "¿Cuál es el mayor riesgo de muerte en obra vial?",
+            "opts": [
+              "El ruido",
+              "Ser atropellado por el tráfico",
+              "El sol",
+              "El polvo"
+            ],
+            "a": 1,
+            "ex": "El atropello por tráfico es la causa principal de muertes en obra vial."
+          }
+        ]
+      },
+      {
+        "id": "m4",
+        "num": "04",
+        "icon": "users",
+        "dur": "20 min",
+        "title": "Calor, hidratación y emergencias",
+        "tag": "Prevenir el golpe de calor, responder a una emergencia y reportar la lesión para activar Workers Comp.",
+        "objectives": [
+          "Prevenir la enfermedad por calor con agua, sombra y descanso.",
+          "Reconocer una emergencia médica y actuar.",
+          "Reportar lesiones y activar Workers Comp a tiempo."
+        ],
+        "lessons": [
+          {
+            "t": "Enfermedad por calor: agua, sombra, descanso",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "Cal/OSHA exige el estándar de prevención por calor T8 CCR 3395: agua fresca suficiente, sombra y descanso.",
+                  "Sombra disponible a partir de 80 °F; procedimientos de alta temperatura a partir de 95 °F.",
+                  "Aclimatación: el cuerpo nuevo o tras días libres necesita subir la carga poco a poco; los primeros días son los de mayor riesgo.",
+                  "Señales de golpe de calor: confusión, piel caliente y seca, desmayo. Es emergencia."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "warn",
+                "ci": "alert",
+                "v": "El golpe de calor mata. Ante confusión o desmayo por calor, es 911 de inmediato, mover a la sombra y enfriar con agua; no esperar."
+              }
+            ]
+          },
+          {
+            "t": "Primeros auxilios y respuesta a emergencias",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "Saber dónde está el botiquín, el extintor y la ruta de salida de la obra.",
+                  "En lesión seria: asegurar la escena, llamar 911 y no mover a un lesionado grave salvo peligro inminente.",
+                  "Conocer la dirección exacta del job para darla al 911; los minutos cuentan.",
+                  "Reportar todo incidente al líder de inmediato, por menor que parezca."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "info",
+                "ci": "shield",
+                "v": "Una lesión menor no reportada hoy puede volverse una reclamación negada mañana. Se reporta siempre."
+              }
+            ]
+          },
+          {
+            "t": "Reporte de lesiones y Workers Comp",
+            "blocks": [
+              {
+                "type": "list",
+                "v": [
+                  "WLP tiene Workers Comp con Everest Premier Insurance; cubre lesiones de trabajo si se reportan.",
+                  "El patrón debe entregar el formulario de reclamo DWC-1 dentro de 1 día hábil de avisada la lesión (California).",
+                  "Reportar pronto protege al trabajador (atención y pago) y a WLP (cumplimiento).",
+                  "Ocultar una lesión por miedo es lo peor: retrasa la atención y complica el reclamo."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "tip",
+                "ci": "lightbulb",
+                "v": "Reportar no es acusar. Es activar la cobertura que ya pagaste con tu trabajo."
+              }
+            ]
+          }
+        ],
+        "quiz": [
+          {
+            "q": "¿Qué exige el estándar de calor T8 CCR 3395?",
+            "opts": [
+              "Nada",
+              "Agua fresca, sombra y descanso",
+              "Trabajar más rápido",
+              "Solo agua"
+            ],
+            "a": 1,
+            "ex": "Cal/OSHA T8 CCR 3395 obliga agua, sombra y descanso."
+          },
+          {
+            "q": "¿A partir de qué temperatura debe haber sombra disponible?",
+            "opts": [
+              "60 °F",
+              "80 °F",
+              "100 °F",
+              "120 °F"
+            ],
+            "a": 1,
+            "ex": "La sombra debe estar disponible a partir de 80 °F."
+          },
+          {
+            "q": "Ante un golpe de calor (confusión, desmayo), ¿qué haces?",
+            "opts": [
+              "Esperar a ver si mejora",
+              "Llamar 911, mover a la sombra y enfriar",
+              "Darle más trabajo",
+              "Ignorarlo"
+            ],
+            "a": 1,
+            "ex": "El golpe de calor es emergencia: 911, sombra y enfriar de inmediato."
+          },
+          {
+            "q": "¿En cuánto tiempo debe entregarse el formulario DWC-1 tras avisar una lesión?",
+            "opts": [
+              "1 día hábil",
+              "1 mes",
+              "1 semana",
+              "Nunca"
+            ],
+            "a": 0,
+            "ex": "California exige entregar el DWC-1 dentro de 1 día hábil del aviso."
+          }
+        ]
+      }
+    ]
   }
 ];
 
@@ -5575,6 +6066,7 @@ export const PROFILES: ProfileMap = {
     "courses": [
       "comercial",
       "paving-advisor",
+      "seguridad",
       "sem-google-ads"
     ]
   },
@@ -5582,6 +6074,7 @@ export const PROFILES: ProfileMap = {
     "label": "Operaciones",
     "courses": [
       "operations",
+      "seguridad",
       "legal-contracts"
     ]
   },
