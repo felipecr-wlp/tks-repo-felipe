@@ -5922,7 +5922,7 @@ export const COURSES: Course[] = [
         "tag": "Operación de marca",
         "objectives": [
           "Aplicar la voz de marca y las reglas de estilo en cualquier salida.",
-          "Ubicar los roles del equipo y el motor de email de la plataforma."
+          "Entender cómo se configura y conecta un motor de email (ESP, SMTP, API, autenticación)."
         ],
         "lessons": [
           {
@@ -5951,7 +5951,7 @@ export const COURSES: Course[] = [
             ]
           },
           {
-            "t": "El motor de email",
+            "t": "El motor de email: cómo se configura y conecta",
             "blocks": [
               {
                 "type": "h",
@@ -5959,7 +5959,23 @@ export const COURSES: Course[] = [
               },
               {
                 "type": "p",
-                "v": "El envío de correo de la plataforma corre sobre Brevo como motor de email. Las secuencias se diseñan con foco en el ICP y respetan la misma voz de marca que el resto."
+                "v": "Un negocio casi nunca envía correo desde su propio servidor: se apoya en un proveedor de envío (ESP / servicio de email) como Brevo, Mailchimp, SendGrid, Amazon SES o Postmark. Ese proveedor tiene la infraestructura, la reputación de IP y las herramientas de entregabilidad. Tu app o tu CRM solo se conecta a él. Configurar el motor de email es, en esencia, conectar tu sistema a ese proveedor y autenticar tu dominio."
+              },
+              {
+                "type": "list",
+                "v": [
+                  "Dos formas de conectar tu sistema al proveedor: (1) SMTP, el protocolo estándar de envío, donde das host, puerto, usuario y contraseña de la cuenta; y (2) API HTTP / transaccional, donde usas una API key y llamas al endpoint del proveedor. SMTP es universal y simple; la API suele ser más rápida, más rica en datos y más fácil de monitorear.",
+                  "Puertos SMTP típicos: 587 (STARTTLS, el recomendado), 465 (SSL/TLS directo) y 25 (servidor a servidor, muchas veces bloqueado en apps). Siempre cifrado, nunca texto plano.",
+                  "Dos tipos de envío: transaccional (uno a uno, disparado por una acción: confirmación, recuperar contraseña) y marketing / broadcast (uno a muchos: newsletter, secuencia). Muchos proveedores separan ambos flujos y hasta las IPs.",
+                  "Autenticación del dominio, el paso que no se puede saltar: en el ESP das de alta tu dominio y publicas los registros DNS que te pide (SPF, DKIM y DMARC) para probar que ese proveedor puede enviar en tu nombre. Sin esto, el correo llega marcado o cae en spam.",
+                  "La API key o las credenciales SMTP son un secreto: viven en variables de entorno del servidor, nunca en el código del cliente ni en el repositorio."
+                ]
+              },
+              {
+                "type": "callout",
+                "style": "tip",
+                "ci": "send",
+                "v": "Regla mental: el ESP es el cartero, tu dominio es el remitente y SPF/DKIM/DMARC son tu identificación. Cambiar de Brevo a otro proveedor es cambiar de cartero: la configuración (conexión SMTP/API + registros DNS) se rehace, la teoría es idéntica."
               },
               {
                 "type": "callout",
@@ -6005,15 +6021,15 @@ export const COURSES: Course[] = [
             "ex": "La regla principal es no usar em dash ni en dash en ningún output."
           },
           {
-            "q": "¿Sobre qué motor corre el email de la plataforma?",
+            "q": "¿Cuáles son las dos formas de conectar tu sistema a un proveedor de email como Brevo o SendGrid?",
             "opts": [
-              "Mailchimp",
-              "Brevo",
-              "Outlook",
-              "SendGrid"
+              "FTP y SSH",
+              "SMTP (host, puerto y credenciales) y API HTTP (con API key)",
+              "Solo copiando y pegando",
+              "Bluetooth y USB"
             ],
             "a": 1,
-            "ex": "El motor de email de la plataforma es Brevo."
+            "ex": "Te conectas por SMTP (protocolo estándar: host, puerto, usuario y contraseña) o por la API transaccional del proveedor con una API key. Además debes autenticar tu dominio con SPF, DKIM y DMARC."
           },
           {
             "q": "¿Cómo se clasifica el título de Alan en el equipo?",
