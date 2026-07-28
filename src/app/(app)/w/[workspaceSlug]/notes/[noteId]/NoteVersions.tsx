@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { History, RotateCcw, Loader2, X } from 'lucide-react'
 import { getInitials, timeAgo } from '@/lib/utils'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Version {
   id: string
@@ -25,6 +26,7 @@ interface NoteVersionsProps {
 }
 
 export function NoteVersions({ noteId }: NoteVersionsProps) {
+  const tr = useT()
   const [open, setOpen] = useState(false)
   const [versions, setVersions] = useState<Version[]>([])
   const [loading, setLoading] = useState(false)
@@ -49,16 +51,16 @@ export function NoteVersions({ noteId }: NoteVersionsProps) {
   }
 
   async function restore(v: Version) {
-    if (!(await confirmDialog({ title: 'Restaurar versión', message: 'El estado actual se guardará como una versión más antes de sobrescribir. ¿Restaurar esta versión?', confirmLabel: 'Restaurar' }))) return
+    if (!(await confirmDialog({ title: tr('note.verRestoreTitle'), message: tr('note.verRestoreMsg'), confirmLabel: tr('note.verRestoreConfirm') }))) return
     setRestoringId(v.id)
     try {
       const res = await fetch(`/api/notes/${noteId}/versions/${v.id}/restore`, { method: 'POST' })
       if (!res.ok) throw new Error()
-      toast.success('Versión restaurada')
+      toast.success(tr('note.verRestored'))
       // Recargar para que el editor tome el contenido restaurado.
       window.location.reload()
     } catch {
-      toast.error('Error al restaurar la versión')
+      toast.error(tr('note.verRestoreError'))
       setRestoringId(null)
     }
   }
@@ -67,21 +69,21 @@ export function NoteVersions({ noteId }: NoteVersionsProps) {
     <div className="relative">
       <button
         onClick={toggle}
-        title="Historial de versiones"
+        title={tr('note.verHistoryTitle')}
         className="flex items-center gap-1.5 text-xs px-2 py-1 bg-muted/50 hover:bg-muted text-foreground rounded-md transition-colors"
       >
         <History className="w-3.5 h-3.5" />
-        Historial
+        {tr('note.verHistory')}
       </button>
 
       {open && (
         <div className="absolute top-8 right-0 z-50 w-80 bg-popover border border-border rounded-lg shadow-raised">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-            <span className="text-xs font-semibold text-foreground">Historial de versiones</span>
+            <span className="text-xs font-semibold text-foreground">{tr('note.verHistoryTitle')}</span>
             <button
               onClick={() => setOpen(false)}
               className="text-muted-foreground hover:text-foreground transition-colors"
-              title="Cerrar"
+              title={tr('note.verClose')}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -90,11 +92,11 @@ export function NoteVersions({ noteId }: NoteVersionsProps) {
           <div className="max-h-80 overflow-y-auto py-1">
             {loading ? (
               <p className="text-xs text-muted-foreground px-3 py-4 flex items-center gap-2">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando…
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> {tr('note.verLoading')}
               </p>
             ) : versions.length === 0 ? (
               <p className="text-xs text-muted-foreground px-3 py-4">
-                Aún no hay versiones. Se crean al editar el contenido.
+                {tr('note.verEmpty')}
               </p>
             ) : (
               versions.map((v, i) => (
@@ -111,8 +113,8 @@ export function NoteVersions({ noteId }: NoteVersionsProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-foreground truncate">
-                      {v.editor?.display_name ?? 'Usuario'}
-                      {i === 0 && <span className="ml-1.5 text-[10px] text-muted-foreground">(actual)</span>}
+                      {v.editor?.display_name ?? tr('act.user')}
+                      {i === 0 && <span className="ml-1.5 text-[10px] text-muted-foreground">{tr('note.verCurrent')}</span>}
                     </p>
                     <p className="text-[11px] text-muted-foreground">{timeAgo(v.created_at)}</p>
                   </div>
@@ -120,7 +122,7 @@ export function NoteVersions({ noteId }: NoteVersionsProps) {
                     <button
                       onClick={() => restore(v)}
                       disabled={restoringId === v.id}
-                      title="Restaurar esta versión"
+                      title={tr('note.verRestore')}
                       className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-all p-1 rounded hover:bg-background disabled:opacity-50"
                     >
                       {restoringId === v.id

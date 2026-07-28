@@ -17,6 +17,7 @@ import {
   Clock, Timer, CalendarDays, FolderGit2, Plus, Pencil, Trash2, X, Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useT, useI18n } from '@/lib/i18n/LanguageProvider'
 
 // recharts se carga aparte (ssr: false) para no inflar el bundle inicial del
 // timesheet: solo baja cuando esta vista se monta en el cliente.
@@ -43,7 +44,7 @@ export interface TrackTaskOption {
   project_name: string | null
 }
 
-const DOW = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+const DOW_KEYS = ['track.dowMon', 'track.dowTue', 'track.dowWed', 'track.dowThu', 'track.dowFri', 'track.dowSat', 'track.dowSun']
 
 // ── Helpers de tiempo (hora local) ──────────────────────────────────────────
 function startOfDayLocal(d: Date): Date { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
@@ -93,6 +94,7 @@ export function TrackingClient({
   taskOptions: TrackTaskOption[]
 }) {
   const router = useRouter()
+  const { t, lang } = useI18n()
   const [tab, setTab] = useState<Tab>('hoy')
   const [now, setNow] = useState(() => Date.now())
 
@@ -125,9 +127,9 @@ export function TrackingClient({
       const d = new Date(base); d.setDate(base.getDate() + i)
       const k = dayKey(d)
       const sec = entries.reduce((acc, e) => dayKey(new Date(e.started_at)) === k ? acc + effSec(e, now) : acc, 0)
-      return { label: DOW[i], horas: Number((sec / 3600).toFixed(2)) }
+      return { label: t(DOW_KEYS[i]), horas: Number((sec / 3600).toFixed(2)) }
     })
-  }, [entries, now])
+  }, [entries, now, t])
 
   const rangeEntries = tab === 'hoy' ? todayEntries : weekEntries
 
@@ -136,12 +138,12 @@ export function TrackingClient({
     const map = new Map<string, { name: string; sec: number }>()
     for (const e of rangeEntries) {
       const key = e.project_id
-      const name = e.project?.name ?? 'Proyecto'
+      const name = e.project?.name ?? t('track.projectFallback')
       const prev = map.get(key)
       map.set(key, { name, sec: (prev?.sec ?? 0) + effSec(e, now) })
     }
     return Array.from(map.values()).sort((a, b) => b.sec - a.sec)
-  }, [rangeEntries, now])
+  }, [rangeEntries, now, t])
   const projectMax = byProject.reduce((m, p) => Math.max(m, p.sec), 0) || 1
 
   // Entradas agrupadas por dia (rango activo).
@@ -161,7 +163,7 @@ export function TrackingClient({
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-            <Clock className="w-5 h-5 text-muted-foreground" /> Seguimiento de tiempo
+            <Clock className="w-5 h-5 text-muted-foreground" /> {t('track.title')}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{workspaceName}</p>
         </div>
@@ -170,14 +172,14 @@ export function TrackingClient({
 
       {/* Tarjetas resumen */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <SummaryCard icon={<CalendarDays className="w-4 h-4" />} label="Hoy" value={fmtHms(todayTotal)} />
-        <SummaryCard icon={<CalendarDays className="w-4 h-4" />} label="Esta semana" value={fmtHms(weekTotal)} />
+        <SummaryCard icon={<CalendarDays className="w-4 h-4" />} label={t('track.today')} value={fmtHms(todayTotal)} />
+        <SummaryCard icon={<CalendarDays className="w-4 h-4" />} label={t('track.thisWeek')} value={fmtHms(weekTotal)} />
         <RunningCard running={running} now={now} />
       </div>
 
       {/* Grafico semanal */}
       <section className="bg-card border border-border rounded-xl p-5">
-        <h2 className="text-sm font-semibold text-foreground mb-4">Horas por día (esta semana)</h2>
+        <h2 className="text-sm font-semibold text-foreground mb-4">{t('track.hoursPerDay')}</h2>
         <div className="h-52 w-full">
           <WeeklyHoursChart data={chartData} />
         </div>
@@ -185,15 +187,15 @@ export function TrackingClient({
 
       {/* Tabs */}
       <div className="flex items-center gap-2">
-        <TabButton active={tab === 'hoy'} onClick={() => setTab('hoy')} label="Hoy" />
-        <TabButton active={tab === 'semana'} onClick={() => setTab('semana')} label="Esta semana" />
+        <TabButton active={tab === 'hoy'} onClick={() => setTab('hoy')} label={t('track.today')} />
+        <TabButton active={tab === 'semana'} onClick={() => setTab('semana')} label={t('track.thisWeek')} />
       </div>
 
       {/* Totales por proyecto */}
       {byProject.length > 0 && (
         <section className="bg-card border border-border rounded-xl p-5">
           <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-            <FolderGit2 className="w-4 h-4 text-muted-foreground" /> Por proyecto
+            <FolderGit2 className="w-4 h-4 text-muted-foreground" /> {t('track.byProject')}
           </h2>
           <div className="space-y-2.5">
             {byProject.map(p => (
@@ -215,16 +217,16 @@ export function TrackingClient({
       {grouped.length === 0 ? (
         <div className="text-center py-16 bg-card border border-border rounded-xl">
           <Timer className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground mb-1">Sin registros</h3>
+          <h3 className="text-sm font-medium text-foreground mb-1">{t('track.noRecords')}</h3>
           <p className="text-sm text-muted-foreground">
-            Inicia un timer desde Mis tareas o agrega una entrada manual.
+            {t('track.noRecordsBody')}
           </p>
         </div>
       ) : (
         <div className="space-y-5">
           {grouped.map(([key, list]) => {
             const dayTotal = list.reduce((a, e) => a + effSec(e, now), 0)
-            const dLabel = new Date(list[0].started_at).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })
+            const dLabel = new Date(list[0].started_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'es-MX', { weekday: 'long', day: 'numeric', month: 'long' })
             return (
               <div key={key}>
                 <div className="flex items-center justify-between mb-2">
@@ -256,20 +258,21 @@ function SummaryCard({ icon, label, value }: { icon: React.ReactNode; label: str
 }
 
 function RunningCard({ running, now }: { running: TimeEntry | null; now: number }) {
+  const t = useT()
   if (!running) {
     return (
       <div className="bg-card border border-border rounded-xl p-4">
-        <div className="flex items-center gap-1.5 text-muted-foreground mb-1"><Timer className="w-4 h-4" /><span className="text-xs">Timer activo</span></div>
-        <p className="text-sm text-muted-foreground mt-1.5">Ninguno en curso</p>
+        <div className="flex items-center gap-1.5 text-muted-foreground mb-1"><Timer className="w-4 h-4" /><span className="text-xs">{t('track.activeTimer')}</span></div>
+        <p className="text-sm text-muted-foreground mt-1.5">{t('track.noneRunning')}</p>
       </div>
     )
   }
   const sec = effSec(running, now)
   return (
     <div className="bg-card border border-red-500/30 rounded-xl p-4">
-      <div className="flex items-center gap-1.5 text-red-600 mb-1"><Timer className="w-4 h-4" /><span className="text-xs">Timer activo</span></div>
+      <div className="flex items-center gap-1.5 text-red-600 mb-1"><Timer className="w-4 h-4" /><span className="text-xs">{t('track.activeTimer')}</span></div>
       <p className="text-2xl font-semibold text-foreground tabular-nums">{fmtHms(sec)}</p>
-      <p className="text-xs text-muted-foreground truncate mt-0.5">{running.task?.title ?? 'Tarea'}</p>
+      <p className="text-xs text-muted-foreground truncate mt-0.5">{running.task?.title ?? t('track.taskFallback')}</p>
     </div>
   )
 }
@@ -293,6 +296,7 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
 
 // ── Fila de entrada (ver / editar / borrar) ─────────────────────────────────
 function EntryRow({ entry, now, onChanged }: { entry: TimeEntry; now: number; onChanged: () => void }) {
+  const t = useT()
   const [editing, setEditing] = useState(false)
   const [start, setStart] = useState(() => toLocalInput(entry.started_at))
   const [end, setEnd] = useState(() => entry.ended_at ? toLocalInput(entry.ended_at) : '')
@@ -313,28 +317,28 @@ function EntryRow({ entry, now, onChanged }: { entry: TimeEntry; now: number; on
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'No se pudo guardar')
-      toast.success('Entrada actualizada')
+      if (!res.ok) throw new Error(data.error ?? t('track.saveFailed'))
+      toast.success(t('track.entryUpdated'))
       setEditing(false)
       onChanged()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al guardar')
+      toast.error(err instanceof Error ? err.message : t('track.saveError'))
     } finally {
       setBusy(false)
     }
   }
 
   const remove = async () => {
-    if (!(await confirmDialog({ message: '¿Borrar esta entrada de tiempo?', destructive: true, confirmLabel: 'Borrar' }))) return
+    if (!(await confirmDialog({ message: t('track.confirmDelete'), destructive: true, confirmLabel: t('track.delete') }))) return
     setBusy(true)
     try {
       const res = await fetch(`/api/time-entries/${entry.id}`, { method: 'DELETE' })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'No se pudo borrar')
-      toast.success('Entrada borrada')
+      if (!res.ok) throw new Error(data.error ?? t('track.deleteFailed'))
+      toast.success(t('track.entryDeleted'))
       onChanged()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al borrar')
+      toast.error(err instanceof Error ? err.message : t('track.deleteError'))
     } finally {
       setBusy(false)
     }
@@ -343,29 +347,29 @@ function EntryRow({ entry, now, onChanged }: { entry: TimeEntry; now: number; on
   if (editing) {
     return (
       <div className="bg-card border border-ring/40 rounded-lg p-3 space-y-2.5">
-        <p className="text-sm font-medium text-foreground truncate">{entry.task?.title ?? 'Tarea'}</p>
+        <p className="text-sm font-medium text-foreground truncate">{entry.task?.title ?? t('track.taskFallback')}</p>
         <div className="grid grid-cols-2 gap-2">
           <label className="text-[11px] text-muted-foreground">
-            Inicio
+            {t('track.start')}
             <input type="datetime-local" value={start} onChange={e => setStart(e.target.value)}
               className="mt-0.5 w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
           </label>
           <label className="text-[11px] text-muted-foreground">
-            Fin
+            {t('track.end')}
             <input type="datetime-local" value={end} onChange={e => setEnd(e.target.value)} disabled={isRunning}
               className="mt-0.5 w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50" />
           </label>
         </div>
-        <input value={note} onChange={e => setNote(e.target.value)} placeholder="Nota (opcional)" maxLength={1000}
+        <input value={note} onChange={e => setNote(e.target.value)} placeholder={t('track.notePlaceholder')} maxLength={1000}
           className="w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
         <div className="flex items-center justify-end gap-2">
           <button type="button" onClick={() => setEditing(false)} disabled={busy}
             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs border border-border rounded-md hover:bg-muted transition-colors disabled:opacity-50">
-            <X className="w-3.5 h-3.5" /> Cancelar
+            <X className="w-3.5 h-3.5" /> {t('common.cancel')}
           </button>
           <button type="button" onClick={save} disabled={busy}
             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50">
-            <Check className="w-3.5 h-3.5" /> Guardar
+            <Check className="w-3.5 h-3.5" /> {t('common.save')}
           </button>
         </div>
       </div>
@@ -376,19 +380,19 @@ function EntryRow({ entry, now, onChanged }: { entry: TimeEntry; now: number; on
     <div className="group flex items-center gap-3 bg-card border border-border rounded-lg px-3 py-2.5 hover:border-ring/30 transition-colors">
       <span className={cn('flex-shrink-0 w-2 h-2 rounded-full', isRunning ? 'bg-red-500 animate-pulse' : 'bg-muted-foreground/40')} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-foreground truncate">{entry.task?.title ?? 'Tarea'}</p>
+        <p className="text-sm text-foreground truncate">{entry.task?.title ?? t('track.taskFallback')}</p>
         <p className="text-[11px] text-muted-foreground truncate">
-          {entry.project?.name ?? 'Proyecto'} · {fmtHm(entry.started_at)}{entry.ended_at ? ` - ${fmtHm(entry.ended_at)}` : ' · en curso'}
+          {entry.project?.name ?? t('track.projectFallback')} · {fmtHm(entry.started_at)}{entry.ended_at ? ` - ${fmtHm(entry.ended_at)}` : ` · ${t('track.inProgress')}`}
           {entry.note ? ` · ${entry.note}` : ''}
         </p>
       </div>
       <span className="flex-shrink-0 text-xs text-muted-foreground tabular-nums">{fmtHms(effSec(entry, now))}</span>
       <div className="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button type="button" onClick={() => setEditing(true)} disabled={busy} title="Editar"
+        <button type="button" onClick={() => setEditing(true)} disabled={busy} title={t('track.edit')}
           className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
           <Pencil className="w-3.5 h-3.5" />
         </button>
-        <button type="button" onClick={remove} disabled={busy} title="Borrar"
+        <button type="button" onClick={remove} disabled={busy} title={t('track.delete')}
           className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -399,6 +403,7 @@ function EntryRow({ entry, now, onChanged }: { entry: TimeEntry; now: number; on
 
 // ── Alta manual ─────────────────────────────────────────────────────────────
 function ManualAdd({ taskOptions, onSaved }: { taskOptions: TrackTaskOption[]; onSaved: () => void }) {
+  const tr = useT()
   const [open, setOpen] = useState(false)
   const [taskId, setTaskId] = useState('')
   const [start, setStart] = useState('')
@@ -409,8 +414,8 @@ function ManualAdd({ taskOptions, onSaved }: { taskOptions: TrackTaskOption[]; o
   const reset = () => { setTaskId(''); setStart(''); setEnd(''); setNote('') }
 
   const save = async () => {
-    if (!taskId) { toast.error('Elige una tarea'); return }
-    if (!start || !end) { toast.error('Indica inicio y fin'); return }
+    if (!taskId) { toast.error(tr('track.chooseTaskError')); return }
+    if (!start || !end) { toast.error(tr('track.startEndError')); return }
     setBusy(true)
     try {
       const res = await fetch('/api/time-entries', {
@@ -424,11 +429,11 @@ function ManualAdd({ taskOptions, onSaved }: { taskOptions: TrackTaskOption[]; o
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'No se pudo guardar')
-      toast.success('Entrada agregada')
+      if (!res.ok) throw new Error(data.error ?? tr('track.saveFailed'))
+      toast.success(tr('track.entryAdded'))
       reset(); setOpen(false); onSaved()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al guardar')
+      toast.error(err instanceof Error ? err.message : tr('track.saveError'))
     } finally {
       setBusy(false)
     }
@@ -438,7 +443,7 @@ function ManualAdd({ taskOptions, onSaved }: { taskOptions: TrackTaskOption[]; o
     return (
       <button type="button" onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-        <Plus className="w-4 h-4" /> Agregar manual
+        <Plus className="w-4 h-4" /> {tr('track.addManual')}
       </button>
     )
   }
@@ -446,36 +451,36 @@ function ManualAdd({ taskOptions, onSaved }: { taskOptions: TrackTaskOption[]; o
   return (
     <div className="w-full sm:w-auto bg-card border border-ring/40 rounded-xl p-4 space-y-2.5">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-foreground">Nueva entrada</p>
+        <p className="text-sm font-semibold text-foreground">{tr('track.newEntry')}</p>
         <button type="button" onClick={() => { reset(); setOpen(false) }} className="p-1 text-muted-foreground hover:text-foreground">
           <X className="w-4 h-4" />
         </button>
       </div>
       <select value={taskId} onChange={e => setTaskId(e.target.value)}
         className="w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring">
-        <option value="">Elige una tarea...</option>
+        <option value="">{tr('track.chooseTask')}</option>
         {taskOptions.map(t => (
           <option key={t.id} value={t.id}>{t.title}{t.project_name ? ` (${t.project_name})` : ''}</option>
         ))}
       </select>
       <div className="grid grid-cols-2 gap-2">
         <label className="text-[11px] text-muted-foreground">
-          Inicio
+          {tr('track.start')}
           <input type="datetime-local" value={start} onChange={e => setStart(e.target.value)}
             className="mt-0.5 w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
         </label>
         <label className="text-[11px] text-muted-foreground">
-          Fin
+          {tr('track.end')}
           <input type="datetime-local" value={end} onChange={e => setEnd(e.target.value)}
             className="mt-0.5 w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
         </label>
       </div>
-      <input value={note} onChange={e => setNote(e.target.value)} placeholder="Nota (opcional)" maxLength={1000}
+      <input value={note} onChange={e => setNote(e.target.value)} placeholder={tr('track.notePlaceholder')} maxLength={1000}
         className="w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
       <div className="flex items-center justify-end">
         <button type="button" onClick={save} disabled={busy}
           className="inline-flex items-center gap-1 px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50">
-          <Check className="w-3.5 h-3.5" /> Guardar
+          <Check className="w-3.5 h-3.5" /> {tr('common.save')}
         </button>
       </div>
     </div>

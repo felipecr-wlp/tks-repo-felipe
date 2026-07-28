@@ -5,6 +5,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { canAccessNoteSpace } from '@/lib/note-space-access'
+import { getServerT } from '@/lib/i18n/server'
 import { NoteEditor } from './NoteEditor'
 
 interface NotePageProps {
@@ -120,12 +121,14 @@ export default async function NotePage({ params }: NotePageProps) {
     self?.org_role === 'owner' || self?.org_role === 'admin' ||
     wsMember?.role === 'admin'
 
+  const t = getServerT()
+
   return (
     <div className="h-full overflow-y-auto">
       <NoteEditor
         initial={note}
         currentUserId={user.id}
-        currentUserName={self?.display_name ?? 'Usuario'}
+        currentUserName={self?.display_name ?? t('act.user')}
         currentUserAvatar={self?.avatar_url ?? null}
         workspaceSlug={params.workspaceSlug}
         workspaceId={workspace.id}

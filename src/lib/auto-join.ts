@@ -48,11 +48,48 @@ export async function attemptDomainOrgJoin(
 
   const db = admin
 
-  // 1. Buscar org por dominio (unica por indice).
+  // Candidatos de dominio, del mas especifico al mas general, para admitir
+  // subdominios corporativos (ej. ops.welovepaving.com cae a welovepaving.com).
+  // Se detiene en 2 etiquetas (welovepaving.com), nunca baja a un TLD suelto.
+  const parts = domain.split('.')
+  const candidates: string[] = []
+  for (let i = 0; i <= parts.length - 2; i++) {
+    candidates.push(parts.slice(i).join('.'))
+  }
+
+  // 1. Buscar org por dominio: primero la tabla multi-dominio (incl. alias y el
+  //    primario por backfill), tomando el match mas ESPECIFICO. Si no hay, se
+  //    cae al email_domain historico de organizations (compatibilidad).
+  let orgId: string | null = null
+
+  const { data: domainRows } = await db
+    .from('org_email_domains')
+    .select('org_id, domain')
+    .in('domain', candidates)
+
+  if (domainRows && domainRows.length > 0) {
+    // Elegir el dominio mas especifico (mas largo) entre los que matchearon.
+    const best = domainRows
+      .slice()
+      .sort((a, b) => b.domain.length - a.domain.length)[0]
+    orgId = best.org_id
+  }
+
+  if (!orgId) {
+    const { data: legacyOrg } = await db
+      .from('organizations')
+      .select('id')
+      .in('email_domain', candidates)
+      .maybeSingle()
+    orgId = legacyOrg?.id ?? null
+  }
+
+  if (!orgId) return null
+
   const { data: org } = await db
     .from('organizations')
     .select('id, name')
-    .eq('email_domain', domain)
+    .eq('id', orgId)
     .maybeSingle()
 
   if (!org?.id) return null

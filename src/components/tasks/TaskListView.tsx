@@ -19,6 +19,7 @@ import { BulkActionBar } from './BulkActionBar'
 import { DensityToggle } from './DensityToggle'
 import { formatFieldValue, type CustomFieldDef } from './CustomFieldCells'
 import { useDensity } from '@/stores/useDensity'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Status {
   id: string
@@ -86,6 +87,7 @@ export function TaskListView({
   initialTaskId,
 }: TaskListViewProps) {
   const router = useRouter()
+  const t = useT()
   const density = useDensity(s => s.density)
   const isCompact = density === 'compact'
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
@@ -198,12 +200,12 @@ export function TaskListView({
   if (groupByField) {
     // Agrupar por el valor formateado del campo (cada tarea en un bucket).
     const buckets = new Map<string, RenderGroup>()
-    for (const t of visibleTasks) {
-      const fmt = formatFieldValue(groupByField, customValues[t.id]?.[groupByField.id])
+    for (const tk of visibleTasks) {
+      const fmt = formatFieldValue(groupByField, customValues[tk.id]?.[groupByField.id])
       const key = fmt ? `v:${fmt.text}` : '__none__'
-      const label = fmt ? fmt.text : 'Sin valor'
+      const label = fmt ? fmt.text : t('taskList.noValue')
       if (!buckets.has(key)) buckets.set(key, { key, label, color: fmt?.color ?? null, tasks: [] })
-      buckets.get(key)!.tasks.push(t)
+      buckets.get(key)!.tasks.push(tk)
     }
     // 'Sin valor' al final; el resto por orden de aparicion.
     groups = [...buckets.values()].sort((a, b) => {
@@ -221,7 +223,7 @@ export function TaskListView({
     }))
     const unassigned = visibleTasks.filter(t => !t.status)
     if (unassigned.length > 0) {
-      groups.push({ key: '__unassigned__', label: 'Sin estado', color: null, tasks: unassigned })
+      groups.push({ key: '__unassigned__', label: t('taskList.noStatusGroup'), color: null, tasks: unassigned })
     }
   }
 
@@ -250,7 +252,7 @@ export function TaskListView({
 
   const handleTaskDeleted = (taskId: string) => {
     setTasks(prev => prev.filter(t => t.id !== taskId))
-    toast.success('Tarea eliminada')
+    toast.success(t('taskList.taskDeleted'))
     router.refresh()
   }
 
@@ -332,13 +334,13 @@ export function TaskListView({
               value={search}
               onChange={e => setSearch(e.target.value)}
               onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); e.currentTarget.blur() } }}
-              placeholder="Buscar por título..."
+              placeholder={t('taskList.searchPlaceholder')}
               className="w-full rounded-md border border-border bg-background pl-8 pr-7 py-1.5 text-sm outline-none focus:border-ring transition-colors"
             />
             {search && (
               <button
                 onClick={() => setSearch('')}
-                title="Limpiar búsqueda"
+                title={t('taskList.clearSearch')}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
@@ -356,9 +358,9 @@ export function TaskListView({
                   onChange={e => { setGroupBy(e.target.value); setCollapsedGroups(new Set()) }}
                   className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-ring cursor-pointer"
                 >
-                  <option value="status">Agrupar: Estado</option>
+                  <option value="status">{t('taskList.groupStatus')}</option>
                   {customFields.map(f => (
-                    <option key={f.id} value={f.id}>Agrupar: {f.name}</option>
+                    <option key={f.id} value={f.id}>{t('taskList.groupPrefix')} {f.name}</option>
                   ))}
                 </select>
               </label>
@@ -371,9 +373,9 @@ export function TaskListView({
                   onChange={e => { setFilterFieldId(e.target.value); setFilterValue('') }}
                   className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-ring cursor-pointer"
                 >
-                  <option value="">Filtrar: (ninguno)</option>
+                  <option value="">{t('taskList.filterNone')}</option>
                   {customFields.map(f => (
-                    <option key={f.id} value={f.id}>Filtrar: {f.name}</option>
+                    <option key={f.id} value={f.id}>{t('taskList.filterPrefix')} {f.name}</option>
                   ))}
                 </select>
               </label>
@@ -385,21 +387,21 @@ export function TaskListView({
                   onChange={e => setFilterValue(e.target.value)}
                   className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-ring cursor-pointer"
                 >
-                  <option value="">(cualquiera)</option>
+                  <option value="">{t('taskList.any')}</option>
                   {(filterField.field_type === 'select' || filterField.field_type === 'multi_select') &&
                     filterField.options.map(o => (
                       <option key={o.id} value={o.id}>{o.label}</option>
                     ))}
                   {filterField.field_type === 'checkbox' && (
                     <>
-                      <option value="true">Si</option>
-                      <option value="false">No</option>
+                      <option value="true">{t('taskList.yes')}</option>
+                      <option value="false">{t('taskList.no')}</option>
                     </>
                   )}
                   {!['select', 'multi_select', 'checkbox'].includes(filterField.field_type) && (
                     <>
-                      <option value="__has__">Con valor</option>
-                      <option value="__empty__">Sin valor</option>
+                      <option value="__has__">{t('taskList.withValue')}</option>
+                      <option value="__empty__">{t('taskList.noValue')}</option>
                     </>
                   )}
                 </select>
@@ -410,7 +412,7 @@ export function TaskListView({
                   onClick={() => { setGroupBy('status'); setFilterFieldId(''); setFilterValue('') }}
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors underline decoration-dotted"
                 >
-                  Restablecer
+                  {t('taskList.reset')}
                 </button>
               )}
             </>
@@ -444,18 +446,18 @@ export function TaskListView({
             <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
               <span className="inline-flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span className="tabular-nums">{doneCount}/{total}</span> completadas
+                <span className="tabular-nums">{doneCount}/{total}</span> {t('taskList.completed')}
               </span>
               {overdueCount > 0 && (
                 <span className="inline-flex items-center gap-1 text-destructive font-medium">
                   <AlertTriangle className="w-3.5 h-3.5" />
-                  <span className="tabular-nums">{overdueCount}</span> vencidas
+                  <span className="tabular-nums">{overdueCount}</span> {t('taskList.overdue')}
                 </span>
               )}
               {todayCount > 0 && (
                 <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
                   <CalendarClock className="w-3.5 h-3.5" />
-                  <span className="tabular-nums">{todayCount}</span> para hoy
+                  <span className="tabular-nums">{todayCount}</span> {t('taskList.forToday')}
                 </span>
               )}
             </div>
@@ -470,7 +472,7 @@ export function TaskListView({
             <Search className="w-5 h-5" aria-hidden />
           </span>
           <p className="text-sm text-muted-foreground">
-            Sin coincidencias para <span className="font-medium text-foreground">&ldquo;{search}&rdquo;</span>
+            {t('taskList.noMatchesPrefix')} <span className="font-medium text-foreground">&ldquo;{search}&rdquo;</span>
           </p>
         </div>
       )}
@@ -566,8 +568,8 @@ export function TaskListView({
       {tasks.length === 0 && (
         <EmptyState
           icon={<ListTodo className="h-5 w-5" aria-hidden />}
-          title="No hay tareas en este proyecto todavía"
-          description={'Haz clic en "+ Nueva tarea" debajo de cualquier estado para comenzar.'}
+          title={t('taskList.emptyTitle')}
+          description={t('taskList.emptyDesc')}
         />
       )}
 

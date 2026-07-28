@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 import { Plus, ChevronDown, Loader2, FolderKanban, LayoutTemplate } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useNewTask } from '@/stores/new-task'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface TeamWithProjects {
   id: string
@@ -42,12 +43,12 @@ const LAST_PROJECT_KEY = 'wlo-new-task-last-project'
 
 // Orden visual de menor a mayor urgencia, con el color del punto alineado a la
 // leyenda del tablero (Baja azul, Media ambar, Alta naranja, Urgente rojo).
-const PRIORITIES: Array<{ value: string; label: string; dot: string }> = [
-  { value: 'none', label: 'Sin prioridad', dot: 'bg-muted-foreground/40' },
-  { value: 'low', label: 'Baja', dot: 'bg-sky-500' },
-  { value: 'medium', label: 'Media', dot: 'bg-amber-500' },
-  { value: 'high', label: 'Alta', dot: 'bg-orange-500' },
-  { value: 'urgent', label: 'Urgente', dot: 'bg-red-500' },
+const PRIORITIES: Array<{ value: string; labelKey: string; dot: string }> = [
+  { value: 'none', labelKey: 'priority.none', dot: 'bg-muted-foreground/40' },
+  { value: 'low', labelKey: 'priority.low', dot: 'bg-sky-500' },
+  { value: 'medium', labelKey: 'priority.medium', dot: 'bg-amber-500' },
+  { value: 'high', labelKey: 'priority.high', dot: 'bg-orange-500' },
+  { value: 'urgent', labelKey: 'priority.urgent', dot: 'bg-red-500' },
 ]
 
 /** true si el evento de teclado ocurre dentro de un campo editable. */
@@ -67,9 +68,10 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
   const open = useNewTask(s => s.open)
   const setOpen = useNewTask(s => s.setOpen)
   const router = useRouter()
+  const t = useT()
 
-  const projects = teams.flatMap(t =>
-    t.projects.map(p => ({ ...p, teamName: t.name }))
+  const projects = teams.flatMap(tm =>
+    tm.projects.map(p => ({ ...p, teamName: tm.name }))
   )
 
   const [projectId, setProjectId] = useState('')
@@ -110,7 +112,7 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
       // localStorage no disponible: usamos el primero.
     }
     setProjectId(initial)
-    const t = setTimeout(() => titleRef.current?.focus(), 0)
+    const timer = setTimeout(() => titleRef.current?.focus(), 0)
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -120,7 +122,7 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => {
-      clearTimeout(t)
+      clearTimeout(timer)
       window.removeEventListener('keydown', onKeyDown)
     }
     // projects se deriva de props estables (teams del layout server-side).
@@ -155,7 +157,7 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
   const applyTemplate = (id: string) => {
     setTemplateId(id)
     if (!id) return
-    const tpl = templates.find(t => t.id === id)
+    const tpl = templates.find(tp => tp.id === id)
     if (!tpl) return
     if (!title.trim() && tpl.title) setTitle(tpl.title)
     if (tpl.description) setDescription(tpl.description)
@@ -182,7 +184,7 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.error ?? 'Error al crear la tarea')
+        throw new Error(data?.error ?? t('createTask.createFail'))
       }
       try {
         localStorage.setItem(LAST_PROJECT_KEY, projectId)
@@ -190,13 +192,13 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
         // Ignorar si no se puede persistir.
       }
       const project = projects.find(p => p.id === projectId)
-      toast.success('Tarea creada', {
-        description: project ? `En ${project.name}` : undefined,
+      toast.success(t('gnt.created'), {
+        description: project ? `${t('gnt.inPrefix')} ${project.name}` : undefined,
       })
       setOpen(false)
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al crear la tarea')
+      toast.error(err instanceof Error ? err.message : t('createTask.createFail'))
     } finally {
       setSubmitting(false)
     }
@@ -224,18 +226,17 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
               id="new-task-title"
               className="text-sm font-semibold text-popover-foreground"
             >
-              Nueva tarea
+              {t('createTask.newTask')}
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Escribe qué hay que hacer y elige dónde va.
+              {t('gnt.subtitle')}
             </p>
           </div>
         </div>
 
         {projects.length === 0 ? (
           <p className="px-5 py-6 text-sm text-muted-foreground">
-            No tienes proyectos todavía. Crea un equipo y un proyecto para
-            empezar a gestionar tareas.
+            {t('gnt.noProjects')}
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
@@ -244,8 +245,8 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
               ref={titleRef}
               value={title}
               onChange={e => setTitle(e.target.value)}
-              placeholder="¿Qué hay que hacer?"
-              aria-label="Título de la tarea"
+              placeholder={t('gnt.titlePlaceholder')}
+              aria-label={t('gnt.titleAria')}
               maxLength={500}
               className="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-base text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-ring"
             />
@@ -254,13 +255,13 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <FolderKanban className="h-3.5 w-3.5" aria-hidden="true" />
-                Proyecto
+                {t('gnt.project')}
               </label>
               <div className="relative">
                 <select
                   value={projectId}
                   onChange={e => setProjectId(e.target.value)}
-                  aria-label="Proyecto"
+                  aria-label={t('gnt.project')}
                   className="w-full appearance-none rounded-lg border border-input bg-background pl-3 pr-8 py-2 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   {teams.map(team =>
@@ -284,19 +285,19 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                   <LayoutTemplate className="h-3.5 w-3.5" aria-hidden="true" />
-                  Plantilla
+                  {t('gnt.template')}
                 </label>
                 <div className="relative">
                   <select
                     value={templateId}
                     onChange={e => applyTemplate(e.target.value)}
-                    aria-label="Plantilla de tarea"
+                    aria-label={t('gnt.templateAria')}
                     className="w-full appearance-none rounded-lg border border-input bg-background pl-3 pr-8 py-2 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   >
-                    <option value="">Ninguna</option>
-                    {templates.map(t => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
+                    <option value="">{t('gnt.none')}</option>
+                    {templates.map(tp => (
+                      <option key={tp.id} value={tp.id}>
+                        {tp.name}
                       </option>
                     ))}
                   </select>
@@ -310,15 +311,15 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
                 que aqui solo se muestra para que el usuario sepa que trae. */}
             {templateId && description && (
               <div className="rounded-lg border border-border bg-muted/40 px-3.5 py-2.5 text-xs text-muted-foreground">
-                <span className="mb-1 block font-medium text-foreground">Descripción de la plantilla</span>
+                <span className="mb-1 block font-medium text-foreground">{t('gnt.templateDesc')}</span>
                 <p className="line-clamp-4 whitespace-pre-wrap">{description}</p>
               </div>
             )}
 
             {/* Prioridad como pastillas */}
             <div className="space-y-1.5">
-              <span className="text-xs font-medium text-muted-foreground">Prioridad</span>
-              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Prioridad">
+              <span className="text-xs font-medium text-muted-foreground">{t('bulk.priority')}</span>
+              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t('bulk.priority')}>
                 {PRIORITIES.map(p => (
                   <button
                     key={p.value}
@@ -334,7 +335,7 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
                     )}
                   >
                     <span className={cn('h-2 w-2 rounded-full', p.dot)} aria-hidden="true" />
-                    {p.label}
+                    {t(p.labelKey)}
                   </button>
                 ))}
               </div>
@@ -344,7 +345,7 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
             <div className="flex items-center justify-between pt-1">
               <span className="hidden items-center gap-1 text-[11px] text-muted-foreground sm:flex">
                 <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Enter</kbd>
-                para crear
+                {t('gnt.toCreate')}
               </span>
               <div className="flex gap-2">
                 <button
@@ -352,7 +353,7 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
                   onClick={() => setOpen(false)}
                   className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-popover-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  Cancelar
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -360,7 +361,7 @@ export function GlobalNewTaskModal({ teams }: GlobalNewTaskModalProps) {
                   className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-                  Crear tarea
+                  {t('gnt.createTask')}
                 </button>
               </div>
             </div>

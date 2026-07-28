@@ -27,6 +27,7 @@ import {
   ArrowRight,
   type LucideIcon,
 } from 'lucide-react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface OnboardingSteps {
   teams: boolean
@@ -43,16 +44,17 @@ interface OnboardingGuideProps {
   isAdmin?: boolean
 }
 
-const TOUR: Array<{ icon: LucideIcon; title: string; desc: string; path: (b: string, uid: string) => string }> = [
-  { icon: UsersRound, title: 'Equipos', desc: 'Cada equipo agrupa proyectos y tareas por área.', path: (b) => `${b}/teams/new` },
-  { icon: FolderKanban, title: 'Proyectos y tableros', desc: 'Organiza el trabajo en tableros Scrum o Kanban.', path: (b) => `${b}` },
-  { icon: FileText, title: 'Notas y departamentos', desc: 'Base de conocimiento tipo Confluence por departamento.', path: (b) => `${b}/notes` },
-  { icon: PenTool, title: 'Pizarras', desc: 'Lienzos visuales para ideas, flujos y diagramas.', path: (b) => `${b}/whiteboards` },
-  { icon: Target, title: 'Metas', desc: 'Define objetivos y da seguimiento al progreso.', path: (b) => `${b}/goals` },
-  { icon: Compass, title: 'Marketplace', desc: 'Oportunidades internas y tu CV de colaborador.', path: (b, uid) => `${b}/cv/${uid}` },
+const TOUR: Array<{ icon: LucideIcon; titleKey: string; descKey: string; path: (b: string, uid: string) => string }> = [
+  { icon: UsersRound, titleKey: 'onb.tourTeamsTitle', descKey: 'onb.tourTeamsDesc', path: (b) => `${b}/teams/new` },
+  { icon: FolderKanban, titleKey: 'onb.tourProjectsTitle', descKey: 'onb.tourProjectsDesc', path: (b) => `${b}` },
+  { icon: FileText, titleKey: 'onb.tourNotesTitle', descKey: 'onb.tourNotesDesc', path: (b) => `${b}/notes` },
+  { icon: PenTool, titleKey: 'onb.tourWhiteboardsTitle', descKey: 'onb.tourWhiteboardsDesc', path: (b) => `${b}/whiteboards` },
+  { icon: Target, titleKey: 'onb.tourGoalsTitle', descKey: 'onb.tourGoalsDesc', path: (b) => `${b}/goals` },
+  { icon: Compass, titleKey: 'onb.tourMarketplaceTitle', descKey: 'onb.tourMarketplaceDesc', path: (b, uid) => `${b}/cv/${uid}` },
 ]
 
 export function OnboardingGuide({ workspaceSlug, workspaceId, userId, steps, isAdmin = false }: OnboardingGuideProps) {
+  const t = useT()
   const base = `/w/${workspaceSlug}`
   const storageKey = `wlo-onboarding-${workspaceId}`
 
@@ -100,11 +102,11 @@ export function OnboardingGuide({ workspaceSlug, workspaceId, userId, steps, isA
     // Crear equipos es exclusivo del admin; para el resto, el paso apunta a la
     // vista del workspace (esperan a que el admin les asigne un equipo).
     isAdmin
-      ? { key: 'teams', label: 'Crea tu primer equipo', cta: 'Crear equipo', href: `${base}/teams/new` }
-      : { key: 'teams', label: 'Espera a que un admin te asigne un equipo', cta: 'Ver workspace', href: base },
-    { key: 'projects', label: 'Crea un proyecto y su tablero', cta: 'Ir a equipos', href: base },
-    { key: 'members', label: 'Invita a tu equipo', cta: 'Invitar', href: `${base}/settings/invites` },
-    { key: 'notes', label: 'Escribe tu primera nota', cta: 'Nueva nota', href: `${base}/notes` },
+      ? { key: 'teams', label: t('onb.stepTeamsAdmin'), cta: t('onb.stepTeamsAdminCta'), href: `${base}/teams/new` }
+      : { key: 'teams', label: t('onb.stepTeamsMember'), cta: t('onb.stepTeamsMemberCta'), href: base },
+    { key: 'projects', label: t('onb.stepProjects'), cta: t('onb.stepProjectsCta'), href: base },
+    { key: 'members', label: t('onb.stepMembers'), cta: t('onb.stepMembersCta'), href: `${base}/settings/invites` },
+    { key: 'notes', label: t('onb.stepNotes'), cta: t('onb.stepNotesCta'), href: `${base}/notes` },
   ]
 
   // Pastilla para reabrir cuando está cerrada
@@ -115,7 +117,7 @@ export function OnboardingGuide({ workspaceSlug, workspaceId, userId, steps, isA
         className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-sm text-muted-foreground shadow-soft transition-colors hover:text-foreground hover:border-primary/40"
       >
         <Sparkles size={14} className="text-primary" />
-        Guía de inicio
+        {t('onb.reopenPill')}
         {!allDone && (
           <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
             {doneCount}/{totalSteps}
@@ -135,19 +137,19 @@ export function OnboardingGuide({ workspaceSlug, workspaceId, userId, steps, isA
           </div>
           <div>
             <h2 className="text-lg font-semibold text-foreground">
-              {allDone ? 'Todo listo para trabajar' : 'Bienvenido a WLO'}
+              {allDone ? t('onb.allDoneTitle') : t('onb.welcomeTitle')}
             </h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
               {allDone
-                ? 'Completaste los primeros pasos. Puedes reabrir esta guía cuando quieras.'
-                : 'Sigue estos pasos para dejar tu espacio listo en minutos.'}
+                ? t('onb.allDoneSubtitle')
+                : t('onb.welcomeSubtitle')}
             </p>
           </div>
         </div>
         <button
           onClick={dismiss}
           className="flex-shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          aria-label="Cerrar guía"
+          aria-label={t('onb.close')}
         >
           <X size={16} />
         </button>
@@ -213,23 +215,23 @@ export function OnboardingGuide({ workspaceSlug, workspaceId, userId, steps, isA
           onClick={() => setShowTour((v) => !v)}
           className="flex w-full items-center justify-between px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent/40"
         >
-          <span>¿Cómo funciona WLO?</span>
+          <span>{t('onb.howItWorks')}</span>
           <ChevronDown size={16} className={'transition-transform ' + (showTour ? 'rotate-180' : '')} />
         </button>
         {showTour && (
           <div className="grid grid-cols-1 gap-2 px-6 pb-5 sm:grid-cols-2">
-            {TOUR.map((t) => (
+            {TOUR.map((item) => (
               <Link
-                key={t.title}
-                href={t.path(base, userId)}
+                key={item.titleKey}
+                href={item.path(base, userId)}
                 className="flex items-start gap-3 rounded-xl border border-border bg-background/60 p-3 transition-colors hover:border-primary/40"
               >
                 <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                  <t.icon size={16} />
+                  <item.icon size={16} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">{t.title}</p>
-                  <p className="text-xs text-muted-foreground">{t.desc}</p>
+                  <p className="text-sm font-medium text-foreground">{t(item.titleKey)}</p>
+                  <p className="text-xs text-muted-foreground">{t(item.descKey)}</p>
                 </div>
               </Link>
             ))}
@@ -241,8 +243,8 @@ export function OnboardingGuide({ workspaceSlug, workspaceId, userId, steps, isA
                 <Settings size={16} />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">Configuración</p>
-                <p className="text-xs text-muted-foreground">Miembros, equipos, departamentos e invitaciones.</p>
+                <p className="text-sm font-medium text-foreground">{t('onb.tourSettingsTitle')}</p>
+                <p className="text-xs text-muted-foreground">{t('onb.tourSettingsDesc')}</p>
               </div>
             </Link>
             <Link
@@ -253,8 +255,8 @@ export function OnboardingGuide({ workspaceSlug, workspaceId, userId, steps, isA
                 <Ticket size={16} />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">Invitaciones</p>
-                <p className="text-xs text-muted-foreground">Genera códigos para sumar a tu equipo.</p>
+                <p className="text-sm font-medium text-foreground">{t('onb.tourInvitesTitle')}</p>
+                <p className="text-xs text-muted-foreground">{t('onb.tourInvitesDesc')}</p>
               </div>
             </Link>
           </div>
@@ -269,7 +271,7 @@ export function OnboardingGuide({ workspaceSlug, workspaceId, userId, steps, isA
         >
           <span className="flex items-center gap-2 font-medium text-foreground">
             <GraduationCap size={16} className="text-primary" />
-            ¿Nuevo por aquí? Toma el curso de uso completo
+            {t('onb.fullCourse')}
           </span>
           <ArrowRight size={15} className="flex-shrink-0 text-primary" />
         </Link>

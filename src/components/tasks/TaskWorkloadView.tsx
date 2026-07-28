@@ -18,6 +18,7 @@ import { ChevronDown, ChevronRight, AlertTriangle, Clock, ListChecks, CheckCircl
 import { getInitials } from '@/lib/utils'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { TaskDetailPanel } from './TaskDetailPanel'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Status { id: string; name: string; color: string | null; category: string; position: number }
 interface Member { id: string; display_name: string; avatar_url: string | null }
@@ -43,11 +44,11 @@ interface TaskWorkloadViewProps {
 }
 
 // Categorias de estado en orden con su color de barra.
-const CATEGORY_META: { key: string; label: string; color: string }[] = [
-  { key: 'todo', label: 'Por hacer', color: '#94a3b8' },
-  { key: 'in_progress', label: 'En progreso', color: '#3b82f6' },
-  { key: 'done', label: 'Hecho', color: '#22c55e' },
-  { key: 'cancelled', label: 'Cancelado', color: '#64748b' },
+const CATEGORY_META: { key: string; labelKey: string; color: string }[] = [
+  { key: 'todo', labelKey: 'status.catTodo', color: '#94a3b8' },
+  { key: 'in_progress', labelKey: 'status.catInProgress', color: '#3b82f6' },
+  { key: 'done', labelKey: 'status.catDone', color: '#22c55e' },
+  { key: 'cancelled', labelKey: 'status.catCancelled', color: '#64748b' },
 ]
 
 const PRIORITY_COLOR: Record<string, string> = {
@@ -79,6 +80,7 @@ function fmtHours(minutes: number): string {
 
 export function TaskWorkloadView({ projectId, tasks, statuses, members, currentUserId }: TaskWorkloadViewProps) {
   const router = useRouter()
+  const tr = useT()
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
@@ -165,7 +167,7 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
   if (tasks.length === 0) {
     return (
       <div className="px-6 py-4">
-        <p className="mt-6 text-center text-sm text-muted-foreground">No hay tareas en este proyecto todavia.</p>
+        <p className="mt-6 text-center text-sm text-muted-foreground">{tr('workload.empty')}</p>
       </div>
     )
   }
@@ -199,18 +201,18 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
           <span className="inline-flex items-center gap-1">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="tabular-nums">{totalDone}/{tasks.length}</span> completadas
+            <span className="tabular-nums">{totalDone}/{tasks.length}</span> {tr('health.completed')}
           </span>
           {totalOverdue > 0 && (
             <span className="inline-flex items-center gap-1 text-destructive font-medium">
               <AlertTriangle className="w-3.5 h-3.5" />
-              <span className="tabular-nums">{totalOverdue}</span> vencidas
+              <span className="tabular-nums">{totalOverdue}</span> {tr('health.overdue')}
             </span>
           )}
           {totalToday > 0 && (
             <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
               <CalendarClock className="w-3.5 h-3.5" />
-              <span className="tabular-nums">{totalToday}</span> para hoy
+              <span className="tabular-nums">{totalToday}</span> {tr('health.today')}
             </span>
           )}
         </div>
@@ -218,11 +220,11 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
 
       {/* Resumen global */}
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <SummaryCard icon={<ListChecks className="w-4 h-4" />} label="Tareas abiertas" value={String(totalOpen)} />
-        <SummaryCard icon={<Clock className="w-4 h-4" />} label="Carga estimada" value={fmtHours(totalMinutes)} />
+        <SummaryCard icon={<ListChecks className="w-4 h-4" />} label={tr('workload.openTasks')} value={String(totalOpen)} />
+        <SummaryCard icon={<Clock className="w-4 h-4" />} label={tr('workload.estLoad')} value={fmtHours(totalMinutes)} />
         <SummaryCard
           icon={<AlertTriangle className="w-4 h-4" />}
-          label="Vencidas"
+          label={tr('workload.overdue')}
           value={String(totalOverdue)}
           danger={totalOverdue > 0}
         />
@@ -234,7 +236,7 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
           const key = b.member?.id ?? '__unassigned__'
           const isOpen = expanded.has(key)
           const loadPct = maxMinutes > 0 ? (b.estimatedMinutes / maxMinutes) * 100 : 0
-          const name = b.member?.display_name ?? 'Sin asignar'
+          const name = b.member?.display_name ?? tr('bulk.unassigned')
           return (
             <div key={key} className="bg-background transition-all hover:bg-muted/20">
               {/* Cabecera de la persona */}
@@ -266,7 +268,7 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <span className="text-sm font-medium text-foreground truncate">{name}</span>
                     <span className="text-xs text-muted-foreground flex-shrink-0">
-                      {fmtHours(b.estimatedMinutes)} · {b.openCount} {b.openCount === 1 ? 'abierta' : 'abiertas'}
+                      {fmtHours(b.estimatedMinutes)} · {b.openCount} {b.openCount === 1 ? tr('workload.openOne') : tr('workload.openMany')}
                     </span>
                   </div>
                   {/* Barra apilada por categoria (proporcional a tareas totales de la persona) */}
@@ -279,14 +281,14 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
                         return (
                           <span
                             key={c.key}
-                            title={`${c.label}: ${n}`}
+                            title={`${tr(c.labelKey)}: ${n}`}
                             style={{ width: `${pct}%`, backgroundColor: c.color }}
                           />
                         )
                       })}
                     </div>
                     {/* Indicador relativo de carga en horas */}
-                    <div className="w-16 h-2 rounded-full bg-muted overflow-hidden flex-shrink-0" title="Carga relativa">
+                    <div className="w-16 h-2 rounded-full bg-muted overflow-hidden flex-shrink-0" title={tr('workload.relativeLoad')}>
                       <span
                         className={`block h-full rounded-full bg-gradient-to-r transition-all duration-500 ${
                           b.overdueCount > 0 ? 'from-amber-500 to-destructive' : 'from-primary to-emerald-500'
@@ -353,7 +355,7 @@ export function TaskWorkloadView({ projectId, tasks, statuses, members, currentU
         {CATEGORY_META.map(c => (
           <span key={c.key} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: c.color }} />
-            {c.label}
+            {tr(c.labelKey)}
           </span>
         ))}
       </div>

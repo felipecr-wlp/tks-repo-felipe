@@ -8,6 +8,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { getInitials } from '@/lib/utils'
 import { AlertTriangle, CalendarClock, ListChecks, Users } from 'lucide-react'
+import { getServerT } from '@/lib/i18n/server'
 
 export interface DashboardWidgetsData {
   totalOpen: number
@@ -17,11 +18,12 @@ export interface DashboardWidgetsData {
   workload: Array<{ id: string; name: string; avatar_url: string | null; open: number }>
 }
 
-const CATEGORY_META: Array<{ key: keyof DashboardWidgetsData['byCategory']; label: string; color: string }> = [
-  { key: 'todo',        label: 'Por hacer',   color: '#94a3b8' },
-  { key: 'in_progress', label: 'En progreso', color: '#2563EB' },
-  { key: 'done',        label: 'Hechas',      color: '#22c55e' },
-  { key: 'cancelled',   label: 'Canceladas',  color: '#f43f5e' },
+// labelKey se resuelve con el diccionario al render (respeta el idioma activo).
+const CATEGORY_META: Array<{ key: keyof DashboardWidgetsData['byCategory']; labelKey: string; color: string }> = [
+  { key: 'todo',        labelKey: 'widgets.cat.todo',        color: '#94a3b8' },
+  { key: 'in_progress', labelKey: 'widgets.cat.in_progress', color: '#2563EB' },
+  { key: 'done',        labelKey: 'widgets.cat.done',        color: '#22c55e' },
+  { key: 'cancelled',   labelKey: 'widgets.cat.cancelled',   color: '#f43f5e' },
 ]
 
 export function DashboardWidgets({
@@ -31,6 +33,7 @@ export function DashboardWidgets({
   data: DashboardWidgetsData
   myTasksHref: string
 }) {
+  const t = getServerT()
   const { totalOpen, overdue, dueSoon, byCategory, workload } = data
   const totalAll = byCategory.todo + byCategory.in_progress + byCategory.done + byCategory.cancelled
   const maxWorkload = Math.max(1, ...workload.map(w => w.open))
@@ -38,7 +41,7 @@ export function DashboardWidgets({
   return (
     <section className="mb-10">
       <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-        Resumen
+        {t('widgets.summary')}
       </h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -46,11 +49,11 @@ export function DashboardWidgets({
         <div className="bg-card border border-border rounded-xl p-4 shadow-soft">
           <div className="flex items-center gap-2 mb-3">
             <ListChecks className="w-4 h-4 text-muted-foreground" />
-            <h3 className="text-sm font-medium text-foreground">Tareas por estado</h3>
+            <h3 className="text-sm font-medium text-foreground">{t('widgets.byStatus')}</h3>
           </div>
 
           {totalAll === 0 ? (
-            <p className="text-xs text-muted-foreground py-6 text-center">Aún no hay tareas</p>
+            <p className="text-xs text-muted-foreground py-6 text-center">{t('widgets.noTasks')}</p>
           ) : (
             <>
               {/* Barra apilada por categoría */}
@@ -62,7 +65,7 @@ export function DashboardWidgets({
                     <div
                       key={c.key}
                       style={{ width: `${(n / totalAll) * 100}%`, backgroundColor: c.color }}
-                      title={`${c.label}: ${n}`}
+                      title={`${t(c.labelKey)}: ${n}`}
                     />
                   )
                 })}
@@ -71,7 +74,7 @@ export function DashboardWidgets({
                 {CATEGORY_META.map(c => (
                   <li key={c.key} className="flex items-center gap-2 text-xs">
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />
-                    <span className="text-muted-foreground flex-1">{c.label}</span>
+                    <span className="text-muted-foreground flex-1">{t(c.labelKey)}</span>
                     <span className="font-medium text-foreground tabular-nums">{byCategory[c.key]}</span>
                   </li>
                 ))}
@@ -84,7 +87,7 @@ export function DashboardWidgets({
         <div className="bg-card border border-border rounded-xl p-4 shadow-soft flex flex-col">
           <div className="flex items-center gap-2 mb-3">
             <CalendarClock className="w-4 h-4 text-muted-foreground" />
-            <h3 className="text-sm font-medium text-foreground">Fechas límite</h3>
+            <h3 className="text-sm font-medium text-foreground">{t('widgets.deadlines')}</h3>
           </div>
 
           <div className="grid grid-cols-2 gap-3 flex-1">
@@ -94,7 +97,7 @@ export function DashboardWidgets({
             >
               <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                Vencidas
+                {t('widgets.overdue')}
               </span>
               <span className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{overdue}</span>
             </Link>
@@ -104,13 +107,13 @@ export function DashboardWidgets({
             >
               <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <CalendarClock className="w-3.5 h-3.5 text-amber-500" />
-                Próximos 7 días
+                {t('widgets.next7')}
               </span>
               <span className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{dueSoon}</span>
             </Link>
           </div>
           <p className="mt-3 text-[11px] text-muted-foreground">
-            {totalOpen} {totalOpen === 1 ? 'tarea abierta' : 'tareas abiertas'} en total
+            {totalOpen} {totalOpen === 1 ? t('widgets.openOne') : t('widgets.openMany')} {t('widgets.totalSuffix')}
           </p>
         </div>
 
@@ -118,11 +121,11 @@ export function DashboardWidgets({
         <div className="bg-card border border-border rounded-xl p-4 shadow-soft">
           <div className="flex items-center gap-2 mb-3">
             <Users className="w-4 h-4 text-muted-foreground" />
-            <h3 className="text-sm font-medium text-foreground">Carga por persona</h3>
+            <h3 className="text-sm font-medium text-foreground">{t('widgets.workload')}</h3>
           </div>
 
           {workload.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-6 text-center">Sin tareas asignadas</p>
+            <p className="text-xs text-muted-foreground py-6 text-center">{t('widgets.noAssigned')}</p>
           ) : (
             <ul className="space-y-2.5">
               {workload.map(w => (

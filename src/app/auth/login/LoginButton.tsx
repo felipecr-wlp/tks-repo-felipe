@@ -6,12 +6,14 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface LoginButtonProps {
   redirectTo?: string
 }
 
 export function LoginButton({ redirectTo }: LoginButtonProps) {
+  const t = useT()
   const [isLoading, setIsLoading] = useState(false)
 
   const handleGoogleLogin = async () => {
@@ -38,7 +40,7 @@ export function LoginButton({ redirectTo }: LoginButtonProps) {
 
       if (error) throw error
     } catch {
-      toast.error('Error al iniciar sesión. Intenta de nuevo.')
+      toast.error(t('auth.loginError'))
       setIsLoading(false)
     }
   }
@@ -54,7 +56,7 @@ export function LoginButton({ redirectTo }: LoginButtonProps) {
       ) : (
         <GoogleIcon />
       )}
-      {isLoading ? 'Conectando...' : 'Continuar con Google'}
+      {isLoading ? t('auth.connecting') : t('auth.continueGoogle')}
     </button>
   )
 }

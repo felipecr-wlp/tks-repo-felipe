@@ -10,13 +10,15 @@ import { useEffect, useState } from 'react'
 import { Rows3, Rows4 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDensity, type Density } from '@/stores/useDensity'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
-const OPTIONS: { value: Density; label: string; Icon: typeof Rows3 }[] = [
-  { value: 'comfortable', label: 'Cómoda',   Icon: Rows3 },
-  { value: 'compact',     label: 'Compacta', Icon: Rows4 },
+const OPTIONS: { value: Density; labelKey: string; Icon: typeof Rows3 }[] = [
+  { value: 'comfortable', labelKey: 'density.comfortable', Icon: Rows3 },
+  { value: 'compact',     labelKey: 'density.compact',     Icon: Rows4 },
 ]
 
 export function DensityToggle({ className }: { className?: string }) {
+  const t = useT()
   const density = useDensity(s => s.density)
   const setDensity = useDensity(s => s.setDensity)
   // Evita el desajuste de hidratacion: en el primer render (servidor y cliente)
@@ -28,11 +30,12 @@ export function DensityToggle({ className }: { className?: string }) {
   return (
     <div
       role="group"
-      aria-label="Densidad de la lista"
+      aria-label={t('density.aria')}
       className={cn('inline-flex items-center rounded-md border border-border bg-background p-0.5', className)}
     >
-      {OPTIONS.map(({ value, label, Icon }) => {
+      {OPTIONS.map(({ value, labelKey, Icon }) => {
         const isActive = active === value
+        const label = t(labelKey)
         return (
           <button
             key={value}

@@ -4,6 +4,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { safeInternalPath } from '@/lib/validation'
+import { getServerT } from '@/lib/i18n/server'
 import { LoginButton } from './LoginButton'
 
 export const metadata = { title: 'Iniciar sesión' }
@@ -13,6 +14,7 @@ export default async function LoginPage({
 }: {
   searchParams: { redirectTo?: string; error?: string }
 }) {
+  const t = getServerT()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -35,7 +37,7 @@ export default async function LoginPage({
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">WLO</h1>
           <p className="text-sm text-muted-foreground">
-            Accede con tu cuenta de Google corporativa
+            {t('auth.subtitle')}
           </p>
         </div>
 
@@ -43,20 +45,20 @@ export default async function LoginPage({
         {searchParams.error && (
           <div className="bg-destructive/10 text-destructive text-sm rounded-lg px-4 py-3">
             {searchParams.error === 'unauthorized_domain'
-              ? 'Tu cuenta no pertenece al dominio autorizado.'
-              : 'Ocurrió un error. Intenta de nuevo.'}
+              ? t('auth.unauthorizedDomain')
+              : t('auth.genericError')}
           </div>
         )}
 
         <LoginButton redirectTo={safeRedirect} />
 
         <p className="text-xs text-muted-foreground">
-          Solo cuentas{' '}
+          {t('auth.onlyAccountsPrefix')}{' '}
           {(process.env.ALLOWED_EMAIL_DOMAINS ?? process.env.ALLOWED_EMAIL_DOMAIN ?? 'tudominio.com')
             .split(',').map(d => d.trim()).filter(Boolean)
             .map((d, i, arr) => (
               <span key={d}><strong>@{d}</strong>{i < arr.length - 1 ? ', ' : ''}</span>
-            ))}{' '}autorizadas
+            ))}{' '}{t('auth.onlyAccountsSuffix')}
         </p>
       </div>
     </div>

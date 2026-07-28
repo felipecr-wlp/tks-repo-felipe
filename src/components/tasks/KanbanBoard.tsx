@@ -31,6 +31,7 @@ import { TaskDetailPanel } from './TaskDetailPanel'
 import { CreateTaskInline } from './CreateTaskInline'
 import { LabelChips } from './TaskLabels'
 import { StackedAvatars } from './StackedAvatars'
+import { useT, useI18n } from '@/lib/i18n/LanguageProvider'
 
 interface Status {
   id: string
@@ -71,13 +72,14 @@ interface KanbanBoardProps {
   initialTaskId?: string
 }
 
-// Metadatos de prioridad: color del acento (borde izquierdo) + punto + etiqueta.
-const PRIORITY_META: Record<string, { border: string; dot: string; label: string }> = {
-  urgent: { border: 'border-l-red-500',    dot: 'bg-red-500',    label: 'Urgente' },
-  high:   { border: 'border-l-orange-500', dot: 'bg-orange-500', label: 'Alta' },
-  medium: { border: 'border-l-yellow-400', dot: 'bg-yellow-400', label: 'Media' },
-  low:    { border: 'border-l-blue-400',   dot: 'bg-blue-400',   label: 'Baja' },
-  none:   { border: 'border-l-transparent', dot: 'bg-muted-foreground/30', label: '' },
+// Metadatos de prioridad: color del acento (borde izquierdo) + punto + clave de etiqueta.
+// El texto se traduce en el render (labelKey), no se guarda literal en la constante.
+const PRIORITY_META: Record<string, { border: string; dot: string; labelKey: string }> = {
+  urgent: { border: 'border-l-red-500',    dot: 'bg-red-500',    labelKey: 'kanban.priorityUrgent' },
+  high:   { border: 'border-l-orange-500', dot: 'bg-orange-500', labelKey: 'kanban.priorityHigh' },
+  medium: { border: 'border-l-yellow-400', dot: 'bg-yellow-400', labelKey: 'kanban.priorityMedium' },
+  low:    { border: 'border-l-blue-400',   dot: 'bg-blue-400',   labelKey: 'kanban.priorityLow' },
+  none:   { border: 'border-l-transparent', dot: 'bg-muted-foreground/30', labelKey: '' },
 }
 
 function priorityMeta(priority: string) {
@@ -108,6 +110,7 @@ function KanbanCard({
   task: Task
   onOpen: () => void
 }) {
+  const { t, lang } = useI18n()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     data: { task },
@@ -150,7 +153,7 @@ function KanbanCard({
         {task.priority !== 'none' && (
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <span className={cn('w-1.5 h-1.5 rounded-full', meta.dot)} />
-            {meta.label}
+            {t(meta.labelKey)}
           </span>
         )}
 
@@ -166,15 +169,15 @@ function KanbanCard({
           )}>
             <CalendarDays className="w-3 h-3" />
             {dueToday
-              ? 'Hoy'
-              : new Date(String(task.due_date).slice(0, 10) + 'T00:00:00').toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
+              ? t('kanban.today')
+              : new Date(String(task.due_date).slice(0, 10) + 'T00:00:00').toLocaleDateString(lang === 'en' ? 'en-US' : 'es-MX', { month: 'short', day: 'numeric' })}
           </span>
         )}
 
         {/* Progreso de subtareas */}
         {typeof task.subtaskTotal === 'number' && task.subtaskTotal > 0 && (
           <span
-            title={`${task.subtaskDone ?? 0} de ${task.subtaskTotal} subtareas completadas`}
+            title={`${task.subtaskDone ?? 0} ${t('kanban.of')} ${task.subtaskTotal} ${t('kanban.subtasksCompleted')}`}
             className={cn(
               'flex items-center gap-1 text-[11px]',
               (task.subtaskDone ?? 0) === task.subtaskTotal
@@ -190,7 +193,7 @@ function KanbanCard({
         {/* Tarea recurrente */}
         {task.recurrence_rule && (
           <span
-            title="Tarea recurrente"
+            title={t('kanban.recurringTask')}
             className="flex items-center gap-1 text-[11px] text-muted-foreground"
           >
             <Repeat className="w-3 h-3" />
@@ -236,6 +239,7 @@ function KanbanColumn({
   onOpen: (id: string) => void
   onCreated: (task: Task) => void
 }) {
+  const tr = useT()
   // Droppable a nivel columna: permite soltar en columnas VACIAS (antes imposible,
   // porque sin este registro no habia `over` para el status id).
   const { setNodeRef, isOver } = useDroppable({ id: status.id, data: { statusId: status.id } })
@@ -248,8 +252,8 @@ function KanbanColumn({
       <div className="flex flex-col w-11 flex-shrink-0">
         <button
           onClick={onToggleCollapse}
-          title={`Expandir ${status.name}`}
-          aria-label={`Expandir columna ${status.name}, ${tasks.length} tareas`}
+          title={`${tr('kanban.expand')} ${status.name}`}
+          aria-label={`${tr('kanban.expandColumnPrefix')} ${status.name}, ${tasks.length} ${tr('kanban.tasksWord')}`}
           className="flex flex-col items-center gap-2 h-full bg-muted/30 hover:bg-muted/50 rounded-xl py-3 transition-colors"
         >
           <span aria-hidden="true" className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: dot }} />
@@ -268,7 +272,7 @@ function KanbanColumn({
 
   return (
     <section
-      aria-label={`${status.name}, ${tasks.length} tareas`}
+      aria-label={`${status.name}, ${tasks.length} ${tr('kanban.tasksWord')}`}
       className="flex flex-col w-[82vw] max-w-[18rem] sm:w-72 flex-shrink-0 snap-start"
     >
       {/* Header */}
@@ -282,8 +286,8 @@ function KanbanColumn({
         </span>
         <button
           onClick={onToggleCollapse}
-          title={`Colapsar ${status.name}`}
-          aria-label={`Colapsar columna ${status.name}`}
+          title={`${tr('kanban.collapse')} ${status.name}`}
+          aria-label={`${tr('kanban.collapseColumnPrefix')} ${status.name}`}
           className="ml-auto p-1 rounded text-muted-foreground opacity-0 group-hover/head:opacity-100 hover:bg-muted hover:text-foreground transition-all"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
@@ -312,7 +316,7 @@ function KanbanColumn({
             isOver && 'border-primary/40'
           )}>
             <p className="text-[11px] text-muted-foreground leading-snug">
-              {isDone ? 'Nada aquí todavía' : 'Suelta una tarea aquí o créala abajo'}
+              {isDone ? tr('kanban.nothingHere') : tr('kanban.dropHere')}
             </p>
           </div>
         )}
@@ -341,6 +345,7 @@ export function KanbanBoard({
   currentUserId,
   initialTaskId,
 }: KanbanBoardProps) {
+  const tr = useT()
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [activeTask, setActiveTask] = useState<Task | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialTaskId ?? null)
@@ -512,9 +517,9 @@ export function KanbanBoard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      if (!res.ok) throw new Error('Error al mover la tarea')
+      if (!res.ok) throw new Error(tr('kanban.moveError'))
     } catch {
-      toast.error('Error al mover la tarea')
+      toast.error(tr('kanban.moveError'))
       // Revertir SOLO la tarea movida a su posición previa. Antes se restauraba
       // initialTasks completo, lo que pisaba cambios locales posteriores
       // (tareas creadas o editadas después del último render del servidor).
@@ -561,7 +566,7 @@ export function KanbanBoard({
       {/* Barra de filtros */}
       <div className="flex items-center gap-3 px-3 sm:px-6 pt-4 pb-1 flex-wrap">
         <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <Filter className="w-3.5 h-3.5" /> Filtrar
+          <Filter className="w-3.5 h-3.5" /> {tr('kanban.filter')}
         </span>
 
         {/* Búsqueda por título */}
@@ -573,13 +578,13 @@ export function KanbanBoard({
             value={search}
             onChange={e => setSearch(e.target.value)}
             onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); e.currentTarget.blur() } }}
-            placeholder="Buscar tarea..."
+            placeholder={tr('kanban.searchPlaceholder')}
             className="w-44 pl-7 pr-7 py-1 text-[11px] rounded-md border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:w-56 transition-all"
           />
           {search ? (
             <button
               onClick={() => setSearch('')}
-              title="Limpiar búsqueda"
+              title={tr('kanban.clearSearch')}
               className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="w-3 h-3" />
@@ -608,7 +613,7 @@ export function KanbanBoard({
                 )}
               >
                 <span className={cn('w-1.5 h-1.5 rounded-full', m.dot)} />
-                {m.label}
+                {tr(m.labelKey)}
               </button>
             )
           })}
@@ -651,19 +656,19 @@ export function KanbanBoard({
               : 'border-border text-muted-foreground hover:bg-muted'
           )}
         >
-          Solo mías
+          {tr('kanban.onlyMine')}
         </button>
 
         {filtersActive && (
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-[11px] text-muted-foreground tabular-nums">
-              {visibleTasks.length} de {tasks.length}
+              {visibleTasks.length} {tr('kanban.of')} {tasks.length}
             </span>
             <button
               onClick={clearFilters}
               className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
             >
-              <X className="w-3 h-3" /> Limpiar
+              <X className="w-3 h-3" /> {tr('kanban.clear')}
             </button>
           </div>
         )}
@@ -684,18 +689,18 @@ export function KanbanBoard({
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
             <span className="inline-flex items-center gap-1">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-              <span className="tabular-nums">{doneCount}/{total}</span> completadas
+              <span className="tabular-nums">{doneCount}/{total}</span> {tr('kanban.completed')}
             </span>
             {overdueCount > 0 && (
               <span className="inline-flex items-center gap-1 text-destructive font-medium">
                 <AlertTriangle className="w-3.5 h-3.5" />
-                <span className="tabular-nums">{overdueCount}</span> vencidas
+                <span className="tabular-nums">{overdueCount}</span> {tr('kanban.overdue')}
               </span>
             )}
             {todayCount > 0 && (
               <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
                 <CalendarClock className="w-3.5 h-3.5" />
-                <span className="tabular-nums">{todayCount}</span> para hoy
+                <span className="tabular-nums">{todayCount}</span> {tr('kanban.forToday')}
               </span>
             )}
           </div>
@@ -708,15 +713,15 @@ export function KanbanBoard({
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted text-muted-foreground mb-3">
             <Search className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-medium text-foreground mb-1">Sin coincidencias</h3>
+          <h3 className="text-sm font-medium text-foreground mb-1">{tr('kanban.noMatches')}</h3>
           <p className="text-xs text-muted-foreground mb-4 max-w-xs">
-            Ninguna tarea coincide con los filtros o la búsqueda actual.
+            {tr('kanban.noMatchesDesc')}
           </p>
           <button
             onClick={clearFilters}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border text-foreground hover:bg-muted transition-colors"
           >
-            <X className="w-3.5 h-3.5" /> Limpiar filtros
+            <X className="w-3.5 h-3.5" /> {tr('kanban.clearFilters')}
           </button>
         </div>
       )}
@@ -756,7 +761,7 @@ export function KanbanBoard({
                 {activeTask.priority !== 'none' && (
                   <span className="flex items-center gap-1 text-[11px] text-muted-foreground mt-2">
                     <span className={cn('w-1.5 h-1.5 rounded-full', meta.dot)} />
-                    {meta.label}
+                    {tr(meta.labelKey)}
                   </span>
                 )}
               </div>

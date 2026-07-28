@@ -17,6 +17,7 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Upload, Loader2, X } from 'lucide-react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface ImportButtonProps {
   projectId: string
@@ -118,6 +119,7 @@ function toRows(matrix: string[][]): ParsedRow[] {
 }
 
 export default function ImportButton({ projectId, className }: ImportButtonProps) {
+  const t = useT()
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [rows, setRows] = useState<ParsedRow[] | null>(null)
@@ -134,18 +136,18 @@ export default function ImportButton({ projectId, className }: ImportButtonProps
       const text = await file.text()
       const parsed = toRows(parseCsv(text))
       if (parsed.length === 0) {
-        toast.error('El CSV no tiene filas con título')
+        toast.error(t('csv.noTitleRows'))
         return
       }
       if (parsed.length > MAX_ROWS) {
-        toast.error(`Máximo ${MAX_ROWS} filas por importación (el archivo tiene ${parsed.length})`)
+        toast.error(`${t('csv.maxRowsPrefix')} ${MAX_ROWS} ${t('csv.maxRowsMid')} ${parsed.length}${t('csv.maxRowsSuffix')}`)
         return
       }
       setFileName(file.name)
       setRows(parsed)
     } catch (err) {
       console.error('[ImportButton] parse error:', err)
-      toast.error('No se pudo leer el archivo CSV')
+      toast.error(t('csv.readFail'))
     }
   }
 
@@ -164,7 +166,7 @@ export default function ImportButton({ projectId, className }: ImportButtonProps
         body: JSON.stringify({ rows }),
       })
       if (!res.ok) {
-        let message = 'No se pudieron importar las tareas'
+        let message = t('csv.importFail')
         try {
           const data = await res.json()
           if (data?.error) message = data.error
@@ -175,12 +177,12 @@ export default function ImportButton({ projectId, className }: ImportButtonProps
         return
       }
       const data = await res.json() as { created?: number }
-      toast.success(`${data.created ?? 0} tareas importadas`)
+      toast.success(`${data.created ?? 0} ${t('csv.importedSuffix')}`)
       cancel()
       router.refresh()
     } catch (err) {
       console.error('[ImportButton] import error:', err)
-      toast.error('Error al importar las tareas')
+      toast.error(t('csv.importError'))
     } finally {
       setImporting(false)
     }
@@ -200,14 +202,14 @@ export default function ImportButton({ projectId, className }: ImportButtonProps
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        title="Importar tareas desde un CSV"
+        title={t('csv.importTitle')}
         className={
           className ??
           'inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60'
         }
       >
         <Upload className="h-4 w-4" />
-        <span>Importar CSV</span>
+        <span>{t('csv.importBtn')}</span>
       </button>
 
       {/* Modal ligero de previsualizacion */}
@@ -222,12 +224,12 @@ export default function ImportButton({ projectId, className }: ImportButtonProps
           >
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <h2 className="text-sm font-semibold text-foreground">
-                Previsualizar importación
+                {t('csv.previewTitle')}
               </h2>
               <button
                 onClick={cancel}
                 className="text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Cerrar"
+                aria-label={t('common.close')}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -237,25 +239,25 @@ export default function ImportButton({ projectId, className }: ImportButtonProps
               <p className="mb-2 text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">{fileName}</span>
                 {' · '}
-                {rows.length} {rows.length === 1 ? 'tarea' : 'tareas'} a importar
-                {rows.length > preview.length && ` (mostrando ${preview.length})`}
+                {rows.length} {rows.length === 1 ? t('csv.taskOne') : t('csv.taskMany')} {t('csv.toImport')}
+                {rows.length > preview.length && ` (${t('csv.showingPrefix')} ${preview.length})`}
               </p>
 
               <div className="overflow-x-auto rounded border border-border">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-muted text-muted-foreground">
                     <tr>
-                      <th className="px-2 py-1.5 font-medium">Título</th>
-                      <th className="px-2 py-1.5 font-medium">Estado</th>
-                      <th className="px-2 py-1.5 font-medium">Prioridad</th>
-                      <th className="px-2 py-1.5 font-medium">Vence</th>
+                      <th className="px-2 py-1.5 font-medium">{t('csv.colTitle')}</th>
+                      <th className="px-2 py-1.5 font-medium">{t('csv.colStatus')}</th>
+                      <th className="px-2 py-1.5 font-medium">{t('csv.colPriority')}</th>
+                      <th className="px-2 py-1.5 font-medium">{t('csv.colDue')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {preview.map((r, i) => (
                       <tr key={i} className="border-t border-border">
                         <td className="max-w-[16rem] truncate px-2 py-1.5 text-foreground">{r.title}</td>
-                        <td className="px-2 py-1.5 text-muted-foreground">{r.status ?? '(default)'}</td>
+                        <td className="px-2 py-1.5 text-muted-foreground">{r.status ?? t('csv.default')}</td>
                         <td className="px-2 py-1.5 text-muted-foreground">{r.priority ?? 'none'}</td>
                         <td className="px-2 py-1.5 text-muted-foreground">{r.due_date ?? ''}</td>
                       </tr>
@@ -271,7 +273,7 @@ export default function ImportButton({ projectId, className }: ImportButtonProps
                 disabled={importing}
                 className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               >
-                Cancelar
+                {t('common.cancel')}
               </button>
               <button
                 onClick={commit}
@@ -279,7 +281,7 @@ export default function ImportButton({ projectId, className }: ImportButtonProps
                 className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                Importar {rows.length}
+                {t('csv.importAction')} {rows.length}
               </button>
             </div>
           </div>

@@ -31,6 +31,7 @@ import {
 } from 'lucide-react'
 import { ProjectIcon } from '@/lib/project-icons'
 import { cn, getInitials } from '@/lib/utils'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Status { id: string; name: string; color: string | null; category: string; position?: number }
 interface Member { id: string; display_name: string; avatar_url: string | null }
@@ -58,12 +59,12 @@ type BulkAction =
   | { type: 'assignee'; assigneeId: string | null }
   | { type: 'delete' }
 
-const PRIORITIES: { value: string; label: string; Icon: LucideIcon; color: string }[] = [
-  { value: 'urgent', label: 'Urgente', Icon: ChevronsUp, color: 'text-red-500' },
-  { value: 'high', label: 'Alta', Icon: ChevronUp, color: 'text-orange-500' },
-  { value: 'medium', label: 'Media', Icon: Equal, color: 'text-yellow-500' },
-  { value: 'low', label: 'Baja', Icon: ChevronDown, color: 'text-blue-400' },
-  { value: 'none', label: 'Sin prioridad', Icon: Minus, color: 'text-muted-foreground' },
+const PRIORITIES: { value: string; labelKey: string; Icon: LucideIcon; color: string }[] = [
+  { value: 'urgent', labelKey: 'priority.urgent', Icon: ChevronsUp, color: 'text-red-500' },
+  { value: 'high', labelKey: 'priority.high', Icon: ChevronUp, color: 'text-orange-500' },
+  { value: 'medium', labelKey: 'priority.medium', Icon: Equal, color: 'text-yellow-500' },
+  { value: 'low', labelKey: 'priority.low', Icon: ChevronDown, color: 'text-blue-400' },
+  { value: 'none', labelKey: 'priority.none', Icon: Minus, color: 'text-muted-foreground' },
 ]
 
 export function BulkActionBar({
@@ -77,6 +78,7 @@ export function BulkActionBar({
   sprints,
   projects,
 }: BulkActionBarProps) {
+  const t = useT()
   const [menu, setMenu] = useState<null | 'status' | 'priority' | 'assignee' | 'sprint' | 'label' | 'project'>(null)
   const [busy, setBusy] = useState(false)
 
@@ -95,11 +97,11 @@ export function BulkActionBar({
       const results = await Promise.allSettled(selectedIds.map(fn))
       const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok)).length
       const ok = selectedIds.length - failed
-      if (ok > 0) toast.success(`${ok} ${ok === 1 ? 'tarea actualizada' : 'tareas actualizadas'} (${label})`)
-      if (failed > 0) toast.error(`${failed} ${failed === 1 ? 'tarea fallo' : 'tareas fallaron'}`)
+      if (ok > 0) toast.success(`${ok} ${ok === 1 ? t('bulk.oneUpdated') : t('bulk.manyUpdated')} (${label})`)
+      if (failed > 0) toast.error(`${failed} ${failed === 1 ? t('bulk.oneFailed') : t('bulk.manyFailed')}`)
       onApplied()
     } catch {
-      toast.error('No se pudo aplicar')
+      toast.error(t('bulk.applyFail'))
     } finally {
       setBusy(false)
     }
@@ -108,19 +110,19 @@ export function BulkActionBar({
   // Fijar fecha de vencimiento (PATCH due_date, ISO datetime).
   async function setDueDate() {
     const value = await promptDialog({
-      title: 'Fijar fecha de vencimiento',
-      label: 'Fecha (AAAA-MM-DD), vacio para quitar',
+      title: t('bulk.dueTitle'),
+      label: t('bulk.dueLabel'),
       placeholder: '2026-08-15',
-      confirmLabel: 'Aplicar',
+      confirmLabel: t('bulk.dueConfirm'),
     })
     if (value === null) return
     const trimmed = value.trim()
     const dueIso = trimmed ? new Date(trimmed + 'T00:00:00').toISOString() : null
     if (trimmed && Number.isNaN(Date.parse(dueIso as string))) {
-      toast.error('Fecha invalida')
+      toast.error(t('bulk.invalidDate'))
       return
     }
-    await applyPerTask('fecha', taskId =>
+    await applyPerTask(t('bulk.actionDate'), taskId =>
       fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -131,7 +133,7 @@ export function BulkActionBar({
 
   // Agregar a sprint (PATCH sprint_id).
   async function addToSprint(sprintId: string | null) {
-    await applyPerTask('sprint', taskId =>
+    await applyPerTask(t('bulk.actionSprint'), taskId =>
       fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -142,7 +144,7 @@ export function BulkActionBar({
 
   // Agregar etiqueta (POST /labels, idempotente en el server).
   async function addLabel(labelId: string) {
-    await applyPerTask('etiqueta', taskId =>
+    await applyPerTask(t('bulk.actionLabel'), taskId =>
       fetch(`/api/tasks/${taskId}/labels`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -155,7 +157,7 @@ export function BulkActionBar({
   // rechaza (schema strict sin project_id), applyPerTask lo reporta como fallo.
   async function moveToProject(targetProjectId: string) {
     if (targetProjectId === projectId) { setMenu(null); return }
-    await applyPerTask('proyecto', taskId =>
+    await applyPerTask(t('bulk.actionProject'), taskId =>
       fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -178,18 +180,18 @@ export function BulkActionBar({
         throw new Error(err.error ?? 'Error')
       }
       const data = await res.json() as { affected: number }
-      const verb = action.type === 'delete' ? 'eliminadas' : 'actualizadas'
-      toast.success(`${data.affected} ${data.affected === 1 ? 'tarea' : 'tareas'} ${verb}`)
+      const verb = action.type === 'delete' ? t('bulk.verbDeleted') : t('bulk.verbUpdated')
+      toast.success(`${data.affected} ${data.affected === 1 ? t('bulk.taskOne') : t('bulk.taskMany')} ${verb}`)
       onApplied()
     } catch (e) {
-      toast.error(e instanceof Error && e.message ? e.message : 'No se pudo aplicar')
+      toast.error(e instanceof Error && e.message ? e.message : t('bulk.applyFail'))
     } finally {
       setBusy(false)
     }
   }
 
   async function handleDelete() {
-    if (!(await confirmDialog({ message: `¿Eliminar ${count} ${count === 1 ? 'tarea' : 'tareas'}? Se archivarán.`, destructive: true, confirmLabel: 'Eliminar' }))) return
+    if (!(await confirmDialog({ message: `${t('bulk.deletePrefix')} ${count} ${count === 1 ? t('bulk.taskOne') : t('bulk.taskMany')}${t('bulk.deleteSuffix')}`, destructive: true, confirmLabel: t('common.delete') }))) return
     await apply({ type: 'delete' })
   }
 
@@ -201,7 +203,7 @@ export function BulkActionBar({
           <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
             {count}
           </span>
-          seleccionadas
+          {t('bulk.selected')}
         </span>
 
         <span className="w-px h-5 bg-border mx-0.5" />
@@ -210,7 +212,7 @@ export function BulkActionBar({
         <div className="relative">
           <BarButton
             icon={<CircleDot className="w-3.5 h-3.5" />}
-            label="Estado"
+            label={t('bulk.status')}
             active={menu === 'status'}
             onClick={() => setMenu(menu === 'status' ? null : 'status')}
             disabled={busy}
@@ -231,7 +233,7 @@ export function BulkActionBar({
         <div className="relative">
           <BarButton
             icon={<ChevronsUp className="w-3.5 h-3.5" />}
-            label="Prioridad"
+            label={t('bulk.priority')}
             active={menu === 'priority'}
             onClick={() => setMenu(menu === 'priority' ? null : 'priority')}
             disabled={busy}
@@ -241,7 +243,7 @@ export function BulkActionBar({
               {PRIORITIES.map(p => (
                 <MenuItem key={p.value} onClick={() => apply({ type: 'priority', priority: p.value })}>
                   <p.Icon className={cn('w-4 h-4 flex-shrink-0', p.color)} />
-                  {p.label}
+                  {t(p.labelKey)}
                 </MenuItem>
               ))}
             </FloatMenu>
@@ -252,7 +254,7 @@ export function BulkActionBar({
         <div className="relative">
           <BarButton
             icon={<User className="w-3.5 h-3.5" />}
-            label="Asignado"
+            label={t('bulk.assignee')}
             active={menu === 'assignee'}
             onClick={() => setMenu(menu === 'assignee' ? null : 'assignee')}
             disabled={busy}
@@ -263,7 +265,7 @@ export function BulkActionBar({
                 <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                   <User className="w-3 h-3 text-muted-foreground" />
                 </span>
-                Sin asignar
+                {t('bulk.unassigned')}
               </MenuItem>
               {members.map(m => (
                 <MenuItem key={m.id} onClick={() => apply({ type: 'assignee', assigneeId: m.id })}>
@@ -284,7 +286,7 @@ export function BulkActionBar({
         {/* Fijar fecha */}
         <BarButton
           icon={<CalendarClock className="w-3.5 h-3.5" />}
-          label="Fecha"
+          label={t('bulk.date')}
           onClick={setDueDate}
           disabled={busy}
         />
@@ -294,7 +296,7 @@ export function BulkActionBar({
           <div className="relative">
             <BarButton
               icon={<Tag className="w-3.5 h-3.5" />}
-              label="Etiqueta"
+              label={t('bulk.label')}
               active={menu === 'label'}
               onClick={() => setMenu(menu === 'label' ? null : 'label')}
               disabled={busy}
@@ -317,7 +319,7 @@ export function BulkActionBar({
           <div className="relative">
             <BarButton
               icon={<Zap className="w-3.5 h-3.5" />}
-              label="Sprint"
+              label={t('bulk.sprint')}
               active={menu === 'sprint'}
               onClick={() => setMenu(menu === 'sprint' ? null : 'sprint')}
               disabled={busy}
@@ -326,7 +328,7 @@ export function BulkActionBar({
               <FloatMenu onClose={() => setMenu(null)}>
                 <MenuItem onClick={() => addToSprint(null)}>
                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-muted-foreground/40" />
-                  Quitar del sprint
+                  {t('bulk.removeSprint')}
                 </MenuItem>
                 {sprints.map(s => (
                   <MenuItem key={s.id} onClick={() => addToSprint(s.id)}>
@@ -344,7 +346,7 @@ export function BulkActionBar({
           <div className="relative">
             <BarButton
               icon={<FolderInput className="w-3.5 h-3.5" />}
-              label="Mover"
+              label={t('bulk.move')}
               active={menu === 'project'}
               onClick={() => setMenu(menu === 'project' ? null : 'project')}
               disabled={busy}
@@ -367,7 +369,7 @@ export function BulkActionBar({
         {/* Eliminar */}
         <BarButton
           icon={<Trash2 className="w-3.5 h-3.5" />}
-          label="Eliminar"
+          label={t('common.delete')}
           onClick={handleDelete}
           disabled={busy}
           danger
@@ -379,7 +381,7 @@ export function BulkActionBar({
         <button
           onClick={onClear}
           disabled={busy}
-          title="Cancelar seleccion"
+          title={t('bulk.cancelSelection')}
           className="ml-0.5 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
         >
           <X className="w-3.5 h-3.5" />

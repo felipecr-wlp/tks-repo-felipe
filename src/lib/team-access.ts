@@ -84,36 +84,75 @@ export async function canAccessTeamById(
   teamId: string,
   userId: string
 ): Promise<boolean> {
-  const { data: membership } = (await admin
+  const { data: membership, error: membershipErr } = (await admin
     .from('team_members')
     .select('role')
     .eq('team_id', teamId)
     .eq('profile_id', userId)
     .maybeSingle()) as { data: { role: string } | null; error: unknown }
+  // No tragarse el error: un fallo transitorio de la BD devuelve data=null y se
+  // trataria como "no es miembro" (deny) sin dejar rastro. Se loguea para poder
+  // diagnosticar denegaciones espurias; el comportamiento sigue siendo fail-closed.
+  if (membershipErr) console.error('[canAccessTeamById] team_members read error:', membershipErr)
   if (membership) return true
 
-  const { data: team } = (await admin
+  const { data: team, error: teamErr } = (await admin
     .from('teams')
     .select('workspace_id')
     .eq('id', teamId)
     .maybeSingle()) as { data: { workspace_id: string } | null; error: unknown }
+  if (teamErr) console.error('[canAccessTeamById] teams read error:', teamErr)
   if (!team?.workspace_id) return false
 
-  const { data: profile } = (await admin
+  const { data: profile, error: profileErr } = (await admin
     .from('profiles')
     .select('org_role')
     .eq('id', userId)
     .maybeSingle()) as { data: { org_role: string | null } | null; error: unknown }
+  if (profileErr) console.error('[canAccessTeamById] profiles read error:', profileErr)
   const orgRole = profile?.org_role ?? 'member'
   if (orgRole === 'owner' || orgRole === 'admin') return true
 
-  const { data: wsMember } = (await admin
+  const { data: wsMember, error: wsErr } = (await admin
     .from('workspace_members')
     .select('role')
     .eq('workspace_id', team.workspace_id)
     .eq('profile_id', userId)
     .maybeSingle()) as { data: { role: string } | null; error: unknown }
+  if (wsErr) console.error('[canAccessTeamById] workspace_members read error:', wsErr)
   return wsMember?.role === 'owner' || wsMember?.role === 'admin'
+}
+
+/**
+ * ¿Puede el usuario ver/escribir en el canal GENERAL del workspace (chat entre
+ * equipos)? Basta con ser miembro del workspace (workspace_members) o admin de
+ * la organización. A diferencia del chat de equipo, aquí NO se exige pertenecer
+ * a un equipo concreto: el canal General es transversal a todos los equipos.
+ * Fail-closed: cualquier error de lectura se loguea y se deniega.
+ */
+export async function canAccessWorkspaceById(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  userId: string
+): Promise<boolean> {
+  const { data: wsMember, error: wsErr } = (await admin
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('profile_id', userId)
+    .maybeSingle()) as { data: { role: string } | null; error: unknown }
+  if (wsErr) console.error('[canAccessWorkspaceById] workspace_members read error:', wsErr)
+  if (wsMember) return true
+
+  // Owner/admin de la organización puede supervisar cualquier workspace.
+  const { data: profile, error: profileErr } = (await admin
+    .from('profiles')
+    .select('org_role')
+    .eq('id', userId)
+    .maybeSingle()) as { data: { org_role: string | null } | null; error: unknown }
+  if (profileErr) console.error('[canAccessWorkspaceById] profiles read error:', profileErr)
+  const orgRole = profile?.org_role ?? 'member'
+  return orgRole === 'owner' || orgRole === 'admin'
 }
 
 /**
@@ -165,7 +204,82 @@ export async function canManageProject(
   return { ok, workspaceId: project.workspace_id }
 }
 
-async function isOrgAdmin(userId: string): Promise<boolean> {
+/**
+ * ¿Puede el usuario VER/EDITAR una tarea de un proyecto? Regla de LECTURA/edicion
+ * ligera (mas amplia que canManageProject): cualquier miembro del proyecto
+ * (cualquier rol), o un owner/admin del workspace/org (supervision). Se usa en
+ * los endpoints de tarea para que los administradores del workspace puedan abrir
+ * y reprogramar tareas de proyectos donde no estan inscritos como miembros.
+ * Devuelve tambien el workspace_id del proyecto para reusarlo sin otra consulta.
+ */
+export async function canAccessProject(
+  admin: ReturnType<typeof createAdminClient>,
+  projectId: string,
+  userId: string
+): Promise<{ ok: boolean; workspaceId: string | null }> {
+  const { data: project, error: projectErr } = (await admin
+    .from('projects')
+    .select('workspace_id')
+    .eq('id', projectId)
+    .maybeSingle()) as { data: { workspace_id: string } | null; error: unknown }
+  if (projectErr) console.error('[canAccessProject] projects read error:', projectErr)
+  if (!project?.workspace_id) return { ok: false, workspaceId: null }
+
+  const { data: pm, error: pmErr } = (await admin
+    .from('project_members')
+    .select('role')
+    .eq('project_id', projectId)
+    .eq('profile_id', userId)
+    .maybeSingle()) as { data: { role: string } | null; error: unknown }
+  if (pmErr) console.error('[canAccessProject] project_members read error:', pmErr)
+  if (pm) return { ok: true, workspaceId: project.workspace_id }
+
+  const { data: profile } = (await admin
+    .from('profiles')
+    .select('org_role')
+    .eq('id', userId)
+    .maybeSingle()) as { data: { org_role: string | null } | null; error: unknown }
+  const orgRole = profile?.org_role ?? 'member'
+  if (orgRole === 'owner' || orgRole === 'admin') {
+    return { ok: true, workspaceId: project.workspace_id }
+  }
+
+  const { data: wsMember } = (await admin
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', project.workspace_id)
+    .eq('profile_id', userId)
+    .maybeSingle()) as { data: { role: string } | null; error: unknown }
+  const ok = wsMember?.role === 'owner' || wsMember?.role === 'admin'
+  return { ok, workspaceId: project.workspace_id }
+}
+
+/**
+ * ¿Es `profileId` un asignable valido para tareas de `projectId`? Regla: debe ser
+ * miembro del proyecto (project_members). Evita asignar tareas a usuarios que no
+ * pertenecen al proyecto (o a UUIDs de otro workspace), lo que dejaria tareas
+ * "huerfanas" apuntando a gente sin acceso. Se usa al crear y al reasignar tareas.
+ * Fail-closed: ante un error de lectura se niega la asignacion.
+ */
+export async function isAssignableToProject(
+  admin: ReturnType<typeof createAdminClient>,
+  projectId: string,
+  profileId: string
+): Promise<boolean> {
+  const { data: pm, error } = (await admin
+    .from('project_members')
+    .select('profile_id')
+    .eq('project_id', projectId)
+    .eq('profile_id', profileId)
+    .maybeSingle()) as { data: { profile_id: string } | null; error: unknown }
+  if (error) {
+    console.error('[isAssignableToProject] project_members read error:', error)
+    return false
+  }
+  return pm != null
+}
+
+export async function isOrgAdmin(userId: string): Promise<boolean> {
   const admin = createAdminClient()
   const { data: profile } = (await admin
     .from('profiles')

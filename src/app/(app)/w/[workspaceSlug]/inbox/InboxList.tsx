@@ -14,6 +14,7 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Notification {
   id: string
@@ -28,7 +29,8 @@ interface Notification {
 }
 
 // Presets de snooze. Se calculan al vuelo respecto a "ahora".
-function snoozePresets(): { label: string; at: Date }[] {
+// Recibe `t` para que las etiquetas respeten el idioma activo.
+function snoozePresets(t: (key: string) => string): { label: string; at: Date }[] {
   const now = new Date()
   const inHours = (h: number) => new Date(now.getTime() + h * 3600_000)
   // Esta tarde = hoy a las 17:00 si aun no pasa; si no, en 3 horas.
@@ -44,10 +46,10 @@ function snoozePresets(): { label: string; at: Date }[] {
   nextWeek.setDate(nextWeek.getDate() + ((8 - nextWeek.getDay()) % 7 || 7))
   nextWeek.setHours(9, 0, 0, 0)
   return [
-    { label: 'En 1 hora', at: inHours(1) },
-    { label: 'Esta tarde', at: afternoon },
-    { label: 'Mañana', at: tomorrow },
-    { label: 'Próxima semana', at: nextWeek },
+    { label: t('inbox.snooze.in1h'), at: inHours(1) },
+    { label: t('inbox.snooze.afternoon'), at: afternoon },
+    { label: t('inbox.snooze.tomorrow'), at: tomorrow },
+    { label: t('inbox.snooze.nextWeek'), at: nextWeek },
   ]
 }
 
@@ -61,6 +63,13 @@ interface InboxListProps {
 // Buckets de fecha para la lista, ordenados de mas reciente a mas antiguo.
 type DateBucket = 'Hoy' | 'Ayer' | 'Esta semana' | 'Anteriores'
 const BUCKET_ORDER: DateBucket[] = ['Hoy', 'Ayer', 'Esta semana', 'Anteriores']
+// El bucket es un identificador interno; su etiqueta visible sale del diccionario.
+const BUCKET_KEY: Record<DateBucket, string> = {
+  'Hoy': 'inbox.bucket.today',
+  'Ayer': 'inbox.bucket.yesterday',
+  'Esta semana': 'inbox.bucket.thisWeek',
+  'Anteriores': 'inbox.bucket.earlier',
+}
 
 // Clasifica una notificacion segun su created_at respecto a "ahora" (local).
 // "Esta semana" = ultimos 7 dias sin contar hoy/ayer. Funcion pura.
@@ -94,33 +103,18 @@ function groupByDate(items: Notification[]): { bucket: DateBucket; items: Notifi
     .map(b => ({ bucket: b, items: map.get(b)! }))
 }
 
-const VERB_LABELS: Record<string, string> = {
-  'task.assigned':        'te asignó la tarea',
-  'task.unassigned':      'te quitó la tarea',
-  'task.status_changed':  'cambió el estado de',
-  'task.due_set':         'puso fecha a',
-  'task.priority_set':    'cambió la prioridad de',
-  'comment.added':        'comentó en',
-  'comment.mention':      'te mencionó en',
-  'task_mentioned':       'te mencionó en',
-  'task_assigned':        'te asignó la tarea',
-  'reminder':             'te recuerda:',
-  'automation':           'regla automática:',
-  'note_mentioned':       'te mencionó en la nota',
-  'task_updated':         'actualizó la tarea que sigues',
-  'task_commented':       'comentó en la tarea que sigues',
-  'task_overdue':         'tarea vencida:',
-  'task_due_soon':        'vence pronto:',
-  'task_recurrence_created': 'nueva ocurrencia recurrente:',
-  'sop_review_overdue':   'revisión de SOP vencida:',
-  'sop_review_due_soon':  'revisión de SOP por vencer:',
-  'sop_assigned':         'debes leer y confirmar:',
-  'project.member_added': 'te agregó al proyecto',
-  'workspace.member_joined': 'se unió al workspace',
+// Etiqueta del verbo de notificacion segun su tipo, traducida. Si el tipo no
+// tiene traduccion (clave inexistente), t() devuelve la clave sin cambios y
+// caemos al tipo crudo para no mostrar "inbox.verb.xxx" al usuario.
+function verbLabel(t: (key: string) => string, type: string): string {
+  const key = `inbox.verb.${type}`
+  const label = t(key)
+  return label === key ? type : label
 }
 
 export function InboxList({ initial, workspaceSlug, currentUserId, loadError = false }: InboxListProps) {
   const router = useRouter()
+  const t = useT()
   const [notifications, setNotifications] = useState(initial)
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [marking, setMarking] = useState(false)
@@ -175,19 +169,19 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
     if (!ok) {
       // Revertir y avisar.
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: false } : n))
-      toast.error('No se pudo marcar como leída')
+      toast.error(t('inbox.toast.markReadFail'))
       return
     }
-    toast.success('Marcada como leída', {
+    toast.success(t('inbox.toast.marked'), {
       action: {
-        label: 'Deshacer',
+        label: t('common.undo'),
         onClick: async () => {
           setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: false } : n))
           const undone = await setRead(id, false)
           if (!undone) {
             // Revertir el "deshacer": vuelve a quedar leída.
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
-            toast.error('No se pudo deshacer')
+            toast.error(t('inbox.toast.undoFail'))
           }
         },
       },
@@ -208,9 +202,9 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
         body: JSON.stringify({ workspace: workspaceSlug }),
       })
       if (!res.ok) throw new Error()
-      toast.success(`${affected.length} notificación(es) marcadas como leídas`, {
+      toast.success(`${affected.length} ${t('inbox.toast.markedAllSuffix')}`, {
         action: {
-          label: 'Deshacer',
+          label: t('common.undo'),
           onClick: () => {
             setNotifications(prev => prev.map(n => affected.includes(n.id) ? { ...n, is_read: false } : n))
             // No hay endpoint bulk de "no leído": se revierte una por una.
@@ -220,7 +214,7 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
       })
     } catch {
       setNotifications(before)
-      toast.error('Error al marcar todo como leído')
+      toast.error(t('inbox.toast.markAllFail'))
     } finally {
       setMarking(false)
     }
@@ -238,7 +232,7 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
         body: JSON.stringify({ snoozed_until: at.toISOString() }),
       })
       if (!res.ok) throw new Error()
-      toast.success(`Pospuesta: ${label.toLowerCase()}`, {
+      toast.success(`${t('inbox.toast.snoozedPrefix')} ${label.toLowerCase()}`, {
         action: {
           label: 'Deshacer',
           onClick: () => {
@@ -254,7 +248,7 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
       })
     } catch {
       setNotifications(before)
-      toast.error('No se pudo posponer')
+      toast.error(t('inbox.toast.snoozeFail'))
     } finally {
       setSnoozeMenu(null)
     }
@@ -278,8 +272,8 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
   if (loadError && notifications.length === 0) {
     return (
       <ErrorState
-        title="No pudimos cargar tu bandeja"
-        description="Ocurrió un problema al traer tus notificaciones. Inténtalo de nuevo."
+        title={t('inbox.errorTitle')}
+        description={t('inbox.errorDesc')}
         onRetry={() => router.refresh()}
       />
     )
@@ -289,14 +283,14 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
     return (
       <EmptyState
         icon={<InboxIcon className="h-5 w-5" />}
-        title="Bandeja vacía"
-        description="Cuando alguien te asigne una tarea o te mencione, aparecerá aquí."
+        title={t('inbox.emptyTitle')}
+        description={t('inbox.emptyDesc')}
         action={
           <Link
             href={`/w/${workspaceSlug}/my-tasks`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-muted transition-colors"
           >
-            Ver mis tareas <ArrowRight className="w-3 h-3" />
+            {t('inbox.emptyAction')} <ArrowRight className="w-3 h-3" />
           </Link>
         }
       />
@@ -311,13 +305,13 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
           <FilterPill
             active={filter === 'all'}
             onClick={() => setFilter('all')}
-            label="Todas"
+            label={t('inbox.filterAll')}
             count={notifications.length}
           />
           <FilterPill
             active={filter === 'unread'}
             onClick={() => setFilter('unread')}
-            label="Sin leer"
+            label={t('inbox.filterUnreadShort')}
             count={unreadCount}
             highlight={unreadCount > 0}
           />
@@ -329,7 +323,7 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           >
             {marking && <Loader2 className="w-3 h-3 animate-spin" />}
-            Marcar todo como leído
+            {t('inbox.markAllRead')}
           </button>
         )}
       </div>
@@ -338,7 +332,7 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
       {filtered.length === 0 ? (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <p className="text-center text-sm text-muted-foreground py-10">
-            No hay notificaciones sin leer
+            {t('inbox.noneUnread')}
           </p>
         </div>
       ) : (
@@ -346,7 +340,7 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
           {groupByDate(filtered).map(group => (
             <section key={group.bucket}>
               <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 px-1">
-                {group.bucket}
+                {t(BUCKET_KEY[group.bucket])}
               </h2>
               <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
                 {group.items.map(notif => (
@@ -389,10 +383,10 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
                         !notif.is_read ? 'text-foreground' : 'text-muted-foreground'
                       )}>
                         <span className="font-medium text-foreground">
-                          {notif.subject?.display_name ?? 'Sistema'}
+                          {notif.subject?.display_name ?? t('inbox.system')}
                         </span>{' '}
                         <span className={!notif.is_read ? 'text-foreground/80' : ''}>
-                          {VERB_LABELS[notif.type] ?? notif.type}
+                          {verbLabel(t, notif.type)}
                         </span>
                         {notif.object_title && (
                           <>
@@ -416,8 +410,8 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
                           'text-muted-foreground hover:text-foreground transition-all p-1 rounded hover:bg-background',
                           snoozeMenu === notif.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                         )}
-                        title="Posponer"
-                        aria-label="Posponer"
+                        title={t('inbox.snooze')}
+                        aria-label={t('inbox.snooze')}
                       >
                         <Clock className="w-3.5 h-3.5" />
                       </button>
@@ -428,9 +422,9 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
                           onClick={e => e.stopPropagation()}
                         >
                           <p className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                            Posponer hasta
+                            {t('inbox.snoozeUntil')}
                           </p>
-                          {snoozePresets().map(p => (
+                          {snoozePresets(t).map(p => (
                             <button
                               key={p.label}
                               onClick={e => { e.stopPropagation(); snooze(notif, p.at, p.label) }}
@@ -446,8 +440,8 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
                         <button
                           onClick={e => { e.stopPropagation(); markRead(notif.id) }}
                           className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-all p-1 rounded hover:bg-background"
-                          title="Marcar como leído"
-                          aria-label="Marcar como leído"
+                          title={t('inbox.markReadAction')}
+                          aria-label={t('inbox.markReadAction')}
                         >
                           <Check className="w-3.5 h-3.5" />
                         </button>

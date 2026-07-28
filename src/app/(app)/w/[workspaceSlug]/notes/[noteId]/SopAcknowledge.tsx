@@ -17,6 +17,7 @@ import Image from 'next/image'
 import { toast } from 'sonner'
 import { CheckCircle2, Circle, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react'
 import { getInitials, timeAgo } from '@/lib/utils'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface AckEntry {
   profile_id: string
@@ -40,6 +41,7 @@ interface SopAcknowledgeProps {
 }
 
 export function SopAcknowledge({ noteId }: SopAcknowledgeProps) {
+  const tr = useT()
   const [state, setState] = useState<AckState | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -63,34 +65,34 @@ export function SopAcknowledge({ noteId }: SopAcknowledgeProps) {
     try {
       const res = await fetch(`/api/notes/${noteId}/ack`, { method: 'POST' })
       if (!res.ok) throw new Error()
-      toast.success('Registrado: leído y entendido')
+      toast.success(tr('sop.ackToastDone'))
       await load()
     } catch {
-      toast.error('No se pudo registrar el acuse')
+      toast.error(tr('sop.ackToastError'))
     } finally {
       setBusy(false)
     }
-  }, [noteId, load])
+  }, [noteId, load, tr])
 
   const retract = useCallback(async () => {
     setBusy(true)
     try {
       const res = await fetch(`/api/notes/${noteId}/ack`, { method: 'DELETE' })
       if (!res.ok) throw new Error()
-      toast.success('Acuse retirado')
+      toast.success(tr('sop.ackRetracted'))
       await load()
     } catch {
-      toast.error('No se pudo retirar el acuse')
+      toast.error(tr('sop.ackRetractError'))
     } finally {
       setBusy(false)
     }
-  }, [noteId, load])
+  }, [noteId, load, tr])
 
   if (loading || !state) {
     return (
       <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        Cargando acuse de lectura…
+        {tr('sop.ackLoading')}
       </div>
     )
   }
@@ -104,13 +106,13 @@ export function SopAcknowledge({ noteId }: SopAcknowledgeProps) {
       <div className="flex flex-wrap items-center gap-3">
         <ShieldCheck className="w-5 h-5 text-primary flex-shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground">Acuse de lectura</p>
+          <p className="text-sm font-semibold text-foreground">{tr('sop.ackTitle')}</p>
           <p className="text-xs text-muted-foreground">
             {confirmed
-              ? `Confirmaste haber leído y entendido este documento${mine?.sop_version ? ` (v${mine.sop_version})` : ''}.`
+              ? `${tr('sop.ackConfirmed')}${mine?.sop_version ? ` (v${mine.sop_version})` : ''}.`
               : outdated
-                ? 'Se publicó una versión nueva. Vuelve a confirmar la lectura.'
-                : 'Confirma que leíste y entendiste este documento.'}
+                ? tr('sop.ackOutdated')
+                : tr('sop.ackDefault')}
           </p>
         </div>
 
@@ -121,7 +123,7 @@ export function SopAcknowledge({ noteId }: SopAcknowledgeProps) {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-background text-foreground hover:bg-accent transition-colors disabled:opacity-50"
           >
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            Confirmado · retirar
+            {tr('sop.ackConfirmedRetract')}
           </button>
         ) : (
           <button
@@ -130,7 +132,7 @@ export function SopAcknowledge({ noteId }: SopAcknowledgeProps) {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Circle className="w-3.5 h-3.5" />}
-            {outdated ? 'Re-confirmar lectura' : 'Leído y entendido'}
+            {outdated ? tr('sop.ackReconfirm') : tr('sop.ackButton')}
           </button>
         )}
       </div>
@@ -138,7 +140,7 @@ export function SopAcknowledge({ noteId }: SopAcknowledgeProps) {
       {outdated && (
         <p className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-600">
           <AlertTriangle className="w-3 h-3" />
-          Tu acuse previo era de la v{mine?.sop_version ?? '-'}; la versión vigente es la v{state.current_version ?? '-'}.
+          {tr('sop.ackOutdatedPrefix')} v{mine?.sop_version ?? '-'}; {tr('sop.ackOutdatedMid')} v{state.current_version ?? '-'}.
         </p>
       )}
 
@@ -148,7 +150,7 @@ export function SopAcknowledge({ noteId }: SopAcknowledgeProps) {
             onClick={() => setShowList(v => !v)}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            {state.count} {state.count === 1 ? 'persona ha confirmado' : 'personas han confirmado'} · {showList ? 'ocultar' : 'ver'}
+            {state.count} {state.count === 1 ? tr('sop.ackPersonOne') : tr('sop.ackPersonMany')} · {showList ? tr('sop.hide') : tr('sop.show')}
           </button>
 
           {showList && (
@@ -165,7 +167,7 @@ export function SopAcknowledge({ noteId }: SopAcknowledgeProps) {
                   {a.outdated && (
                     <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 ml-auto flex-shrink-0">
                       <AlertTriangle className="w-2.5 h-2.5" />
-                      desactualizado
+                      {tr('sop.outdated')}
                     </span>
                   )}
                 </li>

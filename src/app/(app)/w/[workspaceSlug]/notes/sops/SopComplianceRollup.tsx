@@ -12,6 +12,7 @@
  */
 import { useEffect, useState } from 'react'
 import { ShieldCheck, Download, BadgeCheck, ShieldAlert, Clock, CalendarX2 } from 'lucide-react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface DeptRow {
   name: string
@@ -52,6 +53,7 @@ function barTone(pct: number): string {
 }
 
 export function SopComplianceRollup({ workspaceId }: SopComplianceRollupProps) {
+  const t = useT()
   const [data, setData] = useState<Rollup | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -76,14 +78,14 @@ export function SopComplianceRollup({ workspaceId }: SopComplianceRollupProps) {
       <div className="flex items-center justify-between gap-3 mb-3">
         <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-blue-600" />
-          Cumplimiento de SOPs
+          {t('soproll.title')}
         </h2>
         <a
           href={csvUrl}
           className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md border border-border bg-background text-muted-foreground hover:text-foreground transition-colors"
         >
           <Download className="w-3 h-3" />
-          Exportar CSV
+          {t('soproll.exportCsv')}
         </a>
       </div>
 
@@ -91,7 +93,7 @@ export function SopComplianceRollup({ workspaceId }: SopComplianceRollupProps) {
       <div className="mb-4">
         <div className="flex items-baseline justify-between mb-1.5">
           <span className="text-xs text-muted-foreground">
-            Lectores confirmados sobre requeridos
+            {t('soproll.confirmedOverRequired')}
           </span>
           <span className="text-lg font-semibold text-foreground tabular-nums">
             {overall_compliance}%
@@ -104,7 +106,7 @@ export function SopComplianceRollup({ workspaceId }: SopComplianceRollupProps) {
           />
         </div>
         <p className="text-[11px] text-muted-foreground mt-1 tabular-nums">
-          {totals.done} de {totals.required} confirmaciones · {totals.obligatorios} documentos con lectores asignados
+          {totals.done} {t('sopc.of')} {totals.required} {t('soproll.confirmations')} · {totals.obligatorios} {t('soproll.docsWithReaders')}
         </p>
       </div>
 
@@ -113,7 +115,7 @@ export function SopComplianceRollup({ workspaceId }: SopComplianceRollupProps) {
         <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" />
-            Aprobados
+            {t('soproll.approved')}
           </div>
           <p className="text-base font-semibold text-foreground tabular-nums mt-0.5">
             {totals.approved}<span className="text-xs text-muted-foreground font-normal">/{totals.docs}</span>
@@ -122,7 +124,7 @@ export function SopComplianceRollup({ workspaceId }: SopComplianceRollupProps) {
         <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-            Firmas viejas
+            {t('soproll.oldSignatures')}
           </div>
           <p className="text-base font-semibold text-foreground tabular-nums mt-0.5">
             {totals.approval_outdated}
@@ -131,7 +133,7 @@ export function SopComplianceRollup({ workspaceId }: SopComplianceRollupProps) {
         <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <Clock className="w-3.5 h-3.5 text-blue-600" />
-            Pendientes
+            {t('soproll.pending')}
           </div>
           <p className="text-base font-semibold text-foreground tabular-nums mt-0.5">
             {totals.pending}
@@ -140,7 +142,7 @@ export function SopComplianceRollup({ workspaceId }: SopComplianceRollupProps) {
         <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <CalendarX2 className="w-3.5 h-3.5 text-red-600" />
-            Rev. vencidas
+            {t('soproll.overdueReviews')}
           </div>
           <p className="text-base font-semibold text-foreground tabular-nums mt-0.5">
             {totals.overdue}
@@ -154,10 +156,10 @@ export function SopComplianceRollup({ workspaceId }: SopComplianceRollupProps) {
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-muted/50 text-muted-foreground">
-                <th className="text-left font-medium px-3 py-1.5">Departamento</th>
-                <th className="text-right font-medium px-3 py-1.5">Docs</th>
-                <th className="text-right font-medium px-3 py-1.5">Pend.</th>
-                <th className="text-right font-medium px-3 py-1.5 w-32">Cumplimiento</th>
+                <th className="text-left font-medium px-3 py-1.5">{t('soproll.colDept')}</th>
+                <th className="text-right font-medium px-3 py-1.5">{t('soproll.colDocs')}</th>
+                <th className="text-right font-medium px-3 py-1.5">{t('soproll.colPending')}</th>
+                <th className="text-right font-medium px-3 py-1.5 w-32">{t('soproll.colCompliance')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">

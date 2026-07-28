@@ -5,6 +5,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { InboxList } from './InboxList'
+import { getServerT } from '@/lib/i18n/server'
 
 interface InboxPageProps {
   params: { workspaceSlug: string }
@@ -44,6 +45,8 @@ export default async function InboxPage({ params }: InboxPageProps) {
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
 
+  const t = getServerT()
+
   // ── Cargar notificaciones del usuario en este workspace ───────────────────
   // Se ocultan las pospuestas (snooze) cuya hora aun no llega: snoozed_until es
   // null (nunca pospuesta) o ya quedo en el pasado (reaparece sola, sin cron).
@@ -52,7 +55,7 @@ export default async function InboxPage({ params }: InboxPageProps) {
     .from('notifications')
     .select(`
       id, type, object_type, object_id, object_title, is_read, created_at, snoozed_until,
-      subject:profiles ( id, display_name, avatar_url )
+      subject:profiles!notifications_subject_id_fkey ( id, display_name, avatar_url )
     `)
     .eq('recipient_id', user.id)
     .eq('workspace_id', workspace.id)
@@ -63,9 +66,9 @@ export default async function InboxPage({ params }: InboxPageProps) {
   return (
     <div className="px-8 py-8 max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-foreground tracking-tight">Bandeja</h1>
+        <h1 className="text-2xl font-semibold text-foreground tracking-tight">{t('inbox.title')}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Tus notificaciones en {workspace.name}
+          {t('inbox.subtitlePrefix')} {workspace.name}
         </p>
       </div>
 

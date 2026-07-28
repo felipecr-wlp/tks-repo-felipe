@@ -11,6 +11,7 @@ import { COURSE_BY_ID } from '@/lib/academy/courses'
 import { canAccessCourse, getCourseProgress, getCertificate } from '@/lib/academy/data'
 import { AcademyIcon } from '@/lib/academy/icons'
 import { CheckCircle2, Circle, Clock, ArrowLeft, Award } from 'lucide-react'
+import { getServerT } from '@/lib/i18n/server'
 
 interface PageProps {
   params: { workspaceSlug: string; courseId: string }
@@ -48,6 +49,7 @@ export default async function CoursePage({ params }: PageProps) {
   const completedCount = course.modules.filter((m) => progress[m.id]?.completed).length
   const allDone = completedCount === course.modules.length
   const pct = Math.round((completedCount / course.modules.length) * 100)
+  const t = getServerT()
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
@@ -55,7 +57,7 @@ export default async function CoursePage({ params }: PageProps) {
         href={base}
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="h-4 w-4" /> Academia
+        <ArrowLeft className="h-4 w-4" /> {t('academyC.backToLibrary')}
       </Link>
 
       <div className="mb-6 flex items-start gap-4">
@@ -77,7 +79,7 @@ export default async function CoursePage({ params }: PageProps) {
       <div className="mb-6 rounded-xl border border-border bg-card p-4">
         <div className="mb-2 flex items-center justify-between text-sm">
           <span className="font-medium text-foreground">
-            {completedCount}/{course.modules.length} módulos completos
+            {completedCount}/{course.modules.length} {t('academyC.modulesComplete')}
           </span>
           <span className="text-muted-foreground">{pct}%</span>
         </div>
@@ -93,7 +95,7 @@ export default async function CoursePage({ params }: PageProps) {
             className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600"
           >
             <Award className="h-4 w-4" />
-            {cert ? 'Ver mi certificado' : 'Obtener certificado'}
+            {cert ? t('academyC.viewCert') : t('academyC.getCert')}
           </Link>
         )}
       </div>
@@ -123,7 +125,7 @@ export default async function CoursePage({ params }: PageProps) {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Módulo {m.num}
+                  {t('academyC.moduleLabel')} {m.num}
                 </p>
                 <h3 className="truncate font-semibold text-foreground">{m.title}</h3>
               </div>

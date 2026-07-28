@@ -8,8 +8,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { streamText, type CoreMessage } from 'ai'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { geminiFlash, KERN_SYSTEM_PROMPT } from '@/lib/ai/client'
+import { buildKernTools, buildKernContext } from '@/lib/ai/kern-tools'
 import { applyRateLimit } from '@/lib/rate-limit'
 
 // Estructura del payload de chat. El rol se RESTRINGE a 'user'/'assistant': el cliente
@@ -83,13 +84,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'JSON inválido' }, { status: 400 })
   }
 
-  // ── Stream de Gemini ──────────────────────────────────────────────────────────
+  // ── Contexto + herramientas agenticas ligadas a ESTE usuario ────────────────
+  // KERN opera solo sobre datos del usuario: cada herramienta re-verifica su
+  // acceso con user.id (mismas reglas que las rutas /api). Se inyecta un resumen
+  // de sus proyectos (con ids) para que pueda encadenar lecturas y acciones.
+  const admin = createAdminClient()
+  const { data: profile } = (await admin
+    .from('profiles')
+    .select('display_name')
+    .eq('id', user.id)
+    .maybeSingle()) as { data: { display_name: string | null } | null; error: unknown }
+
+  let contextBlock = ''
+  try {
+    contextBlock = await buildKernContext(admin, user.id, profile?.display_name)
+  } catch (ctxErr) {
+    console.error('[kern] context build error:', ctxErr)
+  }
+
+  // ── Stream de Gemini (con tool calling multi-paso) ──────────────────────────
   try {
     const result = await streamText({
       model: geminiFlash,
-      system: KERN_SYSTEM_PROMPT,
+      system: KERN_SYSTEM_PROMPT + contextBlock,
       messages,
       temperature: 0.6,
+      tools: buildKernTools(admin, user.id),
+      // Permite a KERN encadenar herramientas de forma autonoma (ej. list_projects
+      // -> create_task) y luego redactar la respuesta final, en una sola vuelta.
+      maxSteps: 6,
     })
 
     return result.toDataStreamResponse()

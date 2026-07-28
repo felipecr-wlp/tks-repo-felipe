@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Check, X, Crown, Users, ScrollText, Loader2, Unlock, Lock } from 'lucide-react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export type Charter = {
   id: string
@@ -49,6 +50,7 @@ export function ManageProject({ charter, applications, members, workspaceSlug }:
   members: Member[]
   workspaceSlug: string
 }) {
+  const t = useT()
   const pending = applications.filter(a => a.status === 'pending')
 
   return (
@@ -59,7 +61,7 @@ export function ManageProject({ charter, applications, members, workspaceSlug }:
         </span>
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{charter.name}</h1>
-          <p className="text-sm text-muted-foreground">Gestion del proyecto</p>
+          <p className="text-sm text-muted-foreground">{t('manage.subtitle')}</p>
         </div>
       </div>
 
@@ -72,6 +74,7 @@ export function ManageProject({ charter, applications, members, workspaceSlug }:
 
 function CharterEditor({ charter }: { charter: Charter }) {
   const router = useRouter()
+  const t = useT()
   const [scope, setScope] = useState(charter.scope ?? '')
   const [rules, setRules] = useState(charter.rules ?? '')
   const [deliverables, setDeliverables] = useState(charter.deliverables ?? '')
@@ -97,11 +100,11 @@ function CharterEditor({ charter }: { charter: Charter }) {
         body: JSON.stringify(body),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error ?? 'Error al guardar')
-      toast.success('Charter guardado')
+      if (!res.ok) throw new Error(result.error ?? t('form.saveError'))
+      toast.success(t('manage.charterSaved'))
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : t('common.unknownError'))
     } finally {
       setLoading(false)
     }
@@ -111,25 +114,25 @@ function CharterEditor({ charter }: { charter: Charter }) {
     <section className="bg-card border border-border rounded-xl p-5">
       <div className="flex items-center gap-2 mb-4">
         <ScrollText className="w-4 h-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold text-foreground">Charter del proyecto</h2>
+        <h2 className="text-sm font-semibold text-foreground">{t('manage.charterTitle')}</h2>
       </div>
 
       <div className="space-y-4">
-        <Field label="Alcance" hint="¿Que abarca y que no abarca este proyecto?">
-          <textarea value={scope} onChange={e => setScope(e.target.value)} rows={3} maxLength={4000} disabled={loading} className={`${INPUT} resize-none`} placeholder="Define el alcance del trabajo" />
+        <Field label={t('manage.scope')} hint={t('manage.scopeHint')}>
+          <textarea value={scope} onChange={e => setScope(e.target.value)} rows={3} maxLength={4000} disabled={loading} className={`${INPUT} resize-none`} placeholder={t('manage.scopePlaceholder')} />
         </Field>
-        <Field label="Reglas" hint="Acuerdos de trabajo, cadencia, expectativas.">
-          <textarea value={rules} onChange={e => setRules(e.target.value)} rows={3} maxLength={4000} disabled={loading} className={`${INPUT} resize-none`} placeholder="Reglas y forma de trabajo" />
+        <Field label={t('manage.rules')} hint={t('manage.rulesHint')}>
+          <textarea value={rules} onChange={e => setRules(e.target.value)} rows={3} maxLength={4000} disabled={loading} className={`${INPUT} resize-none`} placeholder={t('manage.rulesPlaceholder')} />
         </Field>
-        <Field label="Entregables" hint="Resultados concretos esperados.">
-          <textarea value={deliverables} onChange={e => setDeliverables(e.target.value)} rows={3} maxLength={4000} disabled={loading} className={`${INPUT} resize-none`} placeholder="Que se debe entregar" />
+        <Field label={t('manage.deliverables')} hint={t('manage.deliverablesHint')}>
+          <textarea value={deliverables} onChange={e => setDeliverables(e.target.value)} rows={3} maxLength={4000} disabled={loading} className={`${INPUT} resize-none`} placeholder={t('manage.deliverablesPlaceholder')} />
         </Field>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Cupo maximo" hint="Opcional.">
-            <input type="number" min={1} max={200} value={maxMembers} onChange={e => setMaxMembers(e.target.value)} disabled={loading} className={INPUT} placeholder="Sin limite" />
+          <Field label={t('manage.maxMembers')} hint={t('manage.optionalDot')}>
+            <input type="number" min={1} max={200} value={maxMembers} onChange={e => setMaxMembers(e.target.value)} disabled={loading} className={INPUT} placeholder={t('manage.noLimit')} />
           </Field>
-          <Field label="Fecha limite" hint="Opcional.">
+          <Field label={t('manage.deadline')} hint={t('manage.optionalDot')}>
             <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} disabled={loading} className={INPUT} />
           </Field>
         </div>
@@ -142,12 +145,12 @@ function CharterEditor({ charter }: { charter: Charter }) {
             open ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' : 'bg-muted text-muted-foreground border-border'
           }`}
         >
-          {open ? <><Unlock className="w-4 h-4" /> Abierto a postulaciones</> : <><Lock className="w-4 h-4" /> Cerrado a postulaciones</>}
+          {open ? <><Unlock className="w-4 h-4" /> {t('manage.openApps')}</> : <><Lock className="w-4 h-4" /> {t('manage.closedApps')}</>}
         </button>
 
         <div className="flex justify-end">
           <button onClick={save} disabled={loading} className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50">
-            {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Guardando...</> : 'Guardar charter'}
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin" />{t('common.saving')}</> : t('manage.saveCharter')}
           </button>
         </div>
       </div>
@@ -157,6 +160,7 @@ function CharterEditor({ charter }: { charter: Charter }) {
 
 function ApplicationsPanel({ applications }: { applications: Application[] }) {
   const router = useRouter()
+  const t = useT()
   const [busyId, setBusyId] = useState<string | null>(null)
 
   const decide = async (appId: string, status: 'accepted' | 'rejected') => {
@@ -168,11 +172,11 @@ function ApplicationsPanel({ applications }: { applications: Application[] }) {
         body: JSON.stringify({ status }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error ?? 'Error')
-      toast.success(status === 'accepted' ? 'Postulante aceptado' : 'Postulacion rechazada')
+      if (!res.ok) throw new Error(result.error ?? t('form.error'))
+      toast.success(status === 'accepted' ? t('manage.appAccepted') : t('manage.appRejected'))
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : t('common.unknownError'))
     } finally {
       setBusyId(null)
     }
@@ -182,20 +186,20 @@ function ApplicationsPanel({ applications }: { applications: Application[] }) {
     <section>
       <div className="flex items-center gap-2 mb-3">
         <Users className="w-4 h-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold text-foreground">Postulaciones pendientes</h2>
+        <h2 className="text-sm font-semibold text-foreground">{t('manage.pendingApps')}</h2>
         <span className="text-xs text-muted-foreground">{applications.length}</span>
       </div>
 
       {applications.length === 0 ? (
-        <p className="text-sm text-muted-foreground bg-card border border-border rounded-xl p-5">No hay postulaciones pendientes.</p>
+        <p className="text-sm text-muted-foreground bg-card border border-border rounded-xl p-5">{t('manage.noPendingApps')}</p>
       ) : (
         <div className="space-y-3">
           {applications.map(app => (
             <div key={app.id} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">{app.applicant?.display_name ?? app.applicant?.email ?? 'Postulante'}</p>
-                  {app.role_desired && <p className="text-xs text-muted-foreground">Rol: {app.role_desired}</p>}
+                  <p className="text-sm font-medium text-foreground">{app.applicant?.display_name ?? app.applicant?.email ?? t('manage.applicant')}</p>
+                  {app.role_desired && <p className="text-xs text-muted-foreground">{t('form.roleLabel')} {app.role_desired}</p>}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
@@ -203,14 +207,14 @@ function ApplicationsPanel({ applications }: { applications: Application[] }) {
                     disabled={busyId === app.id}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
                   >
-                    <Check className="w-3.5 h-3.5" /> Aceptar
+                    <Check className="w-3.5 h-3.5" /> {t('manage.accept')}
                   </button>
                   <button
                     onClick={() => decide(app.id, 'rejected')}
                     disabled={busyId === app.id}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
                   >
-                    <X className="w-3.5 h-3.5" /> Rechazar
+                    <X className="w-3.5 h-3.5" /> {t('manage.reject')}
                   </button>
                 </div>
               </div>
@@ -224,11 +228,12 @@ function ApplicationsPanel({ applications }: { applications: Application[] }) {
 }
 
 function TeamPanel({ members, workspaceSlug }: { members: Member[]; workspaceSlug: string }) {
+  const t = useT()
   return (
     <section>
       <div className="flex items-center gap-2 mb-3">
         <Crown className="w-4 h-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold text-foreground">Equipo actual</h2>
+        <h2 className="text-sm font-semibold text-foreground">{t('manage.currentTeam')}</h2>
         <span className="text-xs text-muted-foreground">{members.length}</span>
       </div>
       <div className="bg-card border border-border rounded-xl divide-y divide-border">
@@ -240,7 +245,7 @@ function TeamPanel({ members, workspaceSlug }: { members: Member[]; workspaceSlu
           >
             <Avatar url={m.profile?.avatar_url} name={m.profile?.display_name} />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground truncate">{m.profile?.display_name ?? 'Miembro'}</p>
+              <p className="text-sm font-medium text-foreground truncate">{m.profile?.display_name ?? t('manage.member')}</p>
               {m.title && <p className="text-xs text-muted-foreground truncate">{m.title}</p>}
             </div>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize">{m.role}</span>

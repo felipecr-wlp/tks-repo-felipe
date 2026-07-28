@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Check, X, Award, Trash2, Inbox, GraduationCap, Users, Layers } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Profile {
   id: string
@@ -69,6 +70,7 @@ export function AcademyAdminPanel({
   courses: CourseLite[]
   presets: Preset[]
 }) {
+  const t = useT()
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [selMember, setSelMember] = useState('')
@@ -115,12 +117,12 @@ export function AcademyAdminPanel({
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
-        throw new Error(j.error || 'Error')
+        throw new Error(j.error || t('acadA.error'))
       }
-      toast.success(action === 'approve' ? 'Acceso concedido' : 'Solicitud rechazada')
+      toast.success(action === 'approve' ? t('acadA.accessGranted') : t('acadA.requestRejected'))
       router.refresh()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error')
+      toast.error(e instanceof Error ? e.message : t('acadA.error'))
     } finally {
       setBusy(false)
     }
@@ -128,7 +130,7 @@ export function AcademyAdminPanel({
 
   async function grant(profileId: string, courseIds: string[], action: 'grant' | 'revoke') {
     if (!profileId) {
-      toast.error('Elige una persona primero')
+      toast.error(t('acadA.choosePersonFirst'))
       return
     }
     if (courseIds.length === 0) return
@@ -141,21 +143,21 @@ export function AcademyAdminPanel({
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
-        throw new Error(j.error || 'Error')
+        throw new Error(j.error || t('acadA.error'))
       }
       const n = courseIds.length
       toast.success(
         action === 'grant'
           ? n === 1
-            ? 'Acceso asignado'
-            : `${n} cursos asignados`
+            ? t('acadA.accessAssigned')
+            : `${n} ${t('acadA.coursesAssignedSuffix')}`
           : n === 1
-            ? 'Acceso revocado'
-            : `${n} accesos revocados`,
+            ? t('acadA.accessRevoked')
+            : `${n} ${t('acadA.accessesRevokedSuffix')}`,
       )
       router.refresh()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error')
+      toast.error(e instanceof Error ? e.message : t('acadA.error'))
     } finally {
       setBusy(false)
     }
@@ -181,14 +183,14 @@ export function AcademyAdminPanel({
       {/* Solicitudes pendientes */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Solicitudes pendientes {pending.length > 0 && `(${pending.length})`}
+          {t('acadA.pendingRequests')} {pending.length > 0 && `(${pending.length})`}
         </h2>
         {pending.length === 0 ? (
           <EmptyState
             compact
             icon={<Inbox className="h-5 w-5" />}
-            title="No hay solicitudes pendientes"
-            description="Cuando alguien pida acceso a un curso, aparecerá aquí para aprobar o rechazar."
+            title={t('acadA.noPendingTitle')}
+            description={t('acadA.noPendingDesc')}
           />
         ) : (
           <div className="space-y-2">
@@ -203,7 +205,7 @@ export function AcademyAdminPanel({
                     {r.profile.display_name || r.profile.email}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    Solicita: <span className="font-medium">{courseTitle(r.courseId)}</span>
+                    {t('acadA.requests')} <span className="font-medium">{courseTitle(r.courseId)}</span>
                     {r.note ? ` · "${r.note}"` : ''}
                   </p>
                 </div>
@@ -212,14 +214,14 @@ export function AcademyAdminPanel({
                   disabled={busy}
                   className="flex items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
                 >
-                  <Check className="h-3.5 w-3.5" /> Aprobar
+                  <Check className="h-3.5 w-3.5" /> {t('acadA.approve')}
                 </button>
                 <button
                   onClick={() => decide(r.id, 'reject')}
                   disabled={busy}
                   className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-50"
                 >
-                  <X className="h-3.5 w-3.5" /> Rechazar
+                  <X className="h-3.5 w-3.5" /> {t('acadA.reject')}
                 </button>
               </div>
             ))}
@@ -230,10 +232,10 @@ export function AcademyAdminPanel({
       {/* Asignar acceso por persona */}
       <section>
         <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          <Users className="h-4 w-4" /> Asignar acceso por persona
+          <Users className="h-4 w-4" /> {t('acadA.assignByPerson')}
         </h2>
         <p className="mb-3 text-xs text-muted-foreground">
-          Elige a alguien, aplica un rol de un clic o activa cursos sueltos. Verde = ya tiene acceso.
+          {t('acadA.assignByPersonDesc')}
         </p>
 
         <div className="rounded-xl border border-border bg-card p-3">
@@ -242,7 +244,7 @@ export function AcademyAdminPanel({
             onChange={(e) => setSelMember(e.target.value)}
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
-            <option value="">Selecciona una persona...</option>
+            <option value="">{t('acadA.selectPerson')}</option>
             {members.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.display_name}
@@ -253,14 +255,14 @@ export function AcademyAdminPanel({
 
           {!selMember ? (
             <p className="mt-3 text-xs text-muted-foreground">
-              Selecciona una persona para ver y editar sus cursos.
+              {t('acadA.selectPersonHint')}
             </p>
           ) : (
             <div className="mt-4 space-y-4">
               {/* Presets por rol */}
               <div>
                 <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  <Layers className="h-3.5 w-3.5" /> Aplicar un rol (agrega los cursos del rol)
+                  <Layers className="h-3.5 w-3.5" /> {t('acadA.applyRole')}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {presets.map((p) => (
@@ -280,7 +282,7 @@ export function AcademyAdminPanel({
                     disabled={busy || selAccess.size === 0}
                     className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500/10 disabled:opacity-40"
                   >
-                    Quitar todo
+                    {t('acadA.removeAll')}
                   </button>
                 </div>
               </div>
@@ -322,8 +324,8 @@ export function AcademyAdminPanel({
               {selMemberObj && (
                 <p className="text-xs text-muted-foreground">
                   {selAccess.size === 0
-                    ? `${selMemberObj.display_name} no tiene ningún curso asignado.`
-                    : `${selMemberObj.display_name} tiene ${selAccess.size} curso${selAccess.size === 1 ? '' : 's'} asignado${selAccess.size === 1 ? '' : 's'}.`}
+                    ? `${selMemberObj.display_name} ${t('acadA.noCoursesAssigned')}`
+                    : `${selMemberObj.display_name} ${t('acadA.hasPrefix')} ${selAccess.size} ${selAccess.size === 1 ? t('acadA.courseOne') : t('acadA.courseMany')}`}
                 </p>
               )}
             </div>
@@ -334,14 +336,14 @@ export function AcademyAdminPanel({
       {/* Matriz de acceso */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Quién tiene acceso
+          {t('acadA.whoHasAccess')}
         </h2>
         {matrix.length === 0 ? (
           <EmptyState
             compact
             icon={<GraduationCap className="h-5 w-5" />}
-            title="Nadie tiene acceso asignado todavía"
-            description="Usa Asignar acceso por persona para dar de alta a tu equipo en un curso."
+            title={t('acadA.noAccessTitle')}
+            description={t('acadA.noAccessDesc')}
           />
         ) : (
           <div className="space-y-2">
@@ -356,7 +358,7 @@ export function AcademyAdminPanel({
                     onClick={() => setSelMember(row.profile.id)}
                     className="ml-auto text-xs font-medium text-primary hover:underline"
                   >
-                    Editar
+                    {t('acadA.edit')}
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -372,7 +374,7 @@ export function AcademyAdminPanel({
                         <button
                           onClick={() => grant(row.profile.id, [cid], 'revoke')}
                           disabled={busy}
-                          title="Revocar acceso"
+                          title={t('acadA.revokeAccess')}
                           className="rounded-full p-0.5 text-muted-foreground opacity-0 transition hover:bg-red-500/10 hover:text-red-500 group-hover:opacity-100 disabled:opacity-50"
                         >
                           <Trash2 className="h-3 w-3" />

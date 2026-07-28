@@ -11,6 +11,7 @@ import { AcademyIcon } from '@/lib/academy/icons'
 import { ArrowLeft } from 'lucide-react'
 import { BlockRenderer } from '../../BlockRenderer'
 import { ModuleQuiz } from './ModuleQuiz'
+import { getServerT } from '@/lib/i18n/server'
 
 interface PageProps {
   params: { workspaceSlug: string; courseId: string; moduleId: string }
@@ -42,6 +43,7 @@ export default async function ModulePage({ params }: PageProps) {
   const progress = await getCourseProgress(user.id, course.id)
   const modIndex = course.modules.findIndex((m) => m.id === mod.id)
   const nextMod = course.modules[modIndex + 1] ?? null
+  const t = getServerT()
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
@@ -61,7 +63,7 @@ export default async function ModulePage({ params }: PageProps) {
         </span>
         <div>
           <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Módulo {mod.num} · {mod.dur}
+            {t('academyC.moduleLabel')} {mod.num} · {mod.dur}
           </p>
           <h1 className="text-xl font-bold text-foreground">{mod.title}</h1>
         </div>
@@ -75,7 +77,7 @@ export default async function ModulePage({ params }: PageProps) {
 
       {mod.objectives && mod.objectives.length > 0 && (
         <div className="mb-6 rounded-xl border border-border bg-card p-4">
-          <h2 className="mb-2 text-sm font-semibold text-foreground">Objetivos</h2>
+          <h2 className="mb-2 text-sm font-semibold text-foreground">{t('academyC.objectives')}</h2>
           <ul className="space-y-1.5">
             {mod.objectives.map((o, i) => (
               <li key={i} className="flex gap-2 text-sm text-muted-foreground">
@@ -111,7 +113,7 @@ export default async function ModulePage({ params }: PageProps) {
         accent={course.accent}
         alreadyPassed={Boolean(progress[mod.id]?.completed)}
         nextHref={nextMod ? `${base}/${course.id}/${nextMod.id}` : `${base}/${course.id}`}
-        nextLabel={nextMod ? 'Siguiente módulo' : 'Volver al curso'}
+        nextLabel={nextMod ? t('academyC.nextModule') : t('academyC.backToCourse')}
       />
     </div>
   )

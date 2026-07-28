@@ -16,6 +16,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { BadgeCheck, ShieldAlert, Loader2, PenLine, RotateCcw } from 'lucide-react'
+import { useI18n } from '@/lib/i18n/LanguageProvider'
 
 interface ApprovalState {
   approved: boolean
@@ -32,10 +33,10 @@ interface SopApprovalProps {
   noteId: string
 }
 
-function fmtDate(iso: string | null): string {
+function fmtDate(iso: string | null, locale: string): string {
   if (!iso) return ''
   try {
-    return new Date(iso).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })
+    return new Date(iso).toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' })
   } catch {
     return ''
   }
@@ -43,6 +44,8 @@ function fmtDate(iso: string | null): string {
 
 export function SopApproval({ noteId }: SopApprovalProps) {
   const router = useRouter()
+  const { t, lang } = useI18n()
+  const locale = lang === 'en' ? 'en-US' : 'es-MX'
   const [state, setState] = useState<ApprovalState | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -66,14 +69,14 @@ export function SopApproval({ noteId }: SopApprovalProps) {
       const res = await fetch(`/api/notes/${noteId}/approve`, { method: 'POST' })
       if (!res.ok) throw new Error()
       setState(await res.json())
-      toast.success('Documento aprobado y activado')
+      toast.success(t('sop.apprToastDone'))
       router.refresh()
     } catch {
-      toast.error('No se pudo aprobar')
+      toast.error(t('sop.apprToastError'))
     } finally {
       setBusy(false)
     }
-  }, [noteId, router])
+  }, [noteId, router, t])
 
   const revoke = useCallback(async () => {
     setBusy(true)
@@ -81,14 +84,14 @@ export function SopApproval({ noteId }: SopApprovalProps) {
       const res = await fetch(`/api/notes/${noteId}/approve`, { method: 'DELETE' })
       if (!res.ok) throw new Error()
       setState(await res.json())
-      toast.success('Aprobación revocada')
+      toast.success(t('sop.apprRevoked'))
       router.refresh()
     } catch {
-      toast.error('No se pudo revocar')
+      toast.error(t('sop.apprRevokeError'))
     } finally {
       setBusy(false)
     }
-  }, [noteId, router])
+  }, [noteId, router, t])
 
   if (loading || !state) return null
 
@@ -118,19 +121,19 @@ export function SopApproval({ noteId }: SopApprovalProps) {
         <div className="flex-1 min-w-0 text-xs">
           {approved ? (
             <p className="text-foreground">
-              <span className="font-medium">Aprobado</span> por {approver_name ?? 'Usuario'}
-              {approved_at ? ` · ${fmtDate(approved_at)}` : ''}
+              <span className="font-medium">{t('sop.apprApproved')}</span> {t('sop.apprBy')} {approver_name ?? t('act.user')}
+              {approved_at ? ` · ${fmtDate(approved_at, locale)}` : ''}
               {approved_version ? ` · v${approved_version}` : ''}
               {outdated && (
                 <span className="text-amber-700 dark:text-amber-400">
-                  {' '}· firma desactualizada (vigente v{current_version ?? '-'})
+                  {' '}· {t('sop.apprOutdatedPrefix')} v{current_version ?? '-'})
                 </span>
               )}
             </p>
           ) : (
             <p className="text-muted-foreground">
-              Sin aprobar. Al firmar, el documento pasa a <span className="font-medium text-foreground">Activo</span>
-              {current_version ? ` y se sella la v${current_version}` : ''}.
+              {t('sop.apprUnapprovedPrefix')} <span className="font-medium text-foreground">{t('sop.statusActive')}</span>
+              {current_version ? ` ${t('sop.apprSealsPrefix')} v${current_version}` : ''}.
             </p>
           )}
         </div>
@@ -144,7 +147,7 @@ export function SopApproval({ noteId }: SopApprovalProps) {
                 className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md border border-border bg-background text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               >
                 <RotateCcw className="w-3 h-3" />
-                Revocar
+                {t('sop.apprRevokeBtn')}
               </button>
             )}
             <button
@@ -153,7 +156,7 @@ export function SopApproval({ noteId }: SopApprovalProps) {
               className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md bg-[#2563EB] text-white hover:bg-[#2563EB]/90 transition-colors disabled:opacity-50"
             >
               {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <PenLine className="w-3 h-3" />}
-              {outdated ? 'Re-firmar versión vigente' : approved ? 'Re-firmar' : 'Aprobar y activar'}
+              {outdated ? t('sop.apprResignCurrent') : approved ? t('sop.apprResign') : t('sop.apprSignActivate')}
             </button>
           </div>
         )}

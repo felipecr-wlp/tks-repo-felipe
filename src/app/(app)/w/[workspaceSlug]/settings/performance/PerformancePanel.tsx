@@ -8,7 +8,8 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { getInitials } from '@/lib/utils'
-import { ChevronLeft, ChevronRight, Trophy, Info } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Trophy, Info, FolderKanban } from 'lucide-react'
+import { useI18n } from '@/lib/i18n/LanguageProvider'
 import type { PersonScore, ChannelRow } from './page'
 
 function shiftMonth(month: string, delta: number): string {
@@ -17,10 +18,10 @@ function shiftMonth(month: string, delta: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
-function monthLabel(month: string): string {
+function monthLabel(month: string, locale: string): string {
   const [y, m] = month.split('-').map(Number)
   const d = new Date(Date.UTC(y, m - 1, 1))
-  return d.toLocaleDateString('es-MX', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+  return d.toLocaleDateString(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' })
 }
 
 function scoreColor(score: number): string {
@@ -60,6 +61,8 @@ export function PerformancePanel({
   channels: ChannelRow[]
   totalDone: number
 }) {
+  const { t, lang } = useI18n()
+  const locale = lang === 'en' ? 'en-US' : 'es-MX'
   const base = `/w/${workspaceSlug}/settings/performance`
   const prev = shiftMonth(month, -1)
   const next = shiftMonth(month, 1)
@@ -70,26 +73,26 @@ export function PerformancePanel({
       {/* Cabecera + selector de mes */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Evaluación de rendimiento</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t('perf.title')}</h2>
           <p className="text-sm text-muted-foreground">
-            {totalDone} {totalDone === 1 ? 'tarea cerrada' : 'tareas cerradas'} en el periodo.
+            {totalDone} {totalDone === 1 ? t('perf.closedOne') : t('perf.closedMany')} {t('perf.closedSuffix')}
           </p>
         </div>
         <div className="flex items-center gap-1">
           <Link
             href={`${base}?month=${prev}`}
             className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            aria-label="Mes anterior"
+            aria-label={t('perf.prevMonth')}
           >
             <ChevronLeft size={16} />
           </Link>
           <span className="px-3 py-1.5 text-sm font-medium capitalize min-w-[9rem] text-center">
-            {monthLabel(month)}
+            {monthLabel(month, locale)}
           </span>
           <Link
             href={`${base}?month=${next}`}
             className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            aria-label="Mes siguiente"
+            aria-label={t('perf.nextMonth')}
           >
             <ChevronRight size={16} />
           </Link>
@@ -100,23 +103,22 @@ export function PerformancePanel({
       <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 border border-border rounded-lg px-3 py-2">
         <Info size={14} className="mt-0.5 flex-shrink-0" />
         <p>
-          Score 0-100 sobre tareas cerradas en el mes: <strong>Throughput 25%</strong> (volumen),{' '}
-          <strong>Velocity 30%</strong> (story points), <strong>On-time 25%</strong> (entrega en fecha) y{' '}
-          <strong>Estimación 20%</strong> (precisión de puntos). Throughput y Velocity son relativos al mejor
-          del mes; los pesos se renormalizan cuando falta un dato.
+          {t('perf.formulaPrefix')} <strong>{t('perf.throughput')}</strong> {t('perf.throughputNote')}{' '}
+          <strong>{t('perf.velocity')}</strong> {t('perf.velocityNote')} <strong>{t('perf.ontime')}</strong> {t('perf.ontimeNote')}{' '}
+          <strong>{t('perf.estimation')}</strong> {t('perf.formulaSuffix')}
         </p>
       </div>
 
       {/* Tabla de personas */}
-      <section aria-label="Rendimiento por persona">
-        <h3 className="text-sm font-semibold text-foreground mb-2">Por persona</h3>
+      <section aria-label={t('perf.ariaByPerson')}>
+        <h3 className="text-sm font-semibold text-foreground mb-2">{t('perf.byPerson')}</h3>
         {people.length === 0 ? (
           <div className="bg-card border border-border rounded-xl px-4 py-10 text-center">
             <p className="text-sm text-muted-foreground">
-              No hay tareas cerradas asignadas en {monthLabel(month)}.
+              {t('perf.noClosedPrefix')} {monthLabel(month, locale)}.
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              El tablero se llena a medida que el equipo cierra tareas con responsable.
+              {t('perf.noClosedHint')}
             </p>
           </div>
         ) : (
@@ -126,12 +128,12 @@ export function PerformancePanel({
                 <thead>
                   <tr className="text-left text-xs text-muted-foreground border-b border-border">
                     <th className="px-4 py-2 font-medium">#</th>
-                    <th className="px-4 py-2 font-medium">Persona</th>
-                    <th className="px-4 py-2 font-medium text-right">Tareas</th>
-                    <th className="px-4 py-2 font-medium text-right">Puntos</th>
-                    <th className="px-4 py-2 font-medium text-right">On-time</th>
-                    <th className="px-4 py-2 font-medium text-right">Estim.</th>
-                    <th className="px-4 py-2 font-medium text-right">Score</th>
+                    <th className="px-4 py-2 font-medium">{t('perf.colPerson')}</th>
+                    <th className="px-4 py-2 font-medium text-right">{t('perf.colTasks')}</th>
+                    <th className="px-4 py-2 font-medium text-right">{t('perf.colPoints')}</th>
+                    <th className="px-4 py-2 font-medium text-right">{t('perf.colOntime')}</th>
+                    <th className="px-4 py-2 font-medium text-right">{t('perf.colEstim')}</th>
+                    <th className="px-4 py-2 font-medium text-right">{t('perf.colScore')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -167,22 +169,21 @@ export function PerformancePanel({
       </section>
 
       {/* Desglose por canal/proyecto */}
-      <section aria-label="Rendimiento por canal">
-        <h3 className="text-sm font-semibold text-foreground mb-2">Por canal (proyecto y su responsable)</h3>
+      <section aria-label={t('perf.ariaByChannel')}>
+        <h3 className="text-sm font-semibold text-foreground mb-2">{t('perf.byChannel')}</h3>
         <p className="text-xs text-muted-foreground mb-2">
-          Cada proyecto es un canal atribuido a su manager. Así se ve quién lleva qué frente (ej. Meta, Paid
-          Search) aunque compartan equipo.
+          {t('perf.byChannelDesc')}
         </p>
         {activeChannels.length === 0 ? (
           <div className="bg-card border border-border rounded-xl px-4 py-8 text-center">
-            <p className="text-sm text-muted-foreground">Sin actividad cerrada por canal en este mes.</p>
+            <p className="text-sm text-muted-foreground">{t('perf.noChannelActivity')}</p>
           </div>
         ) : (
           <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
             {activeChannels.map((c) => (
               <div key={c.projectId} className="px-4 py-3 flex items-center gap-3">
-                <span className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-base">
-                  {c.icon ?? '📁'}
+                <span className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-base text-muted-foreground">
+                  {c.icon ?? <FolderKanban size={16} />}
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{c.projectName}</p>
@@ -194,13 +195,13 @@ export function PerformancePanel({
                         {c.managerName}
                       </span>
                     ) : (
-                      'Sin manager asignado'
+                      t('perf.noManager')
                     )}
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="text-sm font-semibold text-foreground tabular-nums">{c.tasksDone}</p>
-                  <p className="text-xs text-muted-foreground tabular-nums">{c.storyPoints} pts</p>
+                  <p className="text-xs text-muted-foreground tabular-nums">{c.storyPoints} {t('perf.pts')}</p>
                 </div>
               </div>
             ))}

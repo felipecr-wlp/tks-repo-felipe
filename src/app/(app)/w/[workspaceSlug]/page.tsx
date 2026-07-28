@@ -12,6 +12,7 @@ import { redirect } from 'next/navigation'
 import { formatDate, timeAgo, getInitials } from '@/lib/utils'
 import { LayoutDashboard, CheckSquare, Activity } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { getServerT } from '@/lib/i18n/server'
 import MiDia from './MiDia'
 import { OnboardingGuide } from './OnboardingGuide'
 import { DashboardWidgets, type DashboardWidgetsData } from './DashboardWidgets'
@@ -70,6 +71,8 @@ export default async function WorkspaceDashboardPage({
 
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
+
+  const t = getServerT()
 
   // ── Cargas independientes en paralelo ─────────────────────────────────────
   // Perfil, equipos, tareas, actividad y conteos no dependen entre si: una vez
@@ -224,7 +227,7 @@ export default async function WorkspaceDashboardPage({
       <div className="mb-8 flex items-center gap-3 sm:gap-4">
         <Link
           href="/settings/profile"
-          title="Editar mi perfil"
+          title={t('home.editProfile')}
           className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-muted ring-2 ring-border hover:ring-primary/60 transition-all"
         >
           {userAvatar ? (
@@ -246,7 +249,7 @@ export default async function WorkspaceDashboardPage({
             {formatDate(new Date().toISOString())}
           </p>
           <h1 className="text-2xl sm:text-3xl font-semibold text-foreground tracking-tight truncate">
-            Hola, {userName}
+            {t('home.greetingPrefix')} {userName}
           </h1>
         </div>
       </div>
@@ -279,13 +282,13 @@ export default async function WorkspaceDashboardPage({
         <section className="lg:col-span-3">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Mis tareas
+              {t('home.myTasks')}
             </h2>
             <Link
               href={`/w/${params.workspaceSlug}/my-tasks`}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              Ver todas →
+              {t('home.viewAll')} →
             </Link>
           </div>
 
@@ -293,11 +296,11 @@ export default async function WorkspaceDashboardPage({
             {!myTasks || myTasks.length === 0 ? (
               <EmptyState
                 icon={<CheckSquare className="h-5 w-5" />}
-                title={hasTeams ? 'No tienes tareas asignadas' : 'Empieza creando un equipo'}
+                title={hasTeams ? t('home.noTasksTitle') : t('home.startTeamTitle')}
                 description={
                   hasTeams
-                    ? 'Cuando te asignen una tarea, aparecerá aquí para que la sigas de cerca.'
-                    : 'Crea un equipo para organizar proyectos y empezar a gestionar tareas.'
+                    ? t('home.noTasksDesc')
+                    : t('home.startTeamDesc')
                 }
                 action={
                   !hasTeams ? (
@@ -305,7 +308,7 @@ export default async function WorkspaceDashboardPage({
                       href={`/w/${params.workspaceSlug}/teams/new`}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                     >
-                      Crear equipo
+                      {t('home.createTeam')}
                     </Link>
                   ) : undefined
                 }
@@ -339,7 +342,7 @@ export default async function WorkspaceDashboardPage({
                     <span
                       className="flex-shrink-0 w-2 h-2 rounded-full"
                       style={{ backgroundColor: priorityColor[task.priority] }}
-                      title={`Prioridad: ${task.priority}`}
+                      title={`${t('home.priorityPrefix')} ${task.priority}`}
                     />
                   )}
                 </div>
@@ -352,21 +355,21 @@ export default async function WorkspaceDashboardPage({
         <section className="lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Actividad
+              {t('home.activity')}
             </h2>
             <Link
               href={`/w/${params.workspaceSlug}/activity`}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              Ver toda la actividad →
+              {t('home.viewAllActivity')} →
             </Link>
           </div>
 
           {!recentActivity || recentActivity.length === 0 ? (
             <EmptyState
               icon={<Activity className="h-5 w-5" />}
-              title="Sin actividad aún"
-              description="Los cambios recientes de tu equipo (tareas, comentarios y notas) aparecerán aquí."
+              title={t('home.noActivityTitle')}
+              description={t('home.noActivityDesc')}
             />
           ) : (
             <div className="space-y-0 bg-card border border-border rounded-xl px-3 py-1 shadow-soft">
@@ -381,12 +384,12 @@ export default async function WorkspaceDashboardPage({
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-foreground leading-snug">
                       <span className="font-medium">
-                        {event.subject?.display_name ?? 'Usuario'}
+                        {event.subject?.display_name ?? t('home.userFallback')}
                       </span>{' '}
                       <span className="text-muted-foreground">{event.verb}</span>
                       {event.project && (
                         <span className="text-muted-foreground">
-                          {' '}en{' '}
+                          {' '}{t('home.inConnector')}{' '}
                           <span className="text-foreground">{event.project.name}</span>
                         </span>
                       )}
@@ -407,14 +410,14 @@ export default async function WorkspaceDashboardPage({
         <section className="mb-10">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Equipos
+              {t('home.teams')}
             </h2>
             {isAdmin && (
               <Link
                 href={`/w/${params.workspaceSlug}/teams/new`}
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
-                + Nuevo equipo
+                + {t('home.newTeam')}
               </Link>
             )}
           </div>
@@ -437,7 +440,7 @@ export default async function WorkspaceDashboardPage({
                     </h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {team.projects?.length ?? 0}{' '}
-                      {(team.projects?.length ?? 0) === 1 ? 'proyecto' : 'proyectos'}
+                      {(team.projects?.length ?? 0) === 1 ? t('home.projectOne') : t('home.projectMany')}
                     </p>
                   </div>
                 </Link>
@@ -446,7 +449,7 @@ export default async function WorkspaceDashboardPage({
                   className="mt-3 inline-flex items-center gap-1.5 self-start px-2.5 py-1.5 text-xs font-medium border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 >
                   <LayoutDashboard className="w-3.5 h-3.5" />
-                  Tablero
+                  {t('home.board')}
                 </Link>
               </div>
             ))}

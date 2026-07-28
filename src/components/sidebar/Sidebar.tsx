@@ -12,9 +12,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n/LanguageProvider'
 import { WorkspaceSwitcher } from './WorkspaceSwitcher'
 import { NavSection } from './NavSection'
 import { UserMenu } from './UserMenu'
+import { LanguageSwitcher } from './LanguageSwitcher'
 import { InboxBadge } from './InboxBadge'
 import { useCommandPalette } from '@/stores/command-palette'
 import { useNewTask } from '@/stores/new-task'
@@ -29,6 +31,7 @@ import {
   BarChart3,
   FileText,
   PenTool,
+  MessagesSquare,
   Compass,
   IdCard,
   GraduationCap,
@@ -79,6 +82,7 @@ export function Sidebar({
   allWorkspaces,
 }: SidebarProps) {
   const pathname = usePathname()
+  const { t } = useI18n()
   const [collapsed, setCollapsed] = useState(false)
   const base = `/w/${workspaceSlug}`
 
@@ -121,25 +125,26 @@ export function Sidebar({
 
   // Lo mas usado va arriba, sin grupo: acceso en un clic (patron Linear).
   const topItems: Array<{ href: string; icon: LucideIcon; label: string; exact?: boolean }> = [
-    { href: `${base}/inbox`, icon: Inbox, label: 'Bandeja' },
-    { href: `${base}/my-tasks`, icon: CheckSquare, label: 'Mis tareas' },
+    { href: `${base}/inbox`, icon: Inbox, label: t('nav.inbox') },
+    { href: `${base}/my-tasks`, icon: CheckSquare, label: t('nav.myTasks') },
   ]
 
   const workspaceItems: Array<{ href: string; icon: LucideIcon; label: string; exact?: boolean }> = [
-    { href: base, icon: Home, label: 'Inicio', exact: true },
-    { href: `${base}/guia`, icon: GraduationCap, label: 'Guía' },
-    { href: `${base}/academia`, icon: BookOpen, label: 'Academia' },
-    { href: `${base}/calendar`, icon: CalendarDays, label: 'Calendario' },
-    { href: `${base}/notes`, icon: FileText, label: 'Notas' },
-    { href: `${base}/whiteboards`, icon: PenTool, label: 'Pizarras' },
-    { href: `${base}/goals`, icon: Target, label: 'Metas' },
-    { href: `${base}/analytics`, icon: BarChart3, label: 'Analítica' },
-    { href: `${base}/tracking`, icon: Timer, label: 'Tracking' },
+    { href: base, icon: Home, label: t('nav.home'), exact: true },
+    { href: `${base}/general`, icon: MessagesSquare, label: t('nav.general') },
+    { href: `${base}/guia`, icon: GraduationCap, label: t('nav.guide') },
+    { href: `${base}/academia`, icon: BookOpen, label: t('nav.academy') },
+    { href: `${base}/calendar`, icon: CalendarDays, label: t('nav.calendar') },
+    { href: `${base}/notes`, icon: FileText, label: t('nav.notes') },
+    { href: `${base}/whiteboards`, icon: PenTool, label: t('nav.whiteboards') },
+    { href: `${base}/goals`, icon: Target, label: t('nav.goals') },
+    { href: `${base}/analytics`, icon: BarChart3, label: t('nav.analytics') },
+    { href: `${base}/tracking`, icon: Timer, label: t('nav.tracking') },
   ]
 
   const marketplaceItems: Array<{ href: string; icon: LucideIcon; label: string; exact?: boolean }> = [
-    { href: `${base}/projects`, icon: Compass, label: 'Oportunidades' },
-    { href: `${base}/cv/${userProfile.id}`, icon: IdCard, label: 'Mi CV', exact: true },
+    { href: `${base}/projects`, icon: Compass, label: t('nav.opportunities') },
+    { href: `${base}/cv/${userProfile.id}`, icon: IdCard, label: t('nav.myCv'), exact: true },
   ]
 
   const isActive = (href: string, exact?: boolean) =>
@@ -206,7 +211,7 @@ export function Sidebar({
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="hidden md:inline-flex flex-shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+          aria-label={collapsed ? t('nav.expandMenu') : t('nav.collapseMenu')}
         >
           <ChevronLeft
             size={16}
@@ -217,7 +222,7 @@ export function Sidebar({
         <button
           onClick={() => setMobileOpen(false)}
           className="md:hidden flex-shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          aria-label="Cerrar menú"
+          aria-label={t('nav.closeMenu')}
         >
           <X size={18} />
         </button>
@@ -256,7 +261,7 @@ export function Sidebar({
 
         {/* Grupo: Workspace */}
         <NavGroup
-          label="Workspace"
+          label={t('nav.groupWorkspace')}
           collapsed={collapsed}
           open={openGroups.workspace}
           onToggle={() => toggleGroup('workspace')}
@@ -275,7 +280,7 @@ export function Sidebar({
 
         {/* Grupo: Marketplace */}
         <NavGroup
-          label="Marketplace"
+          label={t('nav.groupMarketplace')}
           collapsed={collapsed}
           open={openGroups.marketplace}
           onToggle={() => toggleGroup('marketplace')}
@@ -294,7 +299,7 @@ export function Sidebar({
 
         {/* Grupo: Equipos */}
         <NavGroup
-          label="Equipos"
+          label={t('nav.groupTeams')}
           collapsed={collapsed}
           open={openGroups.equipos}
           onToggle={() => toggleGroup('equipos')}
@@ -302,7 +307,7 @@ export function Sidebar({
             !collapsed && isAdmin ? (
               <Link
                 href={`${base}/teams/new`}
-                title="Nuevo equipo"
+                title={t('nav.newTeam')}
                 className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
               >
                 <Plus size={12} />
@@ -354,20 +359,21 @@ export function Sidebar({
               className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors rounded-md"
             >
               <Plus size={12} />
-              Crear primer equipo
+              {t('nav.createFirstTeam')}
             </Link>
           )}
 
           {!collapsed && teams.length === 0 && !isAdmin && (
             <p className="px-2 py-1.5 text-xs text-muted-foreground/60">
-              Aún no tienes equipos asignados.
+              {t('nav.noTeams')}
             </p>
           )}
         </NavGroup>
       </nav>
 
-      {/* ── Footer: perfil de usuario ──────────────────────────── */}
-      <div className="border-t border-border p-2">
+      {/* ── Footer: idioma + perfil de usuario ─────────────────── */}
+      <div className="border-t border-border p-2 space-y-1">
+        <LanguageSwitcher collapsed={collapsed} />
         <UserMenu profile={userProfile} collapsed={collapsed} workspaceSlug={workspaceSlug} />
       </div>
       </aside>
@@ -461,11 +467,12 @@ function NavItem({
 // ── Nueva tarea con shortcut C ──────────────────────────────────────────────
 function NewTaskButton({ collapsed }: { collapsed: boolean }) {
   const setOpen = useNewTask(s => s.setOpen)
+  const { t } = useI18n()
 
   return (
     <button
       onClick={() => setOpen(true)}
-      title={collapsed ? 'Nueva tarea (C)' : undefined}
+      title={collapsed ? t('nav.newTaskHint') : undefined}
       className={cn(
         'w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors',
         'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -477,7 +484,7 @@ function NewTaskButton({ collapsed }: { collapsed: boolean }) {
       </span>
       {!collapsed && (
         <>
-          <span className="flex-1 text-left">Nueva tarea</span>
+          <span className="flex-1 text-left">{t('nav.newTask')}</span>
           <kbd className="text-[10px] font-mono px-1.5 py-0.5 bg-muted text-muted-foreground rounded border border-border">
             C
           </kbd>
@@ -490,6 +497,7 @@ function NewTaskButton({ collapsed }: { collapsed: boolean }) {
 // ── Search button con shortcut Cmd+K ────────────────────────────────────────
 function SearchButton({ collapsed }: { collapsed: boolean }) {
   const toggle = useCommandPalette(s => s.toggle)
+  const { t } = useI18n()
   const [isMac, setIsMac] = useState(false)
 
   useEffect(() => {
@@ -499,7 +507,7 @@ function SearchButton({ collapsed }: { collapsed: boolean }) {
   return (
     <button
       onClick={toggle}
-      title={collapsed ? 'Buscar (Cmd+K)' : undefined}
+      title={collapsed ? t('nav.searchHint') : undefined}
       className={cn(
         'w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors',
         'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -511,7 +519,7 @@ function SearchButton({ collapsed }: { collapsed: boolean }) {
       </span>
       {!collapsed && (
         <>
-          <span className="flex-1 text-left">Buscar</span>
+          <span className="flex-1 text-left">{t('nav.search')}</span>
           <kbd className="text-[10px] font-mono px-1.5 py-0.5 bg-muted text-muted-foreground rounded border border-border">
             {isMac ? '⌘K' : 'Ctrl+K'}
           </kbd>

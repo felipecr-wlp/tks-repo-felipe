@@ -12,6 +12,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Users, Clock, Crown, ClipboardList, Loader2, FolderKanban } from 'lucide-react'
+import { useT } from '@/lib/i18n/LanguageProvider'
+
+type Tr = ReturnType<typeof useT>
 
 export type MarketProject = {
   id: string
@@ -29,26 +32,27 @@ export type MarketProject = {
   my_application_status: string | null
 }
 
-function deadlineLabel(iso: string | null): string | null {
+function deadlineLabel(iso: string | null, tr: Tr): string | null {
   if (!iso) return null
   const d = new Date(iso)
   const days = Math.ceil((d.getTime() - Date.now()) / 86400000)
-  if (days < 0) return 'Cerrado'
-  if (days === 0) return 'Cierra hoy'
-  if (days === 1) return 'Cierra mañana'
-  return `Cierra en ${days} dias`
+  if (days < 0) return tr('proj.closed')
+  if (days === 0) return tr('proj.closesToday')
+  if (days === 1) return tr('proj.closesTomorrow')
+  return `${tr('proj.closesInPrefix')} ${days} ${tr('proj.daysSuffix')}`
 }
 
 export function MarketplaceBoard({ projects, workspaceSlug }: { projects: MarketProject[]; workspaceSlug: string }) {
+  const tr = useT()
   const [applyFor, setApplyFor] = useState<MarketProject | null>(null)
 
   if (projects.length === 0) {
     return (
       <div className="text-center py-16 border border-dashed border-border rounded-xl">
         <ClipboardList className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
-        <h3 className="text-sm font-medium text-foreground mb-1">No hay proyectos abiertos</h3>
+        <h3 className="text-sm font-medium text-foreground mb-1">{tr('proj.openEmptyTitle')}</h3>
         <p className="text-sm text-muted-foreground">
-          Cuando un lider abra un proyecto a postulaciones, aparecera aqui.
+          {tr('proj.openEmptyDesc')}
         </p>
       </div>
     )
@@ -67,7 +71,7 @@ export function MarketplaceBoard({ projects, workspaceSlug }: { projects: Market
                 <h3 className="text-sm font-semibold text-foreground truncate">{p.name}</h3>
                 {p.lead && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                    <Crown className="w-3 h-3" /> {p.lead.display_name ?? 'Lider'}
+                    <Crown className="w-3 h-3" /> {p.lead.display_name ?? tr('proj.lead')}
                   </p>
                 )}
               </div>
@@ -82,9 +86,9 @@ export function MarketplaceBoard({ projects, workspaceSlug }: { projects: Market
                 <Users className="w-3 h-3" />
                 {p.member_count}{p.max_members ? `/${p.max_members}` : ''}
               </span>
-              {deadlineLabel(p.application_deadline) && (
+              {deadlineLabel(p.application_deadline, tr) && (
                 <span className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> {deadlineLabel(p.application_deadline)}
+                  <Clock className="w-3 h-3" /> {deadlineLabel(p.application_deadline, tr)}
                 </span>
               )}
             </div>
@@ -92,22 +96,22 @@ export function MarketplaceBoard({ projects, workspaceSlug }: { projects: Market
             <div className="flex items-center gap-2">
               {p.is_member ? (
                 <span className="flex-1 text-center px-3 py-2 text-xs font-medium rounded-lg bg-emerald-500/10 text-emerald-600">
-                  Ya eres miembro
+                  {tr('proj.alreadyMember')}
                 </span>
               ) : p.my_application_status === 'pending' ? (
                 <span className="flex-1 text-center px-3 py-2 text-xs font-medium rounded-lg bg-amber-500/10 text-amber-600">
-                  Postulacion enviada
+                  {tr('proj.applicationSent')}
                 </span>
               ) : p.my_application_status === 'rejected' ? (
                 <span className="flex-1 text-center px-3 py-2 text-xs font-medium rounded-lg bg-muted text-muted-foreground">
-                  No seleccionado
+                  {tr('proj.notSelected')}
                 </span>
               ) : (
                 <button
                   onClick={() => setApplyFor(p)}
                   className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
-                  Postularme
+                  {tr('proj.apply')}
                 </button>
               )}
 
@@ -116,7 +120,7 @@ export function MarketplaceBoard({ projects, workspaceSlug }: { projects: Market
                   href={`/w/${workspaceSlug}/projects/${p.id}`}
                   className="px-3 py-2 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors"
                 >
-                  Gestionar
+                  {tr('proj.manage')}
                 </Link>
               )}
             </div>
@@ -135,6 +139,7 @@ export function MarketplaceBoard({ projects, workspaceSlug }: { projects: Market
 }
 
 function ApplyModal({ project, onClose }: { project: MarketProject; onClose: () => void }) {
+  const tr = useT()
   const router = useRouter()
   const [pitch, setPitch] = useState('')
   const [roleDesired, setRoleDesired] = useState('')
@@ -143,7 +148,7 @@ function ApplyModal({ project, onClose }: { project: MarketProject; onClose: () 
   const submit = async () => {
     if (loading) return // evita doble submit
     if (pitch.trim().length < 10) {
-      toast.error('Cuentanos un poco mas (minimo 10 caracteres)')
+      toast.error(tr('proj.applyMin'))
       return
     }
     setLoading(true)
@@ -154,12 +159,12 @@ function ApplyModal({ project, onClose }: { project: MarketProject; onClose: () 
         body: JSON.stringify({ pitch: pitch.trim(), role_desired: roleDesired.trim() || null }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error ?? 'Error al postular')
-      toast.success('Postulacion enviada')
+      if (!res.ok) throw new Error(result.error ?? tr('proj.applyError'))
+      toast.success(tr('proj.applicationSent'))
       onClose()
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : tr('common.unknownError'))
       setLoading(false)
     }
   }
@@ -171,39 +176,39 @@ function ApplyModal({ project, onClose }: { project: MarketProject; onClose: () 
           <span className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
             <FolderKanban className="w-4 h-4 text-primary" />
           </span>
-          Postularme a {project.name}
+          {tr('proj.applyToPrefix')} {project.name}
         </h2>
         <p className="text-xs text-muted-foreground mt-1 mb-4">
-          El lider vera tu mensaje y decidira. Se claro sobre lo que aportas.
+          {tr('proj.applyHint')}
         </p>
 
         {(project.scope || project.deliverables) && (
           <div className="mb-4 space-y-2 text-xs bg-muted/50 rounded-lg p-3">
-            {project.scope && <p><span className="font-medium text-foreground">Alcance:</span> <span className="text-muted-foreground">{project.scope}</span></p>}
-            {project.deliverables && <p><span className="font-medium text-foreground">Entregables:</span> <span className="text-muted-foreground">{project.deliverables}</span></p>}
+            {project.scope && <p><span className="font-medium text-foreground">{tr('proj.scopeLabel')}</span> <span className="text-muted-foreground">{project.scope}</span></p>}
+            {project.deliverables && <p><span className="font-medium text-foreground">{tr('proj.deliverablesLabel')}</span> <span className="text-muted-foreground">{project.deliverables}</span></p>}
           </div>
         )}
 
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Rol que buscas <span className="text-muted-foreground text-xs">(opcional)</span></label>
+            <label className="text-sm font-medium text-foreground">{tr('proj.roleWanted')} <span className="text-muted-foreground text-xs">{tr('proj.optional')}</span></label>
             <input
               value={roleDesired}
               onChange={e => setRoleDesired(e.target.value)}
               maxLength={120}
-              placeholder="Ej: Diseñador, Analista de datos"
+              placeholder={tr('proj.roleWantedPlaceholder')}
               disabled={loading}
               className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Tu mensaje <span className="text-destructive">*</span></label>
+            <label className="text-sm font-medium text-foreground">{tr('proj.yourMessage')} <span className="text-destructive">*</span></label>
             <textarea
               value={pitch}
               onChange={e => setPitch(e.target.value)}
               maxLength={2000}
               rows={4}
-              placeholder="¿Por que quieres entrar y que aportas al proyecto?"
+              placeholder={tr('proj.pitchPlaceholder')}
               disabled={loading}
               className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 resize-none"
             />
@@ -213,10 +218,10 @@ function ApplyModal({ project, onClose }: { project: MarketProject; onClose: () 
 
         <div className="flex items-center gap-3 pt-4">
           <button onClick={onClose} disabled={loading} className="flex-1 px-4 py-2.5 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50">
-            Cancelar
+            {tr('common.cancel')}
           </button>
           <button onClick={submit} disabled={loading} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50">
-            {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Enviando...</> : 'Enviar postulacion'}
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin" />{tr('proj.sending')}</> : tr('proj.sendApplication')}
           </button>
         </div>
       </div>

@@ -30,11 +30,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/auth/login?error=session_error`)
   }
 
-  // Verificar dominios permitidos (multi-domain)
+  // Verificar dominios permitidos (multi-domain, con subdominios). Un allowlist
+  // de "welovepaving.com" tambien admite "ops.welovepaving.com" (subdominio
+  // corporativo); nunca baja a un TLD suelto porque se compara contra el dominio
+  // completo configurado.
   const allowedDomains = (process.env.ALLOWED_EMAIL_DOMAINS ?? process.env.ALLOWED_EMAIL_DOMAIN ?? '')
-    .split(',').map(d => d.trim()).filter(Boolean)
+    .split(',').map(d => d.trim().toLowerCase()).filter(Boolean)
   if (allowedDomains.length > 0 && data.user.email) {
-    if (!allowedDomains.some(d => data.user.email!.endsWith(`@${d}`))) {
+    const host = data.user.email.split('@')[1]?.toLowerCase() ?? ''
+    const allowed = allowedDomains.some(d => host === d || host.endsWith(`.${d}`))
+    if (!allowed) {
       await supabase.auth.signOut()
       return NextResponse.redirect(`${origin}/auth/unauthorized`)
     }

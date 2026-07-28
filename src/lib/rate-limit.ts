@@ -106,18 +106,23 @@ export async function applyRateLimit(
   request: NextRequest,
   type: 'api' | 'ai' | 'auth' = 'api'
 ): Promise<NextResponse | null> {
-  // Redis no configurado. En producción esto es un fallo de infra: NO se puede
-  // rate-limitar, así que se falla CERRADO (429) y se grita en los logs. En
-  // desarrollo se es permisivo (se avisa una sola vez y se deja pasar).
+  // Redis no configurado. Esto es un estado de infra en TIEMPO DE DEPLOY (las
+  // vars nunca se setearon), NO un ataque en curso: fallar CERRADO aqui deja
+  // TODA la app inutilizable (auth, invitaciones, join -> 429 "Demasiadas
+  // solicitudes"). Por eso se falla ABIERTO (permisivo) y se grita fuerte en los
+  // logs para que se provisione Upstash. Los endpoints ya estan protegidos por
+  // Google OAuth + allowlist de dominios, asi que la superficie de abuso se
+  // limita a miembros ya autenticados de la org. El fallo en TIEMPO DE EJECUCION
+  // (Redis configurado pero caido) SI se sigue tratando como fail-closed abajo.
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production' && !warnedUnconfigured) {
+      warnedUnconfigured = true
       console.error(
         '[rate-limit] UPSTASH_REDIS_REST_URL/TOKEN no configurado en producción. ' +
-          'Fallando CERRADO (429) para no dejar los endpoints sin protección.'
+          'Rate limiting DESHABILITADO (fail-open) para no bloquear auth/invitaciones. ' +
+          'Provisiona Upstash Redis y setea las vars para restaurar la protección.'
       )
-      return blockedResponse()
-    }
-    if (!warnedUnconfigured) {
+    } else if (!warnedUnconfigured) {
       warnedUnconfigured = true
       console.warn(
         '[rate-limit] Redis no configurado; rate limiting DESHABILITADO (solo en desarrollo).'

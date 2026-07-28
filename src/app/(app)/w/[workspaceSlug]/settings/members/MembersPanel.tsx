@@ -12,6 +12,7 @@ import { getInitials } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const ROLES = ['owner', 'admin', 'manager', 'member', 'viewer'] as const
 type Role = (typeof ROLES)[number]
@@ -32,6 +33,7 @@ export function MembersPanel({
   workspaceId: string
   currentUserId: string
 }) {
+  const t = useT()
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -47,7 +49,7 @@ export function MembersPanel({
       setMembers(data.members ?? [])
     } catch (err) {
       setError(true)
-      toast.error(err instanceof Error ? err.message : 'Error al cargar')
+      toast.error(err instanceof Error ? err.message : t('memp.loadError'))
     } finally {
       setLoading(false)
     }
@@ -64,11 +66,11 @@ export function MembersPanel({
         body: JSON.stringify({ role }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error al actualizar')
-      toast.success('Rol actualizado')
+      if (!res.ok) throw new Error(data.error ?? t('memp.updateError'))
+      toast.success(t('memp.roleUpdated'))
       setMembers((prev) => prev.map((m) => (m.profile_id === profileId ? { ...m, role } : m)))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : t('common.unknownError'))
       // Reconciliar el rol optimista con el servidor sin parpadear el skeleton.
       try {
         const res = await fetch(`/api/workspaces/${workspaceId}/members`)
@@ -85,9 +87,9 @@ export function MembersPanel({
   async function removeMember(m: Member) {
     if (
       !(await confirmDialog({
-        message: `¿Quitar a ${m.display_name} del workspace?`,
+        message: `${t('memp.removeConfirmPrefix')} ${m.display_name} ${t('memp.removeConfirmSuffix')}`,
         destructive: true,
-        confirmLabel: 'Quitar',
+        confirmLabel: t('memp.remove'),
       }))
     )
       return
@@ -98,12 +100,12 @@ export function MembersPanel({
       })
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error ?? 'Error al quitar')
+        throw new Error(data.error ?? t('memp.removeError'))
       }
-      toast.success('Miembro quitado')
+      toast.success(t('memp.removed'))
       setMembers((prev) => prev.filter((x) => x.profile_id !== m.profile_id))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : t('common.unknownError'))
     } finally {
       setBusy(null)
     }
@@ -135,8 +137,8 @@ export function MembersPanel({
     return (
       <EmptyState
         icon={<Users className="h-5 w-5" />}
-        title="Sin miembros todavía"
-        description="Invita a tu equipo desde la pestaña Invitaciones para que aparezcan aquí."
+        title={t('memp.emptyTitle')}
+        description={t('memp.emptyDesc')}
       />
     )
   }
@@ -144,7 +146,7 @@ export function MembersPanel({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        {members.length} {members.length === 1 ? 'miembro' : 'miembros'} en el workspace.
+        {members.length} {members.length === 1 ? t('memp.countOne') : t('memp.countMany')} {t('memp.countSuffix')}
       </p>
 
       <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
@@ -171,7 +173,7 @@ export function MembersPanel({
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
                   {m.display_name}
-                  {isSelf && <span className="text-xs text-muted-foreground font-normal"> (tú)</span>}
+                  {isSelf && <span className="text-xs text-muted-foreground font-normal">{t('memp.you')}</span>}
                 </p>
                 <p className="text-xs text-muted-foreground truncate">{m.email}</p>
               </div>
@@ -180,11 +182,11 @@ export function MembersPanel({
                 value={m.role}
                 onChange={(e) => changeRole(m.profile_id, e.target.value as Role)}
                 disabled={busy === m.profile_id}
-                className="px-2 py-1 text-sm border border-input rounded-lg bg-background capitalize disabled:opacity-50"
+                className="px-2 py-1 text-sm border border-input rounded-lg bg-background disabled:opacity-50"
               >
                 {ROLES.map((r) => (
-                  <option key={r} value={r} className="capitalize">
-                    {r}
+                  <option key={r} value={r}>
+                    {t(`role.${r}`)}
                   </option>
                 ))}
               </select>
@@ -192,10 +194,10 @@ export function MembersPanel({
               <button
                 onClick={() => removeMember(m)}
                 disabled={busy === m.profile_id || isSelf}
-                title={isSelf ? 'No puedes quitarte a ti mismo' : 'Quitar del workspace'}
+                title={isSelf ? t('memp.cannotRemoveSelf') : t('memp.removeFromWs')}
                 className="text-xs px-2 py-1 text-destructive hover:bg-destructive/10 rounded disabled:opacity-40 disabled:hover:bg-transparent"
               >
-                Quitar
+                {t('memp.remove')}
               </button>
             </div>
           )

@@ -10,6 +10,7 @@ import { confirmDialog } from '@/components/ConfirmDialog'
 import { FolderKanban, Plus, Pencil, Check, X, Lock, Globe, Users, UserPlus } from 'lucide-react'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Space {
   id: string
@@ -44,6 +45,7 @@ export function DepartmentsPanel({
   initialSpaces: Space[]
   workspaceMembers: WorkspaceMember[]
 }) {
+  const t = useT()
   const router = useRouter()
   const [spaces, setSpaces] = useState<Space[]>(initialSpaces)
   const [editing, setEditing] = useState<string | null>(null)
@@ -65,10 +67,10 @@ export function DepartmentsPanel({
     try {
       const res = await fetch(`/api/spaces/${s.id}/members`)
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error al cargar miembros')
+      if (!res.ok) throw new Error(data.error ?? t('dept.loadMembersError'))
       setMemberList(data.members ?? [])
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al cargar miembros')
+      toast.error(err instanceof Error ? err.message : t('dept.loadMembersError'))
       setMembersOpen(null)
     } finally {
       setLoadingMembers(false)
@@ -89,15 +91,15 @@ export function DepartmentsPanel({
         body: JSON.stringify({ profile_id: profileId }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error al agregar')
+      if (!res.ok) throw new Error(data.error ?? t('dept.addError'))
       const wm = workspaceMembers.find((m) => m.profile_id === profileId)
       if (wm) setMemberList((prev) => [...prev, { ...wm, role: 'member' }])
       setAddingId('')
       bumpCount(spaceId, 1)
-      toast.success('Asignado al departamento')
+      toast.success(t('dept.assignedToDept'))
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al agregar')
+      toast.error(err instanceof Error ? err.message : t('dept.addError'))
     } finally {
       setLoadingMembers(false)
     }
@@ -109,14 +111,14 @@ export function DepartmentsPanel({
       const res = await fetch(`/api/spaces/${spaceId}/members/${profileId}`, { method: 'DELETE' })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.error ?? 'Error al quitar')
+        throw new Error(data?.error ?? t('dept.removeError'))
       }
       setMemberList((prev) => prev.filter((m) => m.profile_id !== profileId))
       bumpCount(spaceId, -1)
-      toast.success('Quitado del departamento')
+      toast.success(t('dept.removedFromDept'))
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al quitar')
+      toast.error(err instanceof Error ? err.message : t('dept.removeError'))
     } finally {
       setLoadingMembers(false)
     }
@@ -143,8 +145,8 @@ export function DepartmentsPanel({
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error al crear')
-      toast.success('Departamento creado')
+      if (!res.ok) throw new Error(data.error ?? t('dept.createError'))
+      toast.success(t('dept.created'))
       setSpaces((prev) =>
         [...prev, { id: data.id, name: data.name, description: data.description ?? null, is_restricted: data.is_restricted, is_archived: data.is_archived, member_count: 1 }].sort((a, b) =>
           a.name.localeCompare(b.name)
@@ -155,7 +157,7 @@ export function DepartmentsPanel({
       setShowCreate(false)
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : t('common.unknownError'))
     } finally {
       setCreating(false)
     }
@@ -170,13 +172,13 @@ export function DepartmentsPanel({
         body: JSON.stringify(body),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error al guardar')
+      if (!res.ok) throw new Error(data.error ?? t('settings.saveError'))
       toast.success(okMsg)
       setSpaces((prev) => prev.map((x) => (x.id === s.id ? { ...x, ...body } as Space : x)))
       setEditing(null)
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : t('common.unknownError'))
     } finally {
       setBusy(null)
     }
@@ -185,18 +187,18 @@ export function DepartmentsPanel({
   function saveName(s: Space) {
     const name = draftName.trim()
     if (name.length < 1) {
-      toast.error('El nombre no puede estar vacío')
+      toast.error(t('dept.nameEmpty'))
       return
     }
-    patch(s, { name }, 'Departamento actualizado')
+    patch(s, { name }, t('dept.updated'))
   }
 
   async function removeSpace(s: Space) {
     if (
       !(await confirmDialog({
-        message: `¿Eliminar el departamento ${s.name}? Las notas asociadas quedarán sin departamento.`,
+        message: `${t('dept.deleteConfirmPrefix')} ${s.name}${t('dept.deleteConfirmSuffix')}`,
         destructive: true,
-        confirmLabel: 'Eliminar',
+        confirmLabel: t('common.delete'),
       }))
     )
       return
@@ -205,13 +207,13 @@ export function DepartmentsPanel({
       const res = await fetch(`/api/spaces/${s.id}`, { method: 'DELETE' })
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error ?? 'Error al eliminar')
+        throw new Error(data.error ?? t('dept.deleteError'))
       }
-      toast.success('Departamento eliminado')
+      toast.success(t('dept.deleted'))
       setSpaces((prev) => prev.filter((x) => x.id !== s.id))
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : t('common.unknownError'))
     } finally {
       setBusy(null)
     }
@@ -221,27 +223,27 @@ export function DepartmentsPanel({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {spaces.length} {spaces.length === 1 ? 'departamento' : 'departamentos'}. Los restringidos solo son visibles para sus miembros y admins.
+          {spaces.length} {spaces.length === 1 ? t('dept.countOne') : t('dept.countMany')}{t('dept.countSuffix')}
         </p>
         {!showCreate && (
           <button
             onClick={() => setShowCreate(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90"
           >
-            <Plus size={14} /> Nuevo
+            <Plus size={14} /> {t('dept.new')}
           </button>
         )}
       </div>
 
       {showCreate && (
         <form onSubmit={handleCreate} className="bg-card border border-border rounded-xl p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-foreground">Nuevo departamento</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t('dept.newDepartment')}</h3>
           <input
             autoFocus
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             maxLength={120}
-            placeholder="Ej. Marketing, Finanzas, Legal"
+            placeholder={t('dept.namePlaceholder')}
             className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background"
             disabled={creating}
           />
@@ -253,7 +255,7 @@ export function DepartmentsPanel({
               disabled={creating}
               className="rounded border-input"
             />
-            Restringido (visible solo para sus miembros y admins)
+            {t('dept.restrictedLabel')}
           </label>
           <div className="flex items-center gap-2 pt-1">
             <button
@@ -261,7 +263,7 @@ export function DepartmentsPanel({
               disabled={creating || newName.trim().length < 1}
               className="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90 disabled:opacity-50"
             >
-              {creating ? 'Creando...' : 'Crear'}
+              {creating ? t('dept.creating') : t('dept.create')}
             </button>
             <button
               type="button"
@@ -269,7 +271,7 @@ export function DepartmentsPanel({
               disabled={creating}
               className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
-              Cancelar
+              {t('common.cancel')}
             </button>
           </div>
         </form>
@@ -278,15 +280,15 @@ export function DepartmentsPanel({
       {spaces.length === 0 ? (
         <EmptyState
           icon={<FolderKanban className="h-5 w-5" />}
-          title="Aún no hay departamentos"
-          description="Crea un departamento para organizar notas, tareas y equipos por área."
+          title={t('dept.emptyTitle')}
+          description={t('dept.emptyDesc')}
           action={
             !showCreate ? (
               <button
                 onClick={() => setShowCreate(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90"
               >
-                <Plus size={14} /> Nuevo departamento
+                <Plus size={14} /> {t('dept.newDepartment')}
               </button>
             ) : undefined
           }
@@ -318,14 +320,14 @@ export function DepartmentsPanel({
                       onClick={() => saveName(s)}
                       disabled={busy === s.id}
                       className="p-1 text-primary hover:bg-accent rounded"
-                      title="Guardar"
+                      title={t('common.save')}
                     >
                       <Check size={15} />
                     </button>
                     <button
                       onClick={() => setEditing(null)}
                       className="p-1 text-muted-foreground hover:bg-accent rounded"
-                      title="Cancelar"
+                      title={t('common.cancel')}
                     >
                       <X size={15} />
                     </button>
@@ -336,28 +338,28 @@ export function DepartmentsPanel({
                     <button
                       onClick={() => { setEditing(s.id); setDraftName(s.name) }}
                       className="p-0.5 text-muted-foreground hover:text-foreground"
-                      title="Renombrar"
+                      title={t('dept.rename')}
                     >
                       <Pencil size={12} />
                     </button>
                     {s.is_restricted ? (
                       <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400">
-                        <Lock className="h-2.5 w-2.5" /> Restringido
+                        <Lock className="h-2.5 w-2.5" /> {t('dept.restricted')}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                        <Globe className="h-2.5 w-2.5" /> Público
+                        <Globe className="h-2.5 w-2.5" /> {t('dept.public')}
                       </span>
                     )}
                     {s.is_archived && (
                       <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                        Archivado
+                        {t('dept.archived')}
                       </span>
                     )}
                   </div>
                 )}
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {s.member_count} {s.member_count === 1 ? 'miembro' : 'miembros'}
+                  {s.member_count} {s.member_count === 1 ? t('dept.memberOne') : t('dept.memberMany')}
                 </p>
               </div>
 
@@ -368,23 +370,23 @@ export function DepartmentsPanel({
                   membersOpen === s.id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <Users size={13} /> Miembros
+                <Users size={13} /> {t('dept.members')}
               </button>
 
               <button
-                onClick={() => patch(s, { is_restricted: !s.is_restricted }, s.is_restricted ? 'Ahora es público' : 'Ahora es restringido')}
+                onClick={() => patch(s, { is_restricted: !s.is_restricted }, s.is_restricted ? t('dept.nowPublic') : t('dept.nowRestricted'))}
                 disabled={busy === s.id}
                 className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground rounded disabled:opacity-40"
               >
-                {s.is_restricted ? 'Hacer público' : 'Restringir'}
+                {s.is_restricted ? t('dept.makePublic') : t('dept.restrict')}
               </button>
 
               <button
-                onClick={() => patch(s, { is_archived: !s.is_archived }, s.is_archived ? 'Restaurado' : 'Archivado')}
+                onClick={() => patch(s, { is_archived: !s.is_archived }, s.is_archived ? t('dept.restored') : t('dept.archivedToast'))}
                 disabled={busy === s.id}
                 className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground rounded disabled:opacity-40"
               >
-                {s.is_archived ? 'Restaurar' : 'Archivar'}
+                {s.is_archived ? t('dept.restore') : t('dept.archive')}
               </button>
 
               <button
@@ -392,7 +394,7 @@ export function DepartmentsPanel({
                 disabled={busy === s.id}
                 className="text-xs px-2 py-1 text-destructive hover:bg-destructive/10 rounded disabled:opacity-40"
               >
-                Eliminar
+                {t('common.delete')}
               </button>
             </div>
 
@@ -412,7 +414,7 @@ export function DepartmentsPanel({
                         className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-input rounded-lg bg-background disabled:opacity-50"
                       >
                         <option value="">
-                          {available.length === 0 ? 'Todos ya están asignados' : 'Elegir persona para asignar...'}
+                          {available.length === 0 ? t('dept.allAssigned') : t('dept.choosePerson')}
                         </option>
                         {available.map((m) => (
                           <option key={m.profile_id} value={m.profile_id}>
@@ -425,7 +427,7 @@ export function DepartmentsPanel({
                         disabled={loadingMembers || !addingId}
                         className="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90 disabled:opacity-50 flex-shrink-0"
                       >
-                        Asignar
+                        {t('dept.assign')}
                       </button>
                     </div>
                   )
@@ -433,7 +435,7 @@ export function DepartmentsPanel({
 
                 {/* Lista de asignados */}
                 {loadingMembers && memberList.length === 0 ? (
-                  <ul className="space-y-1" aria-label="Cargando miembros">
+                  <ul className="space-y-1" aria-label={t('dept.loadingMembers')}>
                     {Array.from({ length: 3 }).map((_, i) => (
                       <li key={i} className="flex items-center gap-2 py-1">
                         <Skeleton className="h-6 w-6 rounded-full flex-shrink-0" />
@@ -443,7 +445,7 @@ export function DepartmentsPanel({
                   </ul>
                 ) : memberList.length === 0 ? (
                   <p className="text-xs text-muted-foreground py-2">
-                    Nadie asignado aún. Usa el selector de arriba para agregar a tu equipo.
+                    {t('dept.noneAssigned')}
                   </p>
                 ) : (
                   <ul className="space-y-1">
@@ -455,7 +457,7 @@ export function DepartmentsPanel({
                         <div className="flex-1 min-w-0">
                           <span className="text-sm text-foreground">{m.display_name}</span>
                           {m.role === 'owner' && (
-                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">Owner</span>
+                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">{t('dept.owner')}</span>
                           )}
                         </div>
                         <button
@@ -463,7 +465,7 @@ export function DepartmentsPanel({
                           disabled={loadingMembers}
                           className="text-xs px-2 py-0.5 text-muted-foreground hover:text-destructive rounded disabled:opacity-40"
                         >
-                          Quitar
+                          {t('dept.remove')}
                         </button>
                       </li>
                     ))}

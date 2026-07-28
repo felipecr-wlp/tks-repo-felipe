@@ -8,6 +8,57 @@ Registro de tickets del esfuerzo de hacer WLO verdaderamente colaborativo
 
 ---
 
+## 2026-07-26 — Fix definitivo "No se pudo cargar la tarea" + 500 masivo en /api/tasks*
+
+Tres bugs distintos con síntomas parecidos, resueltos en cadena. Documentados aquí
+para que no vuelvan a suceder.
+
+### Bug A: 500 en TODAS las rutas /api/tasks* y /api/notes* (ERR_REQUIRE_ESM)
+- Síntoma: "No se pudo crear/cargar/eliminar la tarea (error 500)", los tres a la vez.
+- Causa (vista en runtime logs de Vercel, NO en Supabase): `ERR_REQUIRE_ESM` al
+  cargar `@/lib/sanitize` -> `isomorphic-dompurify@3.19` -> `jsdom@29` ->
+  `@exodus/bytes` (ESM-only). El import truena en cold-start y tumba la función
+  entera, por eso GET/POST/PATCH/DELETE fallan juntos.
+- Intento fallido (NO repetir): `engines.node: 22.x`. El loader de Next/Vercel no
+  honra el `require(ESM)` nativo de Node 22; el error persiste idéntico.
+- Fix real: bajar `isomorphic-dompurify` a `2.26.0` (jsdom@26, cadena CJS
+  `html-encoding-sniffer@4` -> `whatwg-encoding`, sin @exodus/bytes). Verificado con
+  `npm ls @exodus/bytes` que queda solo bajo `vitest` (devDep, Vercel la poda).
+  `sanitize.ts` no cambió (misma API DOMPurify 3.x). Deploy `dpl_AfNXmvf`.
+- Regla: no subir isomorphic-dompurify a 3.x sin verificar que no arrastre jsdom>=27.
+
+### Bug B: 403 al abrir/reprogramar tarea desde el Gantt de equipo
+- Causa: GET/PATCH de `/api/tasks/[taskId]` y comments gateaban solo por
+  `project_members`; un owner/admin no inscrito en el proyecto recibía 403.
+- Fix: helper `canAccessProject()` en `src/lib/team-access.ts` (cualquier rol en
+  project_members, O org_role owner/admin, O workspace_members owner/admin), usado
+  en GET+PATCH de la tarea y GET+POST de comments. DELETE se mantuvo estricto.
+  Deploy `dpl_CdMasuQ`.
+
+### Bug C: "No se pudo cargar la tarea" por embed autorreferente + caché de esquema
+- Causa: en `GET /api/tasks/[taskId]` el embed `parent:tasks` (self-FK
+  `tasks.parent_task_id -> tasks`) fallaba. Primero por falta de pista de
+  constraint; luego, aun con la pista `!tasks_parent_task_id_fkey`, PostgREST
+  resuelve relaciones contra su CACHÉ DE ESQUEMA y la self-FK se le pierde ->
+  `PGRST200 "Could not find a relationship between 'tasks' and 'tasks' in the schema
+  cache"` aunque el constraint exista en `pg_constraint` (verificado por SQL).
+- Fix real (no depende de caché): se ELIMINÓ el self-embed del GET; se selecciona
+  solo `parent_task_id` y, si hay padre, se resuelve `{id,title}` con una segunda
+  consulta trivial, devolviendo `{ ...task, parent }`. Mitigación puntual aplicada:
+  `NOTIFY pgrst, 'reload schema';`. Deploy `dpl_BNyhbVte`.
+- El "bug al asignar" era colateral: asignar se hace desde el panel de detalle, que
+  no abría por el GET 500. PATCH nunca usó el self-embed.
+- Reglas duras: (1) no usar embed autorreferente en rutas críticas, resolver el
+  padre en consulta separada; (2) NUNCA destructurar solo `{ data }`: capturar
+  siempre `{ data, error }` y devolver 500 con `console.error` (tragarse el error
+  disfraza un 500 como 404 y despista el diagnóstico).
+
+Archivos: `src/app/api/tasks/[taskId]/route.ts`, `src/lib/team-access.ts`,
+`package.json` (isomorphic-dompurify 2.26.0). tsc 0. Deploy por Vercel CLI (el
+webhook de GitHub no auto-despliega).
+
+---
+
 ## 2026-07-22 — Sprint de madurez ("que no se sienta v1"): 5 oleadas de agentes
 
 Auditoría de 4 agentes read-only + 5 oleadas de agentes implementadores en

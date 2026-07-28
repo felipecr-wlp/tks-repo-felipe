@@ -12,10 +12,21 @@ import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 const SUGGESTIONS = [
-  'Resume mis prioridades de hoy',
-  'Divide este objetivo en subtareas',
-  'Redacta una nota de seguimiento',
+  '¿Qué tengo pendiente hoy?',
+  'Crea una tarea para dar seguimiento a un lead',
+  'Muéstrame mis proyectos',
 ]
+
+// Etiquetas amables en español para las herramientas que KERN puede ejecutar.
+// El nombre tecnico de la tool (snake_case) nunca se muestra crudo al usuario.
+const TOOL_LABELS: Record<string, { running: string; done: string }> = {
+  list_projects: { running: 'Consultando proyectos', done: 'Proyectos consultados' },
+  list_my_tasks: { running: 'Revisando tus tareas', done: 'Tareas revisadas' },
+  search_tasks: { running: 'Buscando tareas', done: 'Búsqueda completada' },
+  create_task: { running: 'Creando tarea', done: 'Tarea creada' },
+  update_task: { running: 'Actualizando tarea', done: 'Tarea actualizada' },
+  list_task_statuses: { running: 'Consultando columnas', done: 'Columnas consultadas' },
+}
 
 export function KernAssistant() {
   const [open, setOpen] = useState(false)
@@ -135,23 +146,48 @@ export function KernAssistant() {
               </div>
             </div>
           ) : (
-            messages.map(m => (
-              <div
-                key={m.id}
-                className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}
-              >
+            messages.map(m => {
+              const invs = m.toolInvocations ?? []
+              return (
                 <div
-                  className={cn(
-                    'max-w-[85%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap break-words',
-                    m.role === 'user'
-                      ? 'bg-primary text-primary-foreground rounded-br-sm'
-                      : 'bg-muted text-foreground rounded-bl-sm'
-                  )}
+                  key={m.id}
+                  className={cn('flex flex-col gap-1.5', m.role === 'user' ? 'items-end' : 'items-start')}
                 >
-                  {m.content}
+                  {invs.length > 0 && (
+                    <div className="flex flex-col gap-1 w-full">
+                      {invs.map((inv, i) => {
+                        const label = TOOL_LABELS[inv.toolName]
+                        const done = inv.state === 'result'
+                        const text = done
+                          ? label?.done ?? 'Acción completada'
+                          : label?.running ?? 'Trabajando...'
+                        return (
+                          <div
+                            key={inv.toolCallId ?? i}
+                            className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
+                          >
+                            <ToolIcon className={cn('h-3 w-3', !done && 'animate-pulse text-[#caa800]')} />
+                            <span>{text}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {m.content && (
+                    <div
+                      className={cn(
+                        'max-w-[85%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap break-words',
+                        m.role === 'user'
+                          ? 'bg-primary text-primary-foreground rounded-br-sm'
+                          : 'bg-muted text-foreground rounded-bl-sm'
+                      )}
+                    >
+                      {m.content}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))
+              )
+            })
           )}
 
           {isLoading && messages[messages.length - 1]?.role === 'user' && (
@@ -225,6 +261,14 @@ function SendIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" />
+    </svg>
+  )
+}
+
+function ToolIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4 2.6-2.6z" />
     </svg>
   )
 }

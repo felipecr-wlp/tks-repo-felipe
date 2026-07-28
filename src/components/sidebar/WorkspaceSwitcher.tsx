@@ -6,6 +6,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { WloLogo } from '@/components/brand/WloLogo'
 
 interface WorkspaceSwitcherProps {
   currentSlug: string
@@ -40,9 +41,9 @@ export function WorkspaceSwitcher({
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 w-full min-w-0 rounded-md px-1 py-1 hover:bg-accent transition-colors text-left"
       >
-        {/* Avatar de workspace */}
-        <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-md bg-primary text-primary-foreground text-xs font-bold uppercase">
-          {currentName.charAt(0)}
+        {/* Marca WLO (mismo mark del producto en todos los workspaces) */}
+        <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-md bg-white dark:bg-white/5 border border-border text-[#16202b] dark:text-white">
+          <WloLogo size={18} />
         </span>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-foreground truncate leading-tight">

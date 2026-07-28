@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { ProjectIcon } from '@/lib/project-icons'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface SearchResult {
   tasks: Array<{
@@ -64,6 +65,7 @@ export function SearchResults({
   initialType,
 }: SearchResultsProps) {
   const router = useRouter()
+  const tr = useT()
   const [query, setQuery] = useState(initialQuery)
   const [type, setType] = useState<TypeFilter>(normalizeType(initialType))
   const [results, setResults] = useState<SearchResult | null>(null)
@@ -116,12 +118,12 @@ export function SearchResults({
   }, [results])
 
   const filters: Array<{ key: TypeFilter; label: string; count: number }> = [
-    { key: 'all', label: 'Todo', count: counts.total },
-    { key: 'tasks', label: 'Tareas', count: counts.tasks },
-    { key: 'projects', label: 'Proyectos', count: counts.projects },
-    { key: 'notes', label: 'Notas', count: counts.notes },
-    { key: 'teams', label: 'Equipos', count: counts.teams },
-    { key: 'members', label: 'Personas', count: counts.members },
+    { key: 'all', label: tr('search.filterAll'), count: counts.total },
+    { key: 'tasks', label: tr('search.tasks'), count: counts.tasks },
+    { key: 'projects', label: tr('search.projects'), count: counts.projects },
+    { key: 'notes', label: tr('search.notes'), count: counts.notes },
+    { key: 'teams', label: tr('search.teams'), count: counts.teams },
+    { key: 'members', label: tr('search.members'), count: counts.members },
   ]
 
   const show = (t: TypeFilter) => type === 'all' || type === t
@@ -131,7 +133,7 @@ export function SearchResults({
     <div className="p-6 max-w-4xl mx-auto">
       {/* Header + input */}
       <div className="mb-5">
-        <h1 className="text-2xl font-semibold text-foreground">Búsqueda</h1>
+        <h1 className="text-2xl font-semibold text-foreground">{tr('search.title')}</h1>
         <p className="text-sm text-muted-foreground mt-1">{workspaceName}</p>
       </div>
 
@@ -144,7 +146,7 @@ export function SearchResults({
             setQuery(e.target.value)
             syncUrl(e.target.value, type)
           }}
-          placeholder="Busca tareas, notas, proyectos, equipos o personas..."
+          placeholder={tr('search.placeholder')}
           className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
         />
         {loading && (
@@ -185,20 +187,20 @@ export function SearchResults({
       {!query.trim() ? (
         <EmptyState
           icon={<Search className="w-10 h-10 text-muted-foreground/50" />}
-          title="Escribe para buscar"
-          subtitle="Encuentra tareas, notas, proyectos, equipos y personas del workspace."
+          title={tr('search.emptyTitle')}
+          subtitle={tr('search.emptySubtitle')}
         />
       ) : !loading && counts.total === 0 ? (
         <EmptyState
           icon={<Search className="w-10 h-10 text-muted-foreground/50" />}
-          title={`Sin resultados para "${query.trim()}"`}
-          subtitle="Prueba con otras palabras o revisa la ortografía."
+          title={`${tr('search.noResultsPrefix')} "${query.trim()}"`}
+          subtitle={tr('search.noResultsSubtitle')}
         />
       ) : (
         <div className="space-y-8">
           {/* Tareas */}
           {show('tasks') && r.tasks.length > 0 && (
-            <Section icon={<ListChecks className="w-4 h-4" />} title="Tareas" count={r.tasks.length}>
+            <Section icon={<ListChecks className="w-4 h-4" />} title={tr('search.tasks')} count={r.tasks.length}>
               {r.tasks.map(t => {
                 const href = t.team_slug && t.project_slug
                   ? `/w/${workspaceSlug}/t/${t.team_slug}/p/${t.project_slug}`
@@ -218,7 +220,7 @@ export function SearchResults({
 
           {/* Proyectos */}
           {show('projects') && r.projects.length > 0 && (
-            <Section icon={<FolderKanban className="w-4 h-4" />} title="Proyectos" count={r.projects.length}>
+            <Section icon={<FolderKanban className="w-4 h-4" />} title={tr('search.projects')} count={r.projects.length}>
               {r.projects.map(p => (
                 <ResultRow
                   key={p.id}
@@ -232,14 +234,14 @@ export function SearchResults({
 
           {/* Notas */}
           {show('notes') && r.notes.length > 0 && (
-            <Section icon={<FileText className="w-4 h-4" />} title="Notas" count={r.notes.length}>
+            <Section icon={<FileText className="w-4 h-4" />} title={tr('search.notes')} count={r.notes.length}>
               {r.notes.map(n => (
                 <ResultRow
                   key={n.id}
                   href={`/w/${workspaceSlug}/notes/${n.id}`}
                   icon={<FileText className="w-4 h-4 text-muted-foreground" />}
-                  label={n.title || 'Sin título'}
-                  sublabel={n.doc_kind && n.doc_kind !== 'note' ? 'Documento' : undefined}
+                  label={n.title || tr('search.untitled')}
+                  sublabel={n.doc_kind && n.doc_kind !== 'note' ? tr('search.document') : undefined}
                 />
               ))}
             </Section>
@@ -247,7 +249,7 @@ export function SearchResults({
 
           {/* Equipos */}
           {show('teams') && r.teams.length > 0 && (
-            <Section icon={<Users className="w-4 h-4" />} title="Equipos" count={r.teams.length}>
+            <Section icon={<Users className="w-4 h-4" />} title={tr('search.teams')} count={r.teams.length}>
               {r.teams.map(t => (
                 <ResultRow
                   key={t.id}
@@ -261,7 +263,7 @@ export function SearchResults({
 
           {/* Personas */}
           {show('members') && r.members.length > 0 && (
-            <Section icon={<User className="w-4 h-4" />} title="Personas" count={r.members.length}>
+            <Section icon={<User className="w-4 h-4" />} title={tr('search.members')} count={r.members.length}>
               {r.members.map(m => (
                 <ResultRow
                   key={m.id}

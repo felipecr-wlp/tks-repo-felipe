@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Award, ArrowLeft, Printer, Lock } from 'lucide-react'
+import { useI18n } from '@/lib/i18n/LanguageProvider'
 import type { AcademyCertificate } from '@/lib/academy/types'
 
 export function CertView({
@@ -28,6 +29,7 @@ export function CertView({
   backHref: string
   existingCert: AcademyCertificate | null
 }) {
+  const { t, lang } = useI18n()
   const router = useRouter()
   const [cert, setCert] = useState<AcademyCertificate | null>(existingCert)
   const [busy, setBusy] = useState(false)
@@ -41,12 +43,12 @@ export function CertView({
         body: JSON.stringify({ courseId }),
       })
       const j = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(j.error || 'No se pudo emitir')
+      if (!res.ok) throw new Error(j.error || t('cert.issueFailed'))
       setCert(j.certificate)
-      toast.success('¡Certificado emitido!')
+      toast.success(t('cert.issued'))
       router.refresh()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error')
+      toast.error(e instanceof Error ? e.message : t('cert.error'))
     } finally {
       setBusy(false)
     }
@@ -56,15 +58,15 @@ export function CertView({
     return (
       <div className="mx-auto w-full max-w-xl px-4 py-16 text-center">
         <Lock className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-        <h1 className="text-xl font-bold text-foreground">Aún no puedes certificarte</h1>
+        <h1 className="text-xl font-bold text-foreground">{t('cert.lockedTitle')}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Completa todos los módulos del curso para obtener tu certificado.
+          {t('cert.lockedBody')}
         </p>
         <Link
           href={backHref}
           className="mt-5 inline-flex items-center gap-1 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
         >
-          <ArrowLeft className="h-4 w-4" /> Volver al curso
+          <ArrowLeft className="h-4 w-4" /> {t('cert.backToCourse')}
         </Link>
       </div>
     )
@@ -74,22 +76,22 @@ export function CertView({
     return (
       <div className="mx-auto w-full max-w-xl px-4 py-16 text-center">
         <Award className="mx-auto mb-3 h-12 w-12 text-emerald-500" />
-        <h1 className="text-xl font-bold text-foreground">¡Completaste {courseTitle}!</h1>
+        <h1 className="text-xl font-bold text-foreground">{t('cert.completedPrefix')} {courseTitle}!</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Emite tu certificado oficial. Podrás imprimirlo o guardarlo en PDF.
+          {t('cert.issueDesc')}
         </p>
         <button
           onClick={issue}
           disabled={busy}
           className="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
         >
-          <Award className="h-4 w-4" /> {busy ? 'Emitiendo...' : 'Emitir certificado'}
+          <Award className="h-4 w-4" /> {busy ? t('cert.issuing') : t('cert.issueButton')}
         </button>
       </div>
     )
   }
 
-  const issuedDate = new Date(cert.issued_at).toLocaleDateString('es-MX', {
+  const issuedDate = new Date(cert.issued_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'es-MX', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -102,13 +104,13 @@ export function CertView({
           href={backHref}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" /> Volver al curso
+          <ArrowLeft className="h-4 w-4" /> {t('cert.backToCourse')}
         </Link>
         <button
           onClick={() => window.print()}
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
         >
-          <Printer className="h-4 w-4" /> Imprimir / PDF
+          <Printer className="h-4 w-4" /> {t('cert.printPdf')}
         </button>
       </div>
 
@@ -121,22 +123,22 @@ export function CertView({
           <span className="text-lg font-bold tracking-tight text-neutral-900">We Love Paving</span>
         </div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
-          Certificado de finalización
+          {t('cert.certTitle')}
         </p>
-        <p className="mt-6 text-sm text-neutral-500">Se otorga a</p>
+        <p className="mt-6 text-sm text-neutral-500">{t('cert.awardedTo')}</p>
         <h1 className="mt-1 text-3xl font-bold text-neutral-900">{recipientName}</h1>
-        <p className="mt-6 text-sm text-neutral-500">por completar satisfactoriamente el curso</p>
+        <p className="mt-6 text-sm text-neutral-500">{t('cert.forCompleting')}</p>
         <h2 className="mt-1 text-xl font-semibold" style={{ color: accent }}>
           {certName}
         </h2>
         <div className="mt-8 flex items-center justify-center gap-8 text-sm text-neutral-600">
           <div>
             <p className="font-semibold text-neutral-900">{cert.score}%</p>
-            <p className="text-xs text-neutral-500">Calificación</p>
+            <p className="text-xs text-neutral-500">{t('cert.score')}</p>
           </div>
           <div>
             <p className="font-semibold text-neutral-900">{issuedDate}</p>
-            <p className="text-xs text-neutral-500">Fecha</p>
+            <p className="text-xs text-neutral-500">{t('cert.date')}</p>
           </div>
         </div>
         <p className="mt-8 font-mono text-[11px] tracking-wide text-neutral-400">{cert.code}</p>

@@ -13,6 +13,7 @@ import { logActivity, notify, ActivityVerbs, NotificationTypes, notifyTaskWatche
 import { autoWatch } from '@/lib/watchers'
 import { nextRecurrenceDate, type RecurrenceRule } from '@/lib/recurrence'
 import { runAutomations } from '@/lib/automations'
+import { canAccessProject, isAssignableToProject } from '@/lib/team-access'
 
 // ── GET: detalle completo ─────────────────────────────────────────────────────
 export async function GET(
@@ -34,43 +35,56 @@ export async function GET(
     story_points: number | null; story_points_done: number | null
     sort_order: string; created_at: string; updated_at: string
     project_id: string
+    parent_task_id: string | null
     recurrence_rule: string | null; recurrence_end_date: string | null
     status: { id: string; name: string; color: string | null; category: string } | null
     assignee: { id: string; display_name: string; avatar_url: string | null } | null
     created_by_profile: { id: string; display_name: string; avatar_url: string | null } | null
-    parent: { id: string; title: string } | null
   }
-  const { data: task } = await admin
+  // NO se usa embed autorreferente `parent:tasks` a proposito: PostgREST resuelve
+  // las relaciones contra su cache de esquema y la self-FK tasks->tasks se le
+  // pierde de la cache (PGRST200 "Could not find a relationship ... in the schema
+  // cache") aunque el constraint exista en la BD, tumbando el GET con 500 ("No se
+  // pudo cargar la tarea"). Se trae solo `parent_task_id` y, si hay padre, se
+  // resuelve su titulo con una segunda consulta trivial: robusto ante cache stale.
+  const { data: task, error: taskError } = await admin
     .from('tasks')
     .select(`
-      id, title, description, priority, due_date, start_date, estimate_minutes, story_points, story_points_done, sort_order, created_at, updated_at, project_id,
+      id, title, description, priority, due_date, start_date, estimate_minutes, story_points, story_points_done, sort_order, created_at, updated_at, project_id, parent_task_id,
       recurrence_rule, recurrence_end_date,
       status:task_statuses ( id, name, color, category ),
       assignee:profiles!tasks_assignee_id_fkey ( id, display_name, avatar_url ),
-      created_by_profile:profiles!tasks_created_by_fkey ( id, display_name, avatar_url ),
-      parent:tasks ( id, title )
+      created_by_profile:profiles!tasks_created_by_fkey ( id, display_name, avatar_url )
     `)
     .eq('id', params.taskId)
     .eq('is_archived', false)
     .maybeSingle() as { data: TaskFull | null; error: unknown }
 
+  // No tragarse el error: si la consulta falla (embed, permisos, etc.) se
+  // devuelve 500 con detalle en logs en vez de un 404 enganoso.
+  if (taskError) {
+    console.error('[tasks GET] query error:', taskError)
+    return NextResponse.json({ error: 'No se pudo cargar la tarea' }, { status: 500 })
+  }
   if (!task) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
 
-  // Verificar acceso al proyecto
-  const { data: membership, error: membershipErr } = await admin
-    .from('project_members')
-    .select('role')
-    .eq('project_id', task.project_id)
-    .eq('profile_id', user.id)
-    .maybeSingle() as { data: { role: string } | null; error: unknown }
-  // Distinguir fallo de lectura (500) de ausencia real de membresia (403).
-  if (membershipErr) {
-    console.error('[task GET] membership read error:', membershipErr)
-    return NextResponse.json({ error: 'Error al verificar acceso' }, { status: 500 })
-  }
-  if (!membership) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
+  // Verificar acceso al proyecto (miembro del proyecto O admin del workspace/org)
+  const { ok: canAccess } = await canAccessProject(admin, task.project_id, user.id)
+  if (!canAccess) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
-  return NextResponse.json(task)
+  // Resolver el padre (id + titulo) con una consulta separada solo si aplica,
+  // preservando la forma de respuesta { ...task, parent } que espera el panel.
+  let parent: { id: string; title: string } | null = null
+  if (task.parent_task_id) {
+    const { data: parentRow } = await admin
+      .from('tasks')
+      .select('id, title')
+      .eq('id', task.parent_task_id)
+      .maybeSingle() as { data: { id: string; title: string } | null; error: unknown }
+    parent = parentRow ?? null
+  }
+
+  return NextResponse.json({ ...task, parent })
 }
 
 const SP_VALUES = [1, 2, 3, 5, 8, 13, 21] as const
@@ -143,14 +157,20 @@ export async function PATCH(
 
   if (!existing) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
 
-  const { data: membership } = await admin
-    .from('project_members')
-    .select('role')
-    .eq('project_id', existing.project_id)
-    .eq('profile_id', user.id)
-    .maybeSingle() as { data: { role: string } | null; error: unknown }
+  const { ok: canAccess } = await canAccessProject(admin, existing.project_id, user.id)
+  if (!canAccess) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
-  if (!membership) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
+  // Validar el nuevo responsable: si este PATCH reasigna a una persona (no null),
+  // debe ser miembro del proyecto. Impide reasignar a UUIDs arbitrarios o de otro
+  // workspace. Se salta cuando no cambia el asignado o se limpia (null).
+  if (
+    parsed.data.assignee_id !== undefined &&
+    parsed.data.assignee_id !== null &&
+    parsed.data.assignee_id !== existing.assignee_id &&
+    !(await isAssignableToProject(admin, existing.project_id, parsed.data.assignee_id))
+  ) {
+    return NextResponse.json({ error: 'El responsable no pertenece al proyecto' }, { status: 422 })
+  }
 
   type TaskUpdateResult = {
     id: string
@@ -172,21 +192,56 @@ export async function PATCH(
     created_by_profile: { id: string; display_name: string; avatar_url: string | null } | null
   }
 
-  const { data: updated, error: updateError } = await admin
-    .from('tasks')
-    .update({ ...parsed.data, updated_at: new Date().toISOString() })
-    .eq('id', params.taskId)
-    .select(`
+  const taskSelect = `
       id, title, description, priority, due_date, start_date, estimate_minutes, story_points, story_points_done, sort_order, created_at, updated_at,
       recurrence_rule, recurrence_end_date,
       status:task_statuses ( id, name, color, category ),
       assignee:profiles!tasks_assignee_id_fkey ( id, display_name, avatar_url ),
       created_by_profile:profiles!tasks_created_by_fkey ( id, display_name, avatar_url )
-    `)
-    .single() as { data: TaskUpdateResult | null; error: unknown }
+    `
 
-  if (updateError || !updated) {
+  // ── Guard de concurrencia (optimistic) contra doble-spawn de recurrencia ──
+  // Si este PATCH mueve el estado, la UPDATE se condiciona a que el status_id de
+  // la fila SIGA siendo el que leimos (existing.status_id). Postgres serializa el
+  // lock de fila: ante dos "completar" simultaneos, solo UNA request matchea y
+  // avanza la transicion; la perdedora actualiza 0 filas y NO vuelve a clonar la
+  // serie. Sin esto, dos requests casi simultaneas pasaban ambas el chequeo
+  // enteredDone y generaban dos ocurrencias duplicadas.
+  const isStatusTransition =
+    parsed.data.status_id !== undefined && parsed.data.status_id !== existing.status_id
+
+  let updateQuery = admin
+    .from('tasks')
+    .update({ ...parsed.data, updated_at: new Date().toISOString() })
+    .eq('id', params.taskId)
+  if (isStatusTransition) {
+    updateQuery = existing.status_id === null
+      ? updateQuery.is('status_id', null)
+      : updateQuery.eq('status_id', existing.status_id)
+  }
+
+  const { data: updated, error: updateError } = await updateQuery
+    .select(taskSelect)
+    .maybeSingle() as { data: TaskUpdateResult | null; error: unknown }
+
+  if (updateError) {
     console.error('[tasks PATCH] update error:', updateError)
+    return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 })
+  }
+
+  // Sin error pero 0 filas: perdimos la carrera de una transicion de estado
+  // concurrente (otra request ya la aplico, y ya clono la recurrencia si tocaba).
+  // Respuesta idempotente: devolvemos el estado ACTUAL sin efectos secundarios.
+  if (!updated) {
+    if (isStatusTransition) {
+      const { data: current } = await admin
+        .from('tasks')
+        .select(taskSelect)
+        .eq('id', params.taskId)
+        .maybeSingle() as { data: TaskUpdateResult | null; error: unknown }
+      if (!current) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
+      return NextResponse.json({ ...current, spawned_task_id: null })
+    }
     return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 })
   }
 
@@ -247,7 +302,12 @@ export async function PATCH(
 
   let spawnedTaskId: string | null = null
   if (statusChanged && enteredDone && effectiveRule) {
-    const baseDate = existing.due_date ? new Date(existing.due_date) : new Date()
+    // Base = la fecha de vencimiento MAS reciente. Si este mismo PATCH movio el
+    // due_date (updated.due_date), esa manda; si no, cae al valor previo; si la
+    // tarea no tiene fecha, se ancla en hoy. Antes usaba solo existing.due_date,
+    // asi que completar y reagendar en el mismo PATCH clonaba con la fecha vieja.
+    const baseSource = updated.due_date ?? existing.due_date
+    const baseDate = baseSource ? new Date(baseSource) : new Date()
     const nextDue = nextRecurrenceDate(effectiveRule, baseDate)
 
     const seriesEnded = effectiveEnd ? nextDue > new Date(effectiveEnd) : false
@@ -388,14 +448,8 @@ export async function DELETE(
 
   if (!existing) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
 
-  const { data: membership } = await admin
-    .from('project_members')
-    .select('role')
-    .eq('project_id', existing.project_id)
-    .eq('profile_id', user.id)
-    .maybeSingle() as { data: { role: string } | null; error: unknown }
-
-  if (!membership) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
+  const { ok: canAccess } = await canAccessProject(admin, existing.project_id, user.id)
+  if (!canAccess) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
   // Soft delete (archivar)
   const { error: archiveError } = await admin

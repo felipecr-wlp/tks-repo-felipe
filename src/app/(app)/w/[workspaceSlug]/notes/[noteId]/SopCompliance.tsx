@@ -21,6 +21,7 @@ import {
   CheckCircle2, AlertTriangle, Circle,
 } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 type TargetType = 'profile' | 'team' | 'space'
 
@@ -66,6 +67,7 @@ const TARGET_ICON: Record<TargetType, typeof User> = {
 }
 
 export function SopCompliance({ noteId }: SopComplianceProps) {
+  const tr = useT()
   const [state, setState] = useState<ComplianceState | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -94,15 +96,15 @@ export function SopCompliance({ noteId }: SopComplianceProps) {
         body: JSON.stringify({ target_type, target_id }),
       })
       if (!res.ok) throw new Error()
-      toast.success('Lector requerido asignado')
+      toast.success(tr('sopc.assigned'))
       setPicking(false)
       await load()
     } catch {
-      toast.error('No se pudo asignar')
+      toast.error(tr('sopc.assignError'))
     } finally {
       setBusy(false)
     }
-  }, [noteId, load])
+  }, [noteId, load, tr])
 
   const unassign = useCallback(async (target_type: TargetType, target_id: string) => {
     setBusy(true)
@@ -112,17 +114,17 @@ export function SopCompliance({ noteId }: SopComplianceProps) {
       if (!res.ok) throw new Error()
       await load()
     } catch {
-      toast.error('No se pudo quitar la asignación')
+      toast.error(tr('sopc.unassignError'))
     } finally {
       setBusy(false)
     }
-  }, [noteId, load])
+  }, [noteId, load, tr])
 
   if (loading || !state) {
     return (
       <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        Cargando cumplimiento…
+        {tr('sopc.loading')}
       </div>
     )
   }
@@ -139,11 +141,11 @@ export function SopCompliance({ noteId }: SopComplianceProps) {
       <div className="flex flex-wrap items-center gap-3">
         <ClipboardCheck className="w-5 h-5 text-[#2563EB] flex-shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground">Lectura obligatoria</p>
+          <p className="text-sm font-semibold text-foreground">{tr('sopc.title')}</p>
           <p className="text-xs text-muted-foreground">
             {required_count === 0
-              ? 'Aún no hay lectores requeridos asignados.'
-              : `${done_count} de ${required_count} confirmaron la versión vigente${state.current_version ? ` (v${state.current_version})` : ''}.`}
+              ? tr('sopc.noReaders')
+              : `${done_count} ${tr('sopc.of')} ${required_count} ${tr('sopc.confirmedCurrent')}${state.current_version ? ` (v${state.current_version})` : ''}.`}
           </p>
         </div>
 
@@ -153,7 +155,7 @@ export function SopCompliance({ noteId }: SopComplianceProps) {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-background text-foreground hover:bg-accent transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            Asignar
+            {tr('sopc.assign')}
           </button>
         )}
       </div>
@@ -191,7 +193,7 @@ export function SopCompliance({ noteId }: SopComplianceProps) {
                     onClick={() => unassign(t.type, t.id)}
                     disabled={busy}
                     className="ml-0.5 text-muted-foreground hover:text-foreground disabled:opacity-50"
-                    title="Quitar"
+                    title={tr('sopc.remove')}
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -214,7 +216,7 @@ export function SopCompliance({ noteId }: SopComplianceProps) {
             onClick={() => setShowRoster(v => !v)}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            {showRoster ? 'Ocultar' : 'Ver'} lista de {required_count} {required_count === 1 ? 'persona' : 'personas'}
+            {showRoster ? tr('sopc.hideList') : tr('sopc.showList')} {required_count} {required_count === 1 ? tr('sopc.personOne') : tr('sopc.personMany')}
           </button>
 
           {showRoster && (
@@ -243,11 +245,12 @@ function cnBar(allDone: boolean): string {
 }
 
 function StatusBadge({ status }: { status: RosterEntry['status'] }) {
+  const tr = useT()
   if (status === 'done') {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 ml-auto flex-shrink-0">
         <CheckCircle2 className="w-2.5 h-2.5" />
-        confirmado
+        {tr('sopc.confirmed')}
       </span>
     )
   }
@@ -255,14 +258,14 @@ function StatusBadge({ status }: { status: RosterEntry['status'] }) {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 ml-auto flex-shrink-0">
         <AlertTriangle className="w-2.5 h-2.5" />
-        desactualizado
+        {tr('sop.outdated')}
       </span>
     )
   }
   return (
     <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground ml-auto flex-shrink-0">
       <Circle className="w-2.5 h-2.5" />
-      pendiente
+      {tr('sopc.pending')}
     </span>
   )
 }
@@ -275,6 +278,7 @@ function AssignPicker({
   busy: boolean
   onPick: (t: TargetType, id: string) => void
 }) {
+  const tr = useT()
   const [tab, setTab] = useState<TargetType>('profile')
   const [q, setQ] = useState('')
 
@@ -286,15 +290,15 @@ function AssignPicker({
   return (
     <div className="mt-3 rounded-lg border border-border bg-background p-3">
       <div className="flex items-center gap-1 mb-2">
-        <TabBtn active={tab === 'profile'} onClick={() => setTab('profile')} Icon={User} label="Personas" />
-        <TabBtn active={tab === 'team'} onClick={() => setTab('team')} Icon={Users} label="Equipos" />
-        <TabBtn active={tab === 'space'} onClick={() => setTab('space')} Icon={Building2} label="Departamentos" />
+        <TabBtn active={tab === 'profile'} onClick={() => setTab('profile')} Icon={User} label={tr('sopc.tabPeople')} />
+        <TabBtn active={tab === 'team'} onClick={() => setTab('team')} Icon={Users} label={tr('sopc.tabTeams')} />
+        <TabBtn active={tab === 'space'} onClick={() => setTab('space')} Icon={Building2} label={tr('sopc.tabDepts')} />
       </div>
 
       <input
         value={q}
         onChange={e => setQ(e.target.value)}
-        placeholder="Buscar…"
+        placeholder={tr('sopc.searchPlaceholder')}
         className="w-full mb-2 px-2.5 py-1.5 text-xs rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
       />
 
@@ -309,7 +313,7 @@ function AssignPicker({
           <PickRow
             key={s.id}
             label={s.name}
-            hint={s.is_restricted ? 'restringido' : undefined}
+            hint={s.is_restricted ? tr('sopc.restricted') : undefined}
             disabled={busy}
             onClick={() => onPick('space', s.id)}
           />
@@ -317,7 +321,7 @@ function AssignPicker({
         {((tab === 'profile' && people.length === 0) ||
           (tab === 'team' && teams.length === 0) ||
           (tab === 'space' && spaces.length === 0)) && (
-          <p className="text-xs text-muted-foreground py-3 text-center">Sin resultados</p>
+          <p className="text-xs text-muted-foreground py-3 text-center">{tr('sopc.noResults')}</p>
         )}
       </div>
     </div>

@@ -10,6 +10,7 @@ import { Lock, Ticket } from 'lucide-react'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Invite {
   id: string
@@ -29,6 +30,7 @@ interface InvitesPanelProps {
 }
 
 export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) {
+  const t = useT()
   const [invites, setInvites] = useState<Invite[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -52,7 +54,7 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
       setInvites(data.invites ?? [])
     } catch (err) {
       setError(true)
-      toast.error(err instanceof Error ? err.message : 'Error al cargar')
+      toast.error(err instanceof Error ? err.message : t('invp.loadError'))
     } finally {
       setLoading(false)
     }
@@ -76,46 +78,46 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error al crear invite')
-      toast.success(email.trim() ? 'Invite creado y enviado por correo' : 'Invite creado')
+      if (!res.ok) throw new Error(data.error ?? t('invp.createError'))
+      toast.success(email.trim() ? t('invp.createdSent') : t('invp.created'))
       setPassword('')
       setMaxUses('')
       setEmail('')
       setShowCreate(false)
       await load()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : t('common.unknownError'))
     } finally {
       setSubmitting(false)
     }
   }
 
   async function handleRevoke(inviteId: string) {
-    if (!(await confirmDialog({ message: '¿Revocar este invite? Quien tenga el código no podrá unirse.', destructive: true, confirmLabel: 'Revocar' }))) return
+    if (!(await confirmDialog({ message: t('invp.revokeConfirm'), destructive: true, confirmLabel: t('invp.revoke') }))) return
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/invites/${inviteId}`, {
         method: 'DELETE',
       })
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error ?? 'Error al revocar')
+        throw new Error(data.error ?? t('invp.revokeError'))
       }
-      toast.success('Invite revocado')
+      toast.success(t('invp.revoked'))
       await load()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : t('common.unknownError'))
     }
   }
 
   function copyLink(code: string) {
     const url = `${window.location.origin}/join/${code}`
     navigator.clipboard.writeText(url)
-    toast.success('Link copiado')
+    toast.success(t('invp.linkCopied'))
   }
 
   function copyCode(code: string) {
     navigator.clipboard.writeText(code)
-    toast.success('Código copiado')
+    toast.success(t('invp.codeCopied'))
   }
 
   return (
@@ -123,11 +125,11 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
       {/* Crear nuevo */}
       {showCreate ? (
         <form onSubmit={handleCreate} className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-foreground">Nuevo invite</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t('invp.newInvite')}</h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label htmlFor="role" className="text-xs font-medium text-foreground">Rol asignado</label>
+              <label htmlFor="role" className="text-xs font-medium text-foreground">{t('invp.roleAssigned')}</label>
               <select
                 id="role"
                 value={role}
@@ -135,15 +137,15 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
                 className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background"
                 disabled={submitting}
               >
-                <option value="viewer">Viewer</option>
-                <option value="member">Member</option>
-                <option value="manager">Manager</option>
-                <option value="admin">Admin</option>
+                <option value="viewer">{t('role.viewer')}</option>
+                <option value="member">{t('role.member')}</option>
+                <option value="manager">{t('role.manager')}</option>
+                <option value="admin">{t('role.admin')}</option>
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="expires" className="text-xs font-medium text-foreground">Expira en (días)</label>
+              <label htmlFor="expires" className="text-xs font-medium text-foreground">{t('invp.expiresInDays')}</label>
               <input
                 id="expires"
                 type="number"
@@ -158,27 +160,27 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="maxUses" className="text-xs font-medium text-foreground">Usos máximos</label>
+              <label htmlFor="maxUses" className="text-xs font-medium text-foreground">{t('invp.maxUses')}</label>
               <input
                 id="maxUses"
                 type="number"
                 min={1}
                 value={maxUses}
                 onChange={e => setMaxUses(e.target.value)}
-                placeholder="Sin límite"
+                placeholder={t('invp.noLimit')}
                 className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background"
                 disabled={submitting}
               />
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="password" className="text-xs font-medium text-foreground">Contraseña (opcional)</label>
+              <label htmlFor="password" className="text-xs font-medium text-foreground">{t('invp.passwordOptional')}</label>
               <input
                 id="password"
                 type="text"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="Sin contraseña"
+                placeholder={t('invp.noPassword')}
                 className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background"
                 disabled={submitting}
               />
@@ -187,7 +189,7 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
 
           <div className="space-y-1.5">
             <label htmlFor="inviteEmail" className="text-xs font-medium text-foreground">
-              Enviar por correo (opcional)
+              {t('invp.sendByEmail')}
             </label>
             <input
               id="inviteEmail"
@@ -199,7 +201,7 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
               disabled={submitting}
             />
             <p className="text-[11px] text-muted-foreground">
-              Si escribes un correo, se manda la invitacion con el link. Si no, solo se genera el codigo para compartir.
+              {t('invp.emailHint')}
             </p>
           </div>
 
@@ -209,7 +211,7 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
               disabled={submitting}
               className="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90 disabled:opacity-50"
             >
-              {submitting ? 'Creando...' : 'Crear invite'}
+              {submitting ? t('invp.creating') : t('invp.createInvite')}
             </button>
             <button
               type="button"
@@ -217,7 +219,7 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
               disabled={submitting}
               className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
-              Cancelar
+              {t('common.cancel')}
             </button>
           </div>
         </form>
@@ -226,7 +228,7 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
           onClick={() => setShowCreate(true)}
           className="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90"
         >
-          + Generar invite
+          {t('invp.generate')}
         </button>
       )}
 
@@ -248,8 +250,8 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
       ) : invites.length === 0 ? (
         <EmptyState
           icon={<Ticket className="h-5 w-5" />}
-          title="No hay invitaciones todavía"
-          description="Genera un código para que tu equipo pueda unirse al workspace."
+          title={t('invp.emptyTitle')}
+          description={t('invp.emptyDesc')}
           action={
             <button
               onClick={() => setShowCreate(true)}
@@ -274,7 +276,7 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
                     <code className="text-sm font-mono text-foreground truncate">{inv.code}</code>
                     {!isActive && (
                       <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                        {isRevoked ? 'Revocado' : isExpired ? 'Expirado' : 'Agotado'}
+                        {isRevoked ? t('invp.statusRevoked') : isExpired ? t('invp.statusExpired') : t('invp.statusUsedUp')}
                       </span>
                     )}
                     {inv.has_password && isActive && (
@@ -284,11 +286,11 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Rol: <span className="text-foreground">{inv.role}</span> ·{' '}
-                    Usos: {inv.uses_count}{inv.max_uses ? `/${inv.max_uses}` : ''} ·{' '}
+                    {t('invp.rolePrefix')} <span className="text-foreground">{t(`role.${inv.role}`)}</span> ·{' '}
+                    {t('invp.usesPrefix')} {inv.uses_count}{inv.max_uses ? `/${inv.max_uses}` : ''} ·{' '}
                     {inv.expires_at
-                      ? `Expira: ${new Date(inv.expires_at).toLocaleDateString()}`
-                      : 'No expira'}
+                      ? `${t('invp.expiresPrefix')} ${new Date(inv.expires_at).toLocaleDateString()}`
+                      : t('invp.noExpire')}
                   </p>
                 </div>
 
@@ -297,22 +299,22 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
                     <button
                       onClick={() => copyCode(inv.code)}
                       className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground"
-                      title="Copiar código"
+                      title={t('invp.copyCode')}
                     >
-                      Código
+                      {t('invp.code')}
                     </button>
                     <button
                       onClick={() => copyLink(inv.code)}
                       className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground"
-                      title="Copiar link"
+                      title={t('invp.copyLink')}
                     >
-                      Link
+                      {t('invp.link')}
                     </button>
                     <button
                       onClick={() => handleRevoke(inv.id)}
                       className="text-xs px-2 py-1 text-destructive hover:bg-destructive/10 rounded"
                     >
-                      Revocar
+                      {t('invp.revoke')}
                     </button>
                   </>
                 )}
@@ -323,7 +325,7 @@ export function InvitesPanel({ workspaceId, workspaceSlug }: InvitesPanelProps) 
       )}
 
       <p className="text-xs text-muted-foreground pt-2">
-        Workspace slug: <code>{workspaceSlug}</code>
+        {t('invp.wsSlug')} <code>{workspaceSlug}</code>
       </p>
     </div>
   )

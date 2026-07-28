@@ -16,6 +16,7 @@ import {
   Star, Crown, ChevronRight, Check, Ban,
 } from 'lucide-react'
 import { MarketplaceBoard, type MarketProject } from './MarketplaceBoard'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export type { MarketProject }
 
@@ -59,23 +60,24 @@ export function ProjectsBoard({
   myProjects: MyProject[]
   pendingProjects: PendingProject[]
 }) {
+  const tr = useT()
   const [tab, setTab] = useState<Tab>('open')
   const [creating, setCreating] = useState(false)
   const [reviewProject, setReviewProject] = useState<MyProject | null>(null)
 
   const tabs: { key: Tab; label: string; icon: typeof Compass; count: number; show: boolean }[] = [
-    { key: 'open', label: 'Abiertos', icon: Compass, count: openProjects.length, show: true },
-    { key: 'mine', label: 'Mis proyectos', icon: FolderKanban, count: myProjects.length, show: true },
-    { key: 'pending', label: 'Pendientes', icon: ShieldCheck, count: pendingProjects.length, show: isAdmin },
+    { key: 'open', label: tr('proj.tabOpen'), icon: Compass, count: openProjects.length, show: true },
+    { key: 'mine', label: tr('proj.tabMine'), icon: FolderKanban, count: myProjects.length, show: true },
+    { key: 'pending', label: tr('proj.tabPending'), icon: ShieldCheck, count: pendingProjects.length, show: isAdmin },
   ]
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Proyectos</h1>
+          <h1 className="text-2xl font-semibold text-foreground">{tr('proj.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {workspaceName} · propon, postula y colabora. Cada lider revisa y decide.
+            {workspaceName} · {tr('proj.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -83,13 +85,13 @@ export function ProjectsBoard({
             href={`/w/${workspaceSlug}/cv/${userId}`}
             className="px-3 py-2 text-xs font-medium border border-border rounded-lg hover:bg-muted transition-colors"
           >
-            Mi CV
+            {tr('proj.myCv')}
           </Link>
           <button
             onClick={() => setCreating(true)}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           >
-            <Plus className="w-3.5 h-3.5" /> Crear proyecto
+            <Plus className="w-3.5 h-3.5" /> {tr('proj.createProject')}
           </button>
         </div>
       </div>
@@ -152,12 +154,13 @@ function MyProjectsPanel({ projects, workspaceSlug, onReview }: {
   workspaceSlug: string
   onReview: (p: MyProject) => void
 }) {
+  const tr = useT()
   if (projects.length === 0) {
     return (
       <div className="text-center py-16 border border-dashed border-border rounded-xl">
         <FolderKanban className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
-        <h3 className="text-sm font-medium text-foreground mb-1">Aun no participas en proyectos</h3>
-        <p className="text-sm text-muted-foreground">Postulate a un proyecto abierto o crea el tuyo.</p>
+        <h3 className="text-sm font-medium text-foreground mb-1">{tr('proj.myEmptyTitle')}</h3>
+        <p className="text-sm text-muted-foreground">{tr('proj.myEmptyDesc')}</p>
       </div>
     )
   }
@@ -172,16 +175,17 @@ function MyProjectsPanel({ projects, workspaceSlug, onReview }: {
 }
 
 function StatusBadge({ status, approval }: { status: string; approval: string }) {
+  const tr = useT()
   if (approval === 'pending') {
-    return <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600"><Clock className="w-3 h-3" /> En revision</span>
+    return <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600"><Clock className="w-3 h-3" /> {tr('proj.inReview')}</span>
   }
   if (status === 'completed') {
-    return <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600"><CheckCircle2 className="w-3 h-3" /> Completado</span>
+    return <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600"><CheckCircle2 className="w-3 h-3" /> {tr('proj.completed')}</span>
   }
   if (status === 'on_hold') {
-    return <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">En pausa</span>
+    return <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{tr('proj.onHold')}</span>
   }
-  return <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">Activo</span>
+  return <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">{tr('proj.active')}</span>
 }
 
 function MyProjectCard({ project: p, workspaceSlug, onReview }: {
@@ -189,6 +193,7 @@ function MyProjectCard({ project: p, workspaceSlug, onReview }: {
   workspaceSlug: string
   onReview: (p: MyProject) => void
 }) {
+  const tr = useT()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const completed = p.status === 'completed'
@@ -198,11 +203,11 @@ function MyProjectCard({ project: p, workspaceSlug, onReview }: {
     try {
       const res = await fetch(`/api/projects/${p.id}/complete`, { method: 'PATCH' })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error ?? 'Error al completar')
-      toast.success('Proyecto completado. El equipo ya puede calificarse.')
+      if (!res.ok) throw new Error(result.error ?? tr('proj.completeError'))
+      toast.success(tr('proj.completedToast'))
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : tr('common.unknownError'))
     } finally {
       setLoading(false)
     }
@@ -231,8 +236,8 @@ function MyProjectCard({ project: p, workspaceSlug, onReview }: {
       {/* Progreso */}
       <div className="mb-4 mt-auto">
         <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1.5">
-          <span>Progreso</span>
-          <span className="font-medium text-foreground">{p.pct}% · {p.done}/{p.total} tareas</span>
+          <span>{tr('proj.progress')}</span>
+          <span className="font-medium text-foreground">{p.pct}% · {p.done}/{p.total} {tr('proj.tasksSuffix')}</span>
         </div>
         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
           <div
@@ -248,7 +253,7 @@ function MyProjectCard({ project: p, workspaceSlug, onReview }: {
             onClick={() => onReview(p)}
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           >
-            <Star className="w-3.5 h-3.5" /> Calificar equipo
+            <Star className="w-3.5 h-3.5" /> {tr('proj.rateTeam')}
           </button>
         ) : p.can_complete ? (
           <button
@@ -257,11 +262,11 @@ function MyProjectCard({ project: p, workspaceSlug, onReview }: {
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-            Marcar completado
+            {tr('proj.markComplete')}
           </button>
         ) : (
           <span className="flex-1 text-center px-3 py-2 text-xs text-muted-foreground">
-            {p.total === 0 ? 'Sin tareas aun' : `Faltan ${p.total - p.done} tareas`}
+            {p.total === 0 ? tr('proj.noTasksYet') : `${tr('proj.tasksLeftPrefix')} ${p.total - p.done} ${tr('proj.tasksSuffix')}`}
           </span>
         )}
 
@@ -270,7 +275,7 @@ function MyProjectCard({ project: p, workspaceSlug, onReview }: {
             href={`/w/${workspaceSlug}/projects/${p.id}`}
             className="px-3 py-2 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors"
           >
-            Gestionar
+            {tr('proj.manage')}
           </Link>
         )}
       </div>
@@ -280,12 +285,13 @@ function MyProjectCard({ project: p, workspaceSlug, onReview }: {
 
 // ─── Pendientes (admin) ─────────────────────────────────────────────────────────
 function PendingPanel({ projects }: { projects: PendingProject[] }) {
+  const tr = useT()
   if (projects.length === 0) {
     return (
       <div className="text-center py-16 border border-dashed border-border rounded-xl">
         <ShieldCheck className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
-        <h3 className="text-sm font-medium text-foreground mb-1">No hay proyectos por aprobar</h3>
-        <p className="text-sm text-muted-foreground">Cuando alguien proponga un proyecto, aparecera aqui.</p>
+        <h3 className="text-sm font-medium text-foreground mb-1">{tr('proj.pendingEmptyTitle')}</h3>
+        <p className="text-sm text-muted-foreground">{tr('proj.pendingEmptyDesc')}</p>
       </div>
     )
   }
@@ -297,6 +303,7 @@ function PendingPanel({ projects }: { projects: PendingProject[] }) {
 }
 
 function PendingCard({ project: p }: { project: PendingProject }) {
+  const tr = useT()
   const router = useRouter()
   const [busy, setBusy] = useState<null | 'approve' | 'reject'>(null)
 
@@ -309,11 +316,11 @@ function PendingCard({ project: p }: { project: PendingProject }) {
         body: JSON.stringify({ decision }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error ?? 'Error')
-      toast.success(decision === 'approve' ? 'Proyecto aprobado y abierto' : 'Proyecto rechazado')
+      if (!res.ok) throw new Error(result.error ?? tr('proj.error'))
+      toast.success(decision === 'approve' ? tr('proj.approvedToast') : tr('proj.rejectedToast'))
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : tr('common.unknownError'))
       setBusy(null)
     }
   }
@@ -327,7 +334,7 @@ function PendingCard({ project: p }: { project: PendingProject }) {
           </span>
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground truncate">{p.name}</p>
-            <p className="text-xs text-muted-foreground">Propuesto por {p.proposer_name ?? 'un miembro'}</p>
+            <p className="text-xs text-muted-foreground">{tr('proj.proposedByPrefix')} {p.proposer_name ?? tr('proj.aMember')}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -336,14 +343,14 @@ function PendingCard({ project: p }: { project: PendingProject }) {
             disabled={busy !== null}
             className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
           >
-            {busy === 'approve' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Aprobar
+            {busy === 'approve' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} {tr('proj.approve')}
           </button>
           <button
             onClick={() => decide('reject')}
             disabled={busy !== null}
             className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
           >
-            {busy === 'reject' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />} Rechazar
+            {busy === 'reject' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />} {tr('proj.reject')}
           </button>
         </div>
       </div>
@@ -354,6 +361,7 @@ function PendingCard({ project: p }: { project: PendingProject }) {
 
 // ─── Crear proyecto ─────────────────────────────────────────────────────────────
 function CreateProjectModal({ workspaceSlug, onClose }: { workspaceSlug: string; onClose: () => void }) {
+  const tr = useT()
   const router = useRouter()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -366,7 +374,7 @@ function CreateProjectModal({ workspaceSlug, onClose }: { workspaceSlug: string;
   const submit = async () => {
     if (loading) return // evita doble submit
     if (name.trim().length < 2) {
-      toast.error('Ponle un nombre al proyecto (minimo 2 caracteres)')
+      toast.error(tr('proj.nameMin'))
       return
     }
     setLoading(true)
@@ -386,14 +394,14 @@ function CreateProjectModal({ workspaceSlug, onClose }: { workspaceSlug: string;
         body: JSON.stringify(body),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error ?? 'Error al crear')
+      if (!res.ok) throw new Error(result.error ?? tr('proj.createError'))
       toast.success(result.pending
-        ? 'Proyecto enviado. Un administrador lo revisara.'
-        : 'Proyecto creado y abierto a postulaciones.')
+        ? tr('proj.sentForReview')
+        : tr('proj.createdOpen'))
       onClose()
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : tr('common.unknownError'))
       setLoading(false)
     }
   }
@@ -405,36 +413,36 @@ function CreateProjectModal({ workspaceSlug, onClose }: { workspaceSlug: string;
           <span className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
             <FolderKanban className="w-4 h-4 text-primary" />
           </span>
-          <h2 className="text-lg font-semibold text-foreground">Crear proyecto</h2>
+          <h2 className="text-lg font-semibold text-foreground">{tr('proj.createProject')}</h2>
         </div>
         <p className="text-xs text-muted-foreground mb-4">
-          Cualquiera puede proponer. Si no eres administrador, un admin lo revisara antes de abrirlo.
+          {tr('proj.createHint')}
         </p>
 
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Nombre <span className="text-destructive">*</span></label>
-            <input value={name} onChange={e => setName(e.target.value)} maxLength={80} disabled={loading} className={INPUT} placeholder="Ej: Rediseno del portal de clientes" />
+            <label className="text-sm font-medium text-foreground">{tr('proj.name')} <span className="text-destructive">*</span></label>
+            <input value={name} onChange={e => setName(e.target.value)} maxLength={80} disabled={loading} className={INPUT} placeholder={tr('proj.namePlaceholder')} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Descripcion</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} maxLength={500} rows={2} disabled={loading} className={`${INPUT} resize-none`} placeholder="En una linea, de que trata" />
+            <label className="text-sm font-medium text-foreground">{tr('proj.description')}</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} maxLength={500} rows={2} disabled={loading} className={`${INPUT} resize-none`} placeholder={tr('proj.descPlaceholder')} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Alcance</label>
-            <textarea value={scope} onChange={e => setScope(e.target.value)} maxLength={4000} rows={2} disabled={loading} className={`${INPUT} resize-none`} placeholder="Que abarca y que no" />
+            <label className="text-sm font-medium text-foreground">{tr('proj.scope')}</label>
+            <textarea value={scope} onChange={e => setScope(e.target.value)} maxLength={4000} rows={2} disabled={loading} className={`${INPUT} resize-none`} placeholder={tr('proj.scopePlaceholder')} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Entregables</label>
-            <textarea value={deliverables} onChange={e => setDeliverables(e.target.value)} maxLength={4000} rows={2} disabled={loading} className={`${INPUT} resize-none`} placeholder="Resultados concretos esperados" />
+            <label className="text-sm font-medium text-foreground">{tr('proj.deliverables')}</label>
+            <textarea value={deliverables} onChange={e => setDeliverables(e.target.value)} maxLength={4000} rows={2} disabled={loading} className={`${INPUT} resize-none`} placeholder={tr('proj.delivPlaceholder')} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Cupo maximo</label>
-              <input type="number" min={1} max={200} value={maxMembers} onChange={e => setMaxMembers(e.target.value)} disabled={loading} className={INPUT} placeholder="Sin limite" />
+              <label className="text-sm font-medium text-foreground">{tr('proj.maxSlots')}</label>
+              <input type="number" min={1} max={200} value={maxMembers} onChange={e => setMaxMembers(e.target.value)} disabled={loading} className={INPUT} placeholder={tr('proj.noLimit')} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Fecha limite</label>
+              <label className="text-sm font-medium text-foreground">{tr('proj.deadline')}</label>
               <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} disabled={loading} className={INPUT} />
             </div>
           </div>
@@ -442,10 +450,10 @@ function CreateProjectModal({ workspaceSlug, onClose }: { workspaceSlug: string;
 
         <div className="flex items-center gap-3 pt-5">
           <button onClick={onClose} disabled={loading} className="flex-1 px-4 py-2.5 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50">
-            Cancelar
+            {tr('common.cancel')}
           </button>
           <button onClick={submit} disabled={loading} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50">
-            {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Creando...</> : 'Crear proyecto'}
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin" />{tr('proj.creating')}</> : tr('proj.createProject')}
           </button>
         </div>
       </div>
@@ -457,6 +465,7 @@ function CreateProjectModal({ workspaceSlug, onClose }: { workspaceSlug: string;
 type Teammate = { id: string; display_name: string | null; avatar_url: string | null; reviewed: boolean }
 
 function ReviewModal({ project, onClose }: { project: MyProject; onClose: () => void }) {
+  const tr = useT()
   const router = useRouter()
   const [teammates, setTeammates] = useState<Teammate[] | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
@@ -470,12 +479,12 @@ function ReviewModal({ project, onClose }: { project: MyProject; onClose: () => 
         if (!res.ok) throw new Error(result.error ?? 'Error')
         if (alive) setTeammates(result.teammates ?? [])
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Error al cargar el equipo')
+        toast.error(err instanceof Error ? err.message : tr('proj.reviewsLoadError'))
         if (alive) setTeammates([])
       }
     })()
     return () => { alive = false }
-  }, [project.id])
+  }, [project.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onRated = (id: string) => {
     setTeammates(prev => (prev ?? []).map(t => t.id === id ? { ...t, reviewed: true } : t))
@@ -491,18 +500,18 @@ function ReviewModal({ project, onClose }: { project: MyProject; onClose: () => 
             <span className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
               <Star className="w-4 h-4 text-primary" />
             </span>
-            <h2 className="text-lg font-semibold text-foreground">Calificar equipo</h2>
+            <h2 className="text-lg font-semibold text-foreground">{tr('proj.rateTeam')}</h2>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
         <p className="text-xs text-muted-foreground mb-4">
-          Tu calificacion es anonima. Solo se muestra el promedio, y solo cuando hay 3 o mas evaluaciones.
+          {tr('proj.rateAnon')}
         </p>
 
         {teammates === null ? (
           <div className="py-10 flex items-center justify-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : teammates.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">No hay compañeros que calificar en este proyecto.</p>
+          <p className="text-sm text-muted-foreground py-6 text-center">{tr('proj.noTeammates')}</p>
         ) : (
           <div className="space-y-2">
             {teammates.map(t => (
@@ -513,9 +522,9 @@ function ReviewModal({ project, onClose }: { project: MyProject; onClose: () => 
                   className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 transition-colors disabled:opacity-70 disabled:cursor-default"
                 >
                   <Avatar url={t.avatar_url} name={t.display_name} />
-                  <span className="text-sm font-medium text-foreground flex-1 text-left truncate">{t.display_name ?? 'Compañero'}</span>
+                  <span className="text-sm font-medium text-foreground flex-1 text-left truncate">{t.display_name ?? tr('proj.teammate')}</span>
                   {t.reviewed ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" /> Calificado</span>
+                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" /> {tr('proj.rated')}</span>
                   ) : (
                     <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${openId === t.id ? 'rotate-90' : ''}`} />
                   )}
@@ -532,11 +541,11 @@ function ReviewModal({ project, onClose }: { project: MyProject; onClose: () => 
   )
 }
 
-const AXES: { key: 'collaboration' | 'quality' | 'reliability' | 'communication'; label: string }[] = [
-  { key: 'collaboration', label: 'Colaboracion' },
-  { key: 'quality', label: 'Calidad' },
-  { key: 'reliability', label: 'Confiabilidad' },
-  { key: 'communication', label: 'Comunicacion' },
+const AXES: { key: 'collaboration' | 'quality' | 'reliability' | 'communication'; labelKey: string }[] = [
+  { key: 'collaboration', labelKey: 'proj.axCollaboration' },
+  { key: 'quality', labelKey: 'proj.axQuality' },
+  { key: 'reliability', labelKey: 'proj.axReliability' },
+  { key: 'communication', labelKey: 'proj.axCommunication' },
 ]
 
 function RatingForm({ projectId, teammate, onRated }: {
@@ -544,13 +553,14 @@ function RatingForm({ projectId, teammate, onRated }: {
   teammate: Teammate
   onRated: () => void
 }) {
+  const tr = useT()
   const [scores, setScores] = useState<Record<string, number>>({ collaboration: 0, quality: 0, reliability: 0, communication: 0 })
   const [comment, setComment] = useState('')
   const [loading, setLoading] = useState(false)
 
   const submit = async () => {
     if (Object.values(scores).some(v => v < 1)) {
-      toast.error('Califica los 4 ejes')
+      toast.error(tr('proj.rateAll4'))
       return
     }
     setLoading(true)
@@ -561,11 +571,11 @@ function RatingForm({ projectId, teammate, onRated }: {
         body: JSON.stringify({ reviewee_id: teammate.id, ...scores, comment: comment.trim() || null }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error ?? 'Error')
-      toast.success('Calificacion enviada')
+      if (!res.ok) throw new Error(result.error ?? tr('proj.error'))
+      toast.success(tr('proj.ratingSent'))
       onRated()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : tr('common.unknownError'))
       setLoading(false)
     }
   }
@@ -574,7 +584,7 @@ function RatingForm({ projectId, teammate, onRated }: {
     <div className="px-3 py-3 border-t border-border bg-muted/30 space-y-3">
       {AXES.map(ax => (
         <div key={ax.key} className="flex items-center justify-between gap-2">
-          <span className="text-xs text-muted-foreground">{ax.label}</span>
+          <span className="text-xs text-muted-foreground">{tr(ax.labelKey)}</span>
           <StarRow value={scores[ax.key]} onChange={v => setScores(s => ({ ...s, [ax.key]: v }))} disabled={loading} />
         </div>
       ))}
@@ -584,7 +594,7 @@ function RatingForm({ projectId, teammate, onRated }: {
         maxLength={1000}
         rows={2}
         disabled={loading}
-        placeholder="Comentario (opcional)"
+        placeholder={tr('proj.commentPlaceholder')}
         className={`${INPUT} resize-none text-xs`}
       />
       <button
@@ -592,7 +602,7 @@ function RatingForm({ projectId, teammate, onRated }: {
         disabled={loading}
         className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
       >
-        {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Star className="w-3.5 h-3.5" />} Enviar calificacion
+        {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Star className="w-3.5 h-3.5" />} {tr('proj.sendRating')}
       </button>
     </div>
   )

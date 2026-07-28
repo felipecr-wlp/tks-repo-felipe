@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { CheckCircle2, XCircle, ArrowRight } from 'lucide-react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import type { QuizQuestion } from '@/lib/academy/types'
 
 const PASS = 70
@@ -28,6 +29,7 @@ export function ModuleQuiz({
   nextHref: string
   nextLabel: string
 }) {
+  const t = useT()
   const router = useRouter()
   const [answers, setAnswers] = useState<Record<number, number>>({})
   const [graded, setGraded] = useState(false)
@@ -54,7 +56,7 @@ export function ModuleQuiz({
 
   async function grade() {
     if (Object.keys(answers).length < quiz.length) {
-      toast.error('Responde todas las preguntas')
+      toast.error(t('quiz.answerAll'))
       return
     }
     setGraded(true)
@@ -69,13 +71,13 @@ export function ModuleQuiz({
         })
         if (!res.ok) {
           const j = await res.json().catch(() => ({}))
-          throw new Error(j.error || 'No se pudo guardar')
+          throw new Error(j.error || t('quiz.saveFailed'))
         }
         setPassed(true)
-        toast.success('¡Módulo aprobado!')
+        toast.success(t('quiz.modulePassed'))
         router.refresh()
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Error al guardar')
+        toast.error(e instanceof Error ? e.message : t('quiz.saveError'))
       } finally {
         setSaving(false)
       }
@@ -89,11 +91,11 @@ export function ModuleQuiz({
 
   return (
     <div className="mt-10 border-t border-border pt-6">
-      <h2 className="mb-4 text-lg font-semibold text-foreground">Evaluación</h2>
+      <h2 className="mb-4 text-lg font-semibold text-foreground">{t('quiz.title')}</h2>
 
       {alreadyPassed && !graded && (
         <div className="mb-4 flex items-center gap-2 rounded-lg bg-emerald-500/10 p-3 text-sm font-medium text-emerald-500">
-          <CheckCircle2 className="h-4 w-4" /> Ya aprobaste este módulo. Puedes repasarlo.
+          <CheckCircle2 className="h-4 w-4" /> {t('quiz.alreadyPassed')}
         </div>
       )}
 
@@ -148,7 +150,7 @@ export function ModuleQuiz({
           className="mt-5 w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white"
           style={{ backgroundColor: accent }}
         >
-          Calificar
+          {t('quiz.grade')}
         </button>
       ) : (
         <div className="mt-5 space-y-3">
@@ -159,7 +161,7 @@ export function ModuleQuiz({
           >
             <p className="text-2xl font-bold text-foreground">{score}%</p>
             <p className={`text-sm font-medium ${score >= PASS ? 'text-emerald-500' : 'text-red-500'}`}>
-              {score >= PASS ? 'Aprobado' : `Necesitas ${PASS}% para aprobar`}
+              {score >= PASS ? t('quiz.passed') : `${t('quiz.needPrefix')} ${PASS}${t('quiz.needSuffix')}`}
             </p>
           </div>
           {score >= PASS ? (
@@ -168,14 +170,14 @@ export function ModuleQuiz({
               className="flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white"
               style={{ backgroundColor: accent }}
             >
-              {saving ? 'Guardando...' : nextLabel} <ArrowRight className="h-4 w-4" />
+              {saving ? t('quiz.saving') : nextLabel} <ArrowRight className="h-4 w-4" />
             </Link>
           ) : (
             <button
               onClick={reset}
               className="w-full rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted"
             >
-              Intentar de nuevo
+              {t('quiz.retry')}
             </button>
           )}
         </div>

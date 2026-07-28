@@ -13,6 +13,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import {
   CalendarDays,
   CheckSquare,
@@ -65,6 +66,7 @@ const PRIORITY_DOT: Record<string, string> = {
 }
 
 export default function MiDia({ calendarPath }: MiDiaProps) {
+  const t = useT()
   const [wlo, setWlo] = useState<WloState>({ kind: 'loading' })
   const [google, setGoogle] = useState<GoogleState>({ kind: 'loading' })
 
@@ -124,13 +126,13 @@ export default function MiDia({ calendarPath }: MiDiaProps) {
     <section>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Mi día
+          {t('midia.title')}
         </h2>
         <a
           href={calendarPath}
           className="text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          Ver calendario
+          {t('midia.viewCalendar')}
         </a>
       </div>
 
@@ -146,16 +148,16 @@ export default function MiDia({ calendarPath }: MiDiaProps) {
             {/* WLO primero */}
             <div>
               <p className="px-1 mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary/80">
-                Tareas de hoy
+                {t('midia.todayTasks')}
               </p>
               {wlo.kind === 'error' && (
                 <p className="text-sm text-muted-foreground px-2 py-3">
-                  No se pudieron cargar tus tareas.
+                  {t('midia.loadTasksFail')}
                 </p>
               )}
               {wlo.kind === 'ok' && wloItems.length === 0 && (
                 <p className="text-sm text-muted-foreground px-2 py-3">
-                  Nada de WLO vence hoy.
+                  {t('midia.nothingToday')}
                 </p>
               )}
               {wloItems.length > 0 && (
@@ -177,14 +179,14 @@ export default function MiDia({ calendarPath }: MiDiaProps) {
                           </span>
                           {(a.project_name || a.type === 'sprint') && (
                             <span className="block text-[11px] text-muted-foreground truncate">
-                              {a.type === 'sprint' ? 'Fin de sprint' : a.project_name}
+                              {a.type === 'sprint' ? t('midia.sprintEnd') : a.project_name}
                             </span>
                           )}
                         </span>
                         {a.type === 'task' && (
                           <span
                             className={`flex-shrink-0 w-2 h-2 rounded-full ${PRIORITY_DOT[a.priority ?? 'none'] ?? PRIORITY_DOT.none}`}
-                            title={`Prioridad: ${a.priority ?? 'ninguna'}`}
+                            title={`${t('midia.priorityPrefix')} ${a.priority ?? t('midia.priorityNone')}`}
                           />
                         )}
                       </a>
@@ -198,11 +200,11 @@ export default function MiDia({ calendarPath }: MiDiaProps) {
             <div className="pt-3 border-t border-border/60">
               <div className="flex items-center justify-between px-1 mb-1.5">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Agenda externa
+                  {t('midia.externalAgenda')}
                 </p>
                 {(google.kind === 'not_connected' || google.kind === 'reconnect') && (
                   <a href={connectUrl} className="text-[11px] text-primary hover:underline">
-                    {google.kind === 'reconnect' ? 'Reconectar Google' : 'Conectar Google'}
+                    {google.kind === 'reconnect' ? t('midia.reconnectGoogle') : t('midia.connectGoogle')}
                   </a>
                 )}
               </div>
@@ -211,18 +213,18 @@ export default function MiDia({ calendarPath }: MiDiaProps) {
                 <p className="flex items-center gap-2 text-xs text-muted-foreground px-2 py-2">
                   <CalendarDays size={13} className="flex-shrink-0" />
                   {google.kind === 'reconnect'
-                    ? 'La conexión con Google expiró.'
-                    : 'Conecta Google Calendar para ver tu agenda externa.'}
+                    ? t('midia.googleExpired')
+                    : t('midia.connectGooglePrompt')}
                 </p>
               )}
               {google.kind === 'error' && (
                 <p className="text-xs text-muted-foreground px-2 py-2">
-                  No se pudo cargar Google Calendar.
+                  {t('midia.googleLoadFail')}
                 </p>
               )}
               {google.kind === 'ok' && googleItems.length === 0 && (
                 <p className="text-xs text-muted-foreground px-2 py-2">
-                  Sin eventos externos hoy.
+                  {t('midia.noExternalEvents')}
                 </p>
               )}
               {googleItems.length > 0 && (
@@ -236,7 +238,7 @@ export default function MiDia({ calendarPath }: MiDiaProps) {
                         className="group flex items-center gap-3 rounded-lg px-2.5 py-1.5 hover:bg-accent transition-colors"
                       >
                         <span className="flex-shrink-0 w-14 text-[11px] tabular-nums text-muted-foreground">
-                          {ev.allDay ? 'Todo' : ev.start ? format(new Date(ev.start), 'HH:mm') : ''}
+                          {ev.allDay ? t('midia.allDay') : ev.start ? format(new Date(ev.start), 'HH:mm') : ''}
                         </span>
                         <span className="flex-1 min-w-0 text-sm text-muted-foreground truncate group-hover:text-foreground transition-colors">
                           {ev.title}
@@ -253,7 +255,7 @@ export default function MiDia({ calendarPath }: MiDiaProps) {
 
             {bothEmpty && (
               <p className="text-center text-xs text-muted-foreground pt-1">
-                Día despejado.
+                {t('midia.clearDay')}
               </p>
             )}
           </div>

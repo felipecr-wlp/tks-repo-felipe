@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { AtSign, MessageSquare } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getInitials, timeAgo } from '@/lib/utils'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Member {
   id: string
@@ -47,6 +48,7 @@ function detectMentionIds(text: string, members: Member[]): string[] {
 }
 
 export function NoteComments({ noteId, currentUserId }: NoteCommentsProps) {
+  const tr = useT()
   const [comments, setComments] = useState<Comment[]>([])
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
@@ -129,22 +131,22 @@ export function NoteComments({ noteId, currentUserId }: NoteCommentsProps) {
       upsert(comment)
       registerMentions(trimmed)
     } catch {
-      toast.error('Error al enviar el comentario')
+      toast.error(tr('note.cmSendError'))
       throw new Error('failed')
     } finally {
       setSubmitting(false)
     }
-  }, [noteId, upsert, registerMentions])
+  }, [noteId, upsert, registerMentions, tr])
 
   return (
     <section className="mt-12 pt-6 border-t border-border">
       <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">
         <MessageSquare className="w-3.5 h-3.5" />
-        Comentarios {comments.length > 0 && `(${comments.length})`}
+        {tr('note.cmTitle')} {comments.length > 0 && `(${comments.length})`}
       </h3>
 
       {loading ? (
-        <p className="text-sm text-muted-foreground py-2">Cargando comentarios…</p>
+        <p className="text-sm text-muted-foreground py-2">{tr('note.cmLoading')}</p>
       ) : (
         <>
           {comments.length > 0 ? (
@@ -155,7 +157,7 @@ export function NoteComments({ noteId, currentUserId }: NoteCommentsProps) {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground mb-4">
-              Aún no hay comentarios. Inicia la conversación.
+              {tr('note.cmEmpty')}
             </p>
           )}
           <CommentComposer members={members} submitting={submitting} onSubmit={handleAdd} />
@@ -172,6 +174,7 @@ function CommentComposer({ members, submitting, onSubmit }: {
   submitting: boolean
   onSubmit: (body: string) => Promise<void>
 }) {
+  const tr = useT()
   const [value, setValue] = useState('')
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -212,7 +215,7 @@ function CommentComposer({ members, submitting, onSubmit }: {
   return (
     <div className="flex items-start gap-2 relative">
       <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center text-[10px] font-bold text-primary-foreground mt-0.5">
-        Yo
+        {tr('note.cmMe')}
       </div>
       <div className="flex-1 relative">
         <textarea
@@ -230,7 +233,7 @@ function CommentComposer({ members, submitting, onSubmit }: {
             }
             if (e.key === 'Escape') setMentionQuery(null)
           }}
-          placeholder="Escribe un comentario… (@ para mencionar, Enter para enviar, Shift+Enter salto de línea)"
+          placeholder={tr('note.cmPlaceholder')}
           rows={2}
           className="w-full text-sm px-3 py-2 border border-input rounded-lg bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
         />
@@ -260,7 +263,7 @@ function CommentComposer({ members, submitting, onSubmit }: {
             disabled={submitting}
             className="mt-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {submitting ? 'Enviando…' : 'Comentar'}
+            {submitting ? tr('note.cmSending') : tr('note.cmSend')}
           </button>
         )}
       </div>
@@ -269,16 +272,18 @@ function CommentComposer({ members, submitting, onSubmit }: {
 }
 
 function MentionHint({ members }: { members: Member[] }) {
+  const tr = useT()
   if (members.length === 0) return null
   return (
     <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1.5">
       <AtSign className="w-3 h-3" />
-      Escribe @nombre para mencionar y notificar a un compañero del workspace.
+      {tr('note.cmMentionHint')}
     </p>
   )
 }
 
 function CommentItem({ comment, currentUserId }: { comment: Comment; currentUserId: string }) {
+  const tr = useT()
   const isOwn = comment.author?.id === currentUserId
   return (
     <div className="flex items-start gap-2.5">
@@ -291,9 +296,9 @@ function CommentItem({ comment, currentUserId }: { comment: Comment; currentUser
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
-          <span className="text-xs font-medium text-foreground">{comment.author?.display_name ?? 'Usuario'}</span>
+          <span className="text-xs font-medium text-foreground">{comment.author?.display_name ?? tr('act.user')}</span>
           <span className="text-[11px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
-          {isOwn && <span className="text-[11px] text-muted-foreground ml-auto">Tú</span>}
+          {isOwn && <span className="text-[11px] text-muted-foreground ml-auto">{tr('note.cmYou')}</span>}
         </div>
         <p className="text-sm text-foreground mt-0.5 whitespace-pre-wrap">{comment.body}</p>
       </div>

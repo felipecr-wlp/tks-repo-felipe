@@ -5,6 +5,7 @@
  */
 import { useState, useRef } from 'react'
 import { toast } from 'sonner'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface CreateTaskInlineProps {
   projectId: string
@@ -25,6 +26,7 @@ export function CreateTaskInline({ projectId, statusId, onCreated }: CreateTaskI
   const [title, setTitle] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const t = useT()
 
   const handleOpen = () => {
     setIsOpen(true)
@@ -51,19 +53,29 @@ export function CreateTaskInline({ projectId, statusId, onCreated }: CreateTaskI
         }),
       })
 
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error ?? 'Error al crear la tarea')
+      // Si la sesion expiro, el middleware redirige a /auth/login y la respuesta
+      // es HTML, no JSON. Antes esto reventaba con "Unexpected token '<'": ahora
+      // lo detectamos y damos un mensaje accionable en vez del error cripitico.
+      if (res.redirected || res.status === 401) {
+        throw new Error(t('createTask.sessionExpired'))
       }
 
-      const newTask = await res.json()
+      if (!res.ok) {
+        // El cuerpo puede no ser JSON (p.ej. una pagina de error 500). Se lee de
+        // forma tolerante para no romper el toast con un error de parseo.
+        const err = await res.json().catch(() => null)
+        throw new Error(err?.error ?? `${t('createTask.createFailPrefix')} ${res.status}${t('createTask.createFailSuffix')}`)
+      }
+
+      const newTask = await res.json().catch(() => null)
+      if (!newTask) throw new Error(t('createTask.invalidResponse'))
       onCreated(newTask)
       setTitle('')
       setIsOpen(false)
       // Abrir de nuevo para crear otra rápidamente si el user quiere
       // (No hacemos auto-open, dejamos que el usuario haga click de nuevo)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al crear la tarea')
+      toast.error(err instanceof Error ? err.message : t('createTask.createFail'))
     } finally {
       setIsLoading(false)
     }
@@ -78,7 +90,7 @@ export function CreateTaskInline({ projectId, statusId, onCreated }: CreateTaskI
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="opacity-50 group-hover:opacity-100">
           <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
-        Nueva tarea
+        {t('createTask.newTask')}
       </button>
     )
   }
@@ -102,7 +114,7 @@ export function CreateTaskInline({ projectId, statusId, onCreated }: CreateTaskI
           // es explícita: Enter para crear, Escape para descartar.
           if (!isLoading && !title.trim()) setIsOpen(false)
         }}
-        placeholder="Nombre de la tarea..."
+        placeholder={t('createTask.namePlaceholder')}
         disabled={isLoading}
         maxLength={500}
         className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"

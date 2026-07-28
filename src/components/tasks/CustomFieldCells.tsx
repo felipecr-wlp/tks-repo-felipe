@@ -67,7 +67,7 @@ export function CustomFieldCells({
   if (!chips.length) return null
 
   return (
-    <div className="flex-shrink-0 flex items-center gap-1 max-w-[45%] overflow-hidden">
+    <div className="flex-shrink flex items-center gap-1.5 max-w-[38%] overflow-hidden">
       {chips.map(({ def, fmt }) => (
         <span
           key={def.id}

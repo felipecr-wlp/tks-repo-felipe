@@ -8,23 +8,24 @@
 import { useState } from 'react'
 import { ClipboardList, GitBranch, Library, GraduationCap, FileText, ChevronDown, CalendarClock, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export type DocKind = 'note' | 'sop' | 'sop_flow' | 'sop_index' | 'training'
 export type SopStatus = 'draft' | 'review' | 'active' | 'obsolete'
 
-const DOC_KINDS: { value: DocKind; label: string; Icon: typeof FileText }[] = [
-  { value: 'note',      label: 'Nota',            Icon: FileText },
-  { value: 'sop',       label: 'SOP',             Icon: ClipboardList },
-  { value: 'sop_flow',  label: 'Flujo',           Icon: GitBranch },
-  { value: 'sop_index', label: 'Índice',          Icon: Library },
-  { value: 'training',  label: 'Capacitación',    Icon: GraduationCap },
+const DOC_KINDS: { value: DocKind; labelKey: string; Icon: typeof FileText }[] = [
+  { value: 'note',      labelKey: 'sopmeta.kindNote',     Icon: FileText },
+  { value: 'sop',       labelKey: 'sopmeta.kindSop',      Icon: ClipboardList },
+  { value: 'sop_flow',  labelKey: 'sopmeta.kindFlow',     Icon: GitBranch },
+  { value: 'sop_index', labelKey: 'sopmeta.kindIndex',    Icon: Library },
+  { value: 'training',  labelKey: 'sopmeta.kindTraining', Icon: GraduationCap },
 ]
 
-const STATUSES: { value: SopStatus; label: string; className: string }[] = [
-  { value: 'draft',    label: 'Borrador',    className: 'bg-muted text-muted-foreground' },
-  { value: 'review',   label: 'En revisión', className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
-  { value: 'active',   label: 'Activo',      className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
-  { value: 'obsolete', label: 'Obsoleto',    className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400' },
+const STATUSES: { value: SopStatus; labelKey: string; className: string }[] = [
+  { value: 'draft',    labelKey: 'sopmeta.statusDraft',    className: 'bg-muted text-muted-foreground' },
+  { value: 'review',   labelKey: 'sopmeta.statusReview',   className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
+  { value: 'active',   labelKey: 'sopmeta.statusActive',   className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
+  { value: 'obsolete', labelKey: 'sopmeta.statusObsolete', className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400' },
 ]
 
 interface SopMetaBarProps {
@@ -42,6 +43,7 @@ function isOverdue(reviewDue: string | null): boolean {
 }
 
 export function SopMetaBar({ docKind, sopStatus, sopVersion, reviewDue, onPatch }: SopMetaBarProps) {
+  const t = useT()
   const [kind, setKind] = useState<DocKind>(docKind)
   const [status, setStatus] = useState<SopStatus | null>(sopStatus)
   const [version, setVersion] = useState(sopVersion ?? '')
@@ -95,10 +97,10 @@ export function SopMetaBar({ docKind, sopStatus, sopVersion, reviewDue, onPatch 
               ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300'
               : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted'
           )}
-          title="Tipo de documento"
+          title={t('sopmeta.docType')}
         >
           <CurrentKind.Icon className="w-3.5 h-3.5" />
-          {CurrentKind.label}
+          {t(CurrentKind.labelKey)}
           <ChevronDown className="w-2.5 h-2.5" />
         </button>
         {showKindMenu && (
@@ -116,7 +118,7 @@ export function SopMetaBar({ docKind, sopStatus, sopVersion, reviewDue, onPatch 
                 )}
               >
                 <opt.Icon className="w-3.5 h-3.5" />
-                {opt.label}
+                {t(opt.labelKey)}
               </button>
             ))}
           </div>
@@ -136,7 +138,7 @@ export function SopMetaBar({ docKind, sopStatus, sopVersion, reviewDue, onPatch 
                   status === s.value ? s.className : 'bg-transparent text-muted-foreground/60 hover:text-foreground'
                 )}
               >
-                {s.label}
+                {t(s.labelKey)}
               </button>
             ))}
           </div>
@@ -161,7 +163,7 @@ export function SopMetaBar({ docKind, sopStatus, sopVersion, reviewDue, onPatch 
                 ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400'
                 : 'border-border bg-muted/50 text-muted-foreground'
             )}
-            title={overdue ? 'Revisión vencida' : 'Próxima revisión'}
+            title={overdue ? t('sopmeta.reviewOverdue') : t('sopmeta.reviewNext')}
           >
             {overdue ? <AlertTriangle className="w-3.5 h-3.5" /> : <CalendarClock className="w-3.5 h-3.5" />}
             <input

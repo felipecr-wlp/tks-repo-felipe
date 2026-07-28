@@ -4,24 +4,17 @@
  * Formulario de onboarding, Client Component
  * Permite crear una organización + workspace, o unirse con un código de invitación.
  */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
-const createSchema = z.object({
-  orgName: z.string().min(2, 'Mínimo 2 caracteres').max(80, 'Máximo 80 caracteres').trim(),
-  workspaceName: z.string().min(2, 'Mínimo 2 caracteres').max(80, 'Máximo 80 caracteres').trim(),
-})
-const joinSchema = z.object({
-  code:     z.string().min(6, 'Código inválido').max(40).trim(),
-  password: z.string().max(100).optional(),
-})
-type CreateData = z.infer<typeof createSchema>
-type JoinData   = z.infer<typeof joinSchema>
+type CreateData = { orgName: string; workspaceName: string }
+type JoinData   = { code: string; password?: string }
 
 interface OnboardingFormProps {
   userEmail: string
@@ -45,6 +38,7 @@ export function OnboardingForm({ userEmail }: OnboardingFormProps) {
 
 // ── Choose mode ─────────────────────────────────────────────────────────────
 function ChooseMode({ onSelect }: { onSelect: (m: Mode) => void }) {
+  const t = useT()
   return (
     <div className="bg-card border border-border rounded-xl p-6 space-y-3 shadow-sm">
       <button
@@ -60,9 +54,9 @@ function ChooseMode({ onSelect }: { onSelect: (m: Mode) => void }) {
             </svg>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Crear nuevo espacio</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t('onbForm.createSpaceTitle')}</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Inicia una nueva organización y workspace.
+              {t('onbForm.createSpaceDesc')}
             </p>
           </div>
         </div>
@@ -83,9 +77,9 @@ function ChooseMode({ onSelect }: { onSelect: (m: Mode) => void }) {
             </svg>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Unirme con código</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t('onbForm.joinTitle')}</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Tienes un código de invitación de tu equipo.
+              {t('onbForm.joinDesc')}
             </p>
           </div>
         </div>
@@ -102,11 +96,20 @@ function CreateForm({
   onBack: () => void
   router: ReturnType<typeof useRouter>
 }) {
+  const t = useT()
   const [isLoading, setIsLoading] = useState(false)
   const emailDomain = userEmail.split('@')[1]?.split('.')[0] ?? ''
   const defaultOrgName = emailDomain
     ? emailDomain.charAt(0).toUpperCase() + emailDomain.slice(1)
     : ''
+
+  const createSchema = useMemo(
+    () => z.object({
+      orgName: z.string().min(2, t('valid.min2')).max(80, t('valid.max80')).trim(),
+      workspaceName: z.string().min(2, t('valid.min2')).max(80, t('valid.max80')).trim(),
+    }),
+    [t]
+  )
 
   const { register, handleSubmit, formState: { errors } } = useForm<CreateData>({
     resolver: zodResolver(createSchema),
@@ -122,16 +125,16 @@ function CreateForm({
         body: JSON.stringify(data),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error ?? 'Error al crear el espacio de trabajo')
+      if (!res.ok) throw new Error(result.error ?? t('onbForm.createError'))
       if (result.lobby) {
-        toast.success('Ya perteneces a esta organización')
+        toast.success(t('onbForm.alreadyMember'))
         router.push('/lobby')
         return
       }
-      toast.success('¡Espacio de trabajo creado!')
+      toast.success(t('onbForm.spaceCreated'))
       router.push(`/w/${result.workspaceSlug}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : t('common.unknownError'))
       setIsLoading(false)
     }
   }
@@ -145,12 +148,12 @@ function CreateForm({
 
       <div className="space-y-1.5">
         <label htmlFor="orgName" className="text-sm font-medium text-foreground">
-          Nombre de la organización
+          {t('onbForm.orgName')}
         </label>
         <input
           id="orgName"
           type="text"
-          placeholder="Ej: Acme Corp"
+          placeholder={t('onbForm.orgPlaceholder')}
           {...register('orgName')}
           className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:opacity-50"
           disabled={isLoading}
@@ -160,12 +163,12 @@ function CreateForm({
 
       <div className="space-y-1.5">
         <label htmlFor="workspaceName" className="text-sm font-medium text-foreground">
-          Nombre del primer espacio de trabajo
+          {t('onbForm.firstSpaceName')}
         </label>
         <input
           id="workspaceName"
           type="text"
-          placeholder="Ej: Equipo de Marketing"
+          placeholder={t('onbForm.firstSpacePlaceholder')}
           {...register('workspaceName')}
           className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:opacity-50"
           disabled={isLoading}
@@ -174,7 +177,7 @@ function CreateForm({
       </div>
 
       <div className="bg-muted/50 rounded-lg px-3 py-2.5 text-xs text-muted-foreground">
-        Accederás con <span className="font-medium text-foreground">{userEmail}</span>.
+        {t('onbForm.accessWith')} <span className="font-medium text-foreground">{userEmail}</span>.
       </div>
 
       <button
@@ -182,7 +185,7 @@ function CreateForm({
         disabled={isLoading}
         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isLoading ? <Spinner /> : 'Crear espacio de trabajo →'}
+        {isLoading ? <Spinner /> : t('onbForm.createSpaceCta')}
       </button>
     </form>
   )
@@ -195,8 +198,17 @@ function JoinForm({
   onBack: () => void
   router: ReturnType<typeof useRouter>
 }) {
+  const t = useT()
   const [isLoading, setIsLoading] = useState(false)
   const [requiresPassword, setRequiresPassword] = useState(false)
+
+  const joinSchema = useMemo(
+    () => z.object({
+      code: z.string().min(6, t('valid.invalidCode')).max(40).trim(),
+      password: z.string().max(100).optional(),
+    }),
+    [t]
+  )
 
   const { register, handleSubmit, formState: { errors } } = useForm<JoinData>({
     resolver: zodResolver(joinSchema),
@@ -214,17 +226,17 @@ function JoinForm({
 
       if (res.status === 401 && result.requires_password) {
         setRequiresPassword(true)
-        toast.error('Este invite requiere contraseña')
+        toast.error(t('onbForm.needsPassword'))
         setIsLoading(false)
         return
       }
 
-      if (!res.ok) throw new Error(result.error ?? 'Error al unirse al workspace')
+      if (!res.ok) throw new Error(result.error ?? t('onbForm.joinError'))
 
-      toast.success(result.already_member ? 'Ya eras miembro' : '¡Unido al espacio!')
+      toast.success(result.already_member ? t('onbForm.wasMember') : t('onbForm.joined'))
       router.push(`/w/${result.workspace_slug}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : t('common.unknownError'))
       setIsLoading(false)
     }
   }
@@ -238,12 +250,12 @@ function JoinForm({
 
       <div className="space-y-1.5">
         <label htmlFor="code" className="text-sm font-medium text-foreground">
-          Código de invitación
+          {t('onbForm.inviteCode')}
         </label>
         <input
           id="code"
           type="text"
-          placeholder="Ej: aBc23dEfG45hIjKn"
+          placeholder={t('onbForm.codePlaceholder')}
           autoComplete="off"
           {...register('code')}
           className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background placeholder:text-muted-foreground font-mono focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:opacity-50"
@@ -251,14 +263,14 @@ function JoinForm({
         />
         {errors.code && <p className="text-xs text-destructive">{errors.code.message}</p>}
         <p className="text-xs text-muted-foreground">
-          Pídele el código a un admin del workspace.
+          {t('onbForm.codeHint')}
         </p>
       </div>
 
       {requiresPassword && (
         <div className="space-y-1.5">
           <label htmlFor="password" className="text-sm font-medium text-foreground">
-            Contraseña
+            {t('onbForm.password')}
           </label>
           <input
             id="password"
@@ -277,7 +289,7 @@ function JoinForm({
         disabled={isLoading}
         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isLoading ? <Spinner /> : 'Unirme al espacio →'}
+        {isLoading ? <Spinner /> : t('onbForm.joinCta')}
       </button>
     </form>
   )
@@ -285,6 +297,7 @@ function JoinForm({
 
 // ── Shared bits ─────────────────────────────────────────────────────────────
 function BackButton({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+  const t = useT()
   return (
     <button
       type="button"
@@ -295,16 +308,17 @@ function BackButton({ onClick, disabled }: { onClick: () => void; disabled?: boo
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="15 18 9 12 15 6" />
       </svg>
-      Volver
+      {t('onbForm.back')}
     </button>
   )
 }
 
 function Spinner() {
+  const t = useT()
   return (
     <>
       <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-      Procesando...
+      {t('onbForm.processing')}
     </>
   )
 }

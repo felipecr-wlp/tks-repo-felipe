@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface JoinByCodeFormProps {
   code: string
@@ -23,6 +24,7 @@ interface InviteInfo {
 
 export function JoinByCodeForm({ code }: JoinByCodeFormProps) {
   const router = useRouter()
+  const t = useT()
   const [info, setInfo] = useState<InviteInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -36,15 +38,15 @@ export function JoinByCodeForm({ code }: JoinByCodeFormProps) {
         const data = await res.json()
         if (cancelled) return
         if (!res.ok) {
-          setError(data.error ?? 'Invite no válido')
+          setError(data.error ?? t('join.invalidInvite'))
         } else {
           setInfo(data)
         }
       })
-      .catch(() => !cancelled && setError('Error de red'))
+      .catch(() => !cancelled && setError(t('join.networkError')))
       .finally(() => !cancelled && setLoading(false))
     return () => { cancelled = true }
-  }, [code])
+  }, [code, t])
 
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault()
@@ -56,12 +58,12 @@ export function JoinByCodeForm({ code }: JoinByCodeFormProps) {
         body: JSON.stringify({ password: password || undefined }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error al unirse')
+      if (!res.ok) throw new Error(data.error ?? t('join.joinError'))
 
-      toast.success(data.already_member ? 'Ya eras miembro' : '¡Unido al espacio!')
+      toast.success(data.already_member ? t('join.alreadyMember') : t('join.joined'))
       router.push(`/w/${data.workspace_slug}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : t('common.unknownError'))
       setSubmitting(false)
     }
   }
@@ -69,7 +71,7 @@ export function JoinByCodeForm({ code }: JoinByCodeFormProps) {
   if (loading) {
     return (
       <div className="bg-card border border-border rounded-xl p-6 text-center text-sm text-muted-foreground">
-        Cargando invite...
+        {t('join.loading')}
       </div>
     )
   }
@@ -77,12 +79,12 @@ export function JoinByCodeForm({ code }: JoinByCodeFormProps) {
   if (error || !info) {
     return (
       <div className="bg-card border border-border rounded-xl p-6 space-y-3">
-        <p className="text-sm text-destructive font-medium">{error ?? 'Invite no válido'}</p>
+        <p className="text-sm text-destructive font-medium">{error ?? t('join.invalidInvite')}</p>
         <button
           onClick={() => router.push('/')}
           className="text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          Volver al inicio →
+          {t('join.backHome')} →
         </button>
       </div>
     )
@@ -91,20 +93,20 @@ export function JoinByCodeForm({ code }: JoinByCodeFormProps) {
   return (
     <form onSubmit={handleJoin} className="bg-card border border-border rounded-xl p-6 space-y-5">
       <div className="space-y-1">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">Te unirás a</p>
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('join.willJoin')}</p>
         <h2 className="text-lg font-semibold text-foreground">{info.workspace_name}</h2>
         {info.org_name && (
-          <p className="text-xs text-muted-foreground">en {info.org_name}</p>
+          <p className="text-xs text-muted-foreground">{t('join.inPrefix')} {info.org_name}</p>
         )}
         <p className="text-xs text-muted-foreground mt-2">
-          Rol: <span className="font-medium text-foreground">{info.role}</span>
+          {t('form.roleLabel')} <span className="font-medium text-foreground">{info.role}</span>
         </p>
       </div>
 
       {info.has_password && (
         <div className="space-y-1.5">
           <label htmlFor="pwd" className="text-sm font-medium text-foreground">
-            Contraseña del invite
+            {t('join.passwordLabel')}
           </label>
           <input
             id="pwd"
@@ -126,10 +128,10 @@ export function JoinByCodeForm({ code }: JoinByCodeFormProps) {
         {submitting ? (
           <>
             <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-            Uniendo...
+            {t('join.joining')}
           </>
         ) : (
-          'Unirme →'
+          `${t('join.submit')} →`
         )}
       </button>
     </form>

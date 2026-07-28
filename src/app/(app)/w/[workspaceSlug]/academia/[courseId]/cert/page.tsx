@@ -8,6 +8,7 @@ import { redirect, notFound } from 'next/navigation'
 import { COURSE_BY_ID } from '@/lib/academy/courses'
 import { canAccessCourse, getCourseProgress, getCertificate } from '@/lib/academy/data'
 import { CertView } from './CertView'
+import { getServerT } from '@/lib/i18n/server'
 
 interface PageProps {
   params: { workspaceSlug: string; courseId: string }
@@ -47,7 +48,8 @@ export default async function CertPage({ params }: PageProps) {
     getCertificate(user.id, course.id),
   ])
   const allDone = course.modules.every((m) => progress[m.id]?.completed)
-  const recipientName = profile?.display_name || profile?.email || 'Alumno WLP'
+  const t = getServerT()
+  const recipientName = profile?.display_name || profile?.email || t('academyC.defaultStudent')
 
   return (
     <CertView

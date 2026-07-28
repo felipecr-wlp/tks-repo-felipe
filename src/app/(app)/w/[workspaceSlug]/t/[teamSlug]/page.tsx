@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { resolveTeamForViewer } from '@/lib/team-access'
-import { LayoutDashboard, FolderKanban, Plus, ListChecks, MessageSquare, Maximize2 } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Plus, ListChecks, MessageSquare, Maximize2, GanttChartSquare } from 'lucide-react'
 import { ProjectIcon } from '@/lib/project-icons'
 import { TeamChat } from '@/components/chat/TeamChat'
 
@@ -113,6 +113,14 @@ export default async function TeamPage({ params }: TeamPageProps) {
           >
             <LayoutDashboard className="w-4 h-4" />
             Ir a Planeación
+          </Link>
+          <Link
+            href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/cronograma`}
+            className="flex items-center gap-1.5 px-3 py-2 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
+            title="Cronograma (Gantt) del equipo"
+          >
+            <GanttChartSquare className="w-3.5 h-3.5" />
+            Cronograma
           </Link>
           <Link
             href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/projects/new`}

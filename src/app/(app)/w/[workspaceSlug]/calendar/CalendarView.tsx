@@ -28,7 +28,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { es, enUS } from 'date-fns/locale'
 import {
   CalendarDays,
   CheckSquare,
@@ -40,6 +40,7 @@ import {
   Search,
   Timer,
 } from 'lucide-react'
+import { useI18n } from '@/lib/i18n/LanguageProvider'
 
 type CalEvent = {
   id: string
@@ -89,7 +90,7 @@ interface CalendarViewProps {
   connectedEmail: string | null
 }
 
-const WEEKDAYS = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom']
+const WEEKDAY_KEYS = ['cal.wdMon', 'cal.wdTue', 'cal.wdWed', 'cal.wdThu', 'cal.wdFri', 'cal.wdSat', 'cal.wdSun']
 const FILTERS_KEY = 'wlo-calendar-filters'
 const DEFAULT_FILTERS: Filters = {
   showWlo: true,
@@ -103,6 +104,8 @@ export default function CalendarView({
   initiallyConnected,
   connectedEmail,
 }: CalendarViewProps) {
+  const { t, lang } = useI18n()
+  const dfLocale = lang === 'en' ? enUS : es
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()))
   const [selected, setSelected] = useState(() => new Date())
 
@@ -208,7 +211,7 @@ export default function CalendarView({
           allDay: a.type === 'sprint',
           href: a.href || null,
           external: false,
-          subtitle: a.type === 'sprint' ? 'Fin de sprint' : a.project_name,
+          subtitle: a.type === 'sprint' ? t('cal.sprintEnd') : a.project_name,
         })
       }
     }
@@ -234,7 +237,7 @@ export default function CalendarView({
     }
 
     return out
-  }, [filters, wloActivities, googleEvents])
+  }, [filters, wloActivities, googleEvents, t])
 
   const itemsByDay = useMemo(() => {
     const map = new Map<string, CalItem[]>()
@@ -275,11 +278,11 @@ export default function CalendarView({
           </div>
           <div>
             <h1 className="text-2xl font-semibold text-foreground tracking-tight">
-              Calendario
+              {t('cal.title')}
             </h1>
             {connectedEmail && googleState === 'ok' && (
               <p className="text-xs text-muted-foreground mt-0.5">
-                Google conectado como {connectedEmail}
+                {t('cal.connectedAs')} {connectedEmail}
               </p>
             )}
           </div>
@@ -290,19 +293,19 @@ export default function CalendarView({
             onClick={() => { setCursor(startOfMonth(new Date())); setSelected(new Date()) }}
             className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-accent transition-colors"
           >
-            Hoy
+            {t('cal.today')}
           </button>
           <div className="flex items-center border border-border rounded-lg overflow-hidden">
             <button
               onClick={() => setCursor((c) => addMonths(c, -1))}
-              aria-label="Mes anterior"
+              aria-label={t('cal.prevMonth')}
               className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             >
               <ChevronLeft size={18} />
             </button>
             <button
               onClick={() => setCursor((c) => addMonths(c, 1))}
-              aria-label="Mes siguiente"
+              aria-label={t('cal.nextMonth')}
               className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors border-l border-border"
             >
               <ChevronRight size={18} />
@@ -310,7 +313,7 @@ export default function CalendarView({
           </div>
           <button
             onClick={() => void load()}
-            aria-label="Recargar"
+            aria-label={t('cal.reload')}
             className="p-1.5 text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-accent transition-colors"
           >
             <RefreshCw size={16} />
@@ -325,27 +328,27 @@ export default function CalendarView({
           onClick={() => patchFilters({ showWlo: !filters.showWlo })}
           accent="primary"
           icon={<CheckSquare size={13} />}
-          label="Actividades WLO"
+          label={t('cal.filterWlo')}
         />
         <FilterToggle
           active={filters.showGoogle}
           onClick={() => patchFilters({ showGoogle: !filters.showGoogle })}
           accent="muted"
           icon={<CalendarDays size={13} />}
-          label="Eventos Google"
+          label={t('cal.filterGoogle')}
         />
         <FilterToggle
           active={filters.hideAllDay}
           onClick={() => patchFilters({ hideAllDay: !filters.hideAllDay })}
           accent="muted"
-          label="Ocultar todo el día"
+          label={t('cal.hideAllDay')}
         />
         <div className="relative ml-auto">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
             value={filters.query}
             onChange={(e) => patchFilters({ query: e.target.value })}
-            placeholder="Buscar por título"
+            placeholder={t('cal.searchPlaceholder')}
             className="w-48 pl-8 pr-3 py-1.5 text-sm bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
@@ -357,27 +360,27 @@ export default function CalendarView({
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <CalendarDays size={15} className="flex-shrink-0" />
             {googleState === 'reconnect'
-              ? 'La conexión con Google expiró o fue revocada. Reconecta para ver tu agenda externa.'
-              : 'Conecta Google Calendar para sumar tu agenda externa (solo lectura).'}
+              ? t('cal.reconnectMsg')
+              : t('cal.connectMsg')}
           </p>
           <a
             href={connectUrl}
             className="flex-shrink-0 inline-flex items-center gap-2 px-3.5 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
           >
             <CalendarDays size={15} />
-            {googleState === 'reconnect' ? 'Reconectar' : 'Conectar Google'}
+            {googleState === 'reconnect' ? t('cal.reconnect') : t('cal.connectGoogle')}
           </a>
         </div>
       )}
 
       {googleState === 'error' && (
         <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
-          <p className="text-sm text-foreground">No se pudo cargar Google Calendar.</p>
+          <p className="text-sm text-foreground">{t('cal.googleError')}</p>
           <button
             onClick={() => void load()}
             className="inline-flex items-center gap-2 px-3 py-1.5 border border-border text-sm rounded-lg hover:bg-accent transition-colors"
           >
-            <RefreshCw size={14} /> Reintentar
+            <RefreshCw size={14} /> {t('cal.retry')}
           </button>
         </div>
       )}
@@ -393,14 +396,14 @@ export default function CalendarView({
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-foreground capitalize">
-                {format(cursor, 'LLLL yyyy', { locale: es })}
+                {format(cursor, 'LLLL yyyy', { locale: dfLocale })}
               </h2>
             </div>
 
             <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden border border-border">
-              {WEEKDAYS.map((w) => (
-                <div key={w} className="bg-muted/40 px-2 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {w}
+              {WEEKDAY_KEYS.map((wk) => (
+                <div key={wk} className="bg-muted/40 px-2 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {t(wk)}
                 </div>
               ))}
 
@@ -445,7 +448,7 @@ export default function CalendarView({
                       ))}
                       {dayItems.length > 3 && (
                         <div className="px-1 text-[10px] text-muted-foreground">
-                          +{dayItems.length - 3} mas
+                          +{dayItems.length - 3} {t('cal.moreSuffix')}
                         </div>
                       )}
                     </div>
@@ -459,13 +462,13 @@ export default function CalendarView({
           <div className="lg:col-span-1">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-foreground capitalize">
-                {format(selected, "EEEE d 'de' LLLL", { locale: es })}
+                {format(selected, lang === 'en' ? 'EEEE, LLLL d' : "EEEE d 'de' LLLL", { locale: dfLocale })}
               </h2>
             </div>
             <div className="bg-card border border-border rounded-xl p-2 min-h-[200px]">
               {selectedItems.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-10">
-                  Sin actividades este día
+                  {t('cal.noActivities')}
                 </p>
               ) : (
                 <ul className="space-y-1">
@@ -487,7 +490,7 @@ export default function CalendarView({
                             {it.subtitle
                               ? it.subtitle
                               : it.allDay
-                                ? 'Todo el día'
+                                ? t('cal.allDay')
                                 : it.start
                                   ? `${format(new Date(it.start), 'HH:mm')}${it.end ? ` - ${format(new Date(it.end), 'HH:mm')}` : ''}`
                                   : ''}

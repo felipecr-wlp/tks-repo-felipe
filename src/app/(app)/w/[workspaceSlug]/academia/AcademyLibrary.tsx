@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { AcademyIcon } from '@/lib/academy/icons'
 import { CheckCircle2, Lock, Clock, ArrowRight, Award } from 'lucide-react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import type { CourseState } from '@/lib/academy/data'
 
 export function AcademyLibrary({
@@ -21,6 +22,7 @@ export function AcademyLibrary({
   states: CourseState[]
   isAdmin: boolean
 }) {
+  const t = useT()
   const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
   const base = `/w/${workspaceSlug}/academia`
@@ -34,12 +36,12 @@ export function AcademyLibrary({
         body: JSON.stringify({ courseId, workspaceId }),
       })
       const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json.error || 'No se pudo solicitar')
-      if (json.alreadyGranted) toast.success('Ya tienes acceso a este curso')
-      else toast.success('Solicitud enviada. Un administrador la revisará.')
+      if (!res.ok) throw new Error(json.error || t('academyL.requestFailed'))
+      if (json.alreadyGranted) toast.success(t('academyL.alreadyGranted'))
+      else toast.success(t('academyL.requestSent'))
       router.refresh()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error')
+      toast.error(e instanceof Error ? e.message : t('academyL.genericError'))
     } finally {
       setBusy(null)
     }
@@ -52,9 +54,9 @@ export function AcademyLibrary({
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Academia WLP</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t('academyL.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Cursos de habilidades profesionales. Completa los módulos y obtén tu certificado.
+            {t('academyL.subtitle')}
           </p>
         </div>
         {isAdmin && (
@@ -62,7 +64,7 @@ export function AcademyLibrary({
             href={`/w/${workspaceSlug}/settings/academia`}
             className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
           >
-            Gestionar academia
+            {t('academyL.manage')}
           </Link>
         )}
       </div>
@@ -70,7 +72,7 @@ export function AcademyLibrary({
       {accessible.length > 0 && (
         <section className="mb-8">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            {isAdmin ? 'Todos los cursos' : 'Mis cursos'}
+            {isAdmin ? t('academyL.allCourses') : t('academyL.myCourses')}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {accessible.map((s) => (
@@ -97,11 +99,11 @@ export function AcademyLibrary({
                 <div className="mt-auto">
                   <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
                     <span>
-                      {s.completedModules}/{s.totalModules} módulos
+                      {s.completedModules}/{s.totalModules} {t('academyL.modulesSuffix')}
                     </span>
                     {s.certified ? (
                       <span className="flex items-center gap-1 font-medium text-emerald-500">
-                        <Award className="h-3.5 w-3.5" /> Certificado
+                        <Award className="h-3.5 w-3.5" /> {t('academyL.certified')}
                       </span>
                     ) : (
                       <span>{s.progressPct}%</span>
@@ -117,7 +119,7 @@ export function AcademyLibrary({
                     />
                   </div>
                   <span className="mt-3 flex items-center gap-1 text-sm font-medium text-primary opacity-0 transition group-hover:opacity-100">
-                    Entrar <ArrowRight className="h-3.5 w-3.5" />
+                    {t('academyL.enter')} <ArrowRight className="h-3.5 w-3.5" />
                   </span>
                 </div>
               </Link>
@@ -129,7 +131,7 @@ export function AcademyLibrary({
       {locked.length > 0 && (
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Cursos disponibles
+            {t('academyL.available')}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {locked.map((s) => (
@@ -152,7 +154,7 @@ export function AcademyLibrary({
                 <div className="mt-auto">
                   {s.requestStatus === 'pending' ? (
                     <span className="flex items-center justify-center gap-1.5 rounded-lg bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-500">
-                      <Clock className="h-4 w-4" /> Solicitud pendiente
+                      <Clock className="h-4 w-4" /> {t('academyL.requestPending')}
                     </span>
                   ) : (
                     <button
@@ -162,10 +164,10 @@ export function AcademyLibrary({
                     >
                       <Lock className="h-3.5 w-3.5" />
                       {busy === s.course.id
-                        ? 'Enviando...'
+                        ? t('academyL.sending')
                         : s.requestStatus === 'rejected'
-                          ? 'Solicitar de nuevo'
-                          : 'Solicitar acceso'}
+                          ? t('academyL.requestAgain')
+                          : t('academyL.requestAccess')}
                     </button>
                   )}
                 </div>
@@ -178,7 +180,7 @@ export function AcademyLibrary({
       {accessible.length === 0 && locked.length === 0 && (
         <div className="rounded-xl border border-dashed border-border py-12 text-center">
           <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No hay cursos disponibles todavía.</p>
+          <p className="text-sm text-muted-foreground">{t('academyL.empty')}</p>
         </div>
       )}
     </div>

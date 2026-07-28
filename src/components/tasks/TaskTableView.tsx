@@ -31,6 +31,7 @@ import { BulkActionBar } from './BulkActionBar'
 import { DensityToggle } from './DensityToggle'
 import { formatFieldValue, type CustomFieldDef } from './CustomFieldCells'
 import { useDensity } from '@/stores/useDensity'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Status {
   id: string
@@ -77,12 +78,12 @@ interface TaskTableViewProps {
   projects?: SiblingProject[]
 }
 
-const PRIORITY_META: Record<string, { Icon: LucideIcon; label: string; color: string; rank: number }> = {
-  urgent: { Icon: ChevronsUp,  label: 'Urgente', color: 'text-red-500',    rank: 4 },
-  high:   { Icon: ChevronUp,   label: 'Alta',    color: 'text-orange-500', rank: 3 },
-  medium: { Icon: Equal,       label: 'Media',   color: 'text-yellow-500', rank: 2 },
-  low:    { Icon: ChevronDown, label: 'Baja',    color: 'text-blue-400',   rank: 1 },
-  none:   { Icon: Minus,       label: 'Sin prioridad', color: 'text-muted-foreground', rank: 0 },
+const PRIORITY_META: Record<string, { Icon: LucideIcon; labelKey: string; color: string; rank: number }> = {
+  urgent: { Icon: ChevronsUp,  labelKey: 'priority.urgent', color: 'text-red-500',    rank: 4 },
+  high:   { Icon: ChevronUp,   labelKey: 'priority.high',   color: 'text-orange-500', rank: 3 },
+  medium: { Icon: Equal,       labelKey: 'priority.medium', color: 'text-yellow-500', rank: 2 },
+  low:    { Icon: ChevronDown, labelKey: 'priority.low',    color: 'text-blue-400',   rank: 1 },
+  none:   { Icon: Minus,       labelKey: 'priority.none',   color: 'text-muted-foreground', rank: 0 },
 }
 
 type SortDir = 'asc' | 'desc'
@@ -106,10 +107,14 @@ export function TaskTableView({
   projects,
 }: TaskTableViewProps) {
   const router = useRouter()
+  const t = useT()
   const density = useDensity(s => s.density)
   const isCompact = density === 'compact'
   // Padding vertical de las celdas segun densidad (compacta = filas mas bajas).
   const cellY = isCompact ? 'py-0.5' : 'py-1.5'
+  // Celda base: no envolver texto para que las columnas no se encimen (el scroll
+  // horizontal del contenedor se encarga del desborde con muchos campos).
+  const cellCls = cn('px-2 align-middle whitespace-nowrap', cellY)
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialTaskId ?? null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -159,7 +164,7 @@ export function TaskTableView({
   }
   const handleTaskDeleted = (id: string) => {
     setTasks(prev => prev.filter(t => t.id !== id))
-    toast.success('Tarea eliminada')
+    toast.success(t('taskList.taskDeleted'))
     router.refresh()
   }
 
@@ -191,15 +196,15 @@ export function TaskTableView({
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.error ?? 'Error al actualizar')
+        throw new Error(err.error ?? t('table.updateFail'))
       }
       const updated: Task = await res.json()
       handleTaskUpdated({ ...optimistic, ...updated })
     } catch (e) {
       handleTaskUpdated(previous)
-      toast.error(e instanceof Error ? e.message : 'Error al actualizar')
+      toast.error(e instanceof Error ? e.message : t('table.updateFail'))
     }
-  }, [tasks, statuses, members])
+  }, [tasks, statuses, members, t])
 
   // Upsert inline del valor de un campo personalizado (misma ruta que el panel).
   const saveCustomValue = useCallback(async (taskId: string, fieldId: string, value: unknown) => {
@@ -217,9 +222,9 @@ export function TaskTableView({
       }
     } catch (e) {
       setCustomValues(prev => ({ ...prev, [taskId]: prevValues }))
-      toast.error(e instanceof Error && e.message ? e.message : 'Error al guardar el campo')
+      toast.error(e instanceof Error && e.message ? e.message : t('table.saveFieldFail'))
     }
-  }, [customValues])
+  }, [customValues, t])
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -269,8 +274,8 @@ export function TaskTableView({
       <div className="px-6 py-10">
         <EmptyState
           icon={<Table2 className="h-5 w-5" aria-hidden />}
-          title="No hay tareas en este proyecto todavia"
-          description="Crea tareas desde la vista de Lista o Tablero para verlas aqui."
+          title={t('table.emptyTitle')}
+          description={t('table.emptyDesc')}
         />
       </div>
     )
@@ -299,7 +304,7 @@ export function TaskTableView({
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border">
-        <table className={cn('w-full border-collapse', isCompact ? 'text-xs' : 'text-sm')}>
+        <table className={cn('min-w-full w-max border-collapse', isCompact ? 'text-xs' : 'text-sm')}>
           <thead>
             <tr className="border-b border-border bg-muted/40 text-muted-foreground">
               <th className="w-9 px-2 py-2 text-left">
@@ -307,15 +312,15 @@ export function TaskTableView({
                   type="checkbox"
                   checked={allSelected}
                   onChange={toggleAll}
-                  aria-label="Seleccionar todas"
+                  aria-label={t('table.selectAll')}
                   className="w-4 h-4 rounded border-input accent-primary cursor-pointer"
                 />
               </th>
-              <SortHeader label="Titulo" active={sortKey === 'title'} dir={sortDir} onClick={() => toggleSort('title')} className="min-w-[240px]" />
-              <SortHeader label="Estado" active={sortKey === 'status'} dir={sortDir} onClick={() => toggleSort('status')} />
-              <SortHeader label="Prioridad" active={sortKey === 'priority'} dir={sortDir} onClick={() => toggleSort('priority')} />
-              <SortHeader label="Asignados" active={sortKey === 'assignee'} dir={sortDir} onClick={() => toggleSort('assignee')} />
-              <SortHeader label="Fecha" active={sortKey === 'due_date'} dir={sortDir} onClick={() => toggleSort('due_date')} />
+              <SortHeader label={t('table.colTitle')} active={sortKey === 'title'} dir={sortDir} onClick={() => toggleSort('title')} className="min-w-[240px]" />
+              <SortHeader label={t('table.colStatus')} active={sortKey === 'status'} dir={sortDir} onClick={() => toggleSort('status')} />
+              <SortHeader label={t('table.colPriority')} active={sortKey === 'priority'} dir={sortDir} onClick={() => toggleSort('priority')} />
+              <SortHeader label={t('table.colAssignees')} active={sortKey === 'assignee'} dir={sortDir} onClick={() => toggleSort('assignee')} />
+              <SortHeader label={t('table.colDue')} active={sortKey === 'due_date'} dir={sortDir} onClick={() => toggleSort('due_date')} />
               {customFields.map(f => (
                 <SortHeader
                   key={f.id}
@@ -339,32 +344,32 @@ export function TaskTableView({
                     selectedIds.has(task.id) && 'bg-primary/5 hover:bg-primary/10',
                   )}
                 >
-                  <td className={cn('px-2 align-middle', cellY)}>
+                  <td className={cellCls}>
                     <input
                       type="checkbox"
                       checked={selectedIds.has(task.id)}
                       onChange={() => toggleSelect(task.id)}
-                      aria-label="Seleccionar tarea"
+                      aria-label={t('table.selectTask')}
                       className="w-4 h-4 rounded border-input accent-primary cursor-pointer"
                     />
                   </td>
 
                   {/* Titulo: abre el panel de detalle */}
-                  <td className={cn('px-2 align-middle', cellY)}>
+                  <td className={cellCls}>
                     <button
                       onClick={() => setSelectedTaskId(task.id)}
                       className={cn(
                         'text-left w-full truncate transition-colors',
                         isDone ? 'line-through text-muted-foreground' : 'text-foreground hover:text-primary',
                       )}
-                      title="Abrir tarea"
+                      title={t('table.openTask')}
                     >
                       {task.title}
                     </button>
                   </td>
 
                   {/* Estado (select inline) */}
-                  <td className={cn('px-2 align-middle', cellY)}>
+                  <td className={cellCls}>
                     <div className="flex items-center gap-1.5">
                       <span
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0"
@@ -374,9 +379,9 @@ export function TaskTableView({
                         value={task.status?.id ?? ''}
                         onChange={e => patchTask(task.id, { status_id: e.target.value || null })}
                         className="text-xs bg-transparent border border-transparent hover:border-border rounded px-1 py-0.5 outline-none focus:border-primary cursor-pointer text-foreground [&>option]:bg-background max-w-[130px]"
-                        aria-label="Estado"
+                        aria-label={t('table.colStatus')}
                       >
-                        <option value="">Sin estado</option>
+                        <option value="">{t('table.noStatus')}</option>
                         {statuses.map(s => (
                           <option key={s.id} value={s.id}>{s.name}</option>
                         ))}
@@ -385,24 +390,24 @@ export function TaskTableView({
                   </td>
 
                   {/* Prioridad (select inline) */}
-                  <td className={cn('px-2 align-middle', cellY)}>
+                  <td className={cellCls}>
                     <div className="flex items-center gap-1.5">
                       <prio.Icon className={cn('w-4 h-4 flex-shrink-0', prio.color)} />
                       <select
                         value={task.priority}
                         onChange={e => patchTask(task.id, { priority: e.target.value })}
                         className="text-xs bg-transparent border border-transparent hover:border-border rounded px-1 py-0.5 outline-none focus:border-primary cursor-pointer text-foreground [&>option]:bg-background"
-                        aria-label="Prioridad"
+                        aria-label={t('table.colPriority')}
                       >
                         {Object.entries(PRIORITY_META).map(([value, m]) => (
-                          <option key={value} value={value}>{m.label}</option>
+                          <option key={value} value={value}>{t(m.labelKey)}</option>
                         ))}
                       </select>
                     </div>
                   </td>
 
                   {/* Asignado (select inline, principal) */}
-                  <td className={cn('px-2 align-middle', cellY)}>
+                  <td className={cellCls}>
                     <div className="flex items-center gap-1.5">
                       <span className="w-5 h-5 rounded-full bg-muted overflow-hidden flex items-center justify-center flex-shrink-0">
                         {task.assignee?.avatar_url ? (
@@ -417,9 +422,9 @@ export function TaskTableView({
                         value={task.assignee?.id ?? ''}
                         onChange={e => patchTask(task.id, { assignee_id: e.target.value || null })}
                         className="text-xs bg-transparent border border-transparent hover:border-border rounded px-1 py-0.5 outline-none focus:border-primary cursor-pointer text-foreground [&>option]:bg-background max-w-[130px]"
-                        aria-label="Asignado"
+                        aria-label={t('bulk.assignee')}
                       >
-                        <option value="">Sin asignar</option>
+                        <option value="">{t('bulk.unassigned')}</option>
                         {members.map(m => (
                           <option key={m.id} value={m.id}>{m.display_name}</option>
                         ))}
@@ -428,19 +433,19 @@ export function TaskTableView({
                   </td>
 
                   {/* Fecha de vencimiento (date inline) */}
-                  <td className={cn('px-2 align-middle', cellY)}>
+                  <td className={cellCls}>
                     <input
                       type="date"
                       value={task.due_date ? String(task.due_date).slice(0, 10) : ''}
                       onChange={e => patchTask(task.id, { due_date: e.target.value ? new Date(e.target.value + 'T00:00:00').toISOString() : null })}
                       className="text-xs bg-transparent border border-transparent hover:border-border rounded px-1 py-0.5 outline-none focus:border-primary cursor-pointer text-foreground"
-                      aria-label="Fecha de vencimiento"
+                      aria-label={t('table.dueAria')}
                     />
                   </td>
 
                   {/* Campos personalizados (editables en linea) */}
                   {customFields.map(f => (
-                    <td key={f.id} className={cn('px-2 align-middle', cellY)}>
+                    <td key={f.id} className={cellCls}>
                       <CustomFieldCell
                         field={f}
                         value={customValues[task.id]?.[f.id]}
@@ -482,17 +487,18 @@ function SortHeader({
   onClick: () => void
   className?: string
 }) {
+  const t = useT()
   return (
-    <th className={cn('px-2 py-2 text-left font-medium', className)}>
+    <th className={cn('px-2 py-2 text-left font-medium whitespace-nowrap', className)}>
       <button
         onClick={onClick}
         className={cn(
           'inline-flex items-center gap-1 text-[11px] uppercase tracking-wide transition-colors',
           active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
         )}
-        title={`Ordenar por ${label}`}
+        title={`${t('table.sortByPrefix')} ${label}`}
       >
-        <span className="truncate max-w-[120px]">{label}</span>
+        <span className="truncate max-w-[160px]">{label}</span>
         {active ? (
           dir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
         ) : (
@@ -511,6 +517,7 @@ function CustomFieldCell({
   value: unknown
   onSave: (v: unknown) => void
 }) {
+  const t = useT()
   const base = 'w-full text-xs bg-transparent border border-transparent hover:border-border rounded px-1 py-0.5 outline-none focus:border-primary transition-colors text-foreground'
 
   switch (field.field_type) {
@@ -521,7 +528,7 @@ function CustomFieldCell({
           defaultValue={typeof value === 'string' ? value : ''}
           onBlur={e => { const v = e.target.value.trim(); onSave(v || null) }}
           className={cn(base, 'min-w-[100px]')}
-          placeholder="Vacio"
+          placeholder={t('table.empty')}
         />
       )
     case 'url':
@@ -585,7 +592,7 @@ function CustomFieldCell({
           className={cn(base, 'cursor-pointer [&>option]:bg-background')}
           aria-label={field.name}
         >
-          <option value="">Sin seleccionar</option>
+          <option value="">{t('table.noneSelected')}</option>
           {field.options.map(o => (
             <option key={o.id} value={o.id}>{o.label}</option>
           ))}
@@ -599,7 +606,7 @@ function CustomFieldCell({
       }
       return (
         <div className="flex flex-wrap gap-1 min-w-[120px]">
-          {field.options.length === 0 && <span className="text-[10px] text-muted-foreground">Sin opciones</span>}
+          {field.options.length === 0 && <span className="text-[10px] text-muted-foreground">{t('table.noOptions')}</span>}
           {field.options.map(o => {
             const on = selected.includes(o.id)
             return (

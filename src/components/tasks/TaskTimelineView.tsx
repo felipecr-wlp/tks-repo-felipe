@@ -19,10 +19,13 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronRightSmall,
-  GanttChartSquare, CalendarClock, AlertTriangle, CalendarOff,
+  GanttChartSquare, CalendarClock, AlertTriangle, CalendarOff, FileDown,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { TaskDetailPanel } from './TaskDetailPanel'
+import { useI18n } from '@/lib/i18n/LanguageProvider'
+import { exportGanttToPdf, type GanttExportGroup } from '@/lib/gantt-export'
 
 interface Status { id: string; name: string; color: string | null; category: string; position: number }
 interface Member { id: string; display_name: string; avatar_url: string | null }
@@ -44,6 +47,8 @@ interface TaskTimelineViewProps {
   statuses: Status[]
   members: Member[]
   currentUserId: string
+  projectName?: string
+  workspaceName?: string
 }
 
 const DAY_MS = 86_400_000
@@ -57,18 +62,18 @@ const PRIORITY_COLOR: Record<string, string> = {
 const CATEGORY_ORDER: Record<string, number> = {
   todo: 0, in_progress: 1, done: 2, cancelled: 3,
 }
-const CATEGORY_LABEL: Record<string, string> = {
-  todo: 'Por hacer', in_progress: 'En progreso',
-  done: 'Completadas', cancelled: 'Canceladas',
+const CATEGORY_LABEL_KEY: Record<string, string> = {
+  todo: 'status.catTodo', in_progress: 'status.catInProgress',
+  done: 'status.catDone', cancelled: 'status.catCancelled',
 }
 
 // Niveles de zoom. "Semana" y "Mes" usan columnas por dia (distinto ancho);
 // "Trimestre" agrupa en columnas por semana para que quepa el rango largo.
 type Zoom = 'semana' | 'mes' | 'trimestre'
-const ZOOM_CONFIG: Record<Zoom, { label: string; unit: 'day' | 'week'; colWidth: number; rangeDays: number }> = {
-  semana:    { label: 'Semana',    unit: 'day',  colWidth: 44, rangeDays: 14 },
-  mes:       { label: 'Mes',       unit: 'day',  colWidth: 26, rangeDays: 42 },
-  trimestre: { label: 'Trimestre', unit: 'week', colWidth: 30, rangeDays: 98 },
+const ZOOM_CONFIG: Record<Zoom, { labelKey: string; unit: 'day' | 'week'; colWidth: number; rangeDays: number }> = {
+  semana:    { labelKey: 'gantt.zoomWeek',    unit: 'day',  colWidth: 44, rangeDays: 14 },
+  mes:       { labelKey: 'gantt.zoomMonth',   unit: 'day',  colWidth: 26, rangeDays: 42 },
+  trimestre: { labelKey: 'gantt.zoomQuarter', unit: 'week', colWidth: 30, rangeDays: 98 },
 }
 
 const ROW_HEIGHT = 34   // alto de cada fila de tarea
@@ -94,14 +99,20 @@ function daysBetween(a: Date, b: Date): number { return Math.round((b.getTime() 
 
 interface DatedTask { task: Task; start: Date; end: Date }
 
-export function TaskTimelineView({ projectId, tasks, statuses, members, currentUserId }: TaskTimelineViewProps) {
+export function TaskTimelineView({ projectId, tasks, statuses, members, currentUserId, projectName, workspaceName }: TaskTimelineViewProps) {
   const router = useRouter()
+  const { t: tr, lang } = useI18n()
+  const locale = lang === 'en' ? 'en-US' : 'es-MX'
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [zoom, setZoom] = useState<Zoom>('mes')
   // Ancla del rango visible: inicio del periodo. Arranca en HOY menos un margen.
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()))
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [showUndated, setShowUndated] = useState(false)
+  // Modal de portada del PDF: nombre del cliente y direccion (editables).
+  const [exportOpen, setExportOpen] = useState(false)
+  const [clientName, setClientName] = useState('')
+  const [serviceAddress, setServiceAddress] = useState('')
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   useRealtimeRefresh({
@@ -166,7 +177,7 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
   }
 
   // Agrupar tareas con fecha por categoria de estado, ordenadas por inicio.
-  interface Group { key: string; label: string; items: DatedTask[] }
+  interface Group { key: string; labelKey: string; items: DatedTask[] }
   const groups = useMemo<Group[]>(() => {
     const byCat = new Map<string, DatedTask[]>()
     for (const d of dated) {
@@ -178,7 +189,7 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
     return Array.from(byCat.entries())
       .map(([key, items]) => ({
         key,
-        label: CATEGORY_LABEL[key] ?? key,
+        labelKey: CATEGORY_LABEL_KEY[key] ?? key,
         items: items.sort((a, b) => a.start.getTime() - b.start.getTime() || a.end.getTime() - b.end.getTime()),
       }))
       .sort((a, b) => (CATEGORY_ORDER[a.key] ?? 99) - (CATEGORY_ORDER[b.key] ?? 99))
@@ -200,7 +211,57 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
     setAnchor(a => addDays(a, dir * Math.round(totalDays / 2)))
   }
 
-  const rangeLabel = `${gridStart.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${gridEnd.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`
+  // ── Export PDF branded WLP (solo lectura; TODAS las tareas con fecha, no solo
+  // el rango visible en pantalla). El color de la barra respeta estado o prioridad.
+  function handleExportPdf() {
+    if (groups.length === 0 && undated.length === 0) {
+      toast.info(tr('gantt.pdfEmpty'))
+      return
+    }
+    const ymd = (dt: Date) =>
+      `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+    const exportGroups: GanttExportGroup[] = groups.map(g => ({
+      category: g.key,
+      label: tr(g.labelKey),
+      items: g.items.map(d => {
+        const t = d.task
+        const done = t.status?.category === 'done' || t.status?.category === 'cancelled'
+        const overdue = dueBucket(t.due_date, done) === 'overdue'
+        const priorityColor = PRIORITY_COLOR[t.priority] ?? PRIORITY_COLOR.none
+        // Prioridad de color de la barra: color de ETIQUETA/FASE (Phase 1, Phase 2...)
+        // si existe, luego el color del estado, luego el de prioridad. Asi el Gantt
+        // hereda los colores por fase que Karla ya ve en la lista (no sale todo gris).
+        const firstLabel = t.labels && t.labels.length > 0 ? t.labels[0] : undefined
+        const color = firstLabel?.color ?? t.status?.color ?? priorityColor
+        return {
+          title: t.title,
+          assignee: t.assignee?.display_name ?? null,
+          priority: t.priority,
+          color,
+          start: ymd(d.start),
+          end: ymd(d.end),
+          done,
+          overdue,
+          label: firstLabel ? { name: firstLabel.name, color: firstLabel.color } : undefined,
+        }
+      }),
+    }))
+    // El PDF SIEMPRE se genera en ingles (entregable de cara al cliente).
+    exportGanttToPdf({
+      documentTitle: 'Project Schedule',
+      title: projectName ?? '',
+      subtitle: workspaceName ?? '',
+      groups: exportGroups,
+      undated: undated.map(t => ({ title: t.title })),
+      cover: {
+        clientName: clientName.trim(),
+        serviceAddress: serviceAddress.trim(),
+      },
+    })
+    setExportOpen(false)
+  }
+
+  const rangeLabel = `${gridStart.toLocaleDateString(locale, { day: 'numeric', month: 'short' })} - ${gridEnd.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}`
   const todayOffset = daysBetween(gridStart, today)
   const todayInRange = todayOffset >= 0 && todayOffset < totalDays
   const todayLinePx = todayOffset * pxPerDay + pxPerDay / 2
@@ -241,7 +302,7 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
                 }`}
                 aria-pressed={zoom === z}
               >
-                {ZOOM_CONFIG[z].label}
+                {tr(ZOOM_CONFIG[z].labelKey)}
               </button>
             ))}
           </div>
@@ -251,7 +312,7 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
             <button
               onClick={() => shiftRange(-1)}
               className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Rango anterior"
+              aria-label={tr('gantt.prevRange')}
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -259,27 +320,106 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
               onClick={() => setAnchor(startOfDay(new Date()))}
               className="text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
-              Hoy
+              {tr('gantt.today')}
             </button>
             <button
               onClick={() => shiftRange(1)}
               className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Rango siguiente"
+              aria-label={tr('gantt.nextRange')}
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
+
+          {/* Export PDF branded WLP: abre modal para la portada del cliente */}
+          <button
+            onClick={() => {
+              if (groups.length === 0 && undated.length === 0) {
+                toast.info(tr('gantt.pdfEmpty'))
+                return
+              }
+              setExportOpen(true)
+            }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title={tr('gantt.exportPdfTitle')}
+          >
+            <FileDown className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{tr('gantt.exportPdf')}</span>
+          </button>
         </div>
       </div>
+
+      {/* Modal de portada del PDF (nombre del cliente + direccion, editables) */}
+      {exportOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setExportOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-border bg-background shadow-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2.5 px-5 pt-5 pb-1">
+              <div className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-primary/15 text-primary">
+                <FileDown className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">{tr('gantt.pdfCoverTitle')}</h3>
+                <p className="text-xs text-muted-foreground">{tr('gantt.pdfCoverHint')}</p>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              <label className="block">
+                <span className="text-xs font-medium text-foreground">{tr('gantt.pdfClientName')}</span>
+                <input
+                  autoFocus
+                  value={clientName}
+                  onChange={e => setClientName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleExportPdf() }}
+                  placeholder={tr('gantt.pdfClientPlaceholder')}
+                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-foreground">{tr('gantt.pdfServiceAddress')}</span>
+                <input
+                  value={serviceAddress}
+                  onChange={e => setServiceAddress(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleExportPdf() }}
+                  placeholder={tr('gantt.pdfAddressPlaceholder')}
+                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-5 pb-5">
+              <button
+                onClick={() => setExportOpen(false)}
+                className="px-3 py-1.5 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                {tr('common.cancel')}
+              </button>
+              <button
+                onClick={handleExportPdf}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+              >
+                <FileDown className="w-3.5 h-3.5" />
+                {tr('gantt.pdfGenerate')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {tasks.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-dashed border-border p-10 text-center">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted text-muted-foreground mb-3">
             <GanttChartSquare className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-medium text-foreground mb-1">Sin tareas en el cronograma</h3>
+          <h3 className="text-sm font-medium text-foreground mb-1">{tr('timeline.empty')}</h3>
           <p className="text-sm text-muted-foreground">
-            Crea tareas con fecha de inicio o de vencimiento desde la vista Lista o Tablero y aparecerán aquí.
+            {tr('timeline.emptyHint')}
           </p>
         </div>
       ) : (
@@ -293,7 +433,7 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
                   className="sticky left-0 z-30 bg-background border-r border-border flex items-center px-3 text-[11px] font-medium text-muted-foreground"
                   style={{ width: LEFT_WIDTH, minWidth: LEFT_WIDTH }}
                 >
-                  Tarea
+                  {tr('timeline.taskHeader')}
                 </div>
                 <div className="relative" style={{ width: gridWidth }}>
                   <div className="flex">
@@ -313,7 +453,7 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
                           {cfg.unit === 'day' ? (
                             <>
                               <div className="text-[10px] leading-none text-muted-foreground/70 uppercase">
-                                {col.date.toLocaleDateString('es-MX', { weekday: 'narrow' })}
+                                {col.date.toLocaleDateString(locale, { weekday: 'narrow' })}
                               </div>
                               <div className={`text-[11px] leading-tight mt-0.5 ${
                                 isTodayCol ? 'text-primary font-semibold' : 'text-foreground'
@@ -325,7 +465,7 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
                             <div className={`text-[11px] leading-tight ${
                               isTodayCol ? 'text-primary font-semibold' : 'text-foreground'
                             }`}>
-                              {col.date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                              {col.date.toLocaleDateString(locale, { day: 'numeric', month: 'short' })}
                             </div>
                           )}
                         </div>
@@ -360,7 +500,7 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
                         {isCollapsed
                           ? <ChevronRightSmall className="w-3.5 h-3.5 text-muted-foreground" />
                           : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
-                        <span className="sticky left-8">{group.label}</span>
+                        <span className="sticky left-8">{tr(group.labelKey)}</span>
                         <span className="text-muted-foreground font-normal tabular-nums">{group.items.length}</span>
                       </button>
 
@@ -460,7 +600,7 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
                   ? <ChevronDown className="w-3.5 h-3.5" />
                   : <ChevronRightSmall className="w-3.5 h-3.5" />}
                 <CalendarOff className="w-3.5 h-3.5" />
-                <span>Sin fechas</span>
+                <span>{tr('gantt.undated')}</span>
                 <span className="tabular-nums">{undated.length}</span>
               </button>
               {showUndated && (

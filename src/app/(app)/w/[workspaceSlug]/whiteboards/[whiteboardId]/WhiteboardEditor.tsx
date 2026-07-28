@@ -15,17 +15,23 @@ import { confirmDialog } from '@/components/ConfirmDialog'
 import '@excalidraw/excalidraw/index.css'
 import { createClient } from '@/lib/supabase/client'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 // Excalidraw es muy pesado (~1MB), siempre lazy + ssr off
+function WhiteboardLoading() {
+  const t = useT()
+  return (
+    <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+      {t('wb.loading')}
+    </div>
+  )
+}
+
 const Excalidraw = dynamic(
   () => import('@excalidraw/excalidraw').then(m => m.Excalidraw),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-        Cargando pizarra...
-      </div>
-    ),
+    loading: () => <WhiteboardLoading />,
   }
 )
 
@@ -66,6 +72,7 @@ interface Viewer {
 
 export function WhiteboardEditor({ initial, currentUserId, currentUserName, workspaceSlug, canManage }: Props) {
   const router = useRouter()
+  const t = useT()
   const [title, setTitle] = useState(initial.title)
   const [updatedAt, setUpdatedAt] = useState(initial.updated_at)
   const [saving, setSaving] = useState(false)
@@ -117,21 +124,21 @@ export function WhiteboardEditor({ initial, currentUserId, currentUserName, work
       const j = await res.json()
       setUpdatedAt(j.updated_at)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al guardar')
+      toast.error(err instanceof Error ? err.message : t('wb.saveError'))
     } finally {
       setSaving(false)
     }
-  }, [initial.id])
+  }, [initial.id, t])
 
   // Auto-save título debounced
   useEffect(() => {
     if (title === initial.title) return
     if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current)
     titleSaveTimer.current = setTimeout(() => {
-      patch({ title: title.trim() || 'Pizarra sin título' })
+      patch({ title: title.trim() || t('wb.untitled') })
     }, 800)
     return () => { if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current) }
-  }, [title, initial.title, patch])
+  }, [title, initial.title, patch, t])
 
   // Save canvas con debounce 1.5s al cambiar
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -251,7 +258,7 @@ export function WhiteboardEditor({ initial, currentUserId, currentUserName, work
   }, [initial.id, currentUserId, currentUserName])
 
   async function handleDelete() {
-    if (!(await confirmDialog({ message: '¿Eliminar esta pizarra? No se puede deshacer.', destructive: true, confirmLabel: 'Eliminar' }))) return
+    if (!(await confirmDialog({ message: t('wb.confirmDelete'), destructive: true, confirmLabel: t('common.delete') }))) return
     setDeleting(true)
     try {
       const res = await fetch(`/api/whiteboards/${initial.id}`, { method: 'DELETE' })
@@ -259,10 +266,10 @@ export function WhiteboardEditor({ initial, currentUserId, currentUserName, work
         const j = await res.json().catch(() => ({}))
         throw new Error(j.error ?? 'Error')
       }
-      toast.success('Pizarra eliminada')
+      toast.success(t('wb.deleted'))
       router.push(`/w/${workspaceSlug}/whiteboards`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al eliminar')
+      toast.error(err instanceof Error ? err.message : t('wb.deleteError'))
       setDeleting(false)
     }
   }
@@ -279,13 +286,13 @@ export function WhiteboardEditor({ initial, currentUserId, currentUserName, work
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <polyline points="7.5 9 4.5 6 7.5 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            Pizarras
+            {t('wb.title')}
           </Link>
           <span className="text-muted-foreground/50">/</span>
           <input
             value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder="Pizarra sin título"
+            placeholder={t('wb.untitled')}
             className="text-sm font-medium text-foreground bg-transparent outline-none border-0 flex-1 min-w-0"
           />
         </div>
@@ -293,7 +300,7 @@ export function WhiteboardEditor({ initial, currentUserId, currentUserName, work
         <div className="flex items-center gap-2 flex-shrink-0">
           {/* Presencia: quién más está viendo la pizarra en vivo */}
           {viewers.length > 0 && (
-            <div className="flex items-center -space-x-1.5 mr-1" title={`Viendo ahora: ${viewers.map(v => v.name).join(', ')}`}>
+            <div className="flex items-center -space-x-1.5 mr-1" title={`${t('wb.viewingNow')} ${viewers.map(v => v.name).join(', ')}`}>
               {viewers.slice(0, 3).map(v => (
                 <span
                   key={v.userId}
@@ -313,12 +320,12 @@ export function WhiteboardEditor({ initial, currentUserId, currentUserName, work
           {saving && (
             <span className="text-xs text-muted-foreground flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 border border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
-              Guardando…
+              {t('wb.saving')}
             </span>
           )}
           {!saving && (
             <span className="text-xs text-muted-foreground hidden md:inline">
-              Guardado {timeAgo(updatedAt)}
+              {t('wb.savedPrefix')} {timeAgo(updatedAt)}
             </span>
           )}
 
@@ -326,7 +333,7 @@ export function WhiteboardEditor({ initial, currentUserId, currentUserName, work
             <button
               onClick={handleDelete}
               disabled={deleting}
-              title="Eliminar pizarra"
+              title={t('wb.deleteBoard')}
               className={cn(
                 'p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors disabled:opacity-50'
               )}

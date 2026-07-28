@@ -9,6 +9,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { autoWatch } from '@/lib/watchers'
 import { logActivity, ActivityVerbs, NotificationTypes, notifyTaskWatchers } from '@/lib/activity'
+import { canAccessProject } from '@/lib/team-access'
 
 export async function GET(
   request: NextRequest,
@@ -32,13 +33,8 @@ export async function GET(
     .maybeSingle() as { data: TaskCheck | null; error: unknown }
   if (!task) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
 
-  const { data: membership } = await admin
-    .from('project_members')
-    .select('role')
-    .eq('project_id', task.project_id)
-    .eq('profile_id', user.id)
-    .maybeSingle() as { data: { role: string } | null; error: unknown }
-  if (!membership) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
+  const { ok: canAccess } = await canAccessProject(admin, task.project_id, user.id)
+  if (!canAccess) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
   type CommentRow = {
     id: string
@@ -118,13 +114,8 @@ export async function POST(
     .maybeSingle() as { data: TaskCheck | null; error: unknown }
   if (!task) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
 
-  const { data: membership } = await admin
-    .from('project_members')
-    .select('role')
-    .eq('project_id', task.project_id)
-    .eq('profile_id', user.id)
-    .maybeSingle() as { data: { role: string } | null; error: unknown }
-  if (!membership) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
+  const { ok: canAccess } = await canAccessProject(admin, task.project_id, user.id)
+  if (!canAccess) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
   type RawCommentResult = {
     id: string

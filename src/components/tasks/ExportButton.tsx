@@ -15,6 +15,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Download, Loader2 } from 'lucide-react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface ExportButtonProps {
   projectId: string
@@ -22,6 +23,7 @@ interface ExportButtonProps {
 }
 
 export default function ExportButton({ projectId, className }: ExportButtonProps) {
+  const t = useT()
   const [loading, setLoading] = useState(false)
 
   async function handleExport() {
@@ -33,7 +35,7 @@ export default function ExportButton({ projectId, className }: ExportButtonProps
         headers: { Accept: 'text/csv' },
       })
       if (!res.ok) {
-        let message = 'No se pudo exportar el CSV'
+        let message = t('csv.exportFail')
         try {
           const data = await res.json()
           if (data?.error) message = data.error
@@ -47,7 +49,7 @@ export default function ExportButton({ projectId, className }: ExportButtonProps
       const blob = await res.blob()
 
       // Derivar el filename del header si el servidor lo mando.
-      let filename = 'tareas.csv'
+      let filename = t('csv.filename')
       const disposition = res.headers.get('Content-Disposition')
       const match = disposition?.match(/filename="?([^"]+)"?/i)
       if (match?.[1]) filename = match[1]
@@ -61,10 +63,10 @@ export default function ExportButton({ projectId, className }: ExportButtonProps
       link.remove()
       URL.revokeObjectURL(url)
 
-      toast.success('CSV exportado')
+      toast.success(t('csv.exported'))
     } catch (err) {
       console.error('[ExportButton] export error:', err)
-      toast.error('Error al exportar el CSV')
+      toast.error(t('csv.exportError'))
     } finally {
       setLoading(false)
     }
@@ -75,7 +77,7 @@ export default function ExportButton({ projectId, className }: ExportButtonProps
       type="button"
       onClick={handleExport}
       disabled={loading}
-      title="Exportar tareas como CSV"
+      title={t('csv.exportTitle')}
       className={
         className ??
         'inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
@@ -86,7 +88,7 @@ export default function ExportButton({ projectId, className }: ExportButtonProps
       ) : (
         <Download className="h-4 w-4" />
       )}
-      <span>Exportar CSV</span>
+      <span>{t('csv.exportBtn')}</span>
     </button>
   )
 }

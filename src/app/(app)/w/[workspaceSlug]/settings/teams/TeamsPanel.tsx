@@ -15,6 +15,7 @@ import { getInitials } from '@/lib/utils'
 import { UsersRound, Plus, Pencil, Check, X, ChevronDown, ChevronRight, UserPlus, Archive, ArchiveRestore, Lock, Building2 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Team {
   id: string
@@ -59,6 +60,7 @@ export function TeamsPanel({
   initialTeams: Team[]
   departments: Department[]
 }) {
+  const tr = useT()
   const router = useRouter()
   const [teams, setTeams] = useState<Team[]>(initialTeams)
   const deptById = new Map(departments.map((d) => [d.id, d]))
@@ -81,7 +83,7 @@ export function TeamsPanel({
   async function saveName(t: Team) {
     const name = draftName.trim()
     if (name.length < 2) {
-      toast.error('El nombre debe tener al menos 2 caracteres')
+      toast.error(tr('teamp.nameMin2'))
       return
     }
     setBusy(t.id)
@@ -92,12 +94,12 @@ export function TeamsPanel({
         body: JSON.stringify({ name }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error al guardar')
-      toast.success('Equipo actualizado')
+      if (!res.ok) throw new Error(data.error ?? tr('teamp.saveError'))
+      toast.success(tr('teamp.updated'))
       setTeams((prev) => prev.map((x) => (x.id === t.id ? { ...x, name } : x)))
       setEditing(null)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : tr('common.unknownError'))
     } finally {
       setBusy(null)
     }
@@ -112,10 +114,10 @@ export function TeamsPanel({
         body: JSON.stringify({ methodology }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error al guardar')
+      if (!res.ok) throw new Error(data.error ?? tr('teamp.saveError'))
       setTeams((prev) => prev.map((x) => (x.id === t.id ? { ...x, methodology } : x)))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : tr('common.unknownError'))
     } finally {
       setBusy(null)
     }
@@ -131,12 +133,12 @@ export function TeamsPanel({
         body: JSON.stringify({ space_id }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error al mover de departamento')
+      if (!res.ok) throw new Error(data.error ?? tr('teamp.deptMoveError'))
       setTeams((prev) => prev.map((x) => (x.id === t.id ? { ...x, space_id } : x)))
-      toast.success('Departamento actualizado')
+      toast.success(tr('teamp.deptUpdated'))
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : tr('common.unknownError'))
     } finally {
       setBusy(null)
     }
@@ -152,12 +154,12 @@ export function TeamsPanel({
         body: JSON.stringify({ is_archived: next }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error al actualizar')
+      if (!res.ok) throw new Error(data.error ?? tr('teamp.updateError'))
       setTeams((prev) => prev.map((x) => (x.id === t.id ? { ...x, is_archived: next } : x)))
-      toast.success(next ? 'Equipo desactivado' : 'Equipo activado')
+      toast.success(next ? tr('teamp.deactivated') : tr('teamp.activated'))
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : tr('common.unknownError'))
     } finally {
       setBusy(null)
     }
@@ -166,9 +168,9 @@ export function TeamsPanel({
   async function removeTeam(t: Team) {
     if (
       !(await confirmDialog({
-        message: `¿Eliminar el equipo ${t.name}? Se perderá su configuración. Los proyectos asociados pueden verse afectados.`,
+        message: `${tr('teamp.deleteConfirmPrefix')} ${t.name}${tr('teamp.deleteConfirmSuffix')}`,
         destructive: true,
-        confirmLabel: 'Eliminar',
+        confirmLabel: tr('common.delete'),
       }))
     )
       return
@@ -177,13 +179,13 @@ export function TeamsPanel({
       const res = await fetch(`/api/teams/${t.id}`, { method: 'DELETE' })
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error ?? 'Error al eliminar')
+        throw new Error(data.error ?? tr('teamp.deleteError'))
       }
-      toast.success('Equipo eliminado')
+      toast.success(tr('teamp.deleted'))
       setTeams((prev) => prev.filter((x) => x.id !== t.id))
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : tr('common.unknownError'))
     } finally {
       setBusy(null)
     }
@@ -221,10 +223,10 @@ export function TeamsPanel({
       try {
         const res = await fetch(`/api/teams/${t.id}/members`)
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? 'Error al cargar miembros')
+        if (!res.ok) throw new Error(data.error ?? tr('teamp.loadMembersError'))
         setMembersByTeam((prev) => ({ ...prev, [t.id]: data.members ?? [] }))
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Error al cargar miembros')
+        toast.error(err instanceof Error ? err.message : tr('teamp.loadMembersError'))
       } finally {
         setLoadingMembers(null)
       }
@@ -246,7 +248,7 @@ export function TeamsPanel({
         body: JSON.stringify({ profile_id: profileId, role: 'member' }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error al agregar')
+      if (!res.ok) throw new Error(data.error ?? tr('teamp.addError'))
       const person = (wsPool ?? []).find((p) => p.profile_id === profileId)
       if (person) {
         const newMember: TeamMember = { ...person, role: 'member' }
@@ -254,9 +256,9 @@ export function TeamsPanel({
         bumpCount(t.id, 1)
       }
       setAddSelection((prev) => ({ ...prev, [t.id]: '' }))
-      toast.success('Miembro agregado')
+      toast.success(tr('teamp.memberAdded'))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : tr('common.unknownError'))
     } finally {
       setBusy(null)
     }
@@ -271,13 +273,13 @@ export function TeamsPanel({
         body: JSON.stringify({ role }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error al actualizar')
+      if (!res.ok) throw new Error(data.error ?? tr('teamp.updateError'))
       setMembersByTeam((prev) => ({
         ...prev,
         [t.id]: (prev[t.id] ?? []).map((m) => (m.profile_id === profileId ? { ...m, role } : m)),
       }))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : tr('common.unknownError'))
     } finally {
       setBusy(null)
     }
@@ -286,9 +288,9 @@ export function TeamsPanel({
   async function removeMember(t: Team, m: TeamMember) {
     if (
       !(await confirmDialog({
-        message: `¿Quitar a ${m.display_name} del equipo ${t.name}?`,
+        message: `${tr('teamp.removeConfirmPrefix')} ${m.display_name} ${tr('teamp.removeConfirmMid')} ${t.name}${tr('teamp.removeConfirmSuffix')}`,
         destructive: true,
-        confirmLabel: 'Quitar',
+        confirmLabel: tr('teamp.remove'),
       }))
     )
       return
@@ -297,16 +299,16 @@ export function TeamsPanel({
       const res = await fetch(`/api/teams/${t.id}/members/${m.profile_id}`, { method: 'DELETE' })
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error ?? 'Error al quitar')
+        throw new Error(data.error ?? tr('teamp.removeMemberError'))
       }
       setMembersByTeam((prev) => ({
         ...prev,
         [t.id]: (prev[t.id] ?? []).filter((x) => x.profile_id !== m.profile_id),
       }))
       bumpCount(t.id, -1)
-      toast.success('Miembro quitado')
+      toast.success(tr('teamp.memberRemoved'))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : tr('common.unknownError'))
     } finally {
       setBusy(null)
     }
@@ -330,7 +332,7 @@ export function TeamsPanel({
       idxByKey.set(key, idx)
       groups.push({
         key,
-        label: dept ? dept.name : 'Sin departamento',
+        label: dept ? dept.name : tr('teamp.noDepartment'),
         is_restricted: dept?.is_restricted ?? false,
         hasDept: !!dept,
         items: [],
@@ -353,8 +355,8 @@ export function TeamsPanel({
                   <button
                     onClick={() => toggleMembers(t)}
                     className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted flex items-center justify-center hover:bg-accent"
-                    title={isOpen ? 'Ocultar miembros' : 'Gestionar miembros'}
-                    aria-label={isOpen ? 'Ocultar miembros' : 'Gestionar miembros'}
+                    title={isOpen ? tr('teamp.hideMembers') : tr('teamp.manageMembers')}
+                    aria-label={isOpen ? tr('teamp.hideMembers') : tr('teamp.manageMembers')}
                   >
                     {isOpen ? (
                       <ChevronDown size={15} className="text-muted-foreground" />
@@ -381,14 +383,14 @@ export function TeamsPanel({
                           onClick={() => saveName(t)}
                           disabled={busy === t.id}
                           className="p-1 text-primary hover:bg-accent rounded"
-                          title="Guardar"
+                          title={tr('common.save')}
                         >
                           <Check size={15} />
                         </button>
                         <button
                           onClick={() => setEditing(null)}
                           className="p-1 text-muted-foreground hover:bg-accent rounded"
-                          title="Cancelar"
+                          title={tr('common.cancel')}
                         >
                           <X size={15} />
                         </button>
@@ -403,20 +405,20 @@ export function TeamsPanel({
                         </button>
                         {t.is_archived && (
                           <span className="flex-shrink-0 text-[10px] font-normal px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                            Inactivo
+                            {tr('teamp.inactive')}
                           </span>
                         )}
                         <button
                           onClick={() => startEdit(t)}
                           className="p-0.5 text-muted-foreground hover:text-foreground"
-                          title="Renombrar"
+                          title={tr('teamp.rename')}
                         >
                           <Pencil size={12} />
                         </button>
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {t.member_count} {t.member_count === 1 ? 'miembro' : 'miembros'} · /{t.slug}
+                      {t.member_count} {t.member_count === 1 ? tr('teamp.memberOne') : tr('teamp.memberMany')} · /{t.slug}
                     </p>
                   </div>
 
@@ -424,13 +426,13 @@ export function TeamsPanel({
                     value={t.space_id ?? ''}
                     onChange={(e) => changeDepartment(t, e.target.value)}
                     disabled={busy === t.id}
-                    title="Departamento del equipo"
+                    title={tr('teamp.deptOfTeam')}
                     className="px-2 py-1 text-sm border border-input rounded-lg bg-background disabled:opacity-50 max-w-[10rem]"
                   >
-                    <option value="">Sin departamento</option>
+                    <option value="">{tr('teamp.noDepartment')}</option>
                     {departments.map((d) => (
                       <option key={d.id} value={d.id}>
-                        {d.name}{d.is_restricted ? ' (restringido)' : ''}
+                        {d.name}{d.is_restricted ? tr('teamp.restrictedSuffix') : ''}
                       </option>
                     ))}
                   </select>
@@ -448,12 +450,12 @@ export function TeamsPanel({
                   <button
                     onClick={() => toggleArchived(t)}
                     disabled={busy === t.id}
-                    title={t.is_archived ? 'Activar equipo' : 'Desactivar equipo'}
-                    aria-label={t.is_archived ? 'Activar equipo' : 'Desactivar equipo'}
+                    title={t.is_archived ? tr('teamp.activateTeam') : tr('teamp.deactivateTeam')}
+                    aria-label={t.is_archived ? tr('teamp.activateTeam') : tr('teamp.deactivateTeam')}
                     className="inline-flex items-center gap-1 text-xs px-2 py-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded disabled:opacity-40"
                   >
                     {t.is_archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
-                    {t.is_archived ? 'Activar' : 'Desactivar'}
+                    {t.is_archived ? tr('teamp.activate') : tr('teamp.deactivate')}
                   </button>
 
                   <button
@@ -461,14 +463,14 @@ export function TeamsPanel({
                     disabled={busy === t.id}
                     className="text-xs px-2 py-1 text-destructive hover:bg-destructive/10 rounded disabled:opacity-40"
                   >
-                    Eliminar
+                    {tr('common.delete')}
                   </button>
                 </div>
 
                 {isOpen && (
                   <div className="px-4 pb-4 pl-14 bg-muted/20 border-t border-border">
                     {loadingMembers === t.id ? (
-                      <div className="space-y-2 pt-3" aria-label="Cargando miembros">
+                      <div className="space-y-2 pt-3" aria-label={tr('dept.loadingMembers')}>
                         {Array.from({ length: 3 }).map((_, i) => (
                           <div key={i} className="flex items-center gap-2.5">
                             <Skeleton className="h-7 w-7 rounded-full flex-shrink-0" />
@@ -479,7 +481,7 @@ export function TeamsPanel({
                     ) : (
                       <div className="space-y-2 pt-3">
                         {members.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">Este equipo no tiene miembros.</p>
+                          <p className="text-sm text-muted-foreground">{tr('teamp.noMembers')}</p>
                         ) : (
                           members.map((m) => (
                             <div key={m.profile_id} className="flex items-center gap-2.5">
@@ -508,15 +510,15 @@ export function TeamsPanel({
                                 disabled={busy === t.id}
                                 className="px-2 py-1 text-xs border border-input rounded-lg bg-background capitalize disabled:opacity-50"
                               >
-                                <option value="admin">Admin</option>
-                                <option value="member">Miembro</option>
+                                <option value="admin">{tr('teamp.roleAdmin')}</option>
+                                <option value="member">{tr('teamp.roleMember')}</option>
                               </select>
                               <button
                                 onClick={() => removeMember(t, m)}
                                 disabled={busy === t.id}
                                 className="text-xs px-2 py-1 text-destructive hover:bg-destructive/10 rounded disabled:opacity-40"
                               >
-                                Quitar
+                                {tr('teamp.remove')}
                               </button>
                             </div>
                           ))
@@ -532,7 +534,7 @@ export function TeamsPanel({
                             className="flex-1 px-2 py-1 text-sm border border-input rounded-lg bg-background disabled:opacity-50"
                           >
                             <option value="">
-                              {pool.length === 0 ? 'Todos ya están en el equipo' : 'Agregar persona…'}
+                              {pool.length === 0 ? tr('teamp.allInTeam') : tr('teamp.addPerson')}
                             </option>
                             {pool.map((p) => (
                               <option key={p.profile_id} value={p.profile_id}>
@@ -545,7 +547,7 @@ export function TeamsPanel({
                             disabled={busy === t.id || !addSelection[t.id]}
                             className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary text-primary-foreground text-xs rounded-lg hover:bg-primary/90 disabled:opacity-40"
                           >
-                            <Plus size={13} /> Agregar
+                            <Plus size={13} /> {tr('teamp.add')}
                           </button>
                         </div>
                       </div>
@@ -560,27 +562,27 @@ export function TeamsPanel({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {teams.length} {teams.length === 1 ? 'equipo' : 'equipos'} en el workspace.
+          {teams.length} {teams.length === 1 ? tr('teamp.countOne') : tr('teamp.countMany')} {tr('teamp.countSuffix')}
         </p>
         <Link
           href={`/w/${workspaceSlug}/teams/new`}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90"
         >
-          <Plus size={14} /> Nuevo equipo
+          <Plus size={14} /> {tr('teamp.newTeam')}
         </Link>
       </div>
 
       {teams.length === 0 ? (
         <EmptyState
           icon={<UsersRound className="h-5 w-5" />}
-          title="Aún no hay equipos"
-          description="Crea un equipo para agrupar personas por proyecto o metodología de trabajo."
+          title={tr('teamp.emptyTitle')}
+          description={tr('teamp.emptyDesc')}
           action={
             <Link
               href={`/w/${workspaceSlug}/teams/new`}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90"
             >
-              <Plus size={14} /> Nuevo equipo
+              <Plus size={14} /> {tr('teamp.newTeam')}
             </Link>
           }
         />
@@ -603,7 +605,7 @@ export function TeamsPanel({
                 </h3>
                 {g.is_restricted && (
                   <span className="text-[10px] font-normal px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
-                    Aislado
+                    {tr('teamp.isolated')}
                   </span>
                 )}
                 <span className="text-[11px] text-muted-foreground/60">

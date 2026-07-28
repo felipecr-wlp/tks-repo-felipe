@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { timeAgo } from '@/lib/utils'
 import { NewWhiteboardButton } from './NewWhiteboardButton'
+import { getServerT } from '@/lib/i18n/server'
 
 interface PageProps {
   params: { workspaceSlug: string }
@@ -56,14 +57,15 @@ export default async function WhiteboardsPage({ params }: PageProps) {
     .limit(100) as { data: BoardRow[] | null; error: unknown }
 
   const boards = rawBoards ?? []
+  const t = getServerT()
 
   return (
     <div className="px-8 py-10 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground tracking-tight">Pizarras</h1>
+          <h1 className="text-2xl font-semibold text-foreground tracking-tight">{t('wb.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Diagramas, brainstorms y bocetos visuales en {workspace.name}
+            {t('wb.subtitlePrefix')} {workspace.name}
           </p>
         </div>
         <NewWhiteboardButton workspaceId={workspace.id} workspaceSlug={params.workspaceSlug} />
@@ -77,9 +79,9 @@ export default async function WhiteboardsPage({ params }: PageProps) {
               <path d="M7 21h10M9 17v4M15 17v4" />
             </svg>
           </div>
-          <h3 className="text-sm font-semibold text-foreground mb-1">Aún no hay pizarras</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-1">{t('wb.emptyTitle')}</h3>
           <p className="text-sm text-muted-foreground mb-5">
-            Crea diagramas, mapas mentales o bocetos colaborativos.
+            {t('wb.emptyBody')}
           </p>
         </div>
       ) : (
@@ -99,15 +101,15 @@ export default async function WhiteboardsPage({ params }: PageProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                    {b.title || 'Sin título'}
+                    {b.title || t('search.untitled')}
                   </h3>
                   <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                    {b.author?.display_name ?? 'Usuario'}
+                    {b.author?.display_name ?? t('act.user')}
                   </p>
                 </div>
               </div>
               <p className="text-[11px] text-muted-foreground mt-auto">
-                Actualizada {timeAgo(b.updated_at)}
+                {t('wb.updatedPrefix')} {timeAgo(b.updated_at)}
               </p>
             </Link>
           ))}

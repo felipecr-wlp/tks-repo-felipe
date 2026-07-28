@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { Globe, Users, Folder, Lock, ChevronDown, Check, AlertTriangle, RotateCw, Loader2, FileDown } from 'lucide-react'
 import { cn, timeAgo } from '@/lib/utils'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { NoteIcon, NOTE_ICONS, normalizeNoteIconKey } from '@/lib/note-icons'
 import { NotesActionsBar } from '../NotesActionsBar'
 import { NoteComments } from './NoteComments'
@@ -23,13 +24,16 @@ import { SopAcknowledge } from './SopAcknowledge'
 import { SopCompliance } from './SopCompliance'
 import { SopApproval } from './SopApproval'
 
+function EditorLoading() {
+  const tr = useT()
+  return <div className="text-sm text-muted-foreground py-4">{tr('note.edLoadingEditor')}</div>
+}
+
 const RichTextEditor = dynamic(
   () => import('@/components/editor/RichTextEditor').then(m => m.RichTextEditor),
   {
     ssr: false,
-    loading: () => (
-      <div className="text-sm text-muted-foreground py-4">Cargando editor...</div>
-    ),
+    loading: () => <EditorLoading />,
   }
 )
 
@@ -65,10 +69,10 @@ interface NoteEditorProps {
 }
 
 const VISIBILITY_OPTIONS = [
-  { value: 'workspace', label: 'Workspace', Icon: Globe,  description: 'Visible para todos en el workspace' },
-  { value: 'team',      label: 'Equipo',    Icon: Users,  description: 'Visible para el equipo' },
-  { value: 'project',   label: 'Proyecto',  Icon: Folder, description: 'Visible para el proyecto' },
-  { value: 'private',   label: 'Privada',   Icon: Lock,   description: 'Solo tú la puedes ver' },
+  { value: 'workspace', labelKey: 'note.edVisWorkspace', Icon: Globe,  descKey: 'note.edVisWorkspaceDesc' },
+  { value: 'team',      labelKey: 'note.edVisTeam',      Icon: Users,  descKey: 'note.edVisTeamDesc' },
+  { value: 'project',   labelKey: 'note.edVisProject',   Icon: Folder, descKey: 'note.edVisProjectDesc' },
+  { value: 'private',   labelKey: 'note.edVisPrivate',   Icon: Lock,   descKey: 'note.edVisPrivateDesc' },
 ] as const
 
 
@@ -77,6 +81,7 @@ export function NoteEditor({
   workspaceSlug, workspaceId, canManage, breadcrumbs, childNotes,
 }: NoteEditorProps) {
   const router = useRouter()
+  const tr = useT()
   const [title, setTitle] = useState(initial.title)
   const [icon, setIcon] = useState(normalizeNoteIconKey(initial.icon))
   const [visibility, setVisibility] = useState(initial.visibility)
@@ -103,7 +108,7 @@ export function NoteEditor({
       })
       if (!res.ok) {
         const json = await res.json().catch(() => ({}))
-        throw new Error(json.error ?? 'Error al guardar')
+        throw new Error(json.error ?? tr('note.edSaveError'))
       }
       const json = await res.json()
       setUpdatedAt(json.updated_at)
@@ -114,9 +119,9 @@ export function NoteEditor({
       // (visible y con botón de reintento), en vez de solo un toast efímero.
       lastFailedRef.current = data
       setStatus('error')
-      toast.error(err instanceof Error ? err.message : 'Error al guardar')
+      toast.error(err instanceof Error ? err.message : tr('note.edSaveError'))
     }
-  }, [initial.id])
+  }, [initial.id, tr])
 
   const retry = useCallback(() => {
     if (lastFailedRef.current) patch(lastFailedRef.current)
@@ -139,12 +144,12 @@ export function NoteEditor({
     setStatus(s => (s === 'saving' ? s : 'dirty'))
     if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current)
     titleSaveTimer.current = setTimeout(() => {
-      patch({ title: title.trim() || 'Sin título' })
+      patch({ title: title.trim() || tr('search.untitled') })
     }, 800)
     return () => {
       if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current)
     }
-  }, [title, initial.title, patch])
+  }, [title, initial.title, patch, tr])
 
   function handleIconChange(newIcon: string) {
     setIcon(newIcon)
@@ -159,20 +164,20 @@ export function NoteEditor({
   }
 
   async function handleDelete() {
-    if (!(await confirmDialog({ message: '¿Eliminar esta nota? Las sub-páginas también se eliminarán. No se puede deshacer.', destructive: true, confirmLabel: 'Eliminar' }))) return
+    if (!(await confirmDialog({ message: tr('note.edDeleteConfirm'), destructive: true, confirmLabel: tr('note.edDeleteConfirmLabel') }))) return
     setDeleting(true)
     try {
       const res = await fetch(`/api/notes/${initial.id}`, { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json().catch(() => null)
-        toast.error(body?.error || 'No se pudo eliminar la nota')
+        toast.error(body?.error || tr('note.edDeleteError'))
         setDeleting(false)
         return
       }
-      toast.success('Nota eliminada')
+      toast.success(tr('note.edDeleted'))
       router.push(`/w/${workspaceSlug}/notes`)
     } catch {
-      toast.error('Error al eliminar')
+      toast.error(tr('note.edDeleteGenericError'))
       setDeleting(false)
     }
   }
@@ -190,7 +195,7 @@ export function NoteEditor({
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <polyline points="7.5 9 4.5 6 7.5 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            Notas
+            {tr('note.edBreadcrumbNotes')}
           </Link>
           {breadcrumbs.map(b => (
             <span key={b.id} className="flex items-center gap-1 min-w-0">
@@ -205,7 +210,7 @@ export function NoteEditor({
             </span>
           ))}
           <span className="text-muted-foreground/50">/</span>
-          <span className="text-foreground truncate">{title || 'Sin título'}</span>
+          <span className="text-foreground truncate">{title || tr('search.untitled')}</span>
         </nav>
 
         {/* Acciones */}
@@ -213,30 +218,30 @@ export function NoteEditor({
           {status === 'saving' && (
             <span className="text-xs text-muted-foreground flex items-center gap-1.5">
               <Loader2 className="w-3 h-3 animate-spin" />
-              Guardando…
+              {tr('note.edSaving')}
             </span>
           )}
           {status === 'dirty' && (
             <span className="text-xs text-amber-600 dark:text-amber-500 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              Sin guardar
+              {tr('note.edUnsaved')}
             </span>
           )}
           {status === 'error' && (
             <button
               onClick={retry}
-              title="Reintentar guardado"
+              title={tr('note.edRetryTitle')}
               className="text-xs text-destructive flex items-center gap-1.5 hover:underline"
             >
               <AlertTriangle className="w-3.5 h-3.5" />
-              Error, reintentar
+              {tr('note.edErrorRetry')}
               <RotateCw className="w-3 h-3" />
             </button>
           )}
           {status === 'saved' && (
             <span className="text-xs text-muted-foreground hidden md:flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-500" />
-              Guardado {timeAgo(updatedAt)}
+              {tr('note.edSaved')} {timeAgo(updatedAt)}
             </span>
           )}
 
@@ -250,7 +255,7 @@ export function NoteEditor({
                 const cur = VISIBILITY_OPTIONS.find(v => v.value === visibility)
                 if (!cur) return <span>{visibility}</span>
                 const Icon = cur.Icon
-                return <span className="flex items-center gap-1.5"><Icon className="w-3.5 h-3.5" />{cur.label}</span>
+                return <span className="flex items-center gap-1.5"><Icon className="w-3.5 h-3.5" />{tr(cur.labelKey)}</span>
               })()}
               <ChevronDown className="w-2.5 h-2.5" />
             </button>
@@ -269,9 +274,9 @@ export function NoteEditor({
                     )}
                   >
                     <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                      <opt.Icon className="w-3.5 h-3.5" />{opt.label}
+                      <opt.Icon className="w-3.5 h-3.5" />{tr(opt.labelKey)}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">{opt.description}</span>
+                    <span className="text-[10px] text-muted-foreground">{tr(opt.descKey)}</span>
                   </button>
                 ))}
               </div>
@@ -292,7 +297,7 @@ export function NoteEditor({
           {/* Exportar a PDF (via vista de impresión del navegador) */}
           <button
             onClick={() => window.open(`/print/notes/${initial.id}`, '_blank', 'noopener')}
-            title="Exportar a PDF"
+            title={tr('note.edExportPdf')}
             className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
           >
             <FileDown className="w-3.5 h-3.5" />
@@ -304,14 +309,14 @@ export function NoteEditor({
             workspaceSlug={workspaceSlug}
             parentNoteId={initial.id}
             variant="subtle"
-            label="Sub-página"
+            label={tr('notes.subPage')}
           />
 
           {canManage && (
             <button
               onClick={handleDelete}
               disabled={deleting}
-              title="Eliminar nota"
+              title={tr('note.edDeleteNote')}
               className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors disabled:opacity-50"
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -329,7 +334,7 @@ export function NoteEditor({
           <button
             onClick={() => setShowIconPicker(!showIconPicker)}
             className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-lg p-2 transition-colors"
-            title="Cambiar icono"
+            title={tr('note.edChangeIcon')}
           >
             <NoteIcon icon={icon} size={40} />
           </button>
@@ -358,7 +363,7 @@ export function NoteEditor({
         <textarea
           value={title}
           onChange={e => setTitle(e.target.value)}
-          placeholder="Sin título"
+          placeholder={tr('search.untitled')}
           rows={1}
           className="flex-1 text-3xl font-bold text-foreground placeholder:text-muted-foreground/40 bg-transparent border-0 outline-none resize-none leading-tight pt-2"
           onInput={e => {
@@ -371,7 +376,7 @@ export function NoteEditor({
 
       {/* Author + meta */}
       <p className="text-xs text-muted-foreground mb-3 ml-1">
-        {initial.author?.display_name ?? 'Usuario'} · creada {timeAgo(updatedAt)}
+        {initial.author?.display_name ?? tr('act.user')} · {tr('note.edCreated')} {timeAgo(updatedAt)}
       </p>
 
       {/* Barra de SOP: tipo de documento + ciclo de vida (estatus/versión/revisión) */}
@@ -389,7 +394,7 @@ export function NoteEditor({
       {/* Editor */}
       <RichTextEditor
         value={initial.content ?? ''}
-        placeholder="Empieza a escribir, usa la barra de arriba o escribe / para bloques…"
+        placeholder={tr('note.edEditorPlaceholder')}
         onSave={(html) => patch({ content: html || null })}
         onDirty={() => setStatus(s => (s === 'saving' ? s : 'dirty'))}
         autosaveMs={1200}
@@ -402,7 +407,7 @@ export function NoteEditor({
       {childNotes.length > 0 && (
         <div className="mt-10 pt-6 border-t border-border">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            Sub-páginas
+            {tr('note.edSubpages')}
           </h3>
           <div className="space-y-1">
             {childNotes.map(child => (
@@ -412,7 +417,7 @@ export function NoteEditor({
                 className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent transition-colors text-sm text-foreground"
               >
                 <NoteIcon icon={child.icon} size={16} className="flex-shrink-0 text-muted-foreground" />
-                <span>{child.title || 'Sin título'}</span>
+                <span>{child.title || tr('search.untitled')}</span>
               </Link>
             ))}
           </div>

@@ -8,20 +8,22 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Settings, Users, UsersRound, FolderKanban, Ticket, Gauge, Clock, BookOpen } from 'lucide-react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
+  const t = useT()
   const pathname = usePathname()
   const base = `/w/${workspaceSlug}/settings`
 
   const tabs = [
-    { href: base, label: 'General', icon: Settings, exact: true },
-    { href: `${base}/lobby`, label: 'Sala de espera', icon: Clock },
-    { href: `${base}/members`, label: 'Miembros', icon: Users },
-    { href: `${base}/teams`, label: 'Equipos', icon: UsersRound },
-    { href: `${base}/departments`, label: 'Departamentos', icon: FolderKanban },
-    { href: `${base}/invites`, label: 'Invitaciones', icon: Ticket },
-    { href: `${base}/performance`, label: 'Rendimiento', icon: Gauge },
-    { href: `${base}/academia`, label: 'Academia', icon: BookOpen },
+    { href: base, label: t('settings.tabGeneral'), icon: Settings, exact: true },
+    { href: `${base}/lobby`, label: t('settings.tabLobby'), icon: Clock },
+    { href: `${base}/members`, label: t('settings.tabMembers'), icon: Users },
+    { href: `${base}/teams`, label: t('settings.tabTeams'), icon: UsersRound },
+    { href: `${base}/departments`, label: t('settings.tabDepartments'), icon: FolderKanban },
+    { href: `${base}/invites`, label: t('settings.tabInvites'), icon: Ticket },
+    { href: `${base}/performance`, label: t('settings.tabPerformance'), icon: Gauge },
+    { href: `${base}/academia`, label: t('settings.tabAcademy'), icon: BookOpen },
   ]
 
   return (

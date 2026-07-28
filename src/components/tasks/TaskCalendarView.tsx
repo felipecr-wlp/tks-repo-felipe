@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, CalendarDays, CheckCircle2, AlertTriangle, CalendarClock } from 'lucide-react'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { TaskDetailPanel } from './TaskDetailPanel'
+import { useI18n } from '@/lib/i18n/LanguageProvider'
 
 interface Status { id: string; name: string; color: string | null; category: string; position: number }
 interface Member { id: string; display_name: string; avatar_url: string | null }
@@ -40,7 +41,7 @@ interface TaskCalendarViewProps {
 }
 
 const DAY_MS = 86_400_000
-const WEEKDAYS = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom']
+const WEEKDAY_KEYS = ['cal.wdMon', 'cal.wdTue', 'cal.wdWed', 'cal.wdThu', 'cal.wdFri', 'cal.wdSat', 'cal.wdSun']
 const PRIORITY_COLOR: Record<string, string> = {
   urgent: '#ef4444', high: '#f97316', medium: '#eab308', low: '#3b82f6', none: '#94a3b8',
 }
@@ -68,8 +69,24 @@ interface Bar { task: Task; startCol: number; endCol: number; lane: number }
 
 export function TaskCalendarView({ projectId, tasks, statuses, members, currentUserId }: TaskCalendarViewProps) {
   const router = useRouter()
+  const { t: tr, lang } = useI18n()
+  const locale = lang === 'en' ? 'en-US' : 'es-MX'
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
-  const [cursor, setCursor] = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1) })
+  // Mes inicial: el actual si tiene tareas con fecha; si no, salta al primer mes
+  // proximo con tareas (o al mas reciente hacia atras) para no abrir vacio.
+  const [cursor, setCursor] = useState(() => {
+    const n = new Date()
+    const cur = new Date(n.getFullYear(), n.getMonth(), 1)
+    const months = tasks
+      .map(t => t.start_date || t.due_date)
+      .filter((x): x is string => !!x)
+      .map(iso => { const d = new Date(iso); return new Date(d.getFullYear(), d.getMonth(), 1) })
+    if (months.length === 0) return cur
+    if (months.some(m => m.getTime() === cur.getTime())) return cur
+    const upcoming = months.filter(m => m.getTime() >= cur.getTime()).sort((a, b) => a.getTime() - b.getTime())
+    if (upcoming.length) return upcoming[0]
+    return months.sort((a, b) => b.getTime() - a.getTime())[0]
+  })
 
   useRealtimeRefresh({
     channel: `proj-cal-${projectId}`,
@@ -127,7 +144,7 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
     return bars
   }
 
-  const monthLabel = cursor.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
+  const monthLabel = cursor.toLocaleDateString(locale, { month: 'long', year: 'numeric' })
   const undated = tasks.length - dated.length
 
   return (
@@ -155,7 +172,7 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
           <button
             onClick={() => setCursor(c => new Date(c.getFullYear(), c.getMonth() - 1, 1))}
             className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Mes anterior"
+            aria-label={tr('cal.prevMonth')}
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -163,12 +180,12 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
             onClick={() => { const n = new Date(); setCursor(new Date(n.getFullYear(), n.getMonth(), 1)) }}
             className="text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
-            Hoy
+            {tr('gantt.today')}
           </button>
           <button
             onClick={() => setCursor(c => new Date(c.getFullYear(), c.getMonth() + 1, 1))}
             className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Mes siguiente"
+            aria-label={tr('cal.nextMonth')}
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -198,18 +215,18 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
             <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
               <span className="inline-flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span className="tabular-nums">{doneCount}/{total}</span> completadas
+                <span className="tabular-nums">{doneCount}/{total}</span> {tr('health.completed')}
               </span>
               {overdueCount > 0 && (
                 <span className="inline-flex items-center gap-1 text-destructive font-medium">
                   <AlertTriangle className="w-3.5 h-3.5" />
-                  <span className="tabular-nums">{overdueCount}</span> vencidas
+                  <span className="tabular-nums">{overdueCount}</span> {tr('health.overdue')}
                 </span>
               )}
               {todayCount > 0 && (
                 <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
                   <CalendarClock className="w-3.5 h-3.5" />
-                  <span className="tabular-nums">{todayCount}</span> para hoy
+                  <span className="tabular-nums">{todayCount}</span> {tr('health.today')}
                 </span>
               )}
             </div>
@@ -217,10 +234,28 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
         )
       })()}
 
+      {/* Leyenda de colores de las barras */}
+      {dated.length > 0 && (
+        <div className="mb-3 flex items-center gap-x-4 gap-y-1 flex-wrap text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#3b82f6' }} />
+            {tr('cal.legendColor')}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
+            {tr('health.overdue')}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#f59e0b' }} />
+            {tr('health.today')}
+          </span>
+        </div>
+      )}
+
       {/* Encabezado de dias */}
       <div className="grid grid-cols-7 gap-px mb-px">
-        {WEEKDAYS.map(d => (
-          <div key={d} className="text-[11px] font-medium text-muted-foreground text-center py-1">{d}</div>
+        {WEEKDAY_KEYS.map(k => (
+          <div key={k} className="text-[11px] font-medium text-muted-foreground text-center py-1">{tr(k)}</div>
         ))}
       </div>
 
@@ -281,13 +316,21 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
                           left: `calc(${leftPct}% + 2px)`,
                           width: `calc(${widthPct}% - 4px)`,
                           top: b.lane * 22,
-                          backgroundColor: `${color}22`,
+                          backgroundColor: `${color}2E`,
                           color,
-                          borderLeft: `2px solid ${color}`,
+                          borderLeft: `3px solid ${color}`,
                         }}
                       >
-                        {bucket === 'overdue' && <AlertTriangle className="w-3 h-3 flex-shrink-0" />}
-                        {bucket === 'today' && <CalendarClock className="w-3 h-3 flex-shrink-0" />}
+                        {bucket === 'overdue' ? (
+                          <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                        ) : bucket === 'today' ? (
+                          <CalendarClock className="w-3 h-3 flex-shrink-0" />
+                        ) : (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: color }}
+                          />
+                        )}
                         <span className={`truncate ${done ? 'line-through opacity-70' : ''}`}>{b.task.title}</span>
                       </button>
                     )
@@ -301,7 +344,7 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
 
       {undated > 0 && (
         <p className="mt-3 text-xs text-muted-foreground">
-          {undated} {undated === 1 ? 'tarea sin fecha' : 'tareas sin fecha'} no se muestran en el calendario.
+          {undated} {undated === 1 ? tr('cal.undatedOne') : tr('cal.undatedMany')} {undated === 1 ? tr('cal.undatedSuffixOne') : tr('cal.undatedSuffixMany')}
         </p>
       )}
 
@@ -310,9 +353,9 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted text-muted-foreground mb-3">
             <CalendarDays className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-medium text-foreground mb-1">Sin tareas en el calendario</h3>
+          <h3 className="text-sm font-medium text-foreground mb-1">{tr('cal.empty')}</h3>
           <p className="text-sm text-muted-foreground">
-            Crea tareas con fecha de vencimiento desde la vista Lista o Tablero y aparecerán aquí.
+            {tr('cal.emptyHint')}
           </p>
         </div>
       )}

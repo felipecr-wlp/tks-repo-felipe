@@ -4,6 +4,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { WhiteboardEditor } from './WhiteboardEditor'
+import { getServerT } from '@/lib/i18n/server'
 
 interface PageProps {
   params: { workspaceSlug: string; whiteboardId: string }
@@ -58,8 +59,9 @@ export default async function WhiteboardPage({ params }: PageProps) {
     .eq('id', user.id)
     .maybeSingle() as { data: ProfileRow; error: unknown }
 
+  const t = getServerT()
   const currentUserName =
-    profile?.display_name || user.email?.split('@')[0] || 'Miembro'
+    profile?.display_name || user.email?.split('@')[0] || t('act.user')
 
   // Quien puede ELIMINAR: creador, admin de workspace, u owner/admin de la org.
   // Refleja la regla del DELETE en /api/whiteboards/[id].

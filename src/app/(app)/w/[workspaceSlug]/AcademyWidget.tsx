@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { getUserAcademy } from '@/lib/academy/data'
 import { AcademyIcon } from '@/lib/academy/icons'
 import { BookOpen, Award, ArrowRight } from 'lucide-react'
+import { getServerT } from '@/lib/i18n/server'
 
 export async function AcademyWidget({
   userId,
@@ -13,6 +14,7 @@ export async function AcademyWidget({
   userId: string
   workspaceSlug: string
 }) {
+  const t = getServerT()
   const states = await getUserAcademy(userId)
   const base = `/w/${workspaceSlug}/academia`
   const mine = states.filter((s) => s.hasAccess)
@@ -28,13 +30,13 @@ export async function AcademyWidget({
     <section className="mb-10">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <BookOpen className="h-3.5 w-3.5" /> Mi academia
+          <BookOpen className="h-3.5 w-3.5" /> {t('academyW.title')}
         </h2>
         <Link
           href={base}
           className="text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
-          Ver academia →
+          {t('academyW.viewAll')}
         </Link>
       </div>
 
@@ -44,9 +46,9 @@ export async function AcademyWidget({
           className="flex items-center justify-between rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 transition hover:border-primary/50"
         >
           <div>
-            <p className="text-sm font-medium text-foreground">Explora la Academia WLP</p>
+            <p className="text-sm font-medium text-foreground">{t('academyW.exploreTitle')}</p>
             <p className="text-xs text-muted-foreground">
-              Solicita acceso a cursos de habilidades profesionales y certifícate.
+              {t('academyW.exploreDesc')}
             </p>
           </div>
           <ArrowRight className="h-4 w-4 text-muted-foreground" />
@@ -56,7 +58,7 @@ export async function AcademyWidget({
           {certifiedCount > 0 && (
             <p className="mb-2 flex items-center gap-1 text-xs text-emerald-500">
               <Award className="h-3.5 w-3.5" /> {certifiedCount}{' '}
-              {certifiedCount === 1 ? 'certificado obtenido' : 'certificados obtenidos'}
+              {certifiedCount === 1 ? t('academyW.certifiedOne') : t('academyW.certifiedMany')}
             </p>
           )}
           <div className="grid gap-3 sm:grid-cols-2">

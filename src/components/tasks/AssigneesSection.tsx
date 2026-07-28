@@ -102,7 +102,6 @@ export function AssigneesSection({ taskId, members, value, onChange }: Assignees
         <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
         <div
           className="absolute top-7 left-0 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 w-52 max-h-64 overflow-y-auto"
-          onMouseLeave={() => setOpen(false)}
         >
           {members.length === 0 && (
             <p className="px-3 py-1.5 text-xs text-muted-foreground">Sin miembros</p>

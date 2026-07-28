@@ -7,6 +7,7 @@ import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import { canManageProject } from '@/lib/team-access'
 
 const patchSchema = z.object({
   name:        z.string().min(2).max(80).trim().optional(),
@@ -40,15 +41,10 @@ export async function PATCH(
 
   const admin = createAdminClient()
 
-  // Verificar acceso de manager al proyecto (admin client)
-  const { data: membership } = await admin
-    .from('project_members')
-    .select('role')
-    .eq('project_id', params.projectId)
-    .eq('profile_id', user.id)
-    .maybeSingle() as { data: { role: string } | null; error: unknown }
-  if (!membership || membership.role !== 'manager') {
-    return NextResponse.json({ error: 'Se requiere rol manager' }, { status: 403 })
+  // Permiso amplio: manager/lead/admin/owner del proyecto, o admin/owner del workspace u org
+  const { ok } = await canManageProject(admin, params.projectId, user.id)
+  if (!ok) {
+    return NextResponse.json({ error: 'Se requiere rol manager o admin' }, { status: 403 })
   }
 
   type ProjResult = { id: string; name: string; slug: string; icon: string | null; status: string }
@@ -79,14 +75,9 @@ export async function DELETE(
 
   const admin = createAdminClient()
 
-  const { data: membership } = await admin
-    .from('project_members')
-    .select('role')
-    .eq('project_id', params.projectId)
-    .eq('profile_id', user.id)
-    .maybeSingle() as { data: { role: string } | null; error: unknown }
-  if (!membership || membership.role !== 'manager') {
-    return NextResponse.json({ error: 'Se requiere rol manager' }, { status: 403 })
+  const { ok } = await canManageProject(admin, params.projectId, user.id)
+  if (!ok) {
+    return NextResponse.json({ error: 'Se requiere rol manager o admin' }, { status: 403 })
   }
 
   // Soft delete, archivar el proyecto

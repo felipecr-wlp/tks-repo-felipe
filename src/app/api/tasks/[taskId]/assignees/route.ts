@@ -19,6 +19,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { checkTaskAccess } from '@/lib/task-access'
 import { autoWatch } from '@/lib/watchers'
+import { notify, NotificationTypes } from '@/lib/activity'
 
 interface RouteParams {
   params: { taskId: string }
@@ -138,17 +139,34 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   // Mantener assignee_id (principal) poblado para compat si estaba vacio.
+  // Tambien traemos title + workspace_id para poder notificar al asignado.
   const { data: current } = await admin
     .from('tasks')
-    .select('assignee_id')
+    .select('assignee_id, title, workspace_id')
     .eq('id', params.taskId)
-    .maybeSingle() as { data: { assignee_id: string | null } | null }
+    .maybeSingle() as { data: { assignee_id: string | null; title: string; workspace_id: string } | null }
   if (current && !current.assignee_id) {
     await db.from('tasks').update({ assignee_id: profileId }).eq('id', params.taskId)
   }
 
   // Auto-seguimiento: el asignado pasa a seguir la tarea (best effort).
   autoWatch(admin, params.taskId, access.projectId as string, profileId).catch(console.error)
+
+  // Aviso al asignado (Circuito 2.A, paralelo al PATCH de tarea): si el actor
+  // asigno a OTRA persona, avisarle directo a su Bandeja + correo. Antes solo
+  // el PATCH de la tarea (assignee_id principal) notificaba; agregar un
+  // asignado extra via multi-assign quedaba mudo. Best effort, no bloquea.
+  if (current && profileId !== user.id) {
+    notify({
+      recipient_id: profileId,
+      subject_id:   user.id,
+      type:         NotificationTypes.TASK_ASSIGNED,
+      object_type:  'task',
+      object_id:    params.taskId,
+      object_title: current.title,
+      workspace_id: current.workspace_id,
+    }).catch(console.error)
+  }
 
   return NextResponse.json({ assignees: await listAssignees(admin, params.taskId) }, { status: 201 })
 }

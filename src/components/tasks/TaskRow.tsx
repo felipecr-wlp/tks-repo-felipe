@@ -13,6 +13,7 @@ import { cn, getInitials } from '@/lib/utils'
 import { LabelChips } from './TaskLabels'
 import { CustomFieldCells, type CustomFieldDef } from './CustomFieldCells'
 import { StackedAvatars } from './StackedAvatars'
+import { useT, useI18n } from '@/lib/i18n/LanguageProvider'
 
 interface Status {
   id: string
@@ -59,8 +60,12 @@ interface TaskRowProps {
   customValues?: Record<string, unknown>
 }
 
-// Cierra menús flotantes con Escape (accesibilidad de teclado; onMouseLeave
-// solo cubre mouse y el overlay solo cubre click/touch).
+// Cierra menús flotantes con Escape (teclado) + overlay `fixed inset-0`
+// (click/touch fuera). NO usar onMouseLeave para cerrar: el menú se ancla
+// pegado al trigger (top-7 right-0) y es angosto (w-44), así que al mover el
+// cursor del trigger hacia un ítem se rozaba el borde y el menú se cerraba
+// ANTES de que el click aterrizara. Sintoma reportado: "intento asignar y
+// entra en un bug" (el menú se cerraba solo y la asignación nunca disparaba).
 function useEscapeToClose(onClose: () => void) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -69,12 +74,12 @@ function useEscapeToClose(onClose: () => void) {
   }, [onClose])
 }
 
-const PRIORITY_ICONS: Record<string, { Icon: LucideIcon; label: string; color: string }> = {
-  urgent: { Icon: ChevronsUp,  label: 'Urgente', color: 'text-red-500' },
-  high:   { Icon: ChevronUp,   label: 'Alta',    color: 'text-orange-500' },
-  medium: { Icon: Equal,       label: 'Media',   color: 'text-yellow-500' },
-  low:    { Icon: ChevronDown, label: 'Baja',    color: 'text-blue-400' },
-  none:   { Icon: Minus,       label: 'Sin prioridad', color: 'text-muted-foreground' },
+const PRIORITY_ICONS: Record<string, { Icon: LucideIcon; labelKey: string; color: string }> = {
+  urgent: { Icon: ChevronsUp,  labelKey: 'priority.urgent', color: 'text-red-500' },
+  high:   { Icon: ChevronUp,   labelKey: 'priority.high',   color: 'text-orange-500' },
+  medium: { Icon: Equal,       labelKey: 'priority.medium', color: 'text-yellow-500' },
+  low:    { Icon: ChevronDown, labelKey: 'priority.low',    color: 'text-blue-400' },
+  none:   { Icon: Minus,       labelKey: 'priority.none',   color: 'text-muted-foreground' },
 }
 
 // Clasifica la fecha de vencimiento relativa a HOY (medianoche local). El
@@ -113,6 +118,8 @@ export function TaskRow({
   const [showAssignMenu, setShowAssignMenu] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const t = useT()
+  const { lang } = useI18n()
 
   // ── Actualizar campo de la tarea (optimista) ──────────────────────────────
   // La UI refleja el cambio al instante (patrón Linear/ClickUp) y se revierte
@@ -149,7 +156,7 @@ export function TaskRow({
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: null }))
-        throw new Error(err.error ?? 'Error al actualizar')
+        throw new Error(err.error ?? t('taskRow.updateFail'))
       }
 
       const updated: Task = await res.json()
@@ -158,19 +165,19 @@ export function TaskRow({
       onUpdated({ ...optimistic, ...updated })
     } catch (err) {
       onUpdated(previous) // revertir al estado previo a la edición
-      toast.error(err instanceof Error ? err.message : 'Error al actualizar la tarea')
+      toast.error(err instanceof Error ? err.message : t('taskRow.updateFail'))
     }
   }
 
   const deleteTask = async () => {
-    if (!(await confirmDialog({ message: '¿Eliminar esta tarea?', destructive: true, confirmLabel: 'Eliminar' }))) return
+    if (!(await confirmDialog({ message: t('taskRow.deleteConfirm'), destructive: true, confirmLabel: t('common.delete') }))) return
     setIsLoading(true)
     try {
       const res = await fetch(`/api/tasks/${task.id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Error al eliminar')
+      if (!res.ok) throw new Error('delete failed')
       onDeleted(task.id)
     } catch {
-      toast.error('Error al eliminar la tarea')
+      toast.error(t('taskRow.deleteFail'))
       setIsLoading(false)
     }
   }
@@ -188,7 +195,7 @@ export function TaskRow({
 
   return (
     <div className={cn(
-      'flex items-center gap-2 px-2 py-1.5 rounded-md group hover:bg-muted/40 transition-colors',
+      'flex items-center gap-x-2.5 gap-y-1 px-2 py-1.5 rounded-md group hover:bg-muted/40 transition-colors',
       selected && 'bg-primary/5 hover:bg-primary/10',
       isLoading && 'opacity-60 pointer-events-none'
     )}>
@@ -196,7 +203,7 @@ export function TaskRow({
       {onToggleSelect && (
         <button
           onClick={(e) => onToggleSelect(task.id, e.shiftKey)}
-          title={selected ? 'Quitar de la seleccion' : 'Seleccionar'}
+          title={selected ? t('taskRow.removeFromSelection') : t('taskRow.select')}
           className={cn(
             'flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all',
             selected
@@ -215,7 +222,7 @@ export function TaskRow({
       <div className="relative flex-shrink-0">
         <button
           onClick={() => { setShowStatusMenu(!showStatusMenu); setShowPriorityMenu(false); setShowAssignMenu(false) }}
-          title={task.status?.name ?? 'Sin estado'}
+          title={task.status?.name ?? t('taskRow.noStatus')}
           className="w-4 h-4 rounded-full border-2 border-current transition-transform hover:scale-110"
           style={{ borderColor: task.status?.color ?? '#94a3b8', backgroundColor: task.status?.category === 'done' ? (task.status.color ?? '#94a3b8') : 'transparent' }}
         />
@@ -254,7 +261,7 @@ export function TaskRow({
                 ? 'line-through text-muted-foreground'
                 : 'text-foreground hover:text-primary'
             )}
-            title="Clic para abrir · Doble clic para editar"
+            title={t('taskRow.openHint')}
           >
             {task.title}
           </button>
@@ -265,7 +272,7 @@ export function TaskRow({
       <div className="relative flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           onClick={() => { setShowPriorityMenu(!showPriorityMenu); setShowStatusMenu(false); setShowAssignMenu(false) }}
-          title={priority.label}
+          title={t(priority.labelKey)}
           className={cn('flex items-center justify-center w-6', priority.color)}
         >
           <priority.Icon className="h-4 w-4" />
@@ -281,7 +288,7 @@ export function TaskRow({
 
       {/* ── Etiquetas ──────────────────────────────────────── */}
       {task.labels && task.labels.length > 0 && (
-        <LabelChips labels={task.labels} className="flex-shrink-0 max-w-[40%]" />
+        <LabelChips labels={task.labels} className="flex-shrink max-w-[30%]" />
       )}
 
       {/* ── Campos personalizados (solo-lectura, editables en el panel) ── */}
@@ -292,7 +299,7 @@ export function TaskRow({
       {/* ── Progreso de subtareas ──────────────────────────── */}
       {typeof task.subtaskTotal === 'number' && task.subtaskTotal > 0 && (
         <span
-          title={`${task.subtaskDone ?? 0} de ${task.subtaskTotal} subtareas completadas`}
+          title={`${task.subtaskDone ?? 0} ${t('taskRow.subtasksOf')} ${task.subtaskTotal} ${t('taskRow.subtasksSuffix')}`}
           className={cn(
             'flex-shrink-0 flex items-center gap-1 text-[11px]',
             (task.subtaskDone ?? 0) === task.subtaskTotal
@@ -307,7 +314,7 @@ export function TaskRow({
 
       {/* ── Tarea recurrente ───────────────────────────────── */}
       {task.recurrence_rule && (
-        <span title="Tarea recurrente" className="flex-shrink-0 flex items-center text-muted-foreground">
+        <span title={t('taskRow.recurring')} className="flex-shrink-0 flex items-center text-muted-foreground">
           <Repeat className="w-3 h-3" />
         </span>
       )}
@@ -325,8 +332,8 @@ export function TaskRow({
                 : 'text-muted-foreground'
           )}>
             {bucket === 'today'
-              ? 'Hoy'
-              : new Date(String(task.due_date).slice(0, 10) + 'T00:00:00').toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
+              ? t('taskRow.today')
+              : new Date(String(task.due_date).slice(0, 10) + 'T00:00:00').toLocaleDateString(lang === 'en' ? 'en-US' : 'es-MX', { month: 'short', day: 'numeric' })}
           </span>
         )
       })()}
@@ -336,7 +343,7 @@ export function TaskRow({
         {task.assignees && task.assignees.length > 0 ? (
           <button
             onClick={() => { setShowAssignMenu(!showAssignMenu); setShowStatusMenu(false); setShowPriorityMenu(false) }}
-            title="Asignados"
+            title={t('taskRow.assignees')}
             className="flex items-center h-6"
           >
             <StackedAvatars assignees={task.assignees} />
@@ -344,7 +351,7 @@ export function TaskRow({
         ) : (
           <button
             onClick={() => { setShowAssignMenu(!showAssignMenu); setShowStatusMenu(false); setShowPriorityMenu(false) }}
-            title={task.assignee?.display_name ?? 'Sin asignar'}
+            title={task.assignee?.display_name ?? t('taskRow.unassigned')}
             className="w-6 h-6 rounded-full overflow-hidden bg-muted flex items-center justify-center"
           >
             {task.assignee ? (
@@ -382,8 +389,8 @@ export function TaskRow({
       {/* ── Eliminar (solo hover) ──────────────────────────── */}
       <button
         onClick={deleteTask}
-        title="Eliminar tarea"
-        aria-label="Eliminar tarea"
+        title={t('taskRow.deleteTask')}
+        aria-label={t('taskRow.deleteTask')}
         className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-destructive transition-all"
       >
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -412,7 +419,6 @@ function StatusMenu({
     <div className="fixed inset-0 z-40" onClick={onClose} />
     <div
       className="absolute top-6 left-0 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 w-44"
-      onMouseLeave={onClose}
     >
       {statuses.map(s => (
         <button
@@ -446,13 +452,13 @@ function PriorityMenu({
   onClose: () => void
 }) {
   const priorities = ['urgent', 'high', 'medium', 'low', 'none'] as const
+  const t = useT()
   useEscapeToClose(onClose)
   return (
     <>
     <div className="fixed inset-0 z-40" onClick={onClose} />
     <div
       className="absolute top-6 right-0 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 w-40"
-      onMouseLeave={onClose}
     >
       {priorities.map(p => {
         const info = PRIORITY_ICONS[p]
@@ -466,7 +472,7 @@ function PriorityMenu({
             )}
           >
             <info.Icon className={cn('h-4 w-4 flex-shrink-0', info.color)} />
-            {info.label}
+            {t(info.labelKey)}
           </button>
         )
       })}
@@ -487,13 +493,13 @@ function AssignMenu({
   onSelect: (id: string | null) => void
   onClose: () => void
 }) {
+  const t = useT()
   useEscapeToClose(onClose)
   return (
     <>
     <div className="fixed inset-0 z-40" onClick={onClose} />
     <div
       className="absolute top-7 right-0 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 w-44"
-      onMouseLeave={onClose}
     >
       <button
         onClick={() => onSelect(null)}
@@ -508,7 +514,7 @@ function AssignMenu({
             <path d="M1.5 9c0-1.7 1.6-3 3.5-3s3.5 1.3 3.5 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
           </svg>
         </div>
-        Sin asignar
+        {t('taskRow.unassigned')}
       </button>
       {members.map(m => (
         <button

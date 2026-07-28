@@ -15,6 +15,7 @@ import {
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { TaskTimer } from '@/components/tracking/TaskTimer'
+import { getServerT } from '@/lib/i18n/server'
 
 interface MyTasksPageProps {
   params: { workspaceSlug: string }
@@ -84,6 +85,7 @@ function sortWithinBucket(a: MyTask, b: MyTask): number {
 }
 
 export default async function MyTasksPage({ params, searchParams }: MyTasksPageProps) {
+  const t = getServerT()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
@@ -159,12 +161,12 @@ export default async function MyTasksPage({ params, searchParams }: MyTasksPageP
     <div className="p-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-foreground">Mis tareas</h1>
+        <h1 className="text-2xl font-semibold text-foreground">{t('myTasks.title')}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {workspace.name} · {totalCount} tarea{totalCount !== 1 ? 's' : ''}
+          {workspace.name} · {totalCount} {totalCount === 1 ? t('myTasks.taskOne') : t('myTasks.taskMany')}
           {overdueCount > 0 && (
             <span className="ml-2 text-destructive font-medium">
-              · {overdueCount} vencida{overdueCount !== 1 ? 's' : ''}
+              · {overdueCount} {overdueCount === 1 ? t('myTasks.overdueOne') : t('myTasks.overdueMany')}
             </span>
           )}
         </p>
@@ -174,27 +176,27 @@ export default async function MyTasksPage({ params, searchParams }: MyTasksPageP
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         <FilterLink
           href={`/w/${params.workspaceSlug}/my-tasks`}
-          label="Todas"
+          label={t('myTasks.filter.all')}
           active={!searchParams.priority && !searchParams.status_category}
         />
         <FilterLink
           href={`/w/${params.workspaceSlug}/my-tasks?status_category=todo`}
-          label="Por hacer"
+          label={t('myTasks.filter.todo')}
           active={searchParams.status_category === 'todo'}
         />
         <FilterLink
           href={`/w/${params.workspaceSlug}/my-tasks?status_category=in_progress`}
-          label="En progreso"
+          label={t('myTasks.filter.inProgress')}
           active={searchParams.status_category === 'in_progress'}
         />
         <FilterLink
           href={`/w/${params.workspaceSlug}/my-tasks?priority=urgent`}
-          label={<><CircleAlert className="w-3.5 h-3.5 text-red-600" /> Urgente</>}
+          label={<><CircleAlert className="w-3.5 h-3.5 text-red-600" /> {t('priority.urgent')}</>}
           active={searchParams.priority === 'urgent'}
         />
         <FilterLink
           href={`/w/${params.workspaceSlug}/my-tasks?priority=high`}
-          label={<><ChevronsUp className="w-3.5 h-3.5 text-orange-600" /> Alta</>}
+          label={<><ChevronsUp className="w-3.5 h-3.5 text-orange-600" /> {t('priority.high')}</>}
           active={searchParams.priority === 'high'}
         />
       </div>
@@ -202,14 +204,14 @@ export default async function MyTasksPage({ params, searchParams }: MyTasksPageP
       {/* Tareas agrupadas por fecha de vencimiento */}
       {tasksError ? (
         <ErrorState
-          title="No pudimos cargar tus tareas"
-          description="Ocurrió un problema al leer tus tareas del workspace. Vuelve a intentarlo."
+          title={t('myTasks.errorTitle')}
+          description={t('myTasks.errorDesc')}
         />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<CheckCircle2 className="w-5 h-5 text-emerald-500" />}
-          title="¡Todo al día!"
-          description="No tienes tareas asignadas con esos filtros."
+          title={t('myTasks.emptyTitle')}
+          description={t('myTasks.emptyDesc')}
         />
       ) : (
         <div className="space-y-6">
@@ -220,7 +222,7 @@ export default async function MyTasksPage({ params, searchParams }: MyTasksPageP
                 <div className="flex items-center gap-2 mb-2">
                   <span className={`flex items-center gap-1.5 text-sm font-medium ${meta.tone}`}>
                     {meta.icon}
-                    {meta.label}
+                    {t(`myTasks.bucket.${key}`)}
                   </span>
                   <span className="text-xs text-muted-foreground">{grouped[key].length}</span>
                 </div>

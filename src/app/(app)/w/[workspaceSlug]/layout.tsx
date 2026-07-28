@@ -10,6 +10,7 @@ import { CommandPalette } from '@/components/command-palette/CommandPalette'
 import { FloatingChat } from '@/components/chat/FloatingChat'
 import { GlobalNewTaskModal } from '@/components/tasks/GlobalNewTaskModal'
 import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp'
+import { brandFromEmail } from '@/lib/brand'
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode
@@ -242,7 +243,7 @@ export default async function WorkspaceLayout({
       <Sidebar
         workspaceSlug={workspace.slug}
         workspaceName={workspace.name}
-        orgName={workspace.organizations?.name ?? 'Mi organización'}
+        orgName={brandFromEmail(user.email) ?? workspace.organizations?.name ?? 'Mi organización'}
         teams={teams}
         isAdmin={isWorkspaceAdmin}
         userProfile={{

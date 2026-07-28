@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { cn, getInitials } from '@/lib/utils'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface PresentUser {
   id: string
@@ -27,6 +28,7 @@ interface NotePresenceProps {
 export function NotePresence({
   noteId, currentUserId, currentUserName, currentUserAvatar,
 }: NotePresenceProps) {
+  const tr = useT()
   const [others, setOthers] = useState<PresentUser[]>([])
 
   useEffect(() => {
@@ -66,7 +68,7 @@ export function NotePresence({
   const extra = others.length - shown.length
 
   return (
-    <div className="flex items-center -space-x-1.5" title={`${others.length} viendo ahora`}>
+    <div className="flex items-center -space-x-1.5" title={`${others.length} ${tr('note.viewingNow')}`}>
       {shown.map(u => (
         <div
           key={u.id}

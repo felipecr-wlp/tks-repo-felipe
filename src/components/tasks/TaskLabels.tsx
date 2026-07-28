@@ -43,11 +43,11 @@ function readableText(hex: string): string {
 export function LabelChips({ labels, className }: { labels: TaskLabel[]; className?: string }) {
   if (!labels || labels.length === 0) return null
   return (
-    <div className={cn('flex flex-wrap items-center gap-1', className)}>
+    <div className={cn('flex flex-nowrap items-center gap-1 overflow-hidden min-w-0', className)}>
       {labels.map(l => (
         <span
           key={l.id}
-          className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none"
+          className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none truncate max-w-[150px]"
           style={{ backgroundColor: l.color, color: readableText(l.color) }}
           title={l.name}
         >

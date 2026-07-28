@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Clock, Lock, UserCheck, DoorOpen, Building2, PawPrint, Sparkles } from 'lucide-react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface WaitingUser {
   profile_id: string
@@ -28,10 +29,10 @@ interface Team {
 }
 
 const ROLES = [
-  { value: 'member', label: 'Miembro' },
-  { value: 'manager', label: 'Manager' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'viewer', label: 'Solo lectura' },
+  { value: 'member', labelKey: 'role.member' },
+  { value: 'manager', labelKey: 'role.manager' },
+  { value: 'admin', labelKey: 'role.admin' },
+  { value: 'viewer', labelKey: 'role.viewer' },
 ]
 
 export function LobbyPanel({
@@ -47,6 +48,7 @@ export function LobbyPanel({
   departments: Department[]
   teams: Team[]
 }) {
+  const t = useT()
   const router = useRouter()
   const [waiting, setWaiting] = useState<WaitingUser[]>(initialWaiting)
 
@@ -59,11 +61,11 @@ export function LobbyPanel({
           <Clock size={18} />
         </div>
         <div>
-          <h2 className="text-base font-semibold text-foreground">Sala de espera</h2>
+          <h2 className="text-base font-semibold text-foreground">{t('lobby.heading')}</h2>
           <p className="text-sm text-muted-foreground">
-            Usuarios de tu organización que aún no tienen acceso. Ubícalos en{' '}
-            <span className="font-medium text-foreground">{workspaceName}</span>,
-            un departamento y un equipo.
+            {t('lobby.descPrefix')}{' '}
+            <span className="font-medium text-foreground">{workspaceName}</span>
+            {t('lobby.descSuffix')}
           </p>
         </div>
       </div>
@@ -73,9 +75,9 @@ export function LobbyPanel({
           <div className="inline-flex items-center justify-center w-11 h-11 rounded-full bg-muted text-muted-foreground mb-3">
             <UserCheck size={20} />
           </div>
-          <p className="text-sm font-medium text-foreground">No hay nadie esperando</p>
+          <p className="text-sm font-medium text-foreground">{t('lobby.emptyTitle')}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Cuando alguien se registre con el dominio de tu organización aparecerá aquí.
+            {t('lobby.emptyHint')}
           </p>
         </div>
       ) : (
@@ -105,6 +107,7 @@ export function LobbyPanel({
  * Respeta prefers-reduced-motion (las animaciones se desactivan).
  */
 function LobbyEntrance({ workspaceName, waiting }: { workspaceName: string; waiting: number }) {
+  const t = useT()
   return (
     <div className="lobby-entrance relative overflow-hidden rounded-2xl border border-border">
       {/* Fondo del vestíbulo */}
@@ -117,12 +120,12 @@ function LobbyEntrance({ workspaceName, waiting }: { workspaceName: string; wait
         <div className="lobby-husky-stage relative">
           <div className="lobby-bubble">
             <Sparkles size={12} className="inline-block -mt-0.5 mr-1" />
-            ¡Bienvenido!
+            {t('lobby.welcome')}
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/avatars/husky.png"
-            alt="Husky de bienvenida"
+            alt={t('lobby.huskyAlt')}
             width={112}
             height={112}
             className="lobby-husky w-28 h-28 object-contain drop-shadow-lg"
@@ -131,16 +134,15 @@ function LobbyEntrance({ workspaceName, waiting }: { workspaceName: string; wait
         </div>
 
         <h2 className="text-lg font-semibold text-foreground mt-1">
-          Bienvenido al lobby de {workspaceName}
+          {t('lobby.welcomeTitlePrefix')} {workspaceName}
         </h2>
         <p className="text-sm text-muted-foreground max-w-md">
-          Esta es la entrada del edificio. Aquí recibes a la gente nueva y le das
-          su lugar: rol, departamento y equipo. El husky vigila la puerta.
+          {t('lobby.entranceDesc')}
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-2 mt-2 text-xs">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium">
-            <DoorOpen size={13} /> Recepción abierta
+            <DoorOpen size={13} /> {t('lobby.receptionOpen')}
           </span>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground font-medium">
             <Building2 size={13} /> {workspaceName}
@@ -148,8 +150,8 @@ function LobbyEntrance({ workspaceName, waiting }: { workspaceName: string; wait
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 font-medium">
             <PawPrint size={13} />
             {waiting > 0
-              ? `${waiting} ${waiting === 1 ? 'persona esperando' : 'personas esperando'}`
-              : 'Sin fila en la puerta'}
+              ? `${waiting} ${waiting === 1 ? t('lobby.waitingOne') : t('lobby.waitingMany')}`
+              : t('lobby.noQueue')}
           </span>
         </div>
       </div>
@@ -316,6 +318,7 @@ function LobbyRow({
   teams: Team[]
   onPlaced: () => void
 }) {
+  const tr = useT()
   const [role, setRole] = useState('member')
   const [spaceId, setSpaceId] = useState('')
   const [teamId, setTeamId] = useState('')
@@ -341,11 +344,11 @@ function LobbyRow({
         }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error ?? 'Error al ubicar al usuario')
-      toast.success(`${user.display_name} fue ubicado`)
+      if (!res.ok) throw new Error(result.error ?? tr('lobby.placeError'))
+      toast.success(`${user.display_name} ${tr('lobby.placedSuffix')}`)
       onPlaced()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : tr('common.unknownError'))
       setSaving(false)
     }
   }
@@ -364,7 +367,7 @@ function LobbyRow({
 
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          Rol
+          {tr('lobby.role')}
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
@@ -372,37 +375,37 @@ function LobbyRow({
             className="px-2.5 py-1.5 text-sm text-foreground border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
           >
             {ROLES.map((r) => (
-              <option key={r.value} value={r.value}>{r.label}</option>
+              <option key={r.value} value={r.value}>{tr(r.labelKey)}</option>
             ))}
           </select>
         </label>
 
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          Departamento
+          {tr('lobby.department')}
           <select
             value={spaceId}
             onChange={(e) => { setSpaceId(e.target.value); setTeamId('') }}
             disabled={saving}
             className="px-2.5 py-1.5 text-sm text-foreground border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
           >
-            <option value="">Sin departamento</option>
+            <option value="">{tr('lobby.noDepartment')}</option>
             {departments.map((d) => (
               <option key={d.id} value={d.id}>
-                {d.name}{d.is_restricted ? ' (aislado)' : ''}
+                {d.name}{d.is_restricted ? tr('lobby.isolatedTag') : ''}
               </option>
             ))}
           </select>
         </label>
 
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          Equipo
+          {tr('lobby.team')}
           <select
             value={teamId}
             onChange={(e) => setTeamId(e.target.value)}
             disabled={saving}
             className="px-2.5 py-1.5 text-sm text-foreground border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
           >
-            <option value="">Sin equipo</option>
+            <option value="">{tr('lobby.noTeam')}</option>
             {filteredTeams.map((t) => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
@@ -413,7 +416,7 @@ function LobbyRow({
       <div className="mt-3 flex items-center justify-between">
         {spaceId && departments.find((d) => d.id === spaceId)?.is_restricted ? (
           <span className="flex items-center gap-1 text-xs text-amber-600">
-            <Lock size={12} /> Departamento aislado
+            <Lock size={12} /> {tr('lobby.isolatedDept')}
           </span>
         ) : <span />}
         <button
@@ -423,7 +426,7 @@ function LobbyRow({
           className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
         >
           <UserCheck size={15} />
-          {saving ? 'Ubicando...' : 'Ubicar'}
+          {saving ? tr('lobby.placing') : tr('lobby.place')}
         </button>
       </div>
     </div>

@@ -6,8 +6,9 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { resolveProjectForViewer } from '@/lib/team-access'
-import { LayoutDashboard, Zap, GanttChartSquare, Table2 } from 'lucide-react'
+import { LayoutDashboard, Zap, GanttChartSquare, Table2, Palette } from 'lucide-react'
 import { ProjectIcon } from '@/lib/project-icons'
+import { ProjectNameEditor } from '@/components/projects/ProjectNameEditor'
 import { TaskListView } from '@/components/tasks/TaskListView'
 import { TaskTableView } from '@/components/tasks/TaskTableView'
 import { TaskCalendarView } from '@/components/tasks/TaskCalendarView'
@@ -16,7 +17,9 @@ import { TaskWorkloadView } from '@/components/tasks/TaskWorkloadView'
 import { TaskFilterBar } from '@/components/tasks/TaskFilterBar'
 import { ProjectChat } from '@/components/chat/ProjectChat'
 import { AutomationsPanel } from '@/components/automations/AutomationsPanel'
+import { StatusManager } from '@/components/tasks/StatusManager'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { getServerT } from '@/lib/i18n/server'
 
 // Kanban cargado lazy, contiene @dnd-kit que pesa ~150KB
 const KanbanBoard = dynamic(
@@ -311,6 +314,7 @@ export default async function ProjectPage({
 
   const currentView = searchParams.view ?? 'list'
   const basePath = `/w/${params.workspaceSlug}/t/${params.teamSlug}/p/${params.projectSlug}`
+  const t = getServerT()
 
   // Chat del proyecto: historial (ultimos 100) solo si la pestana esta activa.
   type ProjectMessageRow = { id: string; author_id: string; body: string; created_at: string }
@@ -386,37 +390,40 @@ export default async function ProjectPage({
             </Link>
             <span className="text-muted-foreground/40">/</span>
             <ProjectIcon icon={project.icon} size={16} className="text-muted-foreground flex-shrink-0" />
-            <h1 className="text-sm font-semibold text-foreground truncate">{project.name}</h1>
+            <ProjectNameEditor projectId={project.id} initialName={project.name} canManage={canManage} />
           </div>
 
           {/* Acceso discreto a Planeación del equipo (Scrum/Kanban) */}
           <Link
             href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/scrum`}
             className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition-colors"
-            title="Planeación del equipo (Scrum/Kanban)"
+            title={t('projectView.planningTitle')}
           >
             <LayoutDashboard className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Planeación</span>
+            <span className="hidden sm:inline">{t('projectView.planning')}</span>
           </Link>
         </div>
 
         {/* Tabs de vista con subrayado */}
-        <nav className="flex items-center gap-1 mt-1 overflow-x-auto scrollbar-none" aria-label="Vistas del proyecto">
-          <ViewToggle href={`${basePath}?view=list`} active={currentView === 'list'} label="Lista" icon={<ListIcon />} />
-          <ViewToggle href={`${basePath}?view=table`} active={currentView === 'table'} label="Tabla" icon={<Table2 className="w-[13px] h-[13px]" />} />
-          <ViewToggle href={`${basePath}?view=board`} active={currentView === 'board'} label="Tablero" icon={<BoardIcon />} />
-          <ViewToggle href={`${basePath}?view=calendar`} active={currentView === 'calendar'} label="Calendario" icon={<CalIcon />} />
-          <ViewToggle href={`${basePath}?view=timeline`} active={currentView === 'timeline'} label="Cronograma" icon={<GanttChartSquare className="w-[13px] h-[13px]" />} />
-          <ViewToggle href={`${basePath}?view=workload`} active={currentView === 'workload'} label="Carga" icon={<LoadIcon />} />
-          <ViewToggle href={`${basePath}?view=chat`} active={currentView === 'chat'} label="Chat" icon={<ChatIcon />} />
+        <nav className="flex items-center gap-1 mt-1 overflow-x-auto scrollbar-none" aria-label={t('projectView.viewsAria')}>
+          <ViewToggle href={`${basePath}?view=list`} active={currentView === 'list'} label={t('projectView.list')} icon={<ListIcon />} />
+          <ViewToggle href={`${basePath}?view=table`} active={currentView === 'table'} label={t('projectView.table')} icon={<Table2 className="w-[13px] h-[13px]" />} />
+          <ViewToggle href={`${basePath}?view=board`} active={currentView === 'board'} label={t('projectView.board')} icon={<BoardIcon />} />
+          <ViewToggle href={`${basePath}?view=calendar`} active={currentView === 'calendar'} label={t('projectView.calendar')} icon={<CalIcon />} />
+          <ViewToggle href={`${basePath}?view=timeline`} active={currentView === 'timeline'} label={t('projectView.timeline')} icon={<GanttChartSquare className="w-[13px] h-[13px]" />} />
+          <ViewToggle href={`${basePath}?view=workload`} active={currentView === 'workload'} label={t('projectView.workload')} icon={<LoadIcon />} />
+          <ViewToggle href={`${basePath}?view=chat`} active={currentView === 'chat'} label={t('projectView.chat')} icon={<ChatIcon />} />
           {canManage && (
-            <ViewToggle href={`${basePath}?view=automations`} active={currentView === 'automations'} label="Reglas" icon={<Zap className="w-[13px] h-[13px]" />} />
+            <ViewToggle href={`${basePath}?view=automations`} active={currentView === 'automations'} label={t('projectView.automations')} icon={<Zap className="w-[13px] h-[13px]" />} />
+          )}
+          {canManage && (
+            <ViewToggle href={`${basePath}?view=statuses`} active={currentView === 'statuses'} label={t('projectView.statuses')} icon={<Palette className="w-[13px] h-[13px]" />} />
           )}
         </nav>
       </div>
 
       {/* ── Barra de filtros + vistas guardadas (no aplica al chat ni reglas) ──── */}
-      {currentView !== 'chat' && currentView !== 'automations' && (
+      {currentView !== 'chat' && currentView !== 'automations' && currentView !== 'statuses' && (
         <TaskFilterBar
           basePath={basePath}
           projectId={project.id}
@@ -470,7 +477,15 @@ export default async function ProjectPage({
             />
           ) : (
             <div className="px-6 py-10 text-center text-sm text-muted-foreground">
-              No tienes permiso para administrar las reglas de este proyecto.
+              {t('projectView.noRulesPermission')}
+            </div>
+          )
+        ) : currentView === 'statuses' ? (
+          canManage ? (
+            <StatusManager projectId={project.id} initialStatuses={statuses ?? []} />
+          ) : (
+            <div className="px-6 py-10 text-center text-sm text-muted-foreground">
+              {t('projectView.noStatusesPermission')}
             </div>
           )
         ) : currentView === 'table' ? (
@@ -509,6 +524,8 @@ export default async function ProjectPage({
             statuses={statuses ?? []}
             members={memberProfiles}
             currentUserId={userId}
+            projectName={project.name}
+            workspaceName={project.workspace?.name}
           />
         ) : currentView === 'workload' ? (
           <TaskWorkloadView

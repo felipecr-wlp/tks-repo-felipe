@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { timeAgo } from '@/lib/utils'
 import { NoteIcon } from '@/lib/note-icons'
+import { getServerT } from '@/lib/i18n/server'
 import { NotesActionsBar } from './NotesActionsBar'
 
 interface NotesPageProps {
@@ -60,15 +61,16 @@ export default async function NotesPage({ params }: NotesPageProps) {
   const visibleRecent = recent ?? []
 
   const hasNotes = visibleRecent.length > 0
+  const t = getServerT()
 
   return (
     <div className="px-8 py-10 max-w-3xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-foreground tracking-tight">
-          Wiki de {workspace.name}
+          {t('notesHome.wikiOf')} {workspace.name}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Documentación, SOPs, ideas y todo lo que tu equipo necesita saber.
+          {t('notesHome.subtitle')}
         </p>
       </div>
 
@@ -76,7 +78,7 @@ export default async function NotesPage({ params }: NotesPageProps) {
         <NotesActionsBar workspaceId={workspace.id} workspaceSlug={params.workspaceSlug} />
         {!hasNotes && (
           <p className="text-xs text-muted-foreground">
-            o usa el <strong>+</strong> en el árbol a la izquierda para empezar.
+            {t('notesHome.emptyHintPrefix')} <strong>+</strong> {t('notesHome.emptyHintSuffix')}
           </p>
         )}
       </div>
@@ -84,7 +86,7 @@ export default async function NotesPage({ params }: NotesPageProps) {
       {hasNotes && (
         <section>
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            Actividad reciente
+            {t('notesHome.recentActivity')}
           </h2>
           <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
             {visibleRecent.map(n => (
@@ -96,10 +98,10 @@ export default async function NotesPage({ params }: NotesPageProps) {
                 <NoteIcon icon={n.icon} size={16} className="flex-shrink-0 text-muted-foreground" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                    {n.title || 'Sin título'}
+                    {n.title || t('search.untitled')}
                   </p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    {n.author?.display_name ?? 'Usuario'} · actualizada {timeAgo(n.updated_at)}
+                    {n.author?.display_name ?? t('act.user')} · {t('notesHome.updated')} {timeAgo(n.updated_at)}
                   </p>
                 </div>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="opacity-0 group-hover:opacity-100 text-muted-foreground transition-opacity">
@@ -119,9 +121,9 @@ export default async function NotesPage({ params }: NotesPageProps) {
               <polyline points="14 2 14 8 20 8" />
             </svg>
           </div>
-          <h3 className="text-sm font-semibold text-foreground mb-1">Tu wiki está vacío</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-1">{t('notesHome.emptyTitle')}</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Empieza con una plantilla, SOP, brief, minutas, decisión, wiki, o desde cero.
+            {t('notesHome.emptyBody')}
           </p>
         </div>
       )}

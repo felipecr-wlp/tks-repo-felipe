@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import { Check, Lock, User, Home, Mail } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { AVATARS } from '@/lib/avatars'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface ProfileFormProps {
   initialName: string
@@ -23,6 +24,7 @@ interface ProfileFormProps {
 }
 
 export function ProfileForm({ initialName, initialAvatar, initialEmailNotifications, email, isAdmin }: ProfileFormProps) {
+  const t = useT()
   const router = useRouter()
   const [name, setName] = useState(initialName)
   const [selected, setSelected] = useState<string | null>(initialAvatar)
@@ -36,7 +38,7 @@ export function ProfileForm({ initialName, initialAvatar, initialEmailNotificati
   const nameValid = name.trim().length >= 2
 
   const save = async () => {
-    if (!nameValid) { toast.error('El nombre debe tener al menos 2 caracteres'); return }
+    if (!nameValid) { toast.error(t('profile.nameMinChars')); return }
     setSaving(true)
     try {
       const res = await fetch('/api/profile', {
@@ -45,11 +47,11 @@ export function ProfileForm({ initialName, initialAvatar, initialEmailNotificati
         body: JSON.stringify({ display_name: name.trim(), avatar_url: selected, email_notifications: emailNotif }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error ?? 'Error al guardar')
-      toast.success('Perfil actualizado')
+      if (!res.ok) throw new Error(result.error ?? t('profile.saveError'))
+      toast.success(t('profile.updated'))
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      toast.error(err instanceof Error ? err.message : t('common.unknownError'))
     } finally {
       setSaving(false)
     }
@@ -62,7 +64,7 @@ export function ProfileForm({ initialName, initialAvatar, initialEmailNotificati
         href="/"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
-        <Home className="w-4 h-4" /> Regresar al Menú
+        <Home className="w-4 h-4" /> {t('common.backToMenu')}
       </Link>
 
       {/* Identidad: avatar actual + nombre */}
@@ -77,7 +79,7 @@ export function ProfileForm({ initialName, initialAvatar, initialEmailNotificati
           )}
         </div>
         <div className="flex-1 min-w-0 space-y-1.5">
-          <label htmlFor="name" className="text-sm font-medium text-foreground">Nombre para mostrar</label>
+          <label htmlFor="name" className="text-sm font-medium text-foreground">{t('profile.displayName')}</label>
           <input
             id="name"
             value={name}
@@ -93,8 +95,8 @@ export function ProfileForm({ initialName, initialAvatar, initialEmailNotificati
       {/* Galería */}
       <div className="space-y-2.5">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-foreground">Elige tu avatar</p>
-          <p className="text-xs text-muted-foreground">{AVATARS.length} avatares</p>
+          <p className="text-sm font-medium text-foreground">{t('profile.chooseAvatar')}</p>
+          <p className="text-xs text-muted-foreground">{AVATARS.length} {t('profile.avatarsSuffix')}</p>
         </div>
         {/* Contenedor con scroll: barra lateral para explorar todos los avatares */}
         <div className="max-h-72 overflow-y-auto rounded-lg border border-border/60 bg-muted/20 p-2.5 pr-3">
@@ -103,7 +105,7 @@ export function ProfileForm({ initialName, initialAvatar, initialEmailNotificati
           <button
             type="button"
             onClick={() => setSelected(null)}
-            title="Sin avatar (iniciales)"
+            title={t('profile.noAvatar')}
             className={cn(
               'relative aspect-square rounded-full overflow-hidden bg-muted flex items-center justify-center transition-all',
               selected === null ? 'ring-2 ring-primary ring-offset-2 ring-offset-card' : 'ring-1 ring-border hover:ring-primary/50',
@@ -124,9 +126,9 @@ export function ProfileForm({ initialName, initialAvatar, initialEmailNotificati
               <button
                 key={av.path}
                 type="button"
-                title={locked ? `${av.label} · reservado para el Admin` : av.label}
+                title={locked ? `${av.label} · ${t('profile.avatarReserved')}` : av.label}
                 onClick={() => {
-                  if (locked) { toast.error('Ese avatar está reservado para el Admin'); return }
+                  if (locked) { toast.error(t('profile.avatarReservedToast')); return }
                   setSelected(av.path)
                 }}
                 className={cn(
@@ -159,14 +161,14 @@ export function ProfileForm({ initialName, initialAvatar, initialEmailNotificati
         </div>
         {!isAdmin && (
           <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <Lock className="w-3 h-3" /> El husky está reservado para el Admin.
+            <Lock className="w-3 h-3" /> {t('profile.huskyReserved')}
           </p>
         )}
       </div>
 
       {/* Notificaciones por correo (Circuito 2.B): opt-out por usuario */}
       <div className="space-y-2.5 border-t border-border pt-5">
-        <p className="text-sm font-medium text-foreground">Notificaciones</p>
+        <p className="text-sm font-medium text-foreground">{t('profile.notifications')}</p>
         <button
           type="button"
           onClick={() => setEmailNotif(v => !v)}
@@ -177,9 +179,9 @@ export function ProfileForm({ initialName, initialAvatar, initialEmailNotificati
             <Mail className="w-4 h-4" />
           </span>
           <span className="flex-1 min-w-0">
-            <span className="block text-sm font-medium text-foreground">Correos de menciones y asignaciones</span>
+            <span className="block text-sm font-medium text-foreground">{t('profile.notifTitle')}</span>
             <span className="block text-xs text-muted-foreground mt-0.5">
-              Recibe un correo cuando te mencionen o te asignen una tarea. La Bandeja siempre te avisa dentro de la app.
+              {t('profile.notifDesc')}
             </span>
           </span>
           <span
@@ -208,18 +210,18 @@ export function ProfileForm({ initialName, initialAvatar, initialEmailNotificati
             disabled={saving}
             className="px-4 py-2.5 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
           >
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             type="button"
             onClick={save}
             disabled={saving || !dirty || !nameValid}
-            title={!dirty ? 'Cambia tu nombre o avatar para guardar' : 'Guardar cambios'}
+            title={!dirty ? t('profile.savePrompt') : t('common.saveChanges')}
             className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {saving
-              ? <><span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />Guardando...</>
-              : 'Guardar cambios'}
+              ? <><span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />{t('common.saving')}</>
+              : t('common.saveChanges')}
           </button>
         </div>
       </div>

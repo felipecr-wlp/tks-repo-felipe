@@ -16,11 +16,12 @@ import { useCallback, useState } from 'react'
 import Image from 'next/image'
 import { timeAgo, getInitials } from '@/lib/utils'
 import { Activity, Loader2 } from 'lucide-react'
+import { useI18n } from '@/lib/i18n/LanguageProvider'
 import type { WorkspaceActivityEvent } from '@/app/api/workspaces/[workspaceId]/activity/route'
 
-// ── Traduccion de verbos a frases en español ─────────────────────────────────
+// ── Traduccion de verbos a frases ────────────────────────────────────────────
 // Cada frase encaja despues del nombre del actor: "Ana creó la tarea …".
-const VERB_PHRASES: Record<string, string> = {
+const VERB_PHRASES_ES: Record<string, string> = {
   // Tareas
   'task.created':         'creó la tarea',
   'task.updated':         'actualizó la tarea',
@@ -66,8 +67,55 @@ const VERB_PHRASES: Record<string, string> = {
   'workspace.member_joined':  'se unió al espacio',
 }
 
-function verbPhrase(verb: string): string {
-  const known = VERB_PHRASES[verb]
+const VERB_PHRASES_EN: Record<string, string> = {
+  // Tasks
+  'task.created':         'created task',
+  'task.updated':         'updated task',
+  'task.deleted':         'deleted task',
+  'task.archived':        'archived task',
+  'task.status_changed':  'changed the status of task',
+  'task.assigned':        'assigned task',
+  'task.unassigned':      'unassigned task',
+  'task.priority_set':    'changed the priority of task',
+  'task.due_set':         'set the due date of task',
+  'task.mentioned':       'mentioned you in task',
+  // Comments
+  'comment.added':        'commented on',
+  'comment.updated':      'edited a comment on',
+  // Projects
+  'project.created':        'created project',
+  'project.archived':       'archived project',
+  'project.member_added':   'added a member to project',
+  'project.proposed':       'proposed project',
+  'project.approved':       'approved project',
+  'project.rejected':       'rejected project',
+  'project.completed':      'completed project',
+  'project.charter_updated':'updated the charter of project',
+  'project.opened':         'opened project',
+  'project.closed':         'closed project',
+  // Applications and reviews
+  'application.submitted':  'applied to',
+  'application.accepted':   'accepted an application in',
+  'application.rejected':   'rejected an application in',
+  'application.withdrawn':  'withdrew their application from',
+  'review.submitted':       'submitted a review in',
+  // Notes
+  'note.created':         'created note',
+  'note.updated':         'updated note',
+  'note.commented':       'commented on note',
+  'note.mentioned':       'mentioned you in note',
+  // Whiteboards
+  'whiteboard.created':   'created whiteboard',
+  'whiteboard.updated':   'updated whiteboard',
+  // Workspace
+  'workspace.invite_created': 'created a workspace invite',
+  'workspace.invite_revoked': 'revoked a workspace invite',
+  'workspace.member_joined':  'joined the workspace',
+}
+
+function verbPhrase(verb: string, lang: string): string {
+  const dict = lang === 'en' ? VERB_PHRASES_EN : VERB_PHRASES_ES
+  const known = dict[verb]
   if (known) return known
   // Fallback legible: "some.new_verb" -> "some new verb".
   return verb.replace(/[._]/g, ' ')
@@ -75,7 +123,8 @@ function verbPhrase(verb: string): string {
 
 // ── Fila de un evento ────────────────────────────────────────────────────────
 function EventRow({ event }: { event: WorkspaceActivityEvent }) {
-  const name = event.subject?.display_name ?? 'Usuario'
+  const { t, lang } = useI18n()
+  const name = event.subject?.display_name ?? t('act.user')
   const avatar = event.subject?.avatar_url ?? null
 
   return (
@@ -96,7 +145,7 @@ function EventRow({ event }: { event: WorkspaceActivityEvent }) {
       <div className="flex-1 min-w-0">
         <p className="text-sm text-foreground leading-snug">
           <span className="font-medium">{name}</span>{' '}
-          <span className="text-muted-foreground">{verbPhrase(event.verb)}</span>
+          <span className="text-muted-foreground">{verbPhrase(event.verb, lang)}</span>
           {event.object_title ? (
             <>
               {' '}
@@ -105,7 +154,7 @@ function EventRow({ event }: { event: WorkspaceActivityEvent }) {
           ) : null}
           {event.project ? (
             <span className="text-muted-foreground">
-              {' '}en{' '}
+              {' '}{t('act.inConnector')}{' '}
               <span className="text-foreground">{event.project.name}</span>
             </span>
           ) : null}
@@ -129,6 +178,7 @@ export function ActivityFeed({
   initialNextOffset: number | null
   pageSize: number
 }) {
+  const { t } = useI18n()
   const [events, setEvents] = useState<WorkspaceActivityEvent[]>(initialEvents)
   const [nextOffset, setNextOffset] = useState<number | null>(initialNextOffset)
   const [loading, setLoading] = useState(false)
@@ -150,18 +200,18 @@ export function ActivityFeed({
       setEvents((prev) => [...prev, ...data.events])
       setNextOffset(data.nextOffset)
     } catch {
-      setError('No se pudo cargar más actividad. Intenta de nuevo.')
+      setError(t('act.loadError'))
     } finally {
       setLoading(false)
     }
-  }, [workspaceId, nextOffset, pageSize, loading])
+  }, [workspaceId, nextOffset, pageSize, loading, t])
 
   if (events.length === 0) {
     return (
       <div className="bg-card border border-border rounded-xl px-4 py-12 text-center">
         <Activity className="w-6 h-6 mx-auto mb-3 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">
-          Aún no hay actividad registrada en este espacio.
+          {t('act.empty')}
         </p>
       </div>
     )
@@ -188,7 +238,7 @@ export function ActivityFeed({
             className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-60"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {loading ? 'Cargando…' : 'Cargar más'}
+            {loading ? t('act.loading') : t('act.loadMore')}
           </button>
         </div>
       ) : null}

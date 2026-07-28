@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { NOTE_TEMPLATES } from '@/lib/note-templates'
 import { NoteIcon } from '@/lib/note-icons'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface NotesActionsBarProps {
   workspaceId: string
@@ -27,6 +28,7 @@ export function NotesActionsBar({
   label,
 }: NotesActionsBarProps) {
   const router = useRouter()
+  const tr = useT()
   const [open, setOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -63,10 +65,10 @@ export function NotesActionsBar({
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error')
+      if (!res.ok) throw new Error(data.error ?? tr('common.unknownError'))
       router.push(`/w/${workspaceSlug}/notes/${data.id}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al crear la nota')
+      toast.error(err instanceof Error ? err.message : tr('notes.createError'))
       setCreating(false)
     }
   }
@@ -93,14 +95,14 @@ export function NotesActionsBar({
             <path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
         )}
-        {label ?? (parentNoteId ? 'Sub-página' : 'Nueva nota')}
+        {label ?? (parentNoteId ? tr('notes.subPage') : tr('notes.newNote'))}
       </button>
 
       {open && (
         <div className="absolute top-full left-0 mt-1 w-72 bg-popover border border-border rounded-lg shadow-raised z-[100] overflow-hidden">
           <div className="px-3 py-2 border-b border-border">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Plantillas
+              {tr('notes.templates')}
             </p>
           </div>
           <div className="py-1 max-h-80 overflow-y-auto">

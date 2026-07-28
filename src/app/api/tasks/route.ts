@@ -11,6 +11,7 @@ import { sanitizeRichText } from '@/lib/sanitize'
 import { logActivity, notify, ActivityVerbs, NotificationTypes } from '@/lib/activity'
 import { autoWatch } from '@/lib/watchers'
 import { runAutomations } from '@/lib/automations'
+import { isAssignableToProject } from '@/lib/team-access'
 import type { Database } from '@/lib/supabase/types'
 
 const createSchema = z.object({
@@ -74,6 +75,13 @@ export async function POST(request: NextRequest) {
     .maybeSingle() as { data: ProjRow | null; error: unknown }
 
   if (!project) return NextResponse.json({ error: 'Proyecto no encontrado' }, { status: 404 })
+
+  // Validar el responsable: debe ser miembro del proyecto. Sin esto se podia
+  // asignar una tarea a cualquier UUID (incluso de otro workspace), dejandola
+  // apuntando a alguien sin acceso.
+  if (assignee_id && !(await isAssignableToProject(admin, project_id, assignee_id))) {
+    return NextResponse.json({ error: 'El responsable no pertenece al proyecto' }, { status: 422 })
+  }
 
   // Si es subtarea, verificar que el padre exista y pertenezca al mismo proyecto
   // (anti cross-proyecto). Solo un nivel de anidación: el padre no puede ser subtarea.

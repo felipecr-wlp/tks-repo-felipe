@@ -3,11 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export function NewWhiteboardButton({
   workspaceId, workspaceSlug,
 }: { workspaceId: string; workspaceSlug: string }) {
   const router = useRouter()
+  const t = useT()
   const [creating, setCreating] = useState(false)
 
   async function create() {
@@ -18,7 +20,7 @@ export function NewWhiteboardButton({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workspace_id: workspaceId,
-          title: 'Pizarra sin título',
+          title: t('wb.untitled'),
           visibility: 'workspace',
         }),
       })
@@ -26,7 +28,7 @@ export function NewWhiteboardButton({
       if (!res.ok) throw new Error(data.error ?? 'Error')
       router.push(`/w/${workspaceSlug}/whiteboards/${data.id}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al crear')
+      toast.error(err instanceof Error ? err.message : t('wb.createError'))
       setCreating(false)
     }
   }
@@ -44,7 +46,7 @@ export function NewWhiteboardButton({
           <path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
       )}
-      Nueva pizarra
+      {t('wb.newBoard')}
     </button>
   )
 }

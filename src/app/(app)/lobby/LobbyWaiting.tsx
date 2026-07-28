@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { LogOut, RefreshCw } from 'lucide-react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface LobbyWaitingProps {
   displayName: string
@@ -19,6 +20,7 @@ interface LobbyWaitingProps {
 
 export function LobbyWaiting({ displayName, email, orgName }: LobbyWaitingProps) {
   const router = useRouter()
+  const t = useT()
   const [checking, setChecking] = useState(false)
 
   // Sondeo pasivo: refresca la ruta; si ya lo ubicaron, el server redirige.
@@ -36,7 +38,7 @@ export function LobbyWaiting({ displayName, email, orgName }: LobbyWaitingProps)
   const signOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    toast.success('Sesión cerrada')
+    toast.success(t('lobby.signedOut'))
     router.push('/auth/login')
     router.refresh()
   }
@@ -50,11 +52,11 @@ export function LobbyWaiting({ displayName, email, orgName }: LobbyWaitingProps)
           <div className="lobby-welcome-mat absolute left-1/2 bottom-0 -translate-x-1/2" />
           <div className="relative z-10 flex h-full items-end justify-center">
             <div className="relative pb-2">
-              <div className="lobby-welcome-bubble">¡Bienvenido!</div>
+              <div className="lobby-welcome-bubble">{t('lobby.welcome')}</div>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/avatars/husky.png"
-                alt="Husky de bienvenida"
+                alt={t('lobby.huskyAlt')}
                 width={104}
                 height={104}
                 className="lobby-welcome-husky h-24 w-24 object-contain drop-shadow-lg"
@@ -65,13 +67,11 @@ export function LobbyWaiting({ displayName, email, orgName }: LobbyWaitingProps)
         </div>
 
         <h1 className="text-2xl font-semibold text-foreground">
-          Hola, {displayName}
+          {t('lobby.helloPrefix')} {displayName}
         </h1>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-          Ya formas parte de{' '}
-          <span className="font-medium text-foreground">{orgName}</span>. Un
-          administrador te ubicará en tu espacio de trabajo y equipo muy pronto.
-          Esta pantalla se actualizará sola cuando tengas acceso.
+          {t('lobby.partOfPrefix')}{' '}
+          <span className="font-medium text-foreground">{orgName}</span>{t('lobby.partOfSuffix')}
         </p>
 
         <div className="mt-6 bg-card border border-border rounded-xl p-4 text-left">
@@ -87,7 +87,7 @@ export function LobbyWaiting({ displayName, email, orgName }: LobbyWaitingProps)
             </div>
             <span className="ml-auto flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-              En espera
+              {t('lobby.waiting')}
             </span>
           </div>
         </div>
@@ -100,7 +100,7 @@ export function LobbyWaiting({ displayName, email, orgName }: LobbyWaitingProps)
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-accent/50 transition-colors disabled:opacity-50"
           >
             <RefreshCw size={15} className={checking ? 'animate-spin' : ''} />
-            {checking ? 'Revisando...' : 'Revisar de nuevo'}
+            {checking ? t('lobby.checking') : t('lobby.checkAgain')}
           </button>
           <button
             type="button"
@@ -108,7 +108,7 @@ export function LobbyWaiting({ displayName, email, orgName }: LobbyWaitingProps)
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
           >
             <LogOut size={15} />
-            Cerrar sesión
+            {t('lobby.signOut')}
           </button>
         </div>
       </div>

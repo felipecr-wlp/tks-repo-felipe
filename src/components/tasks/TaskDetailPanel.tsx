@@ -28,6 +28,7 @@ import {
   AlertTriangle, CalendarClock, Copy, Gauge, LayoutTemplate,
 } from 'lucide-react'
 import { cn, getInitials, timeAgo, dateInputToISO, isoToDateInput } from '@/lib/utils'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { sanitizeRichText } from '@/lib/sanitize'
 import { RECURRENCE_RULES, RECURRENCE_LABELS } from '@/lib/recurrence'
 import { ChecklistSection } from './ChecklistSection'
@@ -46,13 +47,18 @@ const RichTextEditor = dynamic(
   () => import('@/components/editor/RichTextEditor').then(m => m.RichTextEditor),
   {
     ssr: false,
-    loading: () => (
-      <div className="border border-input rounded-lg bg-background min-h-[80px] px-3 py-2 text-sm text-muted-foreground">
-        Cargando editor...
-      </div>
-    ),
+    loading: () => <EditorLoading />,
   }
 )
+
+function EditorLoading() {
+  const t = useT()
+  return (
+    <div className="border border-input rounded-lg bg-background min-h-[80px] px-3 py-2 text-sm text-muted-foreground">
+      {t('taskDetail.loadingEditor')}
+    </div>
+  )
+}
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface Status { id: string; name: string; color: string | null; category: string }
@@ -107,12 +113,12 @@ interface TaskDetailPanelProps {
   onOpenTask?: (taskId: string) => void
 }
 
-const PRIORITIES: { value: string; label: string; color: string; Icon: typeof Zap }[] = [
-  { value: 'urgent', label: 'Urgente',       color: 'text-red-500',           Icon: Zap },
-  { value: 'high',   label: 'Alta',          color: 'text-orange-500',        Icon: ChevronsUp },
-  { value: 'medium', label: 'Media',         color: 'text-yellow-500',        Icon: ChevronUp },
-  { value: 'low',    label: 'Baja',          color: 'text-blue-400',          Icon: ChevronDown },
-  { value: 'none',   label: 'Sin prioridad', color: 'text-muted-foreground',  Icon: Minus },
+const PRIORITIES: { value: string; labelKey: string; color: string; Icon: typeof Zap }[] = [
+  { value: 'urgent', labelKey: 'priority.urgent', color: 'text-red-500',           Icon: Zap },
+  { value: 'high',   labelKey: 'priority.high',   color: 'text-orange-500',        Icon: ChevronsUp },
+  { value: 'medium', labelKey: 'priority.medium', color: 'text-yellow-500',        Icon: ChevronUp },
+  { value: 'low',    labelKey: 'priority.low',    color: 'text-blue-400',          Icon: ChevronDown },
+  { value: 'none',   labelKey: 'priority.none',   color: 'text-muted-foreground',  Icon: Minus },
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -170,6 +176,7 @@ export function TaskDetailPanel({
   onOpenTask,
 }: TaskDetailPanelProps) {
   const router = useRouter()
+  const t = useT()
   const [task, setTask] = useState<TaskDetail | null>(null)
   const [duplicating, setDuplicating] = useState(false)
   const [savingTemplate, setSavingTemplate] = useState(false)
@@ -213,7 +220,7 @@ export function TaskDetailPanel({
           setHasMoreComments(!!data.has_more)
         }
       } catch {
-        toast.error('Error al cargar la tarea')
+        toast.error(t('taskDetail.toast.loadFail'))
       } finally {
         setIsLoading(false)
       }
@@ -249,10 +256,10 @@ export function TaskDetailPanel({
       setActivityKey(k => k + 1)
       onUpdated?.(updated)
       if (updated.spawned_task_id) {
-        toast.success('Tarea recurrente: se creo la siguiente ocurrencia')
+        toast.success(t('taskDetail.toast.recurrenceSpawned'))
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al guardar')
+      toast.error(err instanceof Error ? err.message : t('taskDetail.toast.saveFail'))
     } finally {
       setIsSaving(false)
     }
@@ -287,15 +294,15 @@ export function TaskDetailPanel({
     setDuplicating(true)
     try {
       const res = await fetch(`/api/tasks/${taskId}/duplicate`, { method: 'POST' })
-      if (!res.ok) throw new Error('Error al duplicar')
+      if (!res.ok) throw new Error('duplicate failed')
       const copy: { id: string; title: string } = await res.json()
-      toast.success('Tarea duplicada')
+      toast.success(t('taskDetail.toast.duplicated'))
       // Re-ejecuta el server component padre para que el tablero muestre la
       // copia, y abre la tarea nueva para confirmar visualmente.
       router.refresh()
       onOpenTask?.(copy.id)
     } catch {
-      toast.error('Error al duplicar la tarea')
+      toast.error(t('taskDetail.toast.duplicateFail'))
     } finally {
       setDuplicating(false)
     }
@@ -306,10 +313,10 @@ export function TaskDetailPanel({
   const handleSaveAsTemplate = async () => {
     if (savingTemplate || !task) return
     const name = await promptDialog({
-      title: 'Guardar como plantilla',
-      label: 'Nombre de la plantilla de tarea',
-      placeholder: 'Ej. Checklist de arranque de proyecto',
-      confirmLabel: 'Guardar',
+      title: t('taskDetail.tplDialogTitle'),
+      label: t('taskDetail.tplDialogLabel'),
+      placeholder: t('taskDetail.tplDialogPlaceholder'),
+      confirmLabel: t('common.save'),
     })
     if (!name) return
     setSavingTemplate(true)
@@ -321,26 +328,26 @@ export function TaskDetailPanel({
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.error ?? 'Error al guardar la plantilla')
+        throw new Error(data?.error ?? t('taskDetail.toast.tplFail'))
       }
-      toast.success('Plantilla guardada')
+      toast.success(t('taskDetail.toast.tplSaved'))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al guardar la plantilla')
+      toast.error(err instanceof Error ? err.message : t('taskDetail.toast.tplFail'))
     } finally {
       setSavingTemplate(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!(await confirmDialog({ message: '¿Eliminar esta tarea? No se puede deshacer.', destructive: true, confirmLabel: 'Eliminar' }))) return
+    if (!(await confirmDialog({ message: t('taskDetail.deleteConfirm'), destructive: true, confirmLabel: t('taskDetail.delete') }))) return
     try {
       const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Error al eliminar')
-      toast.success('Tarea eliminada')
+      if (!res.ok) throw new Error('delete failed')
+      toast.success(t('taskDetail.toast.deleted'))
       onDeleted?.(taskId)
       onClose()
     } catch {
-      toast.error('Error al eliminar la tarea')
+      toast.error(t('taskDetail.toast.deleteFail'))
     }
   }
 
@@ -352,12 +359,12 @@ export function TaskDetailPanel({
     try {
       const oldest = comments[0].created_at
       const res = await fetch(`/api/tasks/${taskId}/comments?before=${encodeURIComponent(oldest)}`)
-      if (!res.ok) throw new Error('Error al cargar comentarios')
+      if (!res.ok) throw new Error('load comments failed')
       const data: { comments: Comment[]; has_more: boolean } = await res.json()
       setComments(prev => [...(data.comments ?? []), ...prev])
       setHasMoreComments(!!data.has_more)
     } catch {
-      toast.error('Error al cargar comentarios anteriores')
+      toast.error(t('taskDetail.toast.loadCommentsFail'))
     } finally {
       setLoadingMoreComments(false)
     }
@@ -373,13 +380,13 @@ export function TaskDetailPanel({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body: trimmed }),
       })
-      if (!res.ok) throw new Error('Error al agregar comentario')
+      if (!res.ok) throw new Error('add comment failed')
       const comment: Comment = await res.json()
       setComments(prev => [...prev, comment])
       setActivityKey(k => k + 1)
       registerMentions(trimmed, 'comment')
     } catch {
-      toast.error('Error al agregar el comentario')
+      toast.error(t('taskDetail.toast.addCommentFail'))
       throw new Error('failed')
     } finally {
       setSubmittingComment(false)
@@ -394,7 +401,7 @@ export function TaskDetailPanel({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ body: trimmed }),
     })
-    if (!res.ok) { toast.error('Error al editar el comentario'); throw new Error('failed') }
+    if (!res.ok) { toast.error(t('taskDetail.toast.editCommentFail')); throw new Error('failed') }
     const updated: Comment = await res.json()
     setComments(prev => prev.map(c => c.id === commentId ? updated : c))
   }
@@ -407,7 +414,7 @@ export function TaskDetailPanel({
       if (!res.ok) throw new Error('failed')
     } catch {
       setComments(prev) // revertir
-      toast.error('Error al eliminar el comentario')
+      toast.error(t('taskDetail.toast.deleteCommentFail'))
     }
   }
 
@@ -430,7 +437,7 @@ export function TaskDetailPanel({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Detalle de la tarea"
+        aria-label={t('taskDetail.ariaPanel')}
         className={cn(
           'fixed right-0 top-0 h-full w-full max-w-3xl bg-background border-l border-border shadow-overlay z-50 flex flex-col overflow-hidden',
           'transition-transform duration-300 ease-panel',
@@ -449,7 +456,7 @@ export function TaskDetailPanel({
             {task && (
               <span className={cn('inline-flex items-center gap-1 text-xs font-medium', priorityInfo.color)}>
                 <priorityInfo.Icon className="w-3.5 h-3.5" />
-                {priorityInfo.label}
+                {t(priorityInfo.labelKey)}
               </span>
             )}
           </div>
@@ -457,14 +464,14 @@ export function TaskDetailPanel({
             {isSaving && (
               <span className="text-xs text-muted-foreground flex items-center gap-1 mr-1">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Guardando...
+                {t('taskDetail.saving')}
               </span>
             )}
             <button
               onClick={handleDuplicate}
               disabled={duplicating}
-              title="Duplicar tarea"
-              aria-label="Duplicar tarea"
+              title={t('taskDetail.duplicate')}
+              aria-label={t('taskDetail.duplicate')}
               className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors disabled:opacity-50"
             >
               {duplicating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
@@ -472,24 +479,24 @@ export function TaskDetailPanel({
             <button
               onClick={handleSaveAsTemplate}
               disabled={savingTemplate}
-              title="Guardar como plantilla"
-              aria-label="Guardar como plantilla"
+              title={t('taskDetail.saveAsTemplate')}
+              aria-label={t('taskDetail.saveAsTemplate')}
               className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors disabled:opacity-50"
             >
               {savingTemplate ? <Loader2 className="w-4 h-4 animate-spin" /> : <LayoutTemplate className="w-4 h-4" />}
             </button>
             <button
               onClick={handleDelete}
-              title="Eliminar tarea"
-              aria-label="Eliminar tarea"
+              title={t('taskDetail.delete')}
+              aria-label={t('taskDetail.delete')}
               className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
             >
               <Trash2 className="w-4 h-4" />
             </button>
             <button
               onClick={onClose}
-              title="Cerrar (Esc)"
-              aria-label="Cerrar detalle de la tarea"
+              title={t('taskDetail.closeTitle')}
+              aria-label={t('taskDetail.closeAria')}
               className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
             >
               <X className="w-4 h-4" />
@@ -505,7 +512,7 @@ export function TaskDetailPanel({
             </div>
           ) : !task ? (
             <div className="p-5 text-center text-muted-foreground text-sm">
-              No se pudo cargar la tarea.
+              {t('taskDetail.loadFail')}
             </div>
           ) : (
             <div className="flex flex-col lg:flex-row">
@@ -521,7 +528,7 @@ export function TaskDetailPanel({
                         'flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5 max-w-full',
                         onOpenTask ? 'hover:text-primary transition-colors cursor-pointer' : 'cursor-default'
                       )}
-                      title={onOpenTask ? 'Abrir tarea padre' : undefined}
+                      title={onOpenTask ? t('taskDetail.openParent') : undefined}
                     >
                       <CornerLeftUp className="w-3.5 h-3.5 flex-shrink-0" />
                       <span className="truncate">{task.parent.title}</span>
@@ -558,7 +565,7 @@ export function TaskDetailPanel({
 
                 {/* Descripcion */}
                 <section>
-                  <SectionLabel icon={<FileText className="w-3.5 h-3.5" />}>Descripción</SectionLabel>
+                  <SectionLabel icon={<FileText className="w-3.5 h-3.5" />}>{t('taskDetail.description')}</SectionLabel>
                   <DescriptionEditor
                     value={task.description ?? ''}
                     onSave={desc => { updateField({ description: desc || null }); if (desc) registerMentions(desc, 'description') }}
@@ -604,7 +611,7 @@ export function TaskDetailPanel({
                 {/* Comentarios */}
                 <section>
                   <SectionLabel icon={<MessageSquare className="w-3.5 h-3.5" />}>
-                    Comentarios ({comments.length})
+                    {t('taskDetail.comments')} ({comments.length})
                   </SectionLabel>
 
                   {hasMoreComments && (
@@ -614,7 +621,7 @@ export function TaskDetailPanel({
                       disabled={loadingMoreComments}
                       className="mb-3 text-xs font-medium text-primary hover:underline disabled:opacity-50"
                     >
-                      {loadingMoreComments ? 'Cargando...' : 'Cargar comentarios anteriores'}
+                      {loadingMoreComments ? `${t('common.loading')}...` : t('taskDetail.loadOlder')}
                     </button>
                   )}
 
@@ -645,28 +652,28 @@ export function TaskDetailPanel({
 
               {/* ── Columna de metadatos ─────────────────────── */}
               <aside className="w-full lg:w-64 flex-shrink-0 p-5 lg:p-6 space-y-4 bg-muted/20">
-                <MetaRow icon={<CircleDot className="w-3.5 h-3.5" />} label="Estado">
+                <MetaRow icon={<CircleDot className="w-3.5 h-3.5" />} label={t('taskDetail.metaStatus')}>
                   <StatusSelect
                     current={task.status}
                     statuses={statuses}
                     onSelect={id => {
                       const target = statuses.find(s => s.id === id)
                       if (target?.category === 'done' && openBlockers > 0) {
-                        toast.warning(`Esta tarea tiene ${openBlockers} dependencia(s) sin cerrar`)
+                        toast.warning(`${t('taskDetail.toast.blockersPrefix')} ${openBlockers} ${t('taskDetail.toast.blockersSuffix')}`)
                       }
                       updateField({ status_id: id })
                     }}
                   />
                 </MetaRow>
 
-                <MetaRow icon={<priorityInfo.Icon className={cn('w-3.5 h-3.5', priorityInfo.color)} />} label="Prioridad">
+                <MetaRow icon={<priorityInfo.Icon className={cn('w-3.5 h-3.5', priorityInfo.color)} />} label={t('taskDetail.metaPriority')}>
                   <PrioritySelect
                     current={task.priority}
                     onSelect={p => updateField({ priority: p })}
                   />
                 </MetaRow>
 
-                <MetaRow icon={<UserIcon className="w-3.5 h-3.5" />} label="Responsable">
+                <MetaRow icon={<UserIcon className="w-3.5 h-3.5" />} label={t('taskDetail.metaAssignee')}>
                   <AssigneesSection
                     taskId={taskId}
                     members={members}
@@ -678,11 +685,11 @@ export function TaskDetailPanel({
                   />
                 </MetaRow>
 
-                <MetaRow icon={<Eye className="w-3.5 h-3.5" />} label="Seguidores">
+                <MetaRow icon={<Eye className="w-3.5 h-3.5" />} label={t('taskDetail.metaWatchers')}>
                   <WatchersSection taskId={taskId} currentUserId={currentUserId} />
                 </MetaRow>
 
-                <MetaRow icon={<PlayCircle className="w-3.5 h-3.5" />} label="Inicia el">
+                <MetaRow icon={<PlayCircle className="w-3.5 h-3.5" />} label={t('taskDetail.metaStart')}>
                   <input
                     type="date"
                     defaultValue={isoToDateInput(task.start_date)}
@@ -691,7 +698,7 @@ export function TaskDetailPanel({
                   />
                 </MetaRow>
 
-                <MetaRow icon={<CalendarIcon className="w-3.5 h-3.5" />} label="Vence el">
+                <MetaRow icon={<CalendarIcon className="w-3.5 h-3.5" />} label={t('taskDetail.metaDue')}>
                   <div className="flex items-center gap-2">
                     <input
                       type="date"
@@ -703,12 +710,12 @@ export function TaskDetailPanel({
                       const bucket = dueBucket(task.due_date, task.status?.category === 'done' || task.status?.category === 'cancelled')
                       if (bucket === 'overdue') return (
                         <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive text-[10px] font-medium px-1.5 py-0.5 flex-shrink-0">
-                          <AlertTriangle className="w-3 h-3" /> Vencida
+                          <AlertTriangle className="w-3 h-3" /> {t('taskDetail.overdue')}
                         </span>
                       )
                       if (bucket === 'today') return (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-medium px-1.5 py-0.5 flex-shrink-0">
-                          <CalendarClock className="w-3 h-3" /> Hoy
+                          <CalendarClock className="w-3 h-3" /> {t('taskDetail.today')}
                         </span>
                       )
                       return null
@@ -716,21 +723,21 @@ export function TaskDetailPanel({
                   </div>
                 </MetaRow>
 
-                <MetaRow icon={<Clock className="w-3.5 h-3.5" />} label="Estimacion">
+                <MetaRow icon={<Clock className="w-3.5 h-3.5" />} label={t('taskDetail.metaEstimate')}>
                   <EstimateField
                     minutes={task.estimate_minutes}
                     onSave={mins => updateField({ estimate_minutes: mins })}
                   />
                 </MetaRow>
 
-                <MetaRow icon={<Gauge className="w-3.5 h-3.5" />} label="Puntos">
+                <MetaRow icon={<Gauge className="w-3.5 h-3.5" />} label={t('taskDetail.metaPoints')}>
                   <StoryPointsField
                     points={task.story_points}
                     onSave={pts => updateField({ story_points: pts })}
                   />
                 </MetaRow>
 
-                <MetaRow icon={<Repeat className="w-3.5 h-3.5" />} label="Repetir">
+                <MetaRow icon={<Repeat className="w-3.5 h-3.5" />} label={t('taskDetail.metaRepeat')}>
                   <select
                     value={task.recurrence_rule ?? ''}
                     onChange={e => updateField({
@@ -740,14 +747,14 @@ export function TaskDetailPanel({
                     })}
                     className="text-sm bg-transparent text-foreground cursor-pointer hover:text-primary transition-colors outline-none w-full"
                   >
-                    <option value="">No repetir</option>
+                    <option value="">{t('taskDetail.noRepeat')}</option>
                     {RECURRENCE_RULES.map(r => (
                       <option key={r} value={r}>{RECURRENCE_LABELS[r]}</option>
                     ))}
                   </select>
                   {task.recurrence_rule && (
                     <div className="mt-1.5">
-                      <label className="text-[10px] text-muted-foreground block mb-0.5">Repetir hasta (opcional)</label>
+                      <label className="text-[10px] text-muted-foreground block mb-0.5">{t('taskDetail.repeatUntil')}</label>
                       <input
                         type="date"
                         defaultValue={isoToDateInput(task.recurrence_end_date)}
@@ -762,8 +769,8 @@ export function TaskDetailPanel({
                 <CustomFieldsSection taskId={taskId} projectId={task.project_id} />
 
                 <div className="text-[11px] text-muted-foreground pt-3 border-t border-border space-y-0.5">
-                  <p>Creado {timeAgo(task.created_at)}{task.created_by_profile ? ` por ${task.created_by_profile.display_name}` : ''}</p>
-                  <p>Actualizado {timeAgo(task.updated_at)}</p>
+                  <p>{t('taskDetail.createdPrefix')} {timeAgo(task.created_at)}{task.created_by_profile ? ` ${t('taskDetail.byConnector')} ${task.created_by_profile.display_name}` : ''}</p>
+                  <p>{t('taskDetail.updatedPrefix')} {timeAgo(task.updated_at)}</p>
                 </div>
               </aside>
             </div>
@@ -819,6 +826,7 @@ function fmtEstimate(mins: number | null): string {
 }
 
 function EstimateField({ minutes, onSave }: { minutes: number | null; onSave: (mins: number | null) => void }) {
+  const t = useT()
   const [value, setValue] = useState(fmtEstimate(minutes))
   useEffect(() => { setValue(fmtEstimate(minutes)) }, [minutes])
 
@@ -834,7 +842,7 @@ function EstimateField({ minutes, onSave }: { minutes: number | null; onSave: (m
       onChange={e => setValue(e.target.value)}
       onBlur={commit}
       onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-      placeholder="ej. 2h 30m"
+      placeholder={t('taskDetail.estimatePlaceholder')}
       className="text-sm bg-transparent text-foreground hover:text-primary focus:text-foreground transition-colors outline-none w-full placeholder:text-muted-foreground/60"
     />
   )
@@ -845,15 +853,16 @@ function EstimateField({ minutes, onSave }: { minutes: number | null; onSave: (m
 const STORY_POINT_VALUES = [1, 2, 3, 5, 8, 13, 21] as const
 
 function StoryPointsField({ points, onSave }: { points: number | null; onSave: (pts: number | null) => void }) {
+  const t = useT()
   return (
     <select
       value={points ?? ''}
       onChange={e => onSave(e.target.value ? Number(e.target.value) : null)}
       className="text-sm bg-transparent text-foreground cursor-pointer hover:text-primary transition-colors outline-none w-full"
     >
-      <option value="">Sin estimar</option>
+      <option value="">{t('taskDetail.pointsNone')}</option>
       {STORY_POINT_VALUES.map(v => (
-        <option key={v} value={v}>{v} {v === 1 ? 'punto' : 'puntos'}</option>
+        <option key={v} value={v}>{v} {v === 1 ? t('taskDetail.pointOne') : t('taskDetail.pointMany')}</option>
       ))}
     </select>
   )
@@ -861,6 +870,7 @@ function StoryPointsField({ points, onSave }: { points: number | null; onSave: (
 
 // ── Adjuntos ──────────────────────────────────────────────────────────────────
 function AttachmentsSection({ taskId, currentUserId }: { taskId: string; currentUserId: string }) {
+  const t = useT()
   const [items, setItems] = useState<Attachment[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -872,7 +882,7 @@ function AttachmentsSection({ taskId, currentUserId }: { taskId: string; current
     fetch(`/api/tasks/${taskId}/attachments`)
       .then(r => r.ok ? r.json() : Promise.reject(new Error('fetch failed')))
       .then((data: Attachment[]) => { if (alive) setItems(data) })
-      .catch(() => { if (alive) toast.error('No se pudieron cargar los adjuntos') })
+      .catch(() => { if (alive) toast.error(t('taskDetail.toast.loadAttachmentsFail')) })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [taskId])
@@ -887,10 +897,10 @@ function AttachmentsSection({ taskId, currentUserId }: { taskId: string; current
         fd.append('file', file)
         const res = await fetch(`/api/tasks/${taskId}/attachments`, { method: 'POST', body: fd })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? 'Error al subir')
+        if (!res.ok) throw new Error(data.error ?? t('taskDetail.toast.uploadFail'))
         setItems(prev => [...prev, data as Attachment])
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Error al subir el archivo')
+        toast.error(err instanceof Error ? err.message : t('taskDetail.toast.uploadFail'))
       }
     }
     setUploading(false)
@@ -901,18 +911,18 @@ function AttachmentsSection({ taskId, currentUserId }: { taskId: string; current
       const res = await fetch(`/api/tasks/${taskId}/attachments/${id}`, { method: 'DELETE' })
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error ?? 'Error al borrar')
+        throw new Error(data.error ?? t('taskDetail.toast.attDeleteFail'))
       }
       setItems(prev => prev.filter(a => a.id !== id))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al borrar')
+      toast.error(err instanceof Error ? err.message : t('taskDetail.toast.attDeleteFail'))
     }
   }
 
   return (
     <section>
       <SectionLabel icon={<Paperclip className="w-3.5 h-3.5" />}>
-        Adjuntos ({items.length})
+        {t('taskDetail.attachments')} ({items.length})
       </SectionLabel>
 
       {/* Zona drag and drop */}
@@ -932,7 +942,7 @@ function AttachmentsSection({ taskId, currentUserId }: { taskId: string; current
           <UploadCloud className="w-5 h-5 text-muted-foreground" />
         )}
         <p className="text-xs text-muted-foreground">
-          Arrastra archivos aqui o haz clic para subir. Maximo 25MB.
+          {t('taskDetail.dropZone')}
         </p>
         <input
           ref={inputRef}
@@ -958,6 +968,7 @@ function AttachmentsSection({ taskId, currentUserId }: { taskId: string; current
 }
 
 function AttachmentItem({ att, canDelete, onDelete }: { att: Attachment; canDelete: boolean; onDelete: () => void }) {
+  const t = useT()
   const isImage = (att.mime_type ?? '').startsWith('image/') && att.url
   return (
     <li className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-card group">
@@ -981,7 +992,7 @@ function AttachmentItem({ att, canDelete, onDelete }: { att: Attachment; canDele
             href={att.url}
             target="_blank"
             rel="noopener noreferrer"
-            title="Descargar"
+            title={t('taskDetail.download')}
             className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
@@ -990,7 +1001,7 @@ function AttachmentItem({ att, canDelete, onDelete }: { att: Attachment; canDele
         {canDelete && (
           <button
             onClick={onDelete}
-            title="Borrar adjunto"
+            title={t('taskDetail.deleteAttachment')}
             className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -1007,6 +1018,7 @@ function CommentComposer({ members, submitting, onSubmit }: {
   submitting: boolean
   onSubmit: (body: string) => Promise<void>
 }) {
+  const t = useT()
   const [value, setValue] = useState('')
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -1050,7 +1062,7 @@ function CommentComposer({ members, submitting, onSubmit }: {
   return (
     <div className="flex items-start gap-2 relative">
       <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center text-[10px] font-bold text-primary-foreground mt-0.5">
-        Yo
+        {t('taskDetail.me')}
       </div>
       <div className="flex-1 relative">
         <textarea
@@ -1068,7 +1080,7 @@ function CommentComposer({ members, submitting, onSubmit }: {
             }
             if (e.key === 'Escape') setMentionQuery(null)
           }}
-          placeholder="Escribe un comentario... (@ para mencionar, Enter para enviar, Shift+Enter salto de línea)"
+          placeholder={t('taskDetail.commentPlaceholder')}
           rows={2}
           maxLength={5000}
           className="w-full text-sm px-3 py-2 border border-input rounded-lg bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
@@ -1105,7 +1117,7 @@ function CommentComposer({ members, submitting, onSubmit }: {
             disabled={submitting}
             className="mt-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {submitting ? 'Enviando...' : 'Comentar'}
+            {submitting ? t('taskDetail.sending') : t('taskDetail.comment')}
           </button>
         )}
       </div>
@@ -1114,11 +1126,12 @@ function CommentComposer({ members, submitting, onSubmit }: {
 }
 
 function MentionHint({ members }: { members: Member[] }) {
+  const t = useT()
   if (members.length === 0) return null
   return (
     <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1.5">
       <AtSign className="w-3 h-3" />
-      Escribe @nombre para mencionar y notificar a un companero del proyecto.
+      {t('taskDetail.mentionHint')}
     </p>
   )
 }
@@ -1128,6 +1141,7 @@ function StatusSelect({ current, statuses, onSelect }: {
   statuses: Status[]
   onSelect: (id: string) => void
 }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   return (
     <div className="relative">
@@ -1136,10 +1150,12 @@ function StatusSelect({ current, statuses, onSelect }: {
         className="flex items-center gap-1.5 text-sm hover:text-primary transition-colors"
       >
         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: current?.color ?? '#94a3b8' }} />
-        <span className="truncate">{current?.name ?? 'Sin estado'}</span>
+        <span className="truncate">{current?.name ?? t('taskDetail.noStatus')}</span>
       </button>
       {open && (
-        <div className="absolute top-6 left-0 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 w-44" onMouseLeave={() => setOpen(false)}>
+        <>
+        <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+        <div className="absolute top-6 left-0 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 w-44">
           {statuses.map(s => (
             <button key={s.id} onClick={() => { onSelect(s.id); setOpen(false) }}
               className={cn('flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent transition-colors', s.id === current?.id ? 'font-medium text-foreground' : 'text-muted-foreground')}>
@@ -1148,36 +1164,42 @@ function StatusSelect({ current, statuses, onSelect }: {
             </button>
           ))}
         </div>
+        </>
       )}
     </div>
   )
 }
 
 function PrioritySelect({ current, onSelect }: { current: string; onSelect: (p: string) => void }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const info = PRIORITIES.find(p => p.value === current) ?? PRIORITIES[4]
   return (
     <div className="relative">
       <button onClick={() => setOpen(!open)} className={cn('flex items-center gap-1.5 text-sm hover:text-primary transition-colors', info.color)}>
         <info.Icon className="w-3.5 h-3.5" />
-        <span>{info.label}</span>
+        <span>{t(info.labelKey)}</span>
       </button>
       {open && (
-        <div className="absolute top-6 left-0 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 w-40" onMouseLeave={() => setOpen(false)}>
+        <>
+        <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+        <div className="absolute top-6 left-0 z-50 bg-popover border border-border rounded-lg shadow-raised py-1 w-40">
           {PRIORITIES.map(p => (
             <button key={p.value} onClick={() => { onSelect(p.value); setOpen(false) }}
               className={cn('flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent transition-colors', p.value === current ? 'font-medium text-foreground' : 'text-muted-foreground')}>
               <p.Icon className={cn('w-3.5 h-3.5', p.color)} />
-              {p.label}
+              {t(p.labelKey)}
             </button>
           ))}
         </div>
+        </>
       )}
     </div>
   )
 }
 
 function DescriptionEditor({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const t = useT()
   const [editing, setEditing] = useState(false)
 
   if (editing) {
@@ -1200,7 +1222,7 @@ function DescriptionEditor({ value, onSave }: { value: string; onSave: (v: strin
         onClick={() => setEditing(true)}
         className="w-full text-left text-sm text-foreground transition-colors px-3 py-2 rounded-lg hover:bg-muted/40 border border-transparent hover:border-border prose prose-sm max-w-none [&_p]:my-1 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-primary [&_a]:underline"
         dangerouslySetInnerHTML={{ __html: sanitizeRichText(value) }}
-        title="Clic para editar"
+        title={t('taskDetail.descEditTitle')}
       />
     )
   }
@@ -1210,7 +1232,7 @@ function DescriptionEditor({ value, onSave }: { value: string; onSave: (v: strin
       onClick={() => setEditing(true)}
       className="w-full text-left text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[60px] px-3 py-2 rounded-lg hover:bg-muted/40 border border-dashed border-border"
     >
-      Haz clic para agregar una descripción...
+      {t('taskDetail.descPlaceholder')}
     </button>
   )
 }
@@ -1226,6 +1248,7 @@ function CommentItem({
   onEdit: (commentId: string, body: string) => Promise<void>
   onDelete: (commentId: string) => Promise<void>
 }) {
+  const t = useT()
   const isOwn = comment.author?.id === currentUserId
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(comment.body)
@@ -1258,13 +1281,13 @@ function CommentItem({
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
-          <span className="text-xs font-medium text-foreground">{comment.author?.display_name ?? 'Usuario'}</span>
+          <span className="text-xs font-medium text-foreground">{comment.author?.display_name ?? t('home.userFallback')}</span>
           <span className="text-[11px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
           {isOwn && !editing && (
             <div className="ml-auto flex items-center gap-1 opacity-0 group-hover/comment:opacity-100 transition-opacity">
               <button
                 onClick={() => { setDraft(comment.body); setEditing(true) }}
-                title="Editar"
+                title={t('taskDetail.edit')}
                 className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               >
                 <Pencil className="w-3 h-3" />
@@ -1274,12 +1297,12 @@ function CommentItem({
                   onClick={() => onDelete(comment.id)}
                   className="text-[11px] text-destructive font-medium px-1"
                 >
-                  Confirmar
+                  {t('taskDetail.confirm')}
                 </button>
               ) : (
                 <button
                   onClick={() => { setConfirming(true); setTimeout(() => setConfirming(false), 3000) }}
-                  title="Eliminar"
+                  title={t('common.delete')}
                   className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-muted transition-colors"
                 >
                   <Trash2 className="w-3 h-3" />
@@ -1314,13 +1337,13 @@ function CommentItem({
                 className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
               >
                 {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                Guardar
+                {t('common.save')}
               </button>
               <button
                 onClick={() => setEditing(false)}
                 className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
               >
-                Cancelar
+                {t('common.cancel')}
               </button>
             </div>
           </div>
