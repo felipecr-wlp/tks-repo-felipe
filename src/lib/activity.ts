@@ -281,6 +281,9 @@ export const ActivityVerbs = {
   // Whiteboards
   WHITEBOARD_CREATED:  'whiteboard.created',
   WHITEBOARD_UPDATED:  'whiteboard.updated',
+  // Flows
+  FLOW_CREATED:        'flow.created',
+  FLOW_UPDATED:        'flow.updated',
   // Workspace
   WORKSPACE_INVITE_CREATED: 'workspace.invite_created',
   WORKSPACE_INVITE_REVOKED: 'workspace.invite_revoked',

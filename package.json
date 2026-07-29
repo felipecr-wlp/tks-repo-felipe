@@ -47,6 +47,7 @@
     "@upstash/ratelimit": "^1.2.1",
     "@upstash/redis": "^1.37.0",
     "@vercel/kv": "^3.0.0",
+    "@xyflow/react": "^12.11.2",
     "ai": "^3.4.33",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
