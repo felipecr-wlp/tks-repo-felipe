@@ -7,10 +7,22 @@
  * "Workspace", "Marketplace" y "Equipos" colapsables persistidos en
  * localStorage (`wlo-sidebar-groups-v2`). Modo colapsado (w-14) con tooltips.
  * Iconos de lucide-react para consistencia visual (sin emojis).
+ *
+ * Detalles de uso que no son cosmeticos:
+ * - El ancho (colapsado o no) tambien se persiste (`wlo-sidebar-collapsed`).
+ *   Antes se reiniciaba en cada recarga y quien trabajaba angosto tenia que
+ *   volver a colapsar todo el tiempo.
+ * - Atajo Cmd/Ctrl + \ para abrir y cerrar la barra sin soltar el teclado.
+ * - TODO item lleva `title`: la lista trunca nombres largos ("General (todos
+ *   los equipos)", nombres de equipo), y sin tooltip no habia forma de leerlos.
+ * - Al cargar, el item activo se trae a la vista: con muchos equipos quedaba
+ *   fuera del scroll y la barra no decia donde estabas parado.
+ * - Un grupo CERRADO que contiene la ruta activa se marca con un punto, para
+ *   no perder la orientacion al plegarlo.
  */
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n/LanguageProvider'
 import { WorkspaceSwitcher } from './WorkspaceSwitcher'
@@ -71,6 +83,7 @@ interface SidebarProps {
 type GroupKey = 'workspace' | 'marketplace' | 'equipos'
 
 const STORAGE_KEY = 'wlo-sidebar-groups-v2'
+const COLLAPSED_KEY = 'wlo-sidebar-collapsed'
 
 export function Sidebar({
   workspaceSlug,
@@ -83,8 +96,11 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname()
   const { t } = useI18n()
+  // Arranca expandido para que el HTML del servidor y el del cliente coincidan;
+  // la preferencia real se aplica abajo, ya montado.
   const [collapsed, setCollapsed] = useState(false)
   const base = `/w/${workspaceSlug}`
+  const navRef = useRef<HTMLElement | null>(null)
 
   // Drawer movil: estado compartido con la barra superior (hamburguesa).
   const mobileOpen = useMobileNav(s => s.open)
@@ -123,6 +139,50 @@ export function Sidebar({
     })
   }
 
+  // Ancho preferido: se lee una vez al montar y se guarda en cada cambio.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(COLLAPSED_KEY) === '1') setCollapsed(true)
+    } catch {
+      // localStorage no disponible: se queda expandido.
+    }
+  }, [])
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      try {
+        localStorage.setItem(COLLAPSED_KEY, prev ? '0' : '1')
+      } catch {
+        // Ignorar si no se puede persistir.
+      }
+      return !prev
+    })
+  }
+
+  // Atajo Cmd/Ctrl + \. Se ignora mientras se escribe: en un campo de texto la
+  // tecla le pertenece al usuario, no a la navegacion.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '\\' || !(e.metaKey || e.ctrlKey)) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return
+      e.preventDefault()
+      toggleCollapsed()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // Traer el item activo a la vista al cargar. `block: 'nearest'` solo mueve el
+  // scroll si de verdad quedo fuera, asi no da un salto gratuito.
+  useEffect(() => {
+    const activo = navRef.current?.querySelector('[data-active="true"]')
+    activo?.scrollIntoView({ block: 'nearest' })
+    // Solo al montar: durante la navegacion el usuario ya sabe donde esta y un
+    // scroll automatico seria una sacudida.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Lo mas usado va arriba, sin grupo: acceso en un clic (patron Linear).
   const topItems: Array<{ href: string; icon: LucideIcon; label: string; exact?: boolean }> = [
     { href: `${base}/inbox`, icon: Inbox, label: t('nav.inbox') },
@@ -149,6 +209,14 @@ export function Sidebar({
 
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname.startsWith(href)
+
+  // Para avisar en el encabezado de un grupo cerrado que la ruta actual vive
+  // dentro de el.
+  const activeIn: Record<GroupKey, boolean> = {
+    workspace: workspaceItems.some((i) => isActive(i.href, i.exact)),
+    marketplace: marketplaceItems.some((i) => isActive(i.href, i.exact)),
+    equipos: pathname.startsWith(`${base}/t/`),
+  }
 
   // Agrupar equipos por departamento para el sidebar. Los que no tienen
   // departamento (legacy / workspace General) van al final, sueltos.
@@ -209,9 +277,10 @@ export function Sidebar({
         )}
         {/* Colapsar/expandir: solo desktop */}
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={toggleCollapsed}
           className="hidden md:inline-flex flex-shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           aria-label={collapsed ? t('nav.expandMenu') : t('nav.collapseMenu')}
+          title={`${collapsed ? t('nav.expandMenu') : t('nav.collapseMenu')} (Ctrl+\\)`}
         >
           <ChevronLeft
             size={16}
@@ -229,7 +298,10 @@ export function Sidebar({
       </div>
 
       {/* ── Nav principal ──────────────────────────────────────── */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 space-y-0.5 px-2">
+      <nav
+        ref={navRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden py-2 space-y-0.5 px-2"
+      >
         {/* Búsqueda global (Cmd+K) */}
         <SearchButton collapsed={collapsed} />
 
@@ -264,6 +336,7 @@ export function Sidebar({
           label={t('nav.groupWorkspace')}
           collapsed={collapsed}
           open={openGroups.workspace}
+          hasActive={activeIn.workspace}
           onToggle={() => toggleGroup('workspace')}
         >
           {workspaceItems.map((item) => (
@@ -283,6 +356,7 @@ export function Sidebar({
           label={t('nav.groupMarketplace')}
           collapsed={collapsed}
           open={openGroups.marketplace}
+          hasActive={activeIn.marketplace}
           onToggle={() => toggleGroup('marketplace')}
         >
           {marketplaceItems.map((item) => (
@@ -302,6 +376,7 @@ export function Sidebar({
           label={t('nav.groupTeams')}
           collapsed={collapsed}
           open={openGroups.equipos}
+          hasActive={activeIn.equipos}
           onToggle={() => toggleGroup('equipos')}
           action={
             !collapsed && isAdmin ? (
@@ -386,6 +461,7 @@ function NavGroup({
   label,
   collapsed,
   open,
+  hasActive = false,
   onToggle,
   action,
   children,
@@ -393,6 +469,8 @@ function NavGroup({
   label: string
   collapsed: boolean
   open: boolean
+  /** La ruta actual vive dentro de este grupo. Solo se dibuja si esta cerrado. */
+  hasActive?: boolean
   onToggle: () => void
   action?: React.ReactNode
   children: React.ReactNode
@@ -420,6 +498,12 @@ function NavGroup({
             className={cn('transition-transform', !open && '-rotate-90')}
           />
           {label}
+          {!open && hasActive && (
+            <span
+              className="ml-1 w-1.5 h-1.5 rounded-full bg-primary"
+              title="Estás en una página de esta sección"
+            />
+          )}
         </button>
         {action}
       </div>
@@ -447,7 +531,11 @@ function NavItem({
   return (
     <Link
       href={href}
-      title={collapsed ? label : undefined}
+      // Siempre, no solo colapsado: expandido tambien se truncan los nombres
+      // largos y el tooltip es la unica forma de leerlos completos.
+      title={label}
+      data-active={active || undefined}
+      aria-current={active ? 'page' : undefined}
       className={cn(
         'relative flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors',
         'hover:bg-accent hover:text-accent-foreground',
@@ -457,6 +545,14 @@ function NavItem({
           : 'text-muted-foreground'
       )}
     >
+      {/* Barra de acento: en modo colapsado el fondo gris solo no alcanza para
+          distinguir el item activo de un simple hover. */}
+      {active && (
+        <span
+          aria-hidden="true"
+          className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-r bg-primary"
+        />
+      )}
       <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">{icon}</span>
       {!collapsed && <span className="truncate">{label}</span>}
       {badge}

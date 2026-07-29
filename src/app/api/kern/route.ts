@@ -112,7 +112,9 @@ export async function POST(request: NextRequest) {
       tools: buildKernTools(admin, user.id),
       // Permite a KERN encadenar herramientas de forma autonoma (ej. list_projects
       // -> create_task) y luego redactar la respuesta final, en una sola vuelta.
-      maxSteps: 6,
+      // 8 y no 6 porque escribir un documento gasta pasos extra antes de crear:
+      // buscar si ya existe, resolver el departamento y recien ahi create_note.
+      maxSteps: 8,
     })
 
     return result.toDataStreamResponse()

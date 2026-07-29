@@ -2,9 +2,12 @@
 
 /**
  * Sección de navegación para un equipo y sus proyectos.
- * Colapsable individualmente.
+ * Colapsable individualmente, y ese plegado se RECUERDA: quien pertenece a
+ * varios equipos cerraba los que no usa y volvian a abrirse en cada recarga,
+ * dejando la barra otra vez larga. Se guardan solo los CERRADOS (lista corta),
+ * asi un equipo nuevo aparece abierto por defecto sin tener que registrarlo.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { ProjectIcon } from '@/lib/project-icons'
@@ -24,9 +27,43 @@ interface NavSectionProps {
   pathname: string
 }
 
+const CLOSED_KEY = 'wlo-sidebar-teams-closed'
+
+/** Lee la lista de equipos cerrados. Ante cualquier basura, lista vacia. */
+function readClosed(): string[] {
+  try {
+    const raw = localStorage.getItem(CLOSED_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+
 export function NavSection({ team, workspaceSlug, collapsed, pathname }: NavSectionProps) {
+  // Abierto en el primer render para que servidor y cliente coincidan; la
+  // preferencia guardada se aplica ya montado.
   const [open, setOpen] = useState(true)
   const teamBase = `/w/${workspaceSlug}/t/${team.slug}`
+
+  useEffect(() => {
+    if (readClosed().includes(team.id)) setOpen(false)
+  }, [team.id])
+
+  const toggleOpen = () => {
+    setOpen(prev => {
+      const next = !prev
+      try {
+        const closed = new Set(readClosed())
+        if (next) closed.delete(team.id)
+        else closed.add(team.id)
+        localStorage.setItem(CLOSED_KEY, JSON.stringify([...closed]))
+      } catch {
+        // Sin localStorage el plegado sigue funcionando, solo no se recuerda.
+      }
+      return next
+    })
+  }
 
   // El equipo está en foco (su vista raíz activa) pero ningún hijo lo está:
   // sugerimos el Tablero como acción principal con un acento tenue.
@@ -44,6 +81,7 @@ export function NavSection({ team, workspaceSlug, collapsed, pathname }: NavSect
       <Link
         href={teamBase}
         title={team.name}
+        data-active={pathname.startsWith(teamBase) || undefined}
         className={cn(
           'flex items-center justify-center w-8 h-8 mx-auto rounded-md text-sm font-medium transition-colors',
           'hover:bg-accent hover:text-accent-foreground',
@@ -60,8 +98,9 @@ export function NavSection({ team, workspaceSlug, collapsed, pathname }: NavSect
       {/* Header del equipo, chevron (toggle) + nombre (link a la vista del equipo) */}
       <div className="flex items-center gap-0.5 group">
         <button
-          onClick={() => setOpen(!open)}
+          onClick={toggleOpen}
           aria-label={open ? `Colapsar ${team.name}` : `Expandir ${team.name}`}
+          aria-expanded={open}
           className="flex-shrink-0 p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         >
           <svg
@@ -77,6 +116,10 @@ export function NavSection({ team, workspaceSlug, collapsed, pathname }: NavSect
 
         <Link
           href={teamBase}
+          // Los nombres de equipo son largos y se truncan casi siempre
+          // ("BILLING AND MANAGEMENT..."): sin tooltip no hay forma de leerlos.
+          title={team.name}
+          data-active={pathname === teamBase || undefined}
           className={cn(
             'flex-1 min-w-0 truncate px-1.5 py-1.5 rounded-md text-xs font-medium uppercase tracking-wide transition-colors flex items-center gap-1.5',
             'hover:text-foreground hover:bg-accent',
@@ -86,6 +129,11 @@ export function NavSection({ team, workspaceSlug, collapsed, pathname }: NavSect
           )}
         >
           <span className="truncate">{team.name}</span>
+          {/* Equipo plegado con la pagina actual adentro: sin esta marca el
+              usuario pierde de vista donde esta parado. */}
+          {!open && pathname.startsWith(teamBase) && pathname !== teamBase && (
+            <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary" />
+          )}
           {team.is_archived && (
             <span className="flex-shrink-0 text-[9px] font-normal normal-case tracking-normal px-1 py-0.5 rounded bg-muted text-muted-foreground/70">
               Inactivo
@@ -112,6 +160,7 @@ export function NavSection({ team, workspaceSlug, collapsed, pathname }: NavSect
           {/* Acceso directo a Planeación (Scrum/Kanban) del equipo */}
           <Link
             href={`${teamBase}/scrum`}
+            data-active={pathname.startsWith(`${teamBase}/scrum`) || undefined}
             className={cn(
               'relative flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors',
               'hover:bg-accent hover:text-accent-foreground',
@@ -129,6 +178,7 @@ export function NavSection({ team, workspaceSlug, collapsed, pathname }: NavSect
           {/* Acceso directo al chat del equipo */}
           <Link
             href={`${teamBase}/chat`}
+            data-active={pathname.startsWith(`${teamBase}/chat`) || undefined}
             className={cn(
               'relative flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors',
               'hover:bg-accent hover:text-accent-foreground',
@@ -144,6 +194,7 @@ export function NavSection({ team, workspaceSlug, collapsed, pathname }: NavSect
           {/* Documentos del equipo: reglas, SOPs y notas del departamento */}
           <Link
             href={`${teamBase}/docs`}
+            data-active={pathname.startsWith(`${teamBase}/docs`) || undefined}
             className={cn(
               'relative flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors',
               'hover:bg-accent hover:text-accent-foreground',
@@ -172,6 +223,8 @@ export function NavSection({ team, workspaceSlug, collapsed, pathname }: NavSect
               <Link
                 key={project.id}
                 href={projectBase}
+                title={project.name}
+                data-active={isActive || undefined}
                 className={cn(
                   'relative flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors',
                   'hover:bg-accent hover:text-accent-foreground',

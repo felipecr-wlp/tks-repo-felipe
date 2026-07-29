@@ -23,10 +23,35 @@ import type { Database } from '@/lib/supabase/types'
 import { canAccessProject, isAssignableToProject } from '@/lib/team-access'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
 import { autoWatch } from '@/lib/watchers'
+import { sanitizeRichText } from '@/lib/sanitize'
+import { markdownToRichText } from '@/lib/ai/markdown-to-rich'
+import { loadNoteViewerContext, canViewNote, noteVisibilityPrefilter } from '@/lib/note-visibility'
 
 type Admin = ReturnType<typeof createAdminClient>
 
 const PRIORITIES = ['urgent', 'high', 'medium', 'low', 'none'] as const
+const DOC_KINDS = ['note', 'sop', 'sop_flow', 'sop_index', 'training'] as const
+
+/** Workspaces del usuario. Base para todo lo que se cree (una nota necesita uno). */
+async function listUserWorkspaces(admin: Admin, userId: string) {
+  const { data } = (await admin
+    .from('workspace_members')
+    .select('role, workspaces!inner ( id, name, slug )')
+    .eq('profile_id', userId)
+    .limit(20)) as {
+    data: Array<{ role: string; workspaces: { id: string; name: string; slug: string } | null }> | null
+    error: unknown
+  }
+  return (data ?? [])
+    .filter(r => !!r.workspaces)
+    .map(r => ({ id: r.workspaces!.id, name: r.workspaces!.name, slug: r.workspaces!.slug, role: r.role }))
+}
+
+/** Convierte el texto del modelo a HTML del editor y lo sanea antes de guardar. */
+function bodyToHtml(markdown: string | undefined | null): string | null {
+  if (!markdown || !markdown.trim()) return null
+  return sanitizeRichText(markdownToRichText(markdown)) || null
+}
 
 /** Proyectos donde el usuario es miembro directo (base accionable de KERN). */
 async function listMemberProjects(admin: Admin, userId: string) {
@@ -60,7 +85,10 @@ async function listMemberProjects(admin: Admin, userId: string) {
  * cuantas tareas abiertas tiene asignadas el usuario.
  */
 export async function buildKernContext(admin: Admin, userId: string, displayName?: string | null) {
-  const projects = await listMemberProjects(admin, userId)
+  const [projects, workspaces] = await Promise.all([
+    listMemberProjects(admin, userId),
+    listUserWorkspaces(admin, userId),
+  ])
 
   const { count } = (await admin
     .from('tasks')
@@ -72,7 +100,14 @@ export async function buildKernContext(admin: Admin, userId: string, displayName
     ? projects.map(p => `- "${p.name}"${p.team ? ` (equipo ${p.team})` : ''} [id: ${p.id}]`).join('\n')
     : '(el usuario no es miembro de ningun proyecto todavia)'
 
-  return `\n\nContexto del usuario ${displayName ? `(${displayName}) ` : ''}en este momento:\nProyectos accesibles (usa el id EXACTO al crear o mover tareas):\n${projectLines}\nTareas abiertas asignadas al usuario: ${count ?? 0}.\nNunca inventes un project_id ni un task_id: si no lo tienes, usa una herramienta de lectura primero.`
+  // El workspace es obligatorio para crear una nota. Se inyecta aqui para que
+  // KERN no tenga que gastar una llamada de lectura en el caso normal (una sola
+  // empresa), que es el 99% de las veces.
+  const workspaceLines = workspaces.length
+    ? workspaces.map(w => `- "${w.name}" [id: ${w.id}]`).join('\n')
+    : '(sin workspaces)'
+
+  return `\n\nContexto del usuario ${displayName ? `(${displayName}) ` : ''}en este momento:\nWorkspaces (usa el id EXACTO al crear notas):\n${workspaceLines}\nProyectos accesibles (usa el id EXACTO al crear o mover tareas):\n${projectLines}\nTareas abiertas asignadas al usuario: ${count ?? 0}.\nNunca inventes un project_id, task_id ni note_id: si no lo tienes, usa una herramienta de lectura primero.`
 }
 
 /** Construye el set de herramientas de KERN ligado a un usuario concreto. */
@@ -357,6 +392,309 @@ export function buildKernTools(admin: Admin, userId: string) {
           error: unknown
         }
         return { statuses: (data ?? []).map(s => ({ id: s.id, name: s.name, category: s.category })) }
+      },
+    }),
+
+    // ── Documentos (notas, SOPs, capacitaciones) ──────────────────────────────
+    // KERN redactaba texto en el chat y ahi se quedaba: el usuario tenia que
+    // copiarlo a mano a una nota. Estas herramientas cierran ese circulo. El
+    // cuerpo se recibe en Markdown (lo que un modelo escribe bien) y se
+    // convierte al HTML del editor en `markdown-to-rich.ts`.
+
+    list_spaces: tool({
+      description:
+        'Lista los departamentos del workspace donde el usuario puede publicar un documento, con su id. Uselo antes de create_note cuando el usuario pida compartir el documento con un equipo o departamento.',
+      parameters: z.object({ workspace_id: z.string().uuid() }),
+      execute: async ({ workspace_id }) => {
+        const { data: member } = (await admin
+          .from('workspace_members')
+          .select('role')
+          .eq('workspace_id', workspace_id)
+          .eq('profile_id', userId)
+          .maybeSingle()) as { data: { role: string } | null; error: unknown }
+        if (!member) return { error: 'Sin acceso a ese workspace.', spaces: [] }
+
+        const ctx = await loadNoteViewerContext(admin, workspace_id, userId)
+        const { data } = (await admin
+          .from('spaces')
+          .select('id, name, is_restricted')
+          .eq('workspace_id', workspace_id)
+          .order('name', { ascending: true })
+          .limit(60)) as {
+          data: Array<{ id: string; name: string; is_restricted: boolean }> | null
+          error: unknown
+        }
+        // Solo los que el usuario ve: publicar en un departamento restringido
+        // ajeno seria filtrar informacion hacia gente que no deberia leerla.
+        const spaces = (data ?? [])
+          .filter(s => !ctx.blockedSpaceIds.has(s.id))
+          .map(s => ({ id: s.id, name: s.name, restricted: s.is_restricted, member: ctx.spaceIds.has(s.id) }))
+        return { spaces }
+      },
+    }),
+
+    search_notes: tool({
+      description:
+        'Busca documentos y notas por texto en el titulo, dentro de lo que el usuario puede ver. Devuelve id, titulo y tipo. Uselo para obtener el note_id antes de read_note o append_to_note.',
+      parameters: z.object({
+        workspace_id: z.string().uuid(),
+        query: z.string().min(1).max(200).describe('Texto a buscar en el titulo.'),
+        limit: z.number().int().min(1).max(25).optional(),
+      }),
+      execute: async ({ workspace_id, query, limit }) => {
+        const { data: member } = (await admin
+          .from('workspace_members')
+          .select('role')
+          .eq('workspace_id', workspace_id)
+          .eq('profile_id', userId)
+          .maybeSingle()) as { data: { role: string } | null; error: unknown }
+        if (!member) return { error: 'Sin acceso a ese workspace.', notes: [] }
+
+        const { data } = (await admin
+          .from('notes')
+          .select('id, title, doc_kind, sop_status, visibility, created_by, space_id, project_id, updated_at')
+          .eq('workspace_id', workspace_id)
+          .ilike('title', `%${query}%`)
+          .or(noteVisibilityPrefilter(userId))
+          .order('updated_at', { ascending: false })
+          .limit(limit ?? 15)) as {
+          data:
+            | Array<{
+                id: string
+                title: string
+                doc_kind: string
+                sop_status: string | null
+                visibility: string
+                created_by: string | null
+                space_id: string | null
+                project_id: string | null
+                updated_at: string
+              }>
+            | null
+          error: unknown
+        }
+
+        const ctx = await loadNoteViewerContext(admin, workspace_id, userId)
+        const notes = (data ?? [])
+          .filter(n => canViewNote(ctx, n))
+          .map(n => ({ id: n.id, title: n.title, doc_kind: n.doc_kind, sop_status: n.sop_status, updated_at: n.updated_at }))
+        return { notes }
+      },
+    }),
+
+    read_note: tool({
+      description:
+        'Lee el contenido de un documento por su id. Uselo para resumir, revisar o continuar un documento existente antes de modificarlo.',
+      parameters: z.object({ note_id: z.string().uuid() }),
+      execute: async ({ note_id }) => {
+        const { data: note } = (await admin
+          .from('notes')
+          .select('id, workspace_id, title, content, doc_kind, sop_status, visibility, created_by, space_id, project_id')
+          .eq('id', note_id)
+          .maybeSingle()) as {
+          data:
+            | {
+                id: string
+                workspace_id: string
+                title: string
+                content: string | null
+                doc_kind: string
+                sop_status: string | null
+                visibility: string
+                created_by: string | null
+                space_id: string | null
+                project_id: string | null
+              }
+            | null
+          error: unknown
+        }
+        if (!note) return { error: 'Documento no encontrado.' }
+
+        const { data: member } = (await admin
+          .from('workspace_members')
+          .select('role')
+          .eq('workspace_id', note.workspace_id)
+          .eq('profile_id', userId)
+          .maybeSingle()) as { data: { role: string } | null; error: unknown }
+        if (!member) return { error: 'Sin acceso a ese documento.' }
+
+        const ctx = await loadNoteViewerContext(admin, note.workspace_id, userId)
+        if (!canViewNote(ctx, note)) return { error: 'Sin acceso a ese documento.' }
+
+        // Se entrega como texto plano: al modelo le sirve el contenido, no las
+        // etiquetas, y el HTML crudo gastaria contexto de mas.
+        const texto = (note.content ?? '')
+          .replace(/<\/(p|h[1-6]|li|blockquote|tr)>/gi, '\n')
+          .replace(/<[^>]+>/g, '')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim()
+          .slice(0, 12000)
+
+        return { note: { id: note.id, title: note.title, doc_kind: note.doc_kind, sop_status: note.sop_status, content: texto } }
+      },
+    }),
+
+    create_note: tool({
+      description:
+        'Crea un documento (nota, procedimiento/SOP, flujo o capacitacion) con su contenido ya redactado. El cuerpo se escribe en Markdown: usa ## para secciones, listas con -, listas numeradas, y "- [ ] paso" para checklists. Para un SOP usa doc_kind "sop". Si el usuario quiere que lo vea su equipo, resuelve antes el space_id con list_spaces y pasa visibility "space".',
+      parameters: z.object({
+        workspace_id: z.string().uuid().describe('Id del workspace (esta en tu contexto).'),
+        title: z.string().min(1).max(200).describe('Titulo del documento.'),
+        body_markdown: z
+          .string()
+          .max(60000)
+          .describe('Contenido en Markdown. No repitas el titulo como encabezado: ya va en el campo title.'),
+        doc_kind: z.enum(DOC_KINDS).optional().describe('Tipo de documento; por defecto "note". Un procedimiento es "sop".'),
+        visibility: z
+          .enum(['private', 'space', 'workspace'])
+          .optional()
+          .describe('Por defecto "private" (solo el usuario). "space" requiere space_id. Confirma con el usuario antes de publicar.'),
+        space_id: z.string().uuid().optional().describe('Departamento destino (usa list_spaces). Obligatorio si visibility es "space".'),
+      }),
+      execute: async ({ workspace_id, title, body_markdown, doc_kind, visibility, space_id }) => {
+        const { data: member } = (await admin
+          .from('workspace_members')
+          .select('role, workspaces ( slug )')
+          .eq('workspace_id', workspace_id)
+          .eq('profile_id', userId)
+          .maybeSingle()) as { data: { role: string; workspaces: { slug: string } | null } | null; error: unknown }
+        if (!member) return { error: 'Sin acceso a ese workspace.' }
+
+        const vis = visibility ?? 'private'
+        if (vis === 'space') {
+          if (!space_id) return { error: 'Para publicar en un departamento hace falta space_id (usa list_spaces).' }
+          const ctx = await loadNoteViewerContext(admin, workspace_id, userId)
+          // Mismo criterio que canViewNote: si no puede VER ese departamento,
+          // tampoco puede publicar ahi.
+          if (ctx.blockedSpaceIds.has(space_id)) return { error: 'Sin acceso a ese departamento.' }
+          const { data: sp } = (await admin
+            .from('spaces')
+            .select('id')
+            .eq('id', space_id)
+            .eq('workspace_id', workspace_id)
+            .maybeSingle()) as { data: { id: string } | null; error: unknown }
+          if (!sp) return { error: 'Ese departamento no pertenece al workspace.' }
+        }
+
+        const html = bodyToHtml(body_markdown)
+
+        const { data: created, error } = (await admin
+          .from('notes')
+          .insert({
+            workspace_id,
+            title: title.trim() || 'Sin título',
+            content: html,
+            visibility: vis,
+            space_id: vis === 'space' ? space_id ?? null : null,
+            doc_kind: doc_kind ?? 'note',
+            // Un SOP recien redactado por una IA es un BORRADOR, nunca la regla
+            // vigente: alguien tiene que revisarlo y activarlo a mano.
+            sop_status: doc_kind && doc_kind !== 'note' ? 'draft' : null,
+            created_by: userId,
+          })
+          .select('id, title')
+          .single()) as { data: { id: string; title: string } | null; error: unknown }
+
+        if (error || !created) {
+          console.error('[kern create_note] insert error:', error)
+          return { error: 'No se pudo crear el documento.' }
+        }
+
+        logActivity({
+          verb: ActivityVerbs.NOTE_CREATED,
+          subject_id: userId,
+          object_type: 'note',
+          object_id: created.id,
+          object_title: created.title,
+          workspace_id,
+          metadata: { via: 'kern' },
+        }).catch(console.error)
+
+        // La ruta real vive bajo el slug del workspace. Sin el, el enlace no
+        // abre nada, asi que se omite en vez de dar uno roto.
+        const slug = member.workspaces?.slug ?? null
+
+        return {
+          created: {
+            id: created.id,
+            title: created.title,
+            url: slug ? `/w/${slug}/notes/${created.id}` : null,
+          },
+          hint: 'Menciona al usuario que el documento ya quedó guardado en Notas y puede abrirlo para editarlo.',
+        }
+      },
+    }),
+
+    append_to_note: tool({
+      description:
+        'Agrega contenido al final de un documento existente, en Markdown. No borra lo que ya estaba. Uselo para continuar un documento; para reescribirlo entero usa replace: true.',
+      parameters: z.object({
+        note_id: z.string().uuid(),
+        body_markdown: z.string().min(1).max(60000).describe('Contenido a agregar, en Markdown.'),
+        replace: z.boolean().optional().describe('True para SUSTITUIR todo el contenido. Confirma con el usuario antes de usarlo: se pierde lo anterior.'),
+      }),
+      execute: async ({ note_id, body_markdown, replace }) => {
+        const { data: note } = (await admin
+          .from('notes')
+          .select('id, workspace_id, title, content, visibility, created_by, space_id, project_id')
+          .eq('id', note_id)
+          .maybeSingle()) as {
+          data:
+            | {
+                id: string
+                workspace_id: string
+                title: string
+                content: string | null
+                visibility: string
+                created_by: string | null
+                space_id: string | null
+                project_id: string | null
+              }
+            | null
+          error: unknown
+        }
+        if (!note) return { error: 'Documento no encontrado.' }
+
+        const { data: member } = (await admin
+          .from('workspace_members')
+          .select('role')
+          .eq('workspace_id', note.workspace_id)
+          .eq('profile_id', userId)
+          .maybeSingle()) as { data: { role: string } | null; error: unknown }
+        if (!member) return { error: 'Sin acceso a ese documento.' }
+
+        const ctx = await loadNoteViewerContext(admin, note.workspace_id, userId)
+        if (!canViewNote(ctx, note)) return { error: 'Sin acceso a ese documento.' }
+
+        const nuevo = bodyToHtml(body_markdown)
+        if (!nuevo) return { error: 'El contenido llegó vacío.' }
+        const contenido = replace ? nuevo : `${note.content ?? ''}${nuevo}`
+
+        const { error } = await admin
+          .from('notes')
+          .update({ content: contenido, updated_at: new Date().toISOString() })
+          .eq('id', note_id)
+
+        if (error) {
+          console.error('[kern append_to_note] update error:', error)
+          return { error: 'No se pudo actualizar el documento.' }
+        }
+
+        logActivity({
+          verb: ActivityVerbs.NOTE_UPDATED,
+          subject_id: userId,
+          object_type: 'note',
+          object_id: note.id,
+          object_title: note.title,
+          workspace_id: note.workspace_id,
+          metadata: { via: 'kern' },
+        }).catch(console.error)
+
+        return { updated: { id: note.id, title: note.title, replaced: !!replace } }
       },
     }),
   }
