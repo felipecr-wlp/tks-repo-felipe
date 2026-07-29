@@ -20,8 +20,11 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Plus, Trash2, FileText, Globe, Code, Link, Type, Pencil, X, Eye, Edit3 } from 'lucide-react'
+import { ArrowLeft, Save, Plus, Trash2, FileText, Globe, Code, Link, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3 } from 'lucide-react'
 import LinkNext from 'next/link'
+
+type ShapeType = 'rect' | 'circle' | 'line' | 'grid'
+type ShapeData = { shape: ShapeType; width: number; height: number; fill: string; stroke: string }
 
 type NodeContent = {
   contentType: 'text' | 'html' | 'url' | 'document'
@@ -31,7 +34,7 @@ type NodeContent = {
 type FlowNodeData = {
   label: string
   content: NodeContent
-}
+} | ShapeData
 
 const icons: Record<string, React.ReactNode> = {
   text: <Type className="w-3 h-3" />,
@@ -42,6 +45,11 @@ const icons: Record<string, React.ReactNode> = {
 
 function CustomNode({ data }: NodeProps) {
   const flowData = data as unknown as FlowNodeData
+
+  if ('shape' in flowData) {
+    return null
+  }
+
   const contentType = flowData.content?.contentType ?? 'text'
 
   return (
@@ -69,6 +77,52 @@ function CustomNode({ data }: NodeProps) {
       )}
       <Handle type="source" position={Position.Bottom} className="!bg-muted-foreground" />
     </div>
+  )
+}
+
+function ShapeNode({ data }: NodeProps) {
+  const d = data as unknown as ShapeData
+  const s = d.shape ?? 'rect'
+  const w = d.width ?? 160
+  const h = d.height ?? 120
+  const fill = d.fill ?? 'transparent'
+  const stroke = d.stroke ?? '#94a3b8'
+
+  if (s === 'circle') {
+    return (
+      <svg width={w} height={h} className="overflow-visible">
+        <ellipse cx={w / 2} cy={h / 2} rx={w / 2 - 2} ry={h / 2 - 2} fill={fill} stroke={stroke} strokeWidth={2} />
+      </svg>
+    )
+  }
+
+  if (s === 'line') {
+    return (
+      <svg width={w} height={h} className="overflow-visible">
+        <line x1={0} y1={h / 2} x2={w} y2={h / 2} stroke={stroke} strokeWidth={3} />
+        <polygon points={`${w - 8},${h / 2 - 5} ${w},${h / 2} ${w - 8},${h / 2 + 5}`} fill={stroke} />
+      </svg>
+    )
+  }
+
+  if (s === 'grid') {
+    const cols = 3; const rows = 3
+    const cw = w / cols; const rh = h / rows
+    const lines = []
+    for (let i = 1; i < cols; i++) lines.push(<line key={`v${i}`} x1={i * cw} y1={0} x2={i * cw} y2={h} stroke={stroke} strokeWidth={1} strokeDasharray="4 2" />)
+    for (let i = 1; i < rows; i++) lines.push(<line key={`h${i}`} x1={0} y1={i * rh} x2={w} y2={i * rh} stroke={stroke} strokeWidth={1} strokeDasharray="4 2" />)
+    return (
+      <svg width={w} height={h} className="overflow-visible">
+        <rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={2} />
+        {lines}
+      </svg>
+    )
+  }
+
+  return (
+    <svg width={w} height={h} className="overflow-visible">
+      <rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={6} />
+    </svg>
   )
 }
 
@@ -154,6 +208,31 @@ export default function FlowEditor({
     })
   }, [setNodes, edges, autoSave])
 
+  const addShape = useCallback((shape: ShapeType) => {
+    const id = `shape-${Date.now()}`
+    const dimensions = shape === 'line' ? { width: 200, height: 40 } :
+                       shape === 'grid' ? { width: 240, height: 200 } :
+                       { width: 160, height: 120 }
+    const newNode: Node = {
+      id,
+      type: 'shape',
+      position: { x: Math.random() * 400 + 50, y: Math.random() * 250 + 50 },
+      data: {
+        shape,
+        ...dimensions,
+        fill: shape === 'line' ? 'transparent' : '#f1f5f9',
+        stroke: '#64748b',
+      },
+      draggable: true,
+      selectable: true,
+    }
+    setNodes((nds) => {
+      const updated = [...nds, newNode]
+      autoSave(updated, edges)
+      return updated
+    })
+  }, [setNodes, edges, autoSave])
+
   const deleteSelected = useCallback(() => {
     setNodes((nds) => {
       const remaining = nds.filter((n) => !n.selected)
@@ -183,6 +262,7 @@ export default function FlowEditor({
     const node = nodes.find((n) => n.id === nodeId) as Node | undefined
     if (!node) return
     const data = node.data as unknown as FlowNodeData
+    if ('shape' in data) return
     setEditingNodeId(nodeId)
     setNodeLabel(data.label || '')
     setNodeContent(data.content?.content || '')
@@ -254,7 +334,7 @@ export default function FlowEditor({
           onNodesDelete={onNodesDelete}
           onNodeDragStop={onNodeDragStop}
           onNodeDoubleClick={handleNodeDoubleClick}
-          nodeTypes={{ custom: CustomNode }}
+          nodeTypes={{ custom: CustomNode, shape: ShapeNode }}
           fitView
           className="bg-background"
         >
@@ -263,7 +343,7 @@ export default function FlowEditor({
           <MiniMap nodeColor="#94a3b8" className="!bg-card border" />
 
           <Panel position="top-right" className="flex flex-col gap-1.5 bg-card border rounded-lg p-2 shadow-md">
-            <span className="text-xs font-medium text-muted-foreground px-1 mb-1">Agregar nodo</span>
+            <span className="text-xs font-medium text-muted-foreground px-1 mb-1">Contenido</span>
             <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors" onClick={() => addNode('text')}>
               <Type className="w-4 h-4" /> Texto
             </button>
@@ -275,6 +355,20 @@ export default function FlowEditor({
             </button>
             <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors" onClick={() => addNode('document')}>
               <FileText className="w-4 h-4" /> Documento
+            </button>
+            <hr className="my-1" />
+            <span className="text-xs font-medium text-muted-foreground px-1 mb-1">Dibujo</span>
+            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors" onClick={() => addShape('rect')}>
+              <Square className="w-4 h-4" /> Rectangulo
+            </button>
+            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors" onClick={() => addShape('circle')}>
+              <Circle className="w-4 h-4" /> Circulo
+            </button>
+            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors" onClick={() => addShape('line')}>
+              <Minus className="w-4 h-4" /> Linea
+            </button>
+            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors" onClick={() => addShape('grid')}>
+              <Grid3X3 className="w-4 h-4" /> Cuadricula
             </button>
             <hr className="my-1" />
             <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground text-destructive transition-colors" onClick={deleteSelected}>
