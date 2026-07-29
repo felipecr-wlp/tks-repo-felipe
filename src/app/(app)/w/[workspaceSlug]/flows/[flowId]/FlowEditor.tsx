@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import {
   ReactFlow,
   Controls,
@@ -19,8 +19,6 @@ import {
   Position,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { ArrowLeft, Save, Plus, Trash2, FileText, Globe, Code, Link, Type } from 'lucide-react'
 import LinkNext from 'next/link'
@@ -178,18 +176,22 @@ export default function FlowEditor({
         <LinkNext href={`/w/${workspaceSlug}/flows`} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-4 h-4" />
         </LinkNext>
-        <Input
+        <input
           value={title}
           onChange={(e) => { setTitle(e.target.value); autoSave() }}
-          className="h-8 max-w-xs font-semibold border-0 shadow-none focus-visible:ring-0 text-lg px-0"
+          className="h-8 max-w-xs font-semibold border-0 bg-transparent shadow-none focus-visible:ring-0 focus:outline-none text-lg px-0"
           placeholder="Titulo del flujo"
         />
         <div className="flex-1" />
         <span className="text-xs text-muted-foreground">{saving ? 'Guardando...' : 'Auto-guardado'}</span>
-        <Button size="sm" variant="outline" onClick={() => save()} disabled={saving}>
-          <Save className="w-4 h-4 mr-1" />
+        <button
+          onClick={() => save()}
+          disabled={saving}
+          className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3 py-1 text-sm font-medium transition-colors disabled:opacity-50"
+        >
+          <Save className="w-4 h-4" />
           Guardar
-        </Button>
+        </button>
       </header>
 
       <div className="flex-1 relative">
@@ -211,32 +213,32 @@ export default function FlowEditor({
 
           <Panel position="top-right" className="flex flex-col gap-1.5 bg-card border rounded-lg p-2 shadow-md">
             <span className="text-xs font-medium text-muted-foreground px-1 mb-1">Agregar nodo</span>
-            <Button variant="ghost" size="sm" className="justify-start gap-2" onClick={() => addNode('text')}>
+            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors" onClick={() => addNode('text')}>
               <Type className="w-4 h-4" /> Texto
-            </Button>
-            <Button variant="ghost" size="sm" className="justify-start gap-2" onClick={() => addNode('html')}>
+            </button>
+            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors" onClick={() => addNode('html')}>
               <Code className="w-4 h-4" /> HTML
-            </Button>
-            <Button variant="ghost" size="sm" className="justify-start gap-2" onClick={() => addNode('url')}>
+            </button>
+            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors" onClick={() => addNode('url')}>
               <Link className="w-4 h-4" /> URL
-            </Button>
-            <Button variant="ghost" size="sm" className="justify-start gap-2" onClick={() => addNode('document')}>
+            </button>
+            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors" onClick={() => addNode('document')}>
               <FileText className="w-4 h-4" /> Documento
-            </Button>
+            </button>
             <hr className="my-1" />
-            <Button variant="ghost" size="sm" className="justify-start gap-2 text-destructive" onClick={deleteSelected}>
+            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground text-destructive transition-colors" onClick={deleteSelected}>
               <Trash2 className="w-4 h-4" /> Eliminar
-            </Button>
+            </button>
           </Panel>
         </ReactFlow>
       </div>
 
       {description !== undefined && (
         <footer className="px-4 py-2 border-t bg-card shrink-0">
-          <Input
+          <input
             value={description}
             onChange={(e) => { setDescription(e.target.value); autoSave() }}
-            className="h-8 border-0 shadow-none focus-visible:ring-0 text-xs text-muted-foreground"
+            className="h-8 w-full border-0 bg-transparent shadow-none focus-visible:ring-0 focus:outline-none text-xs text-muted-foreground"
             placeholder="Descripcion del flujo (opcional)"
           />
         </footer>
