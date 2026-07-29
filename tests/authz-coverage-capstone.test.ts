@@ -27,6 +27,7 @@
  *   onboarding    -> self-scoped-mutation-invariant
  *   notifications -> self-scoped-mutation-invariant
  *   invites       -> self-scoped-mutation-invariant (join) + workspace-subresource (revoke)
+ *   daily-reports -> self-scoped-mutation-invariant (cada quien escribe SU dia)
  *   academy       -> academy-authz-invariant
  *   applications  -> misc-endpoint-authz-invariant
  *   messages      -> misc-endpoint-authz-invariant
@@ -60,7 +61,7 @@ const MUTATING = /export async function (POST|PATCH|PUT|DELETE)\b/g
 const COVERED = new Set<string>([
   'tasks', 'notes', 'projects', 'teams', 'spaces', 'workspaces',
   'goals', 'sprints', 'whiteboards', 'time-entries',
-  'profile', 'onboarding', 'notifications', 'invites',
+  'profile', 'onboarding', 'notifications', 'invites', 'daily-reports',
   'academy', 'applications', 'messages', 'marketplace', 'kern',
 ])
 

@@ -386,6 +386,7 @@ export const NotificationTypes = {
   SOP_REVIEW_OVERDUE:    'sop_review_overdue',    // al owner del SOP: la fecha de revision ya paso (recordatorio diario, sistema)
   SOP_REVIEW_DUE_SOON:   'sop_review_due_soon',   // al owner del SOP: la revision vence dentro de 7 dias (recordatorio diario, sistema)
   SOP_ASSIGNED:          'sop_assigned',          // al lector requerido: debes leer y confirmar este documento
+  DAILY_REPORT_MISSING:  'daily_report_missing',  // a la persona: termina el dia sin actividades registradas (recordatorio, sistema)
   REMINDER:              'reminder',              // recordatorio programado desde el chat (Circuito 1.C)
   AUTOMATION:            'automation',            // aviso disparado por una regla de automatizacion (Circuito 3)
 } as const

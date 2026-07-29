@@ -27,6 +27,7 @@ export const translations: Record<Lang, Dict> = {
     'nav.guide': 'Guía',
     'nav.academy': 'Academia',
     'nav.calendar': 'Calendario',
+    'nav.dailyReports': 'Reporte diario',
     'nav.notes': 'Notas',
     'nav.whiteboards': 'Pizarras',
     'nav.goals': 'Metas',
@@ -354,6 +355,7 @@ export const translations: Record<Lang, Dict> = {
     'inbox.verb.sop_review_overdue': 'revisión de SOP vencida:',
     'inbox.verb.sop_review_due_soon': 'revisión de SOP por vencer:',
     'inbox.verb.sop_assigned': 'debes leer y confirmar:',
+    'inbox.verb.daily_report_missing': 'sin reporte de actividades:',
     'inbox.verb.project.member_added': 'te agregó al proyecto',
     'inbox.verb.workspace.member_joined': 'se unió al workspace',
 
@@ -1528,6 +1530,7 @@ export const translations: Record<Lang, Dict> = {
     'nav.guide': 'Guide',
     'nav.academy': 'Academy',
     'nav.calendar': 'Calendar',
+    'nav.dailyReports': 'Daily report',
     'nav.notes': 'Notes',
     'nav.whiteboards': 'Whiteboards',
     'nav.goals': 'Goals',
@@ -1855,6 +1858,7 @@ export const translations: Record<Lang, Dict> = {
     'inbox.verb.sop_review_overdue': 'SOP review overdue:',
     'inbox.verb.sop_review_due_soon': 'SOP review due soon:',
     'inbox.verb.sop_assigned': 'you must read and confirm:',
+    'inbox.verb.daily_report_missing': 'no activity report:',
     'inbox.verb.project.member_added': 'added you to the project',
     'inbox.verb.workspace.member_joined': 'joined the workspace',
 

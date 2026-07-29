@@ -26,6 +26,14 @@ import { autoWatch } from '@/lib/watchers'
 import { sanitizeRichText } from '@/lib/sanitize'
 import { markdownToRichText } from '@/lib/ai/markdown-to-rich'
 import { loadNoteViewerContext, canViewNote, noteVisibilityPrefilter } from '@/lib/note-visibility'
+import {
+  REPORT_CATEGORIES,
+  REPORT_TIMEZONE,
+  CATEGORY_HINT,
+  todayInReportTz,
+  isValidReportDate,
+  formatReportTime,
+} from '@/lib/daily-reports'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -51,6 +59,50 @@ async function listUserWorkspaces(admin: Admin, userId: string) {
 function bodyToHtml(markdown: string | undefined | null): string | null {
   if (!markdown || !markdown.trim()) return null
   return sanitizeRichText(markdownToRichText(markdown)) || null
+}
+
+/**
+ * Devuelve el reporte del dia de una persona, creandolo si no existe.
+ *
+ * Es lo primero que corre cada vez que alguien narra algo, asi que no puede
+ * fallar por una carrera: dos mensajes seguidos entrarian a la vez y el segundo
+ * chocaria con el UNIQUE (workspace, persona, fecha). Por eso el insert se hace
+ * con `upsert` sobre esa misma restriccion e `ignoreDuplicates`, y despues se
+ * relee: quien pierda la carrera se encuentra la fila del otro en vez de un
+ * error.
+ */
+async function ensureDailyReport(admin: Admin, workspaceId: string, userId: string, day: string) {
+  const { data: existing } = (await admin
+    .from('daily_reports')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .eq('profile_id', userId)
+    .eq('report_date', day)
+    .maybeSingle()) as { data: { id: string } | null; error: unknown }
+
+  if (existing) return existing
+
+  const { error } = await admin
+    .from('daily_reports')
+    .upsert(
+      { workspace_id: workspaceId, profile_id: userId, report_date: day },
+      { onConflict: 'workspace_id,profile_id,report_date', ignoreDuplicates: true }
+    )
+
+  if (error) {
+    console.error('[ensureDailyReport] upsert error:', error)
+    return null
+  }
+
+  const { data: created } = (await admin
+    .from('daily_reports')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .eq('profile_id', userId)
+    .eq('report_date', day)
+    .maybeSingle()) as { data: { id: string } | null; error: unknown }
+
+  return created
 }
 
 /** Proyectos donde el usuario es miembro directo (base accionable de KERN). */
@@ -107,7 +159,33 @@ export async function buildKernContext(admin: Admin, userId: string, displayName
     ? workspaces.map(w => `- "${w.name}" [id: ${w.id}]`).join('\n')
     : '(sin workspaces)'
 
-  return `\n\nContexto del usuario ${displayName ? `(${displayName}) ` : ''}en este momento:\nWorkspaces (usa el id EXACTO al crear notas):\n${workspaceLines}\nProyectos accesibles (usa el id EXACTO al crear o mover tareas):\n${projectLines}\nTareas abiertas asignadas al usuario: ${count ?? 0}.\nNunca inventes un project_id, task_id ni note_id: si no lo tienes, usa una herramienta de lectura primero.`
+  // Estado del reporte de hoy. Se inyecta para que KERN sepa si la jornada ya
+  // tiene actividades registradas sin gastar una llamada de lectura, y para que
+  // no tenga que adivinar en que dia esta: el modelo no conoce la fecha.
+  const hoy = todayInReportTz()
+  let reporteLinea = `Reporte de hoy: sin actividades registradas todavia.`
+  if (workspaces[0]) {
+    const { data: rep } = (await admin
+      .from('daily_reports')
+      .select('id, status')
+      .eq('workspace_id', workspaces[0].id)
+      .eq('profile_id', userId)
+      .eq('report_date', hoy)
+      .maybeSingle()) as { data: { id: string; status: string } | null; error: unknown }
+
+    if (rep) {
+      const { count: nEntries } = (await admin
+        .from('daily_report_entries')
+        .select('id', { count: 'exact', head: true })
+        .eq('report_id', rep.id)) as { count: number | null }
+      reporteLinea =
+        rep.status === 'submitted'
+          ? `Reporte de hoy: ya cerrado, con ${nEntries ?? 0} actividades.`
+          : `Reporte de hoy: abierto, con ${nEntries ?? 0} actividades registradas.`
+    }
+  }
+
+  return `\n\nContexto del usuario ${displayName ? `(${displayName}) ` : ''}en este momento:\nFecha de hoy: ${hoy} (zona ${REPORT_TIMEZONE}).\nWorkspaces (usa el id EXACTO al crear notas):\n${workspaceLines}\nProyectos accesibles (usa el id EXACTO al crear o mover tareas):\n${projectLines}\nTareas abiertas asignadas al usuario: ${count ?? 0}.\n${reporteLinea}\nNunca inventes un project_id, task_id ni note_id: si no lo tienes, usa una herramienta de lectura primero.`
 }
 
 /** Construye el set de herramientas de KERN ligado a un usuario concreto. */
@@ -695,6 +773,232 @@ export function buildKernTools(admin: Admin, userId: string) {
         }).catch(console.error)
 
         return { updated: { id: note.id, title: note.title, replaced: !!replace } }
+      },
+    }),
+
+    // ── Reporte diario de actividades ─────────────────────────────────────
+    // La forma de registrar el dia es CONTARLO, no llenar un formulario. La
+    // persona le dice a KERN "acabo de cerrar la campaña de Google" y esto lo
+    // guarda con su hora y su categoria. Al final del dia el reporte ya existe:
+    // nadie tiene que reconstruir de memoria lo que hizo.
+
+    log_daily_activity: tool({
+      description:
+        'Registra en el reporte diario del usuario algo que acaba de hacer, algo que lo bloquea o lo que hara despues. ' +
+        'Uselo SIEMPRE que la persona narre su trabajo ("ya termine X", "estoy atorado con Y", "mañana sigo con Z"), ' +
+        'aunque no pida explicitamente registrarlo. Crea el reporte del dia si aun no existe. ' +
+        `Categorias: ${CATEGORY_HINT}`,
+      parameters: z.object({
+        content: z
+          .string()
+          .min(3)
+          .max(1000)
+          .describe('Lo que hizo, en una frase clara y en tercera persona breve. Sin adornos.'),
+        category: z
+          .enum(REPORT_CATEGORIES)
+          .optional()
+          .describe('Tipo de actividad. Por defecto "avance".'),
+        minutes: z
+          .number()
+          .int()
+          .min(0)
+          .max(1440)
+          .optional()
+          .describe('Minutos dedicados, SOLO si la persona lo dijo. Nunca lo estime.'),
+        date: z
+          .string()
+          .optional()
+          .describe('Fecha YYYY-MM-DD. Omitala salvo que la persona hable de otro dia ("ayer se me olvido anotar").'),
+      }),
+      execute: async ({ content, category, minutes, date }) => {
+        const workspaces = await listUserWorkspaces(admin, userId)
+        const workspace = workspaces[0]
+        if (!workspace) return { error: 'El usuario no pertenece a ningún espacio de trabajo.' }
+
+        const day = date && isValidReportDate(date) ? date : todayInReportTz()
+        const report = await ensureDailyReport(admin, workspace.id, userId, day)
+        if (!report) return { error: 'No se pudo abrir el reporte del día.' }
+
+        const { error } = await admin.from('daily_report_entries').insert({
+          report_id: report.id,
+          content: content.trim(),
+          category: category ?? 'avance',
+          minutes: minutes ?? null,
+          source: 'kern',
+        })
+        if (error) {
+          console.error('[kern log_daily_activity] insert error:', error)
+          return { error: 'No se pudo registrar la actividad.' }
+        }
+
+        // Toca el reporte para que el listado lo ordene por movimiento real.
+        await admin
+          .from('daily_reports')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('id', report.id)
+
+        return {
+          registered: {
+            date: day,
+            category: category ?? 'avance',
+            content: content.trim(),
+          },
+        }
+      },
+    }),
+
+    get_daily_report: tool({
+      description:
+        'Devuelve el reporte diario del usuario para un dia, con todas las actividades registradas y su hora. ' +
+        'Uselo para "que hice hoy", "leeme mi reporte", "resumeme el dia" o antes de cerrar el reporte.',
+      parameters: z.object({
+        date: z.string().optional().describe('Fecha YYYY-MM-DD. Por defecto hoy.'),
+      }),
+      execute: async ({ date }) => {
+        const workspaces = await listUserWorkspaces(admin, userId)
+        const workspace = workspaces[0]
+        if (!workspace) return { error: 'El usuario no pertenece a ningún espacio de trabajo.' }
+
+        const day = date && isValidReportDate(date) ? date : todayInReportTz()
+
+        const { data: report } = (await admin
+          .from('daily_reports')
+          .select('id, report_date, summary, status')
+          .eq('workspace_id', workspace.id)
+          .eq('profile_id', userId)
+          .eq('report_date', day)
+          .maybeSingle()) as {
+          data: { id: string; report_date: string; summary: string | null; status: string } | null
+          error: unknown
+        }
+
+        if (!report) return { date: day, entries: [], summary: null, status: 'vacio' }
+
+        const { data: entries } = (await admin
+          .from('daily_report_entries')
+          .select('content, category, minutes, created_at')
+          .eq('report_id', report.id)
+          .order('created_at', { ascending: true })
+          .limit(100)) as {
+          data: Array<{ content: string; category: string; minutes: number | null; created_at: string }> | null
+          error: unknown
+        }
+
+        return {
+          date: report.report_date,
+          status: report.status,
+          summary: report.summary,
+          entries: (entries ?? []).map(e => ({
+            hora: formatReportTime(e.created_at),
+            categoria: e.category,
+            contenido: e.content,
+            minutos: e.minutes,
+          })),
+        }
+      },
+    }),
+
+    close_daily_report: tool({
+      description:
+        'Cierra el reporte del dia guardando un resumen y marcandolo como entregado. ' +
+        'Uselo cuando la persona diga que termino su jornada o pida cerrar o entregar su reporte. ' +
+        'Antes de llamarlo, lea el dia con get_daily_report y redacte el resumen a partir de lo registrado, nunca inventado.',
+      parameters: z.object({
+        summary: z
+          .string()
+          .min(10)
+          .max(4000)
+          .describe('Resumen del dia en 3 a 6 lineas, basado SOLO en las actividades registradas.'),
+        date: z.string().optional().describe('Fecha YYYY-MM-DD. Por defecto hoy.'),
+      }),
+      execute: async ({ summary, date }) => {
+        const workspaces = await listUserWorkspaces(admin, userId)
+        const workspace = workspaces[0]
+        if (!workspace) return { error: 'El usuario no pertenece a ningún espacio de trabajo.' }
+
+        const day = date && isValidReportDate(date) ? date : todayInReportTz()
+        const report = await ensureDailyReport(admin, workspace.id, userId, day)
+        if (!report) return { error: 'No se pudo abrir el reporte del día.' }
+
+        const { error } = await admin
+          .from('daily_reports')
+          .update({
+            summary: summary.trim(),
+            status: 'submitted',
+            submitted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', report.id)
+
+        if (error) {
+          console.error('[kern close_daily_report] update error:', error)
+          return { error: 'No se pudo cerrar el reporte.' }
+        }
+
+        return { closed: { date: day } }
+      },
+    }),
+
+    list_team_daily_reports: tool({
+      description:
+        'Lista los reportes diarios del equipo para un dia (quien reporto y quien no). ' +
+        'Uselo para "que hizo el equipo ayer", "quien no ha reportado" o para armar un resumen de la jornada.',
+      parameters: z.object({
+        date: z.string().optional().describe('Fecha YYYY-MM-DD. Por defecto hoy.'),
+      }),
+      execute: async ({ date }) => {
+        const workspaces = await listUserWorkspaces(admin, userId)
+        const workspace = workspaces[0]
+        if (!workspace) return { error: 'El usuario no pertenece a ningún espacio de trabajo.' }
+
+        const day = date && isValidReportDate(date) ? date : todayInReportTz()
+
+        const { data: reports } = (await admin
+          .from('daily_reports')
+          .select('id, summary, status, profile:profiles ( display_name )')
+          .eq('workspace_id', workspace.id)
+          .eq('report_date', day)
+          .limit(100)) as {
+          data: Array<{
+            id: string
+            summary: string | null
+            status: string
+            profile: { display_name: string } | null
+          }> | null
+          error: unknown
+        }
+
+        const rows = reports ?? []
+        if (rows.length === 0) return { date: day, reportes: [], nota: 'Nadie ha registrado actividades ese día.' }
+
+        // Las entradas de todos los reportes del dia en una sola consulta: una
+        // por reporte convertiria un equipo de doce en doce viajes a la base.
+        const { data: entries } = (await admin
+          .from('daily_report_entries')
+          .select('report_id, content, category')
+          .in('report_id', rows.map(r => r.id))
+          .order('created_at', { ascending: true })
+          .limit(500)) as {
+          data: Array<{ report_id: string; content: string; category: string }> | null
+          error: unknown
+        }
+
+        const byReport = new Map<string, Array<{ content: string; category: string }>>()
+        for (const e of entries ?? []) {
+          const list = byReport.get(e.report_id) ?? []
+          list.push({ content: e.content, category: e.category })
+          byReport.set(e.report_id, list)
+        }
+
+        return {
+          date: day,
+          reportes: rows.map(r => ({
+            persona: r.profile?.display_name ?? 'Sin nombre',
+            estado: r.status,
+            resumen: r.summary,
+            actividades: byReport.get(r.id) ?? [],
+          })),
+        }
       },
     }),
   }

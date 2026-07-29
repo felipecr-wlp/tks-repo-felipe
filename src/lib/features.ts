@@ -26,6 +26,7 @@ export type FeatureKey =
   | 'guia'
   | 'academia'
   | 'calendar'
+  | 'reportes'
   | 'notes'
   | 'whiteboards'
   | 'goals'
@@ -82,6 +83,14 @@ export const FEATURES: FeatureDef[] = [
     segment: 'general',
     labelKey: 'nav.general',
     description: 'Chat abierto a todos los equipos del workspace.',
+    group: 'workspace',
+    primary: true,
+  },
+  {
+    key: 'reportes',
+    segment: 'reportes',
+    labelKey: 'nav.dailyReports',
+    description: 'Reporte diario de actividades de cada persona.',
     group: 'workspace',
     primary: true,
   },
