@@ -265,7 +265,9 @@ export function NotesTreeSidebar({
           parent_note_id: parentId ?? null,
           space_id,
           title: 'Sin título',
-          visibility: 'workspace',
+          // Nace privada. El autor decide despues si la comparte con su
+          // departamento (ver src/lib/note-visibility.ts).
+          visibility: 'private',
           icon: DEFAULT_NOTE_ICON,
         }),
       })

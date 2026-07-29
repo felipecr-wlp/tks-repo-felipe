@@ -4,7 +4,8 @@
  */
 import { notFound, redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { canAccessNoteSpace } from '@/lib/note-space-access'
+import { loadNoteViewerContext, canViewNote } from '@/lib/note-visibility'
+import { canPostWorkspaceMessage } from '@/lib/workspace-admin'
 import { getServerT } from '@/lib/i18n/server'
 import { NoteEditor } from './NoteEditor'
 
@@ -19,6 +20,7 @@ type NoteFull = {
   workspace_id: string
   parent_note_id: string | null
   space_id: string | null
+  project_id: string | null
   icon: string | null
   title: string
   content: string | null
@@ -60,7 +62,7 @@ export default async function NotePage({ params }: NotePageProps) {
   const { data: note } = await admin
     .from('notes')
     .select(`
-      id, workspace_id, parent_note_id, space_id, icon,
+      id, workspace_id, parent_note_id, space_id, project_id, icon,
       title, content, visibility,
       doc_kind, sop_status, sop_version, review_due,
       created_by, created_at, updated_at,
@@ -72,15 +74,13 @@ export default async function NotePage({ params }: NotePageProps) {
 
   if (!note) notFound()
 
-  if (note.visibility === 'private' && note.created_by !== user.id) {
-    notFound()
-  }
-
-  // F3: nota de un espacio restringido (RH, Legal, Finanzas), solo admin de
-  // org o miembro del espacio. Esta pagina usa admin client, que bypassa el
-  // RLS notes_restrict_space; sin este check cualquier miembro del workspace
-  // con el UUID podia abrir y editar la nota directo por URL.
-  if (!(await canAccessNoteSpace(admin, note.space_id, user.id))) {
+  // Modelo de visibilidad (privada = solo autor, space/team = su departamento,
+  // project = su proyecto, workspace = la empresa) MAS el aislamiento de
+  // departamentos restringidos. Esta pagina usa admin client, que bypassa el
+  // RLS de notes; sin este check cualquier miembro del workspace con el UUID
+  // podia abrir y editar la nota directo por URL.
+  const noteCtx = await loadNoteViewerContext(admin, workspace.id, user.id)
+  if (!canViewNote(noteCtx, note)) {
     notFound()
   }
 
@@ -121,6 +121,25 @@ export default async function NotePage({ params }: NotePageProps) {
     self?.org_role === 'owner' || self?.org_role === 'admin' ||
     wsMember?.role === 'admin'
 
+  // Departamentos con los que este usuario puede compartir la nota. Un admin de
+  // org ve todos; el resto, solo aquellos a los que pertenece. Compartir con un
+  // departamento ajeno no es una opcion: seria filtrar hacia afuera.
+  const isOrgAdmin = self?.org_role === 'owner' || self?.org_role === 'admin'
+  const { data: allSpaces } = await admin
+    .from('spaces')
+    .select('id, name')
+    .eq('workspace_id', workspace.id)
+    .eq('is_archived', false)
+    .order('name', { ascending: true }) as { data: { id: string; name: string }[] | null; error: unknown }
+
+  const shareableSpaces = isOrgAdmin
+    ? (allSpaces ?? [])
+    : (allSpaces ?? []).filter(s => noteCtx.spaceIds.has(s.id))
+
+  // Abrir un documento a TODA la empresa es acto de mando (mismos roles que el
+  // comunicado en General). La API valida lo mismo del lado servidor.
+  const canPublishWorkspace = await canPostWorkspaceMessage(admin, workspace.id, user.id)
+
   const t = getServerT()
 
   return (
@@ -135,6 +154,8 @@ export default async function NotePage({ params }: NotePageProps) {
         canManage={canManage}
         breadcrumbs={breadcrumbs}
         childNotes={children ?? []}
+        spaces={shareableSpaces}
+        canPublishWorkspace={canPublishWorkspace}
       />
     </div>
   )

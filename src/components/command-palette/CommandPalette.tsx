@@ -188,7 +188,9 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
         body: JSON.stringify({
           workspace_id: workspaceId,
           title: title.trim() || 'Sin título',
-          visibility: 'workspace',
+          // Nace privada; el autor decide despues si la comparte con su
+          // departamento (ver src/lib/note-visibility.ts).
+          visibility: 'private',
         }),
       })
       const data = await res.json()

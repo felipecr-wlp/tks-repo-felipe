@@ -28,6 +28,8 @@ import {
   AlertTriangle, CalendarClock, Copy, Gauge, LayoutTemplate,
 } from 'lucide-react'
 import { cn, getInitials, timeAgo, dateInputToISO, isoToDateInput } from '@/lib/utils'
+import { createClient as createSupabaseClient } from '@/lib/supabase/client'
+import { TASK_FILES_MAX_SIZE, TASK_FILES_MIME_ALLOWLIST } from '@/lib/task-files'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { sanitizeRichText } from '@/lib/sanitize'
 import { RECURRENCE_RULES, RECURRENCE_LABELS } from '@/lib/recurrence'
@@ -887,15 +889,55 @@ function AttachmentsSection({ taskId, currentUserId }: { taskId: string; current
     return () => { alive = false }
   }, [taskId])
 
+  /**
+   * Subida en DOS pasos: la API firma, el navegador sube DIRECTO a storage y
+   * despues la API registra el adjunto.
+   *
+   * El camino viejo (multipart contra /attachments) mandaba el binario por la
+   * serverless function, que en Vercel corta el cuerpo en ~4.5MB: cualquier
+   * creativo en video moria ahi con un 413 que ni siquiera producia la app.
+   * Con esto el binario nunca toca la function y el tope real pasa a ser el del
+   * bucket.
+   */
   const uploadFiles = useCallback(async (files: FileList | File[]) => {
     const list = Array.from(files)
     if (list.length === 0) return
     setUploading(true)
+    const supabase = createSupabaseClient()
+
     for (const file of list) {
       try {
-        const fd = new FormData()
-        fd.append('file', file)
-        const res = await fetch(`/api/tasks/${taskId}/attachments`, { method: 'POST', body: fd })
+        if (file.size > TASK_FILES_MAX_SIZE) {
+          throw new Error('El archivo supera el límite de 200MB')
+        }
+        const mime = file.type || 'application/octet-stream'
+        if (!TASK_FILES_MIME_ALLOWLIST.has(mime)) {
+          throw new Error('Tipo de archivo no permitido')
+        }
+
+        // 1. Firmar.
+        const signRes = await fetch(`/api/tasks/${taskId}/attachments/upload-url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: file.name, mime, size: file.size }),
+        })
+        const signed = await signRes.json()
+        if (!signRes.ok) throw new Error(signed.error ?? t('taskDetail.toast.uploadFail'))
+
+        // 2. Subir directo a storage.
+        const { error: upErr } = await supabase.storage
+          .from(signed.bucket as string)
+          .uploadToSignedUrl(signed.path as string, signed.token as string, file, {
+            contentType: mime,
+          })
+        if (upErr) throw new Error(upErr.message)
+
+        // 3. Registrar el adjunto (la API re-lee mime y tamaño de storage).
+        const res = await fetch(`/api/tasks/${taskId}/attachments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: signed.path, name: file.name }),
+        })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error ?? t('taskDetail.toast.uploadFail'))
         setItems(prev => [...prev, data as Attachment])

@@ -44,6 +44,7 @@ interface NoteData {
   title: string
   content: string | null
   visibility: string
+  space_id: string | null
   doc_kind: DocKind
   sop_status: SopStatus | null
   sop_version: string | null
@@ -66,25 +67,35 @@ interface NoteEditorProps {
   canManage: boolean
   breadcrumbs: Breadcrumb[]
   childNotes: ChildNote[]
+  /** Departamentos con los que ESTE usuario puede compartir la nota. */
+  spaces: { id: string; name: string }[]
+  /** ¿Puede abrir la nota a toda la empresa? Solo los responsables. */
+  canPublishWorkspace: boolean
 }
 
-const VISIBILITY_OPTIONS = [
-  { value: 'workspace', labelKey: 'note.edVisWorkspace', Icon: Globe,  descKey: 'note.edVisWorkspaceDesc' },
-  { value: 'team',      labelKey: 'note.edVisTeam',      Icon: Users,  descKey: 'note.edVisTeamDesc' },
-  { value: 'project',   labelKey: 'note.edVisProject',   Icon: Folder, descKey: 'note.edVisProjectDesc' },
-  { value: 'private',   labelKey: 'note.edVisPrivate',   Icon: Lock,   descKey: 'note.edVisPrivateDesc' },
-] as const
+/**
+ * Alcance de la nota. La nota nace PRIVADA y compartirla la abre a un
+ * DEPARTAMENTO, no a la empresa entera. El alcance de empresa existe (los SOPs
+ * lo necesitan) pero solo lo asignan los responsables. Modelo completo en
+ * src/lib/note-visibility.ts; la API valida lo mismo del lado servidor.
+ */
+type ScopeChoice =
+  | { kind: 'private' }
+  | { kind: 'space'; spaceId: string }
+  | { kind: 'workspace' }
 
 
 export function NoteEditor({
   initial, currentUserId, currentUserName, currentUserAvatar,
   workspaceSlug, workspaceId, canManage, breadcrumbs, childNotes,
+  spaces, canPublishWorkspace,
 }: NoteEditorProps) {
   const router = useRouter()
   const tr = useT()
   const [title, setTitle] = useState(initial.title)
   const [icon, setIcon] = useState(normalizeNoteIconKey(initial.icon))
   const [visibility, setVisibility] = useState(initial.visibility)
+  const [spaceId, setSpaceId] = useState(initial.space_id)
   const [updatedAt, setUpdatedAt] = useState(initial.updated_at)
   // Máquina de estado del guardado, para que el usuario SIEMPRE sepa si su
   // trabajo está a salvo: 'saved' (persistido), 'dirty' (cambios sin guardar),
@@ -157,10 +168,16 @@ export function NoteEditor({
     patch({ icon: newIcon })
   }
 
-  function handleVisibilityChange(v: string) {
-    setVisibility(v)
+  function handleScopeChange(choice: ScopeChoice) {
     setShowVisMenu(false)
-    patch({ visibility: v })
+    if (choice.kind === 'space') {
+      setVisibility('space')
+      setSpaceId(choice.spaceId)
+      patch({ visibility: 'space', space_id: choice.spaceId })
+      return
+    }
+    setVisibility(choice.kind)
+    patch({ visibility: choice.kind })
   }
 
   async function handleDelete() {
@@ -245,40 +262,90 @@ export function NoteEditor({
             </span>
           )}
 
-          {/* Visibility */}
+          {/* Alcance: privada -> departamento -> empresa */}
           <div className="relative">
             <button
               onClick={() => setShowVisMenu(!showVisMenu)}
               className="flex items-center gap-1.5 text-xs px-2 py-1 bg-muted/50 hover:bg-muted text-foreground rounded-md transition-colors"
             >
-              {(() => {
-                const cur = VISIBILITY_OPTIONS.find(v => v.value === visibility)
-                if (!cur) return <span>{visibility}</span>
-                const Icon = cur.Icon
-                return <span className="flex items-center gap-1.5"><Icon className="w-3.5 h-3.5" />{tr(cur.labelKey)}</span>
-              })()}
+              {visibility === 'workspace' ? (
+                <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" />Toda la empresa</span>
+              ) : visibility === 'private' ? (
+                <span className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" />Privada</span>
+              ) : visibility === 'project' ? (
+                <span className="flex items-center gap-1.5"><Folder className="w-3.5 h-3.5" />Proyecto</span>
+              ) : (
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" />
+                  {spaces.find(s => s.id === spaceId)?.name ?? 'Departamento'}
+                </span>
+              )}
               <ChevronDown className="w-2.5 h-2.5" />
             </button>
             {showVisMenu && (
               <div
-                className="absolute top-7 right-0 z-50 w-56 bg-popover border border-border rounded-lg shadow-raised py-1"
+                className="absolute top-7 right-0 z-50 w-64 bg-popover border border-border rounded-lg shadow-raised py-1"
                 onMouseLeave={() => setShowVisMenu(false)}
               >
-                {VISIBILITY_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => handleVisibilityChange(opt.value)}
-                    className={cn(
-                      'w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-accent transition-colors',
-                      opt.value === visibility && 'bg-accent/50'
-                    )}
-                  >
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                      <opt.Icon className="w-3.5 h-3.5" />{tr(opt.labelKey)}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">{tr(opt.descKey)}</span>
-                  </button>
-                ))}
+                <button
+                  onClick={() => handleScopeChange({ kind: 'private' })}
+                  className={cn(
+                    'w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-accent transition-colors',
+                    visibility === 'private' && 'bg-accent/50'
+                  )}
+                >
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                    <Lock className="w-3.5 h-3.5" />Privada
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">Solo tú la puedes ver</span>
+                </button>
+
+                <div className="px-3 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Compartir con un departamento
+                </div>
+                {spaces.length === 0 ? (
+                  <p className="px-3 pb-2 text-[10px] text-muted-foreground">
+                    No perteneces a ningún departamento todavía.
+                  </p>
+                ) : (
+                  spaces.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => handleScopeChange({ kind: 'space', spaceId: s.id })}
+                      className={cn(
+                        'w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-accent transition-colors',
+                        visibility !== 'private' && visibility !== 'workspace' && spaceId === s.id && 'bg-accent/50'
+                      )}
+                    >
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                        <Users className="w-3.5 h-3.5" />{s.name}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        Visible solo para {s.name}
+                      </span>
+                    </button>
+                  ))
+                )}
+
+                {canPublishWorkspace && (
+                  <>
+                    <div className="my-1 border-t border-border" />
+                    <button
+                      onClick={() => handleScopeChange({ kind: 'workspace' })}
+                      className={cn(
+                        'w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-accent transition-colors',
+                        visibility === 'workspace' && 'bg-accent/50'
+                      )}
+                    >
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                        <Globe className="w-3.5 h-3.5" />Toda la empresa
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        Cualquier miembro del workspace la puede leer
+                      </span>
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>

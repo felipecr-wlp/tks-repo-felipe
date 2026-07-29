@@ -14,6 +14,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCachedUser } from '@/lib/auth'
 import { isOrgAdmin } from '@/lib/team-access'
+import { canPostWorkspaceMessage } from '@/lib/workspace-admin'
 import { WorkspaceChat } from '@/components/chat/WorkspaceChat'
 
 interface GeneralPageProps {
@@ -100,6 +101,11 @@ export default async function GeneralChatPage({ params }: GeneralPageProps) {
     reactions = rxRows ?? []
   }
 
+  // General es canal de COMUNICADOS: lo lee todo el workspace, lo escriben solo
+  // los mandos (admin de org, admin de workspace o lead de equipo). El resto ve
+  // el aviso y conversa en el chat de su departamento.
+  const canPost = await canPostWorkspaceMessage(admin, workspace.id, user.id)
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 pt-4 pb-2 border-b border-border">
@@ -116,6 +122,7 @@ export default async function GeneralChatPage({ params }: GeneralPageProps) {
         members={members}
         initialMessages={messages}
         initialReactions={reactions}
+        canPost={canPost}
       />
     </div>
   )

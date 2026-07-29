@@ -59,7 +59,9 @@ export function NotesActionsBar({
           title: template.defaultTitle,
           content: template.content || null,
           icon: template.icon,
-          visibility: 'workspace',
+          // Nace privada; el autor decide despues si la comparte con su
+          // departamento (ver src/lib/note-visibility.ts).
+          visibility: 'private',
           ...(template.docKind ? { doc_kind: template.docKind } : {}),
           ...(template.sopStatus ? { sop_status: template.sopStatus } : {}),
         }),

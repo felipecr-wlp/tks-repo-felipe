@@ -9,6 +9,7 @@ import { timeAgo } from '@/lib/utils'
 import { NoteIcon } from '@/lib/note-icons'
 import { getServerT } from '@/lib/i18n/server'
 import { NotesActionsBar } from './NotesActionsBar'
+import { loadNoteViewerContext, canViewNote, noteVisibilityPrefilter } from '@/lib/note-visibility'
 
 interface NotesPageProps {
   params: { workspaceSlug: string }
@@ -43,22 +44,32 @@ export default async function NotesPage({ params }: NotesPageProps) {
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
 
-  // Recientes (top 6, sin privadas de otros). El filtro de privadas va en la
-  // consulta (antes del limit), no en JS despues: si se filtrara despues, una
-  // nota privada ajena entre las mas recientes gastaria un slot y podria
-  // esconder una nota visible mas nueva del propio usuario.
+  // Recientes (top 6). Las privadas ajenas se descartan ya en la consulta y el
+  // resto del modelo (departamento, proyecto, empresa) se remata en JS, asi que
+  // se pide de mas: si se pidieran justo 6, las que se ocultan dejarian huecos.
   const { data: recent } = await admin
     .from('notes')
     .select(`
-      id, title, icon, updated_at, visibility, created_by,
+      id, title, icon, updated_at, visibility, created_by, space_id, project_id,
       author:profiles ( display_name )
     `)
     .eq('workspace_id', workspace.id)
-    .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
+    .or(noteVisibilityPrefilter(user.id))
     .order('updated_at', { ascending: false })
-    .limit(6) as { data: (RecentNote & { visibility: string; created_by: string | null })[] | null; error: unknown }
+    .limit(60) as {
+      data:
+        | (RecentNote & {
+            visibility: string
+            created_by: string | null
+            space_id: string | null
+            project_id: string | null
+          })[]
+        | null
+      error: unknown
+    }
 
-  const visibleRecent = recent ?? []
+  const noteCtx = await loadNoteViewerContext(admin, workspace.id, user.id)
+  const visibleRecent = (recent ?? []).filter(n => canViewNote(noteCtx, n)).slice(0, 6)
 
   const hasNotes = visibleRecent.length > 0
   const t = getServerT()

@@ -23,6 +23,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import { accessibleSpaceIds } from '@/lib/note-space-access'
+import { loadNoteViewerContext, canViewNote, noteVisibilityPrefilter } from '@/lib/note-visibility'
 
 const querySchema = z.object({
   q:            z.string().min(1).max(80).trim(),
@@ -111,23 +113,26 @@ export async function GET(request: NextRequest) {
   const projectMatch = `name.ilike.${escaped},description.ilike.${escaped}`
   const noteMatch    = `title.ilike.${escaped},content.ilike.${escaped}`
 
-  // Notas: se trae un margen extra (tope alto) porque el filtro de visibilidad
-  // de espacios restringidos se aplica en memoria; luego se recorta a perType.
-  const noteFetch = Math.max(perType * 4, 30)
+  // TODOS los tipos que cuelgan de un departamento (notas, y ademas tareas,
+  // proyectos y equipos) se traen con margen extra: el filtro de espacios
+  // restringidos se aplica en memoria y luego se recorta a perType. Sin el
+  // margen, una sola fila bloqueada dejaria hueco en los resultados.
+  const overFetch = Math.max(perType * 4, 30)
+  const noteFetch = overFetch
 
   type TaskRow = {
     id: string
     title: string
-    project: { slug: string; name: string; team: { slug: string } | null } | null
+    project: { slug: string; name: string; team: { slug: string; space_id: string | null } | null } | null
   }
   type ProjectRow = {
     id: string
     name: string
     slug: string
     icon: string | null
-    team: { slug: string } | null
+    team: { slug: string; space_id: string | null } | null
   }
-  type TeamRow = { id: string; name: string; slug: string }
+  type TeamRow = { id: string; name: string; slug: string; space_id: string | null }
   type WsMemberRow = {
     profile: {
       id: string
@@ -144,6 +149,7 @@ export async function GET(request: NextRequest) {
     visibility: string | null
     created_by: string | null
     space_id: string | null
+    project_id: string | null
   }
 
   // ── Consultas independientes en PARALELO ──────────────────────────────────
@@ -159,34 +165,34 @@ export async function GET(request: NextRequest) {
       .from('tasks')
       .select(`
         id, title,
-        project:projects ( slug, name, team:teams ( slug ) )
+        project:projects ( slug, name, team:teams ( slug, space_id ) )
       `)
       .eq('workspace_id', workspace_id)
       .eq('is_archived', false)
       .or(taskMatch)
       // as unknown as: el join embebido difiere de la forma TaskRow escrita a mano
-      .limit(perType) as unknown as Promise<{ data: TaskRow[] | null; error: unknown }>,
+      .limit(overFetch) as unknown as Promise<{ data: TaskRow[] | null; error: unknown }>,
 
     // Projects (nombre o descripción)
     admin
       .from('projects')
       .select(`
         id, name, slug, icon,
-        team:teams ( slug )
+        team:teams ( slug, space_id )
       `)
       .eq('workspace_id', workspace_id)
       .eq('is_archived', false)
       .or(projectMatch)
       // as unknown as: el join embebido difiere de la forma ProjectRow escrita a mano
-      .limit(perType) as unknown as Promise<{ data: ProjectRow[] | null; error: unknown }>,
+      .limit(overFetch) as unknown as Promise<{ data: ProjectRow[] | null; error: unknown }>,
 
     // Teams (solo nombre)
     admin
       .from('teams')
-      .select('id, name, slug')
+      .select('id, name, slug, space_id')
       .eq('workspace_id', workspace_id)
       .ilike('name', escaped)
-      .limit(perType) as unknown as Promise<{ data: TeamRow[] | null; error: unknown }>,
+      .limit(overFetch) as unknown as Promise<{ data: TeamRow[] | null; error: unknown }>,
 
     // Members del workspace (por display_name)
     admin
@@ -201,72 +207,61 @@ export async function GET(request: NextRequest) {
     // el gating de espacios restringidos queda en JS (depende de membresias).
     admin
       .from('notes')
-      .select('id, title, icon, doc_kind, visibility, created_by, space_id')
+      .select('id, title, icon, doc_kind, visibility, created_by, space_id, project_id')
       .eq('workspace_id', workspace_id)
       .or(noteMatch)
-      .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
+      .or(noteVisibilityPrefilter(user.id))
       .order('updated_at', { ascending: false })
       .limit(noteFetch) as unknown as Promise<{ data: NoteRow[] | null; error: unknown }>,
   ])
 
-  // ── Gating de espacios restringidos (reflejo del RLS, igual que /api/notes) ─
-  // Departamentos restringidos que el user NO puede ver.
-  let blockedSpaceIds = new Set<string>()
-  if ((notesRaw ?? []).some(n => n.space_id)) {
-    const { data: myProfile } = await admin
-      .from('profiles')
-      .select('org_role')
-      .eq('id', user.id)
-      .maybeSingle() as { data: { org_role: string | null } | null; error: unknown }
-    const isOrgAdmin = myProfile?.org_role === 'owner' || myProfile?.org_role === 'admin'
+  // ── Gating de espacios restringidos (reflejo del RLS) ─────────────────────
+  // Aplica a TODO lo que cuelga de un departamento, no solo a las notas:
+  //   - notas          -> notes.space_id            (policy notes_restrict_space)
+  //   - equipos        -> teams.space_id            (policy teams_select / can_see_team)
+  //   - proyectos      -> project.team.space_id     (heredan el depto de su equipo)
+  //   - tareas         -> task.project.team.space_id
+  // Esta ruta lee con el admin client (bypassa RLS), asi que el candado vive
+  // aqui. Historico: hasta 2026-07-28 solo se filtraban las notas, y por eso
+  // cualquier miembro podia leer titulos de tareas y proyectos de Finanzas,
+  // Legal, RH o Seguridad buscando una palabra suelta.
+  const gatedSpaceIds = [
+    ...(notesRaw ?? []).map(n => n.space_id),
+    ...(teamsRaw ?? []).map(t => t.space_id),
+    ...(projectsRaw ?? []).map(p => p.team?.space_id ?? null),
+    ...(tasksRaw ?? []).map(t => t.project?.team?.space_id ?? null),
+  ]
+  const allowedSpaceIds = await accessibleSpaceIds(admin, gatedSpaceIds, user.id)
 
-    if (!isOrgAdmin) {
-      const [{ data: rawSpaces }, { data: myMemberships }] = await Promise.all([
-        admin
-          .from('spaces')
-          .select('id, is_restricted')
-          .eq('workspace_id', workspace_id)
-          .eq('is_restricted', true)
-          .limit(500) as unknown as Promise<{ data: { id: string; is_restricted: boolean }[] | null; error: unknown }>,
-        admin
-          .from('space_members')
-          .select('space_id')
-          .eq('profile_id', user.id) as unknown as Promise<{ data: { space_id: string }[] | null; error: unknown }>,
-      ])
-      const mySpaceIds = new Set((myMemberships ?? []).map(m => m.space_id))
-      blockedSpaceIds = new Set(
-        (rawSpaces ?? [])
-          .filter(s => s.is_restricted && !mySpaceIds.has(s.id))
-          .map(s => s.id)
-      )
-    }
-  }
+  /** space_id null = suelto a nivel workspace, visible para todo miembro. */
+  const spaceVisible = (spaceId: string | null | undefined) =>
+    !spaceId || allowedSpaceIds.has(spaceId)
 
-  // Las privadas ajenas ya se filtraron en la consulta; aqui solo queda el
-  // gating de espacios restringidos (necesita las membresias de arriba).
-  const visibleNotes = (notesRaw ?? [])
-    .filter(n => {
-      if (n.space_id && blockedSpaceIds.has(n.space_id)) return false
-      return true
-    })
-    .slice(0, perType)
+  // Las notas ademas pasan por su modelo propio de visibilidad: privada = solo
+  // el autor, compartida = su departamento, no toda la empresa. Sin esto el
+  // buscador seria la puerta de atras a las notas de cualquiera.
+  const noteCtx = await loadNoteViewerContext(admin, workspace_id, user.id)
+  const visibleNotes   = (notesRaw ?? []).filter(n => canViewNote(noteCtx, n)).slice(0, perType)
+  const visibleTeams   = (teamsRaw ?? []).filter(t => spaceVisible(t.space_id)).slice(0, perType)
+  const visibleProjects = (projectsRaw ?? []).filter(p => spaceVisible(p.team?.space_id)).slice(0, perType)
+  const visibleTasks   = (tasksRaw ?? []).filter(t => spaceVisible(t.project?.team?.space_id)).slice(0, perType)
 
   const result: SearchResult = {
-    tasks: (tasksRaw ?? []).map(t => ({
+    tasks: visibleTasks.map(t => ({
       id: t.id,
       title: t.title,
       project_slug: t.project?.slug ?? null,
       project_name: t.project?.name ?? null,
       team_slug: t.project?.team?.slug ?? null,
     })),
-    projects: (projectsRaw ?? []).map(p => ({
+    projects: visibleProjects.map(p => ({
       id: p.id,
       name: p.name,
       slug: p.slug,
       icon: p.icon,
       team_slug: p.team?.slug ?? null,
     })),
-    teams: (teamsRaw ?? []).map(t => ({
+    teams: visibleTeams.map(t => ({
       id: t.id,
       name: t.name,
       slug: t.slug,

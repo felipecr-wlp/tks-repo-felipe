@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
-import { MessagesSquare, Loader2, X, SmilePlus, Paperclip, Download, FileText } from 'lucide-react'
+import { MessagesSquare, Loader2, X, SmilePlus, Paperclip, Download, FileText, Megaphone } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -87,6 +87,12 @@ interface WorkspaceChatProps {
   members: Member[]
   initialMessages: Message[]
   initialReactions?: Reaction[]
+  /**
+   * ¿El visor puede publicar? El General es canal de COMUNICADOS: lo lee todo
+   * el workspace, lo escriben solo los mandos. Esto apaga la UI; el candado
+   * real vive en /api/workspace-messages y en la policy wsm_insert.
+   */
+  canPost?: boolean
 }
 
 export function WorkspaceChat({
@@ -95,6 +101,7 @@ export function WorkspaceChat({
   members,
   initialMessages,
   initialReactions = [],
+  canPost = true,
 }: WorkspaceChatProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [reactions, setReactions] = useState<Reaction[]>(initialReactions)
@@ -621,7 +628,19 @@ export function WorkspaceChat({
         <div ref={bottomRef} />
       </div>
 
-      {/* Composer */}
+      {/* Composer. Solo para quien puede publicar comunicados; el resto ve el
+          aviso de abajo y conversa en el chat de su departamento. */}
+      {!canPost ? (
+        <div className="border-t border-border px-4 py-3">
+          <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
+            <Megaphone className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Canal de comunicados.</span>{' '}
+              Aquí publican los responsables. Para conversar, usa el chat de tu departamento.
+            </p>
+          </div>
+        </div>
+      ) : (
       <div className="border-t border-border px-4 py-3">
         {typingNames.length > 0 && (
           <div className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -709,6 +728,7 @@ export function WorkspaceChat({
           </button>
         </div>
       </div>
+      )}
     </div>
   )
 }
