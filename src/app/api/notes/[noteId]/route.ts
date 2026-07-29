@@ -9,7 +9,7 @@ import { sanitizeRichText } from '@/lib/sanitize'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
-import { logActivity, ActivityVerbs } from '@/lib/activity'
+import { logActivityCoalesced, ActivityVerbs } from '@/lib/activity'
 import { recomputeNoteLinks } from '@/lib/note-links'
 import { snapshotNoteVersion } from '@/lib/note-versions'
 import { canPostWorkspaceMessage } from '@/lib/workspace-admin'
@@ -252,7 +252,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       error: 'Error al actualizar',    }, { status: 500 })
   }
 
-  logActivity({
+  // Coalesced: el editor guarda solo mientras se escribe. Una sesion de
+  // escritura es UNA accion, no un renglon por autoguardado.
+  logActivityCoalesced({
     verb: ActivityVerbs.NOTE_UPDATED,
     subject_id: user.id,
     object_type: 'note',

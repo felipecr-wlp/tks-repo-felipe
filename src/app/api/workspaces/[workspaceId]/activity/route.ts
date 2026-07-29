@@ -39,6 +39,12 @@ export type WorkspaceActivityEvent = {
   object_id: string | null
   object_title: string | null
   created_at: string
+  /**
+   * `edits` cuenta cuantos guardados se absorbieron en esta sesion de edicion
+   * (ver logActivityCoalesced). El feed lo muestra como "· 27 ediciones" en vez
+   * de pintar 27 renglones.
+   */
+  metadata: Record<string, unknown> | null
   subject: { id: string; display_name: string | null; avatar_url: string | null } | null
   project: { name: string; slug: string } | null
 }
@@ -99,10 +105,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       object_id,
       object_title,
       created_at,
+      metadata,
       subject:profiles ( id, display_name, avatar_url ),
       project:projects ( name, slug )
     `)
     .eq('workspace_id', params.workspaceId)
+    // Mismo filtro que la primera pagina server-side: sin renglones absorbidos.
+    .eq('is_superseded', false)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit) // inclusivo: trae limit + 1
 

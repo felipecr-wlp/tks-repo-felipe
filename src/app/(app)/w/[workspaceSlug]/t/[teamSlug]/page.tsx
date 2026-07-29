@@ -8,6 +8,7 @@ import { resolveTeamForViewer } from '@/lib/team-access'
 import { LayoutDashboard, FolderKanban, Plus, ListChecks, MessageSquare, Maximize2, GanttChartSquare, BookOpen, ShieldCheck, FileText, ArrowRight } from 'lucide-react'
 import { ProjectIcon } from '@/lib/project-icons'
 import { NoteIcon } from '@/lib/note-icons'
+import { coverTint } from '@/lib/note-cover'
 import { timeAgo } from '@/lib/utils'
 import { TeamChat } from '@/components/chat/TeamChat'
 import { NotesActionsBar } from '../../notes/NotesActionsBar'
@@ -254,7 +255,12 @@ export default async function TeamPage({ params }: TeamPageProps) {
                     href={`/w/${params.workspaceSlug}/notes/${d.id}`}
                     className="group flex items-center gap-3 px-4 py-2.5 hover:bg-accent/40 transition-colors"
                   >
-                    <NoteIcon icon={d.icon} size={16} className="flex-shrink-0 text-muted-foreground" />
+                    <span
+                      className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-neutral-700"
+                      style={{ background: coverTint(d.id) }}
+                    >
+                      <NoteIcon icon={d.icon} size={15} />
+                    </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
                         {d.title || 'Sin título'}

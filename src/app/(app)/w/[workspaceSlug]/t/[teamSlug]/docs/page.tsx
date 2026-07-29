@@ -11,6 +11,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/server'
 import { resolveTeamForViewer } from '@/lib/team-access'
 import { NoteIcon } from '@/lib/note-icons'
+import { coverTint } from '@/lib/note-cover'
 import { timeAgo } from '@/lib/utils'
 import { BookOpen, FileText, Lock, ShieldCheck } from 'lucide-react'
 import { NotesActionsBar } from '../../../notes/NotesActionsBar'
@@ -168,7 +169,13 @@ function DocSection({
               href={`/w/${workspaceSlug}/notes/${d.id}`}
               className="group flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
             >
-              <NoteIcon icon={d.icon} size={16} className="flex-shrink-0 text-muted-foreground" />
+              {/* Mismo color que la portada del documento (ver note-cover.ts). */}
+              <span
+                className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-neutral-700"
+                style={{ background: coverTint(d.id) }}
+              >
+                <NoteIcon icon={d.icon} size={16} />
+              </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
                   {d.title || 'Sin título'}

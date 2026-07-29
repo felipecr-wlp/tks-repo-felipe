@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { timeAgo } from '@/lib/utils'
 import { NoteIcon } from '@/lib/note-icons'
+import { coverTint } from '@/lib/note-cover'
 import { getServerT } from '@/lib/i18n/server'
 import { NotesActionsBar } from './NotesActionsBar'
 import { loadNoteViewerContext, canViewNote, noteVisibilityPrefilter } from '@/lib/note-visibility'
@@ -106,7 +107,15 @@ export default async function NotesPage({ params }: NotesPageProps) {
                 href={`/w/${params.workspaceSlug}/notes/${n.id}`}
                 className="group flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
               >
-                <NoteIcon icon={n.icon} size={16} className="flex-shrink-0 text-muted-foreground" />
+                {/* Mismo color que la portada del documento (derivado del id),
+                    para que la lista y el detalle se lean como la misma nota.
+                    Ver src/lib/note-cover.ts. */}
+                <span
+                  className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-neutral-700"
+                  style={{ background: coverTint(n.id) }}
+                >
+                  <NoteIcon icon={n.icon} size={16} />
+                </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
                     {n.title || t('search.untitled')}

@@ -180,6 +180,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_superseded: boolean
           metadata: Json | null
           object_id: string
           object_title: string | null
@@ -192,6 +193,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          is_superseded?: boolean
           metadata?: Json | null
           object_id: string
           object_title?: string | null
@@ -204,6 +206,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          is_superseded?: boolean
           metadata?: Json | null
           object_id?: string
           object_title?: string | null

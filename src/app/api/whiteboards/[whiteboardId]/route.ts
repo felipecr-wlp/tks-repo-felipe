@@ -8,7 +8,7 @@ import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
-import { logActivity, ActivityVerbs } from '@/lib/activity'
+import { logActivityCoalesced, ActivityVerbs } from '@/lib/activity'
 import { loadNoteViewerContext } from '@/lib/note-visibility'
 import { WHITEBOARD_VISIBILITY_VALUES, canViewWhiteboard } from '@/lib/whiteboard-visibility'
 import { canPostWorkspaceMessage } from '@/lib/workspace-admin'
@@ -151,7 +151,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 })
   }
 
-  logActivity({
+  // Coalesced a proposito: la pizarra autoguarda cada pocos segundos y cada
+  // guardado escribia un renglon en la bitacora (era el 82% de todos los
+  // eventos). Ahora una sesion de edicion continua es UN solo renglon con su
+  // contador. Ver logActivityCoalesced en src/lib/activity.ts.
+  logActivityCoalesced({
     verb: ActivityVerbs.WHITEBOARD_UPDATED,
     subject_id: user.id,
     object_type: 'whiteboard',

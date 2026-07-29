@@ -52,6 +52,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     .select('id, verb, created_at, metadata, subject:profiles ( id, display_name, avatar_url )')
     .eq('object_type', 'task')
     .eq('object_id', params.taskId)
+    .eq('is_superseded', false)
     .order('created_at', { ascending: false })
     .limit(50) as { data: EventRow[] | null; error: unknown }
 

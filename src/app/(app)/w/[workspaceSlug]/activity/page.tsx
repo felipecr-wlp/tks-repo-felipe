@@ -54,10 +54,14 @@ export default async function WorkspaceActivityPage({
       object_id,
       object_title,
       created_at,
+      metadata,
       subject:profiles ( id, display_name, avatar_url ),
       project:projects ( name, slug )
     `)
     .eq('workspace_id', workspace.id)
+    // Los eventos absorbidos por una sesion de edicion posterior se conservan
+    // para auditoria pero NO se muestran (ver migracion 20260728030000).
+    .eq('is_superseded', false)
     .order('created_at', { ascending: false })
     .range(0, PAGE_SIZE) as { data: WorkspaceActivityEvent[] | null; error: unknown }
 
