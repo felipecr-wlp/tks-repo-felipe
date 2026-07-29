@@ -2,6 +2,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { PenTool, Plus, Lock, Globe, Users, Building2 } from 'lucide-react'
+import { NewFlowButton } from './NewFlowButton'
 
 interface FlowsPageProps {
   params: { workspaceSlug: string }
@@ -59,6 +60,7 @@ export default async function FlowsPage({ params }: FlowsPageProps) {
             Diagramas de flujo interactivos con nodos y contenido embebido
           </p>
         </div>
+        <NewFlowButton workspaceId={workspace.id} workspaceSlug={params.workspaceSlug} />
       </div>
 
       {(!flows || flows.length === 0) ? (
