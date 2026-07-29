@@ -23,6 +23,7 @@ import { Table2, Megaphone, ListCollapse, PenTool, ExternalLink } from 'lucide-r
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { SlashMenu } from './SlashMenu'
+import { AIMenu } from './AIMenu'
 import { Callout } from './extensions/Callout'
 import { Details, DetailsSummary, DetailsContent } from './extensions/Details'
 import { WhiteboardEmbed } from './extensions/WhiteboardEmbed'
@@ -528,6 +529,8 @@ function Toolbar({
               <PenTool className="w-3.5 h-3.5" />
             </button>
           )}
+          <div className="w-px h-4 bg-border mx-1" />
+          <AIMenu editor={editor} className={btn(false)} />
         </>
       )}
     </div>

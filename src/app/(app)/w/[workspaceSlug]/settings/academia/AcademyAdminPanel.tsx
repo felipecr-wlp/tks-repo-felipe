@@ -248,7 +248,7 @@ export function AcademyAdminPanel({
             {members.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.display_name}
-                {m.email ? ` — ${m.email}` : ''}
+                {m.email ? ` (${m.email})` : ''}
               </option>
             ))}
           </select>
