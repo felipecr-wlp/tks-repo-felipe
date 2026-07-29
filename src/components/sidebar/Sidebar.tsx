@@ -69,7 +69,7 @@ interface SidebarProps {
   allWorkspaces: Array<{ id: string; name: string; slug: string }>
 }
 
-type GroupKey = 'workspace' | 'marketplace' | 'equipos'
+type GroupKey = 'workspace' | 'marketplace' | 'complementos' | 'equipos'
 
 const STORAGE_KEY = 'wlo-sidebar-groups-v2'
 
@@ -100,6 +100,7 @@ export function Sidebar({
   const [openGroups, setOpenGroups] = useState<Record<GroupKey, boolean>>({
     workspace: true,
     marketplace: true,
+    complementos: true,
     equipos: true,
   })
 
@@ -138,10 +139,13 @@ export function Sidebar({
     { href: `${base}/calendar`, icon: CalendarDays, label: t('nav.calendar') },
     { href: `${base}/notes`, icon: FileText, label: t('nav.notes') },
     { href: `${base}/whiteboards`, icon: PenTool, label: t('nav.whiteboards') },
-    { href: `${base}/flows`, icon: Workflow, label: t('nav.flows') },
     { href: `${base}/goals`, icon: Target, label: t('nav.goals') },
     { href: `${base}/analytics`, icon: BarChart3, label: t('nav.analytics') },
     { href: `${base}/tracking`, icon: Timer, label: t('nav.tracking') },
+  ]
+
+  const complementosItems: Array<{ href: string; icon: LucideIcon; label: string; exact?: boolean }> = [
+    { href: `${base}/flows`, icon: Workflow, label: t('nav.flows') },
   ]
 
   const marketplaceItems: Array<{ href: string; icon: LucideIcon; label: string; exact?: boolean }> = [
@@ -269,6 +273,25 @@ export function Sidebar({
           onToggle={() => toggleGroup('workspace')}
         >
           {workspaceItems.map((item) => (
+            <NavItem
+              key={item.href}
+              href={item.href}
+              icon={<item.icon size={16} />}
+              label={item.label}
+              collapsed={collapsed}
+              active={isActive(item.href, item.exact)}
+            />
+          ))}
+        </NavGroup>
+
+        {/* Grupo: Complementos */}
+        <NavGroup
+          label={t('nav.groupComplementos')}
+          collapsed={collapsed}
+          open={openGroups.complementos}
+          onToggle={() => toggleGroup('complementos')}
+        >
+          {complementosItems.map((item) => (
             <NavItem
               key={item.href}
               href={item.href}
