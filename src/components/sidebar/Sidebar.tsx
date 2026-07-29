@@ -111,7 +111,6 @@ interface SidebarProps {
     avatar_url: string | null
     email: string
   }
-  allWorkspaces: Array<{ id: string; name: string; slug: string }>
   /** Funciones apagadas para esta persona (claves del catalogo). */
   hiddenFeatures?: string[]
 }
@@ -129,7 +128,6 @@ export function Sidebar({
   teams,
   isAdmin = false,
   userProfile,
-  allWorkspaces,
   hiddenFeatures = [],
 }: SidebarProps) {
   const pathname = usePathname()
@@ -318,26 +316,28 @@ export function Sidebar({
           collapsed ? 'md:w-14' : 'md:w-60'
         )}
       >
-      {/* ── Header: workspace switcher ─────────────────────────── */}
-      <div className="flex items-center justify-between gap-1 px-2.5 py-2.5 border-b border-border min-h-[60px]">
+      {/* ── Header: marca del espacio ──────────────────────────── */}
+      {/* Colapsada la barra mide 56px: con px-2.5 solo caben 36 de marca. Se
+          aprieta a px-2 para que el logo llegue a 40 y siga siendo legible. */}
+      <div
+        className={cn(
+          'flex items-center justify-between gap-1 py-2.5 border-b border-border min-h-[68px]',
+          collapsed ? 'md:px-2 px-2.5' : 'px-2.5'
+        )}
+      >
         {!collapsed && (
-          <WorkspaceSwitcher
-            currentSlug={workspaceSlug}
-            currentName={workspaceName}
-            orgName={orgName}
-            workspaces={allWorkspaces}
-          />
+          <WorkspaceSwitcher currentName={workspaceName} orgName={orgName} />
         )}
         {/* Colapsada la barra no cabe el switcher, pero la marca no se pierde:
             el propio logo es el boton para volver a abrir. */}
         {collapsed && (
           <button
             onClick={toggleCollapsed}
-            className="hidden md:flex mx-auto items-center justify-center w-9 h-9 rounded-lg bg-white dark:bg-white/10 border border-border shadow-sm text-[#16202b] dark:text-white hover:border-primary/40 transition-colors"
+            className="hidden md:flex mx-auto items-center justify-center w-10 h-10 rounded-xl bg-white dark:bg-white/10 border border-border shadow-sm text-[#16202b] dark:text-white hover:border-primary/40 transition-colors"
             aria-label={t('nav.expandMenu')}
             title={`${t('nav.expandMenu')} (Ctrl+\\)`}
           >
-            <WloLogo size={26} />
+            <WloLogo size={30} />
           </button>
         )}
         {/* Colapsar: solo desktop y solo con la barra abierta */}

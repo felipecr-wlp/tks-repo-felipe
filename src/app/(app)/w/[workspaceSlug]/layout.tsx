@@ -42,12 +42,6 @@ type TeamWithProjects = {
   }>
 }
 
-type WorkspaceForSwitcher = {
-  id: string
-  name: string
-  slug: string
-}
-
 type UserProfile = {
   id: string
   display_name: string
@@ -223,20 +217,9 @@ export default async function WorkspaceLayout({
     })),
   }))
 
-  // ── Cargar todos los workspaces del usuario (para el switcher) ─────────────
-  type WsMemberRow = {
-    workspaces: { id: string; name: string; slug: string } | null
-  }
-
-  const { data: wsMemberships } = await supabase
-    .from('workspace_members')
-    .select('workspaces ( id, name, slug )')
-    .eq('profile_id', user.id)
-    .order('created_at', { ascending: true }) as { data: WsMemberRow[] | null; error: unknown }
-
-  const allWorkspaces: WorkspaceForSwitcher[] = (wsMemberships ?? [])
-    .filter(m => m.workspaces != null)
-    .map(m => m.workspaces!)
+  // Ya no se cargan "todos los workspaces del usuario": WLO opera con un solo
+  // espacio y el encabezado dejo de ser un selector. Una consulta menos por
+  // cada pantalla del app.
 
   return (
     // flex-1 + min-w-0 + w-full: el layout raíz de (app) es un contenedor flex
@@ -273,7 +256,6 @@ export default async function WorkspaceLayout({
           avatar_url: profile?.avatar_url ?? null,
           email: user.email ?? '',
         }}
-        allWorkspaces={allWorkspaces}
         hiddenFeatures={hiddenFeatures}
       />
 

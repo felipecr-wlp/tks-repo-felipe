@@ -356,14 +356,8 @@ export function CommandPalette({
           icon: <Plus className="w-3.5 h-3.5" />,
           group: 'Acciones',
         }] : []),
-        {
-          id: 'a-newws',
-          type: 'action',
-          label: 'Crear workspace',
-          href: `/settings/workspaces/new`,
-          icon: <Plus className="w-3.5 h-3.5" />,
-          group: 'Acciones',
-        },
+        // "Crear workspace" ya no existe: WLO opera con un solo espacio y la
+        // ruta fue retirada. Un atajo que lleva a un 404 es peor que ninguno.
         // Pantallas apagadas para esta persona: se caen de la lista. Ofrecer un
         // atajo que termina en redireccion es peor que no ofrecerlo.
       ] as FlatItem[]).filter((it) => {
