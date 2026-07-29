@@ -55,6 +55,12 @@ interface RichTextEditorProps {
    * pasan las notas; las descripciones de tareas no lo necesitan.
    */
   workspaceId?: string
+  /**
+   * Nota que hospeda al editor. La pizarra incrustada la referencia para HEREDAR
+   * su alcance: si la nota se comparte con un departamento, el dibujo va con
+   * ella. Sin esto la pizarra nacería privada y sus lectores verían un hueco.
+   */
+  noteId?: string
 }
 
 // Extensiones extra del modo 'full' (tablas, callouts, toggles, pizarra). Se
@@ -101,6 +107,7 @@ export function RichTextEditor({
   onDirty,
   blocks = 'basic',
   workspaceId,
+  noteId,
 }: RichTextEditorProps) {
   const full = blocks === 'full'
 
@@ -113,7 +120,12 @@ export function RichTextEditor({
       const res = await fetch('/api/whiteboards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workspace_id: workspaceId, title: 'Pizarra' }),
+        body: JSON.stringify({
+          workspace_id: workspaceId,
+          title: 'Pizarra',
+          // Queda atada a la nota: su alcance es el de la nota, siempre.
+          note_id: noteId ?? null,
+        }),
       })
       if (!res.ok) throw new Error()
       const j = await res.json()
@@ -122,7 +134,7 @@ export function RichTextEditor({
       toast.error('No se pudo crear la pizarra')
       return null
     }
-  }, [workspaceId])
+  }, [workspaceId, noteId])
   // Refs para no capturar closures viejas dentro de los callbacks de Tiptap.
   const onSaveRef = useRef(onSave)
   onSaveRef.current = onSave

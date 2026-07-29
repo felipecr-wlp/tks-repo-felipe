@@ -9,6 +9,9 @@ import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
+import { loadNoteViewerContext } from '@/lib/note-visibility'
+import { WHITEBOARD_VISIBILITY_VALUES, canViewWhiteboard } from '@/lib/whiteboard-visibility'
+import { canPostWorkspaceMessage } from '@/lib/workspace-admin'
 
 interface RouteParams {
   params: { whiteboardId: string }
@@ -17,13 +20,16 @@ interface RouteParams {
 const patchSchema = z.object({
   title:      z.string().max(200).trim().optional(),
   content:    z.string().max(1_000_000).nullable().optional(),
-  visibility: z.enum(['private', 'project', 'team', 'workspace']).optional(),
+  visibility: z.enum(WHITEBOARD_VISIBILITY_VALUES).optional(),
+  space_id:   z.string().uuid().nullable().optional(),
 }).strict()
 
 interface WhiteboardFull {
   id: string
   workspace_id: string
   project_id: string | null
+  space_id: string | null
+  note_id: string | null
   title: string
   content: string | null
   visibility: string
@@ -41,7 +47,7 @@ async function loadWithAccess(
   const { data: board } = await admin
     .from('whiteboards')
     .select(`
-      id, workspace_id, project_id, title, content, visibility,
+      id, workspace_id, project_id, space_id, note_id, title, content, visibility,
       created_by, created_at, updated_at,
       author:profiles ( display_name, avatar_url )
     `)
@@ -58,7 +64,11 @@ async function loadWithAccess(
     .maybeSingle() as { data: { role: string } | null; error: unknown }
 
   if (!membership) return { board: null, status: 403 }
-  if (board.visibility === 'private' && board.created_by !== userId) {
+
+  // Mismo modelo que las notas, mas la herencia: una pizarra incrustada se
+  // juzga por el alcance de la nota que la hospeda.
+  const ctx = await loadNoteViewerContext(admin, board.workspace_id, userId)
+  if (!(await canViewWhiteboard(admin, ctx, board))) {
     return { board: null, status: 403 }
   }
   return { board, status: 200 }
@@ -100,12 +110,38 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const { board, status } = await loadWithAccess(admin, params.whiteboardId, user.id)
   if (!board) return NextResponse.json({ error: 'No encontrada' }, { status })
 
+  const nextVisibility = parsed.data.visibility
+  if (nextVisibility !== undefined) {
+    // Una pizarra incrustada no tiene alcance propio que cambiar: se comparte
+    // compartiendo su nota. Dejar mover esto crearia dos verdades.
+    if (board.note_id) {
+      return NextResponse.json(
+        { error: 'Esta pizarra vive dentro de una nota. Cambia el alcance de la nota.' },
+        { status: 409 },
+      )
+    }
+    if (nextVisibility === 'workspace' && !(await canPostWorkspaceMessage(admin, board.workspace_id, user.id))) {
+      return NextResponse.json(
+        { error: 'Solo los responsables abren una pizarra a toda la empresa. Compártela con tu departamento.' },
+        { status: 403 },
+      )
+    }
+    if (nextVisibility === 'space' || nextVisibility === 'team') {
+      const effectiveSpace = Object.prototype.hasOwnProperty.call(parsed.data, 'space_id')
+        ? parsed.data.space_id
+        : board.space_id
+      if (!effectiveSpace) {
+        return NextResponse.json({ error: 'Elige el departamento con el que se comparte la pizarra.' }, { status: 422 })
+      }
+    }
+  }
+
   const { data: updated, error } = await admin
     .from('whiteboards')
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.whiteboardId)
     .select(`
-      id, workspace_id, project_id, title, content, visibility,
+      id, workspace_id, project_id, space_id, note_id, title, content, visibility,
       created_by, created_at, updated_at,
       author:profiles ( display_name, avatar_url )
     `)

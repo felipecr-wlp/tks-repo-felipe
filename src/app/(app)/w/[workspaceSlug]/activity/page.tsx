@@ -14,6 +14,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { filterVisibleActivity } from '@/lib/activity-visibility'
 import { ActivityFeed } from './ActivityFeed'
 import type { WorkspaceActivityEvent } from '@/app/api/workspaces/[workspaceId]/activity/route'
 
@@ -62,8 +63,12 @@ export default async function WorkspaceActivityPage({
 
   const rows = data ?? []
   const hasMore = rows.length > PAGE_SIZE
-  const events = hasMore ? rows.slice(0, PAGE_SIZE) : rows
+  const page = hasMore ? rows.slice(0, PAGE_SIZE) : rows
   const nextOffset = hasMore ? PAGE_SIZE : null
+
+  // El titulo de una nota o pizarra privada NO se publica en la bitacora. El
+  // recorte va despues de paginar, para que el offset siga cuadrando con la base.
+  const events = await filterVisibleActivity(admin, workspace.id, user.id, page)
 
   return (
     <div className="px-4 sm:px-8 py-6 sm:py-8 max-w-3xl mx-auto">

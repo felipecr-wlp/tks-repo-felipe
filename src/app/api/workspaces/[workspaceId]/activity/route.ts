@@ -18,6 +18,7 @@ import { z } from 'zod'
 import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import { filterVisibleActivity } from '@/lib/activity-visibility'
 
 interface RouteParams {
   params: { workspaceId: string }
@@ -120,7 +121,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   const rows = data ?? []
   const hasMore = rows.length > limit
-  const events = hasMore ? rows.slice(0, limit) : rows
+  const page = hasMore ? rows.slice(0, limit) : rows
+
+  // Alcance de notas y pizarras: el titulo de lo privado no viaja en el feed.
+  // Se recorta despues de paginar para no descuadrar el offset de la base.
+  const events = await filterVisibleActivity(admin, params.workspaceId, user.id, page)
 
   return NextResponse.json({
     events,

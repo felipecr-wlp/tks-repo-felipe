@@ -3005,7 +3005,9 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          note_id: string | null
           project_id: string | null
+          space_id: string | null
           title: string
           updated_at: string
           visibility: string
@@ -3016,7 +3018,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          note_id?: string | null
           project_id?: string | null
+          space_id?: string | null
           title?: string
           updated_at?: string
           visibility?: string
@@ -3027,13 +3031,29 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          note_id?: string | null
           project_id?: string | null
+          space_id?: string | null
           title?: string
           updated_at?: string
           visibility?: string
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "whiteboards_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whiteboards_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whiteboards_created_by_fkey"
             columns: ["created_by"]

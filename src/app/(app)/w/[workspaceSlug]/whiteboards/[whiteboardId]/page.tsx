@@ -5,6 +5,9 @@ import { notFound, redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { WhiteboardEditor } from './WhiteboardEditor'
 import { getServerT } from '@/lib/i18n/server'
+import { loadNoteViewerContext } from '@/lib/note-visibility'
+import { canViewWhiteboard } from '@/lib/whiteboard-visibility'
+import { canPostWorkspaceMessage } from '@/lib/workspace-admin'
 
 interface PageProps {
   params: { workspaceSlug: string; whiteboardId: string }
@@ -18,6 +21,9 @@ type BoardFull = {
   title: string
   content: string | null
   visibility: string
+  space_id: string | null
+  project_id: string | null
+  note_id: string | null
   created_by: string | null
   updated_at: string
 }
@@ -43,13 +49,17 @@ export default async function WhiteboardPage({ params }: PageProps) {
 
   const { data: board } = await admin
     .from('whiteboards')
-    .select('id, workspace_id, title, content, visibility, created_by, updated_at')
+    .select('id, workspace_id, title, content, visibility, space_id, project_id, note_id, created_by, updated_at')
     .eq('id', params.whiteboardId)
     .eq('workspace_id', workspace.id)
     .maybeSingle() as { data: BoardFull | null; error: unknown }
 
   if (!board) notFound()
-  if (board.visibility === 'private' && board.created_by !== user.id) notFound()
+
+  // Esta pagina lee con service-role, que bypassa el RLS de whiteboards. Sin
+  // este check, cualquier miembro con el UUID abria la pizarra por URL.
+  const viewerCtx = await loadNoteViewerContext(admin, workspace.id, user.id)
+  if (!(await canViewWhiteboard(admin, viewerCtx, board))) notFound()
 
   // Nombre para la presencia ("quién está viendo") en la pizarra colaborativa.
   type ProfileRow = { display_name: string | null; org_role: string | null } | null
@@ -77,6 +87,23 @@ export default async function WhiteboardPage({ params }: PageProps) {
     profile?.org_role === 'owner' || profile?.org_role === 'admin' ||
     wsMember?.role === 'admin'
 
+  // Departamentos con los que este usuario puede compartir. Un admin de org ve
+  // todos; el resto, solo los suyos: compartir con un departamento ajeno seria
+  // filtrar hacia afuera.
+  const isOrgAdmin = profile?.org_role === 'owner' || profile?.org_role === 'admin'
+  const { data: allSpaces } = await admin
+    .from('spaces')
+    .select('id, name')
+    .eq('workspace_id', workspace.id)
+    .eq('is_archived', false)
+    .order('name', { ascending: true }) as { data: { id: string; name: string }[] | null; error: unknown }
+
+  const shareableSpaces = isOrgAdmin
+    ? (allSpaces ?? [])
+    : (allSpaces ?? []).filter(s => viewerCtx.spaceIds.has(s.id))
+
+  const canPublishWorkspace = await canPostWorkspaceMessage(admin, workspace.id, user.id)
+
   return (
     <WhiteboardEditor
       initial={board}
@@ -84,6 +111,8 @@ export default async function WhiteboardPage({ params }: PageProps) {
       currentUserName={currentUserName}
       workspaceSlug={params.workspaceSlug}
       canManage={canManage}
+      spaces={shareableSpaces}
+      canPublishWorkspace={canPublishWorkspace}
     />
   )
 }

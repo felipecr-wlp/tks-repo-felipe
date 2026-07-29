@@ -16,6 +16,7 @@ import '@excalidraw/excalidraw/index.css'
 import { createClient } from '@/lib/supabase/client'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { ChevronDown, Folder, Globe, Lock, Users } from 'lucide-react'
 
 // Excalidraw es muy pesado (~1MB), siempre lazy + ssr off
 function WhiteboardLoading() {
@@ -52,6 +53,9 @@ interface BoardData {
   title: string
   content: string | null
   visibility: string
+  space_id: string | null
+  /** Si esta puesto, la pizarra vive dentro de una nota y hereda su alcance. */
+  note_id: string | null
   created_by: string | null
   updated_at: string
 }
@@ -62,7 +66,17 @@ interface Props {
   currentUserName: string
   workspaceSlug: string
   canManage: boolean
+  /** Departamentos con los que ESTE usuario puede compartir. */
+  spaces: { id: string; name: string }[]
+  /** Abrirla a toda la empresa es acto de mando. */
+  canPublishWorkspace: boolean
 }
+
+// Alcance de una pizarra suelta: privada -> departamento -> empresa.
+type ScopeChoice =
+  | { kind: 'private' }
+  | { kind: 'space'; spaceId: string }
+  | { kind: 'workspace' }
 
 // Otro usuario presente en la pizarra (para el indicador "quién está viendo").
 interface Viewer {
@@ -70,13 +84,19 @@ interface Viewer {
   name: string
 }
 
-export function WhiteboardEditor({ initial, currentUserId, currentUserName, workspaceSlug, canManage }: Props) {
+export function WhiteboardEditor({
+  initial, currentUserId, currentUserName, workspaceSlug, canManage,
+  spaces, canPublishWorkspace,
+}: Props) {
   const router = useRouter()
   const t = useT()
   const [title, setTitle] = useState(initial.title)
   const [updatedAt, setUpdatedAt] = useState(initial.updated_at)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [visibility, setVisibility] = useState(initial.visibility)
+  const [spaceId, setSpaceId] = useState(initial.space_id)
+  const [showVisMenu, setShowVisMenu] = useState(false)
   const [viewers, setViewers] = useState<Viewer[]>([])
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const contentSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -257,6 +277,18 @@ export function WhiteboardEditor({ initial, currentUserId, currentUserName, work
     return () => { supabase.removeChannel(ch) }
   }, [initial.id, currentUserId, currentUserName])
 
+  function handleScopeChange(choice: ScopeChoice) {
+    setShowVisMenu(false)
+    if (choice.kind === 'space') {
+      setVisibility('space')
+      setSpaceId(choice.spaceId)
+      patch({ visibility: 'space', space_id: choice.spaceId })
+      return
+    }
+    setVisibility(choice.kind)
+    patch({ visibility: choice.kind })
+  }
+
   async function handleDelete() {
     if (!(await confirmDialog({ message: t('wb.confirmDelete'), destructive: true, confirmLabel: t('common.delete') }))) return
     setDeleting(true)
@@ -327,6 +359,104 @@ export function WhiteboardEditor({ initial, currentUserId, currentUserName, work
             <span className="text-xs text-muted-foreground hidden md:inline">
               {t('wb.savedPrefix')} {timeAgo(updatedAt)}
             </span>
+          )}
+
+          {/* Alcance. Una pizarra incrustada no lo elige: lo hereda de su nota. */}
+          {initial.note_id ? (
+            <span
+              className="flex items-center gap-1.5 text-xs px-2 py-1 bg-muted/50 text-muted-foreground rounded-md"
+              title="Se comparte junto con la nota que la contiene"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              Alcance de la nota
+            </span>
+          ) : (
+            <div className="relative">
+              <button
+                onClick={() => setShowVisMenu(!showVisMenu)}
+                className="flex items-center gap-1.5 text-xs px-2 py-1 bg-muted/50 hover:bg-muted text-foreground rounded-md transition-colors"
+              >
+                {visibility === 'workspace' ? (
+                  <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" />Toda la empresa</span>
+                ) : visibility === 'private' ? (
+                  <span className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" />Privada</span>
+                ) : visibility === 'project' ? (
+                  <span className="flex items-center gap-1.5"><Folder className="w-3.5 h-3.5" />Proyecto</span>
+                ) : (
+                  <span className="flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5" />
+                    {spaces.find(s => s.id === spaceId)?.name ?? 'Departamento'}
+                  </span>
+                )}
+                <ChevronDown className="w-2.5 h-2.5" />
+              </button>
+              {showVisMenu && (
+                <div
+                  className="absolute top-7 right-0 z-50 w-64 bg-popover border border-border rounded-lg shadow-raised py-1"
+                  onMouseLeave={() => setShowVisMenu(false)}
+                >
+                  <button
+                    onClick={() => handleScopeChange({ kind: 'private' })}
+                    className={cn(
+                      'w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-accent transition-colors',
+                      visibility === 'private' && 'bg-accent/50'
+                    )}
+                  >
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                      <Lock className="w-3.5 h-3.5" />Privada
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">Solo tú la puedes ver</span>
+                  </button>
+
+                  <div className="px-3 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Compartir con un departamento
+                  </div>
+                  {spaces.length === 0 ? (
+                    <p className="px-3 pb-2 text-[10px] text-muted-foreground">
+                      No perteneces a ningún departamento todavía.
+                    </p>
+                  ) : (
+                    spaces.map(s => (
+                      <button
+                        key={s.id}
+                        onClick={() => handleScopeChange({ kind: 'space', spaceId: s.id })}
+                        className={cn(
+                          'w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-accent transition-colors',
+                          visibility !== 'private' && visibility !== 'workspace' && spaceId === s.id && 'bg-accent/50'
+                        )}
+                      >
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                          <Users className="w-3.5 h-3.5" />{s.name}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          Visible solo para {s.name}
+                        </span>
+                      </button>
+                    ))
+                  )}
+
+                  {canPublishWorkspace && (
+                    <>
+                      <div className="my-1 border-t border-border" />
+                      <button
+                        onClick={() => handleScopeChange({ kind: 'workspace' })}
+                        className={cn(
+                          'w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-accent transition-colors',
+                          visibility === 'workspace' && 'bg-accent/50'
+                        )}
+                      >
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                          <Globe className="w-3.5 h-3.5" />Toda la empresa
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          Cualquier miembro del workspace la puede abrir
+                        </span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           {canManage && (

@@ -467,6 +467,7 @@ export function NoteEditor({
         autosaveMs={1200}
         blocks="full"
         workspaceId={workspaceId}
+        noteId={initial.id}
         className="!border-0 [&_.ProseMirror]:px-0 [&_.ProseMirror]:py-2 [&_.ProseMirror]:min-h-[300px]"
       />
 

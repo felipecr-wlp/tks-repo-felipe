@@ -21,7 +21,9 @@ export function NewWhiteboardButton({
         body: JSON.stringify({
           workspace_id: workspaceId,
           title: t('wb.untitled'),
-          visibility: 'workspace',
+          // Nace privada. El autor decide despues si la comparte con su
+          // departamento (ver src/lib/whiteboard-visibility.ts).
+          visibility: 'private',
         }),
       })
       const data = await res.json()
