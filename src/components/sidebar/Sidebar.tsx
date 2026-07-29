@@ -37,6 +37,7 @@ import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n/LanguageProvider'
 import { WorkspaceSwitcher } from './WorkspaceSwitcher'
+import { WloLogo } from '@/components/brand/WloLogo'
 import { NavSection } from './NavSection'
 import { UserMenu } from './UserMenu'
 import { LanguageSwitcher } from './LanguageSwitcher'
@@ -318,7 +319,7 @@ export function Sidebar({
         )}
       >
       {/* ── Header: workspace switcher ─────────────────────────── */}
-      <div className="flex items-center justify-between px-3 py-3 border-b border-border min-h-[52px]">
+      <div className="flex items-center justify-between gap-1 px-2.5 py-2.5 border-b border-border min-h-[60px]">
         {!collapsed && (
           <WorkspaceSwitcher
             currentSlug={workspaceSlug}
@@ -327,18 +328,29 @@ export function Sidebar({
             workspaces={allWorkspaces}
           />
         )}
-        {/* Colapsar/expandir: solo desktop */}
-        <button
-          onClick={toggleCollapsed}
-          className="hidden md:inline-flex flex-shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          aria-label={collapsed ? t('nav.expandMenu') : t('nav.collapseMenu')}
-          title={`${collapsed ? t('nav.expandMenu') : t('nav.collapseMenu')} (Ctrl+\\)`}
-        >
-          <ChevronLeft
-            size={16}
-            className={cn('transition-transform', collapsed && 'rotate-180')}
-          />
-        </button>
+        {/* Colapsada la barra no cabe el switcher, pero la marca no se pierde:
+            el propio logo es el boton para volver a abrir. */}
+        {collapsed && (
+          <button
+            onClick={toggleCollapsed}
+            className="hidden md:flex mx-auto items-center justify-center w-9 h-9 rounded-lg bg-white dark:bg-white/10 border border-border shadow-sm text-[#16202b] dark:text-white hover:border-primary/40 transition-colors"
+            aria-label={t('nav.expandMenu')}
+            title={`${t('nav.expandMenu')} (Ctrl+\\)`}
+          >
+            <WloLogo size={26} />
+          </button>
+        )}
+        {/* Colapsar: solo desktop y solo con la barra abierta */}
+        {!collapsed && (
+          <button
+            onClick={toggleCollapsed}
+            className="hidden md:inline-flex flex-shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            aria-label={t('nav.collapseMenu')}
+            title={`${t('nav.collapseMenu')} (Ctrl+\\)`}
+          >
+            <ChevronLeft size={16} className="transition-transform" />
+          </button>
+        )}
         {/* Cerrar drawer: solo movil */}
         <button
           onClick={() => setMobileOpen(false)}

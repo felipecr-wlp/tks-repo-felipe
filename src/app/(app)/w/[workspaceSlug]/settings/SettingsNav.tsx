@@ -29,22 +29,28 @@ export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
     { href: `${base}/academia`, label: t('settings.tabAcademy'), icon: BookOpen },
   ]
 
+  // Nueve pestañas no caben en una linea y el scroll lateral escondia las
+  // ultimas: nadie descubre lo que no ve. Se dejan fluir en varias filas
+  // (`flex-wrap`) y se marca la activa con una pastilla en vez de subrayado,
+  // porque un subrayado en la fila de arriba se lee como si perteneciera a la
+  // de abajo.
   return (
-    <nav className="flex items-center gap-1 border-b border-border overflow-x-auto">
+    <nav className="flex flex-wrap items-center gap-1 pb-2 border-b border-border">
       {tabs.map((tab) => {
         const active = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href)
         return (
           <Link
             key={tab.href}
             href={tab.href}
+            aria-current={active ? 'page' : undefined}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-2 text-sm border-b-2 -mb-px whitespace-nowrap transition-colors',
+              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm whitespace-nowrap border transition-colors',
               active
-                ? 'border-primary text-foreground font-medium'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'border-primary/40 bg-primary/10 text-foreground font-medium'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
             )}
           >
-            <tab.icon size={15} />
+            <tab.icon size={15} className="flex-shrink-0" />
             {tab.label}
           </Link>
         )

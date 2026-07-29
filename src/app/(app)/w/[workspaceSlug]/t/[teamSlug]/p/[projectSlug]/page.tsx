@@ -404,8 +404,9 @@ export default async function ProjectPage({
           </Link>
         </div>
 
-        {/* Tabs de vista con subrayado */}
-        <nav className="flex items-center gap-1 mt-1 overflow-x-auto scrollbar-none" aria-label={t('projectView.viewsAria')}>
+        {/* Tabs de vista. Fluyen en varias filas en vez de esconderse detras de
+            un scroll lateral: las ultimas vistas existian pero nadie las veia. */}
+        <nav className="flex flex-wrap items-center gap-1 mt-1" aria-label={t('projectView.viewsAria')}>
           <ViewToggle href={`${basePath}?view=list`} active={currentView === 'list'} label={t('projectView.list')} icon={<ListIcon />} />
           <ViewToggle href={`${basePath}?view=table`} active={currentView === 'table'} label={t('projectView.table')} icon={<Table2 className="w-[13px] h-[13px]" />} />
           <ViewToggle href={`${basePath}?view=board`} active={currentView === 'board'} label={t('projectView.board')} icon={<BoardIcon />} />
@@ -569,10 +570,10 @@ function ViewToggle({
       href={href}
       title={label}
       aria-current={active ? 'page' : undefined}
-      className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs border-b-2 transition-colors whitespace-nowrap ${
+      className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition-colors whitespace-nowrap ${
         active
-          ? 'border-primary text-foreground font-medium'
-          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+          ? 'border-primary/40 bg-primary/10 text-foreground font-medium'
+          : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
       }`}
     >
       {icon}

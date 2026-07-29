@@ -39,17 +39,19 @@ export function WorkspaceSwitcher({
     <div ref={ref} className="relative flex-1 min-w-0">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 w-full min-w-0 rounded-md px-1 py-1 hover:bg-accent transition-colors text-left"
+        className="flex items-center gap-2.5 w-full min-w-0 rounded-lg px-1.5 py-1.5 hover:bg-accent transition-colors text-left"
       >
-        {/* Marca WLO (mismo mark del producto en todos los workspaces) */}
-        <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-md bg-white dark:bg-white/5 border border-border text-[#16202b] dark:text-white">
-          <WloLogo size={18} />
+        {/* Marca WLO (mismo mark del producto en todos los workspaces).
+            Es lo primero que se ve al abrir la app, asi que ocupa el lugar de
+            una marca y no el de un favicon perdido junto al texto. */}
+        <span className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-white dark:bg-white/10 border border-border shadow-sm text-[#16202b] dark:text-white">
+          <WloLogo size={26} />
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-foreground truncate leading-tight">
+          <p className="text-sm font-semibold text-foreground truncate leading-tight">
             {currentName}
           </p>
-          <p className="text-[10px] text-muted-foreground truncate leading-tight">
+          <p className="text-[11px] text-muted-foreground truncate leading-tight">
             {orgName}
           </p>
         </div>
