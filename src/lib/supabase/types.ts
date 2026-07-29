@@ -3234,6 +3234,7 @@ export type Database = {
       workspace_members: {
         Row: {
           created_at: string
+          hidden_features: string[]
           id: string
           profile_id: string
           role: string
@@ -3241,6 +3242,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          hidden_features?: string[]
           id?: string
           profile_id: string
           role?: string
@@ -3248,6 +3250,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          hidden_features?: string[]
           id?: string
           profile_id?: string
           role?: string

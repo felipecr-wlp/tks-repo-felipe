@@ -34,11 +34,14 @@ import {
 import { cn, getInitials } from '@/lib/utils'
 import { ProjectIcon } from '@/lib/project-icons'
 import { useCommandPalette } from '@/stores/command-palette'
+import { canAccessPath } from '@/lib/features'
 
 interface CommandPaletteProps {
   workspaceSlug: string
   workspaceId: string
   isAdmin?: boolean
+  /** Pantallas apagadas para esta persona: no se ofrecen como atajo. */
+  hiddenFeatures?: string[]
 }
 
 interface SearchResult {
@@ -145,7 +148,12 @@ interface FlatItem {
   group: string
 }
 
-export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: CommandPaletteProps) {
+export function CommandPalette({
+  workspaceSlug,
+  workspaceId,
+  isAdmin = false,
+  hiddenFeatures = [],
+}: CommandPaletteProps) {
   const router = useRouter()
   const { open, setOpen, toggle } = useCommandPalette()
 
@@ -259,6 +267,8 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
   }, [query, open, workspaceId])
 
   // ── Aplanar resultados para nav con teclado ───────────────────────────────
+  const wsBase = `/w/${workspaceSlug}`
+
   const items: FlatItem[] = useMemo(() => {
     if (!query.trim()) {
       // Recientes (si hay) arriba, luego quick actions.
@@ -271,7 +281,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
         icon: recentIcon(r.iconHint),
         group: 'Recientes',
       }))
-      return [
+      return ([
         ...recentItems,
         {
           id: 'a-home',
@@ -354,7 +364,14 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
           icon: <Plus className="w-3.5 h-3.5" />,
           group: 'Acciones',
         },
-      ]
+        // Pantallas apagadas para esta persona: se caen de la lista. Ofrecer un
+        // atajo que termina en redireccion es peor que no ofrecerlo.
+      ] as FlatItem[]).filter((it) => {
+        if (hiddenFeatures.length === 0) return true
+        if (it.id === 'a-newnote') return !hiddenFeatures.includes('notes')
+        if (!it.href || !it.href.startsWith(wsBase)) return true
+        return canAccessPath(it.href, wsBase, hiddenFeatures)
+      })
     }
 
     if (!results) return []
@@ -415,7 +432,7 @@ export function CommandPalette({ workspaceSlug, workspaceId, isAdmin = false }: 
       group: 'Personas',
     }))
     return flat
-  }, [results, query, workspaceSlug, isAdmin, createNote, recents])
+  }, [results, query, workspaceSlug, wsBase, hiddenFeatures, isAdmin, createNote, recents])
 
   // ── Agrupar para render ───────────────────────────────────────────────────
   const groups = useMemo(() => {
