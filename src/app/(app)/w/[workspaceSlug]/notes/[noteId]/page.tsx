@@ -22,6 +22,7 @@ type NoteFull = {
   space_id: string | null
   project_id: string | null
   icon: string | null
+  cover: string | null
   title: string
   content: string | null
   visibility: string
@@ -62,7 +63,7 @@ export default async function NotePage({ params }: NotePageProps) {
   const { data: note } = await admin
     .from('notes')
     .select(`
-      id, workspace_id, parent_note_id, space_id, project_id, icon,
+      id, workspace_id, parent_note_id, space_id, project_id, icon, cover,
       title, content, visibility,
       doc_kind, sop_status, sop_version, review_due,
       created_by, created_at, updated_at,

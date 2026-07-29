@@ -15,6 +15,7 @@ import { coverTint } from '@/lib/note-cover'
 import { timeAgo } from '@/lib/utils'
 import { BookOpen, FileText, Lock, ShieldCheck } from 'lucide-react'
 import { NotesActionsBar } from '../../../notes/NotesActionsBar'
+import { AddExistingDocs } from '../AddExistingDocs'
 import {
   loadTeamDocs,
   isProcessDoc,
@@ -33,7 +34,7 @@ export default async function TeamDocsPage({ params }: Props) {
   const res = await resolveTeamForViewer(params.workspaceSlug, params.teamSlug)
   if (!res.ok && res.reason === 'no-auth') redirect('/auth/login')
   if (!res.ok) notFound()
-  const { userId, workspace, team } = res.ctx
+  const { userId, workspace, team, isAdmin } = res.ctx
 
   const admin = createAdminClient()
 
@@ -76,7 +77,17 @@ export default async function TeamDocsPage({ params }: Props) {
         </div>
 
         {team.space_id && (
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 flex items-center gap-2">
+            {/* La regla del equipo casi nunca nace aquí: suele existir ya como
+                nota suelta y solo hay que traerla (ver AddExistingDocs.tsx). */}
+            <AddExistingDocs
+              workspaceId={workspace.id}
+              spaceId={team.space_id}
+              spaceName={space?.name ?? null}
+              currentUserId={userId}
+              isAdmin={isAdmin}
+              variant="primary"
+            />
             <NotesActionsBar
               workspaceId={workspace.id}
               workspaceSlug={params.workspaceSlug}
@@ -172,7 +183,7 @@ function DocSection({
               {/* Mismo color que la portada del documento (ver note-cover.ts). */}
               <span
                 className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-neutral-700"
-                style={{ background: coverTint(d.id) }}
+                style={{ background: coverTint(d.id, d.cover) }}
               >
                 <NoteIcon icon={d.icon} size={16} />
               </span>

@@ -116,3 +116,74 @@
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/* ── Checklists del editor ────────────────────────────────────────────────────
+   Tiptap (TaskList/TaskItem) emite un <input type="checkbox"> real, y sin CSS
+   el navegador lo pinta con su widget nativo: azul de sistema, cuadrado y de
+   otra epoca. Se estiliza aqui, no en el componente, porque el MISMO HTML se
+   re-renderiza en la vista de lectura y en la impresion, donde no hay React
+   que aplique clases. Regla: se conserva el input real (accesible, tabulable,
+   funciona con lector de pantalla) y solo se reemplaza su pintura. */
+ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0;
+  margin-left: 0;
+}
+ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin: 0.15rem 0;
+}
+ul[data-type='taskList'] li > label {
+  flex: 0 0 auto;
+  /* Alinea la caja con la primera linea del texto, no con el bloque entero. */
+  margin-top: 0.28em;
+  user-select: none;
+}
+ul[data-type='taskList'] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+ul[data-type='taskList'] li > div > p {
+  margin: 0;
+}
+/* Listas anidadas: sangria propia y sin el margen de bloque de arriba. */
+ul[data-type='taskList'] ul[data-type='taskList'] {
+  margin-top: 0.15rem;
+  padding-left: 1.55rem;
+}
+
+ul[data-type='taskList'] input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+  display: block;
+  cursor: pointer;
+  border-radius: 0.3rem;
+  border: 1.5px solid hsl(var(--border));
+  background-color: hsl(var(--background));
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+ul[data-type='taskList'] input[type='checkbox']:hover {
+  border-color: hsl(var(--primary) / 0.55);
+}
+ul[data-type='taskList'] input[type='checkbox']:checked {
+  border-color: hsl(var(--primary));
+  background-color: hsl(var(--primary));
+  /* Palomita como imagen de fondo: no necesita pseudo-elemento (los <input>
+     no los soportan de forma confiable) y escala con el tamaño de la caja. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.5 8.5 6.5 11.5 12.5 4.5'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+/* Item completado: el texto se apaga y se tacha, para que la lista se lea de
+   un vistazo (lo pendiente resalta solo). */
+ul[data-type='taskList'] li[data-checked='true'] > div {
+  color: hsl(var(--muted-foreground));
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}

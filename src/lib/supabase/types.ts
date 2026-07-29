@@ -992,6 +992,7 @@ export type Database = {
           approved_by: string | null
           approved_version: string | null
           content: string | null
+          cover: string | null
           created_at: string
           created_by: string | null
           doc_kind: string
@@ -1013,6 +1014,7 @@ export type Database = {
           approved_by?: string | null
           approved_version?: string | null
           content?: string | null
+          cover?: string | null
           created_at?: string
           created_by?: string | null
           doc_kind?: string
@@ -1034,6 +1036,7 @@ export type Database = {
           approved_by?: string | null
           approved_version?: string | null
           content?: string | null
+          cover?: string | null
           created_at?: string
           created_by?: string | null
           doc_kind?: string

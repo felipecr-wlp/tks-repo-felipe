@@ -23,6 +23,8 @@ export interface TeamDoc {
   id: string
   title: string
   icon: string | null
+  /** Clave de portada elegida; null = color automatico por id. */
+  cover: string | null
   doc_kind: TeamDocKind
   sop_status: TeamDocStatus | null
   updated_at: string
@@ -55,7 +57,7 @@ export async function loadTeamDocs(
   const { data } = await admin
     .from('notes')
     .select(`
-      id, title, icon, doc_kind, sop_status, updated_at, visibility,
+      id, title, icon, cover, doc_kind, sop_status, updated_at, visibility,
       created_by, space_id, project_id,
       author:profiles ( display_name )
     `)

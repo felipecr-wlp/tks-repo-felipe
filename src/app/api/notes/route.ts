@@ -45,6 +45,7 @@ interface NoteListRow {
   parent_note_id: string | null
   space_id: string | null
   icon: string | null
+  cover: string | null
   author: { display_name: string; avatar_url: string | null } | null
 }
 
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest) {
     .from('notes')
     .select(`
       id, title, visibility, created_at, updated_at, created_by, project_id,
-      parent_note_id, space_id, icon,
+      parent_note_id, space_id, icon, cover,
       author:profiles ( display_name, avatar_url )
     `)
     .eq('workspace_id', workspace_id)

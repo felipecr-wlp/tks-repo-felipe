@@ -24,6 +24,8 @@ const patchSchema = z.object({
   content:        z.string().max(1_000_000).nullable().optional(),
   visibility:     z.enum(NOTE_VISIBILITY_VALUES).optional(),
   icon:           z.string().max(64).nullable().optional(),
+  // Clave de la paleta cerrada de portadas. Null = portada automatica por id.
+  cover:          z.string().max(32).nullable().optional(),
   parent_note_id: z.string().uuid().nullable().optional(),
   space_id:       z.string().uuid().nullable().optional(),
   // SOP como objeto de primera clase (nullable = limpiar el campo).
@@ -40,6 +42,7 @@ interface NoteFull {
   parent_note_id: string | null
   space_id: string | null
   icon: string | null
+  cover: string | null
   title: string
   content: string | null
   visibility: string
@@ -62,7 +65,7 @@ async function loadNoteWithAccess(
   const { data: note } = await admin
     .from('notes')
     .select(`
-      id, workspace_id, project_id, parent_note_id, space_id, icon,
+      id, workspace_id, project_id, parent_note_id, space_id, icon, cover,
       title, content, visibility,
       doc_kind, sop_status, sop_version, review_due,
       created_by, created_at, updated_at,
@@ -239,7 +242,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.noteId)
     .select(`
-      id, workspace_id, project_id, parent_note_id, space_id, icon,
+      id, workspace_id, project_id, parent_note_id, space_id, icon, cover,
       title, content, visibility,
       doc_kind, sop_status, sop_version, review_due,
       created_by, created_at, updated_at,

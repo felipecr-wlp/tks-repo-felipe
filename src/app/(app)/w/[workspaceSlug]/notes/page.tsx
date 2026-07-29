@@ -22,6 +22,7 @@ interface RecentNote {
   id: string
   title: string
   icon: string | null
+  cover: string | null
   updated_at: string
   author: { display_name: string | null } | null
 }
@@ -51,7 +52,7 @@ export default async function NotesPage({ params }: NotesPageProps) {
   const { data: recent } = await admin
     .from('notes')
     .select(`
-      id, title, icon, updated_at, visibility, created_by, space_id, project_id,
+      id, title, icon, cover, updated_at, visibility, created_by, space_id, project_id,
       author:profiles ( display_name )
     `)
     .eq('workspace_id', workspace.id)
@@ -112,7 +113,7 @@ export default async function NotesPage({ params }: NotesPageProps) {
                     Ver src/lib/note-cover.ts. */}
                 <span
                   className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-neutral-700"
-                  style={{ background: coverTint(n.id) }}
+                  style={{ background: coverTint(n.id, n.cover) }}
                 >
                   <NoteIcon icon={n.icon} size={16} />
                 </span>

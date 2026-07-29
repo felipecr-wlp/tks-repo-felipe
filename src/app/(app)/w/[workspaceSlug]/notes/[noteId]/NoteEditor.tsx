@@ -10,11 +10,11 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
-import { Globe, Users, Folder, Lock, ChevronDown, Check, AlertTriangle, RotateCw, Loader2, FileDown } from 'lucide-react'
+import { Globe, Users, Folder, Lock, ChevronDown, Check, AlertTriangle, RotateCw, Loader2, FileDown, Palette, Sparkles } from 'lucide-react'
 import { cn, timeAgo } from '@/lib/utils'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { NoteIcon, NOTE_ICONS, normalizeNoteIconKey } from '@/lib/note-icons'
-import { coverGradient } from '@/lib/note-cover'
+import { coverBackground, COVER_PRESETS } from '@/lib/note-cover'
 import { NotesActionsBar } from '../NotesActionsBar'
 import { NoteComments } from './NoteComments'
 import { NoteBacklinks } from './NoteBacklinks'
@@ -46,6 +46,8 @@ interface NoteData {
   content: string | null
   visibility: string
   space_id: string | null
+  /** Clave de la paleta de portadas. Null = automatica por id (note-cover.ts). */
+  cover: string | null
   doc_kind: DocKind
   sop_status: SopStatus | null
   sop_version: string | null
@@ -104,6 +106,8 @@ export function NoteEditor({
   const [status, setStatus] = useState<'saved' | 'dirty' | 'saving' | 'error'>('saved')
   const [showVisMenu, setShowVisMenu] = useState(false)
   const [showIconPicker, setShowIconPicker] = useState(false)
+  const [cover, setCover] = useState<string | null>(initial.cover)
+  const [showCoverPicker, setShowCoverPicker] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -162,6 +166,16 @@ export function NoteEditor({
       if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current)
     }
   }, [title, initial.title, patch, tr])
+
+  /**
+   * Cambiar portada. `null` devuelve la nota al color automatico derivado de su
+   * id, que es el default y nunca deja el documento en blanco.
+   */
+  function handleCoverChange(key: string | null) {
+    setCover(key)
+    setShowCoverPicker(false)
+    patch({ cover: key })
+  }
 
   function handleIconChange(newIcon: string) {
     setIcon(newIcon)
@@ -398,14 +412,67 @@ export function NoteEditor({
       </div>
       </div>
 
-      {/* Portada. No se configura ni se sube nada: el color sale del id de la
-          nota, así que cada documento se reconoce de un vistazo y ninguno se ve
-          como un formulario en blanco. */}
+      {/* Portada. Nunca hay que subir nada: el color sale del id de la nota, así
+          que ningún documento nace en blanco. Elegir otra es opcional y aparece
+          al pasar el cursor, para no meter un control más en la primera vista. */}
       <div
-        className="h-24 sm:h-32 w-full"
-        style={{ background: coverGradient(initial.id) }}
-        aria-hidden
-      />
+        className="group/cover relative h-24 sm:h-32 w-full"
+        style={{ background: coverBackground(initial.id, cover) }}
+      >
+        <div className="absolute bottom-2 right-3 sm:right-6">
+          <button
+            type="button"
+            onClick={() => setShowCoverPicker(v => !v)}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-md bg-black/25 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-opacity hover:bg-black/40',
+              showCoverPicker ? 'opacity-100' : 'opacity-0 group-hover/cover:opacity-100 focus-visible:opacity-100'
+            )}
+          >
+            <Palette className="w-3.5 h-3.5" />
+            {tr('note.edChangeCover')}
+          </button>
+
+          {showCoverPicker && (
+            <div
+              className="absolute bottom-full right-0 mb-2 z-50 w-64 rounded-xl border border-border bg-popover p-2.5 shadow-raised"
+              onMouseLeave={() => setShowCoverPicker(false)}
+            >
+              <p className="px-0.5 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {tr('note.edCoverPalette')}
+              </p>
+              <div className="grid grid-cols-6 gap-1.5">
+                {/* Automática: el color derivado del id. Siempre primera, porque
+                    es el default y hay que poder regresar a él. */}
+                <button
+                  type="button"
+                  onClick={() => handleCoverChange(null)}
+                  title={tr('note.edCoverAuto')}
+                  className={cn(
+                    'relative h-7 w-full rounded-md ring-offset-1 ring-offset-popover transition-all hover:scale-105',
+                    cover === null ? 'ring-2 ring-primary' : 'ring-1 ring-border'
+                  )}
+                  style={{ background: coverBackground(initial.id, null) }}
+                >
+                  <Sparkles className="absolute inset-0 m-auto h-3.5 w-3.5 text-white drop-shadow" />
+                </button>
+                {COVER_PRESETS.map(preset => (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    onClick={() => handleCoverChange(preset.key)}
+                    title={preset.label}
+                    className={cn(
+                      'h-7 w-full rounded-md ring-offset-1 ring-offset-popover transition-all hover:scale-105',
+                      cover === preset.key ? 'ring-2 ring-primary' : 'ring-1 ring-border'
+                    )}
+                    style={{ background: preset.css }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Columna del documento */}
       <div className="mx-auto w-full max-w-[980px] px-6 sm:px-10 lg:px-12">

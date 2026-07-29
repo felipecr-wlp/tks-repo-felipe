@@ -12,6 +12,7 @@ import { coverTint } from '@/lib/note-cover'
 import { timeAgo } from '@/lib/utils'
 import { TeamChat } from '@/components/chat/TeamChat'
 import { NotesActionsBar } from '../../notes/NotesActionsBar'
+import { AddExistingDocs } from './AddExistingDocs'
 import { loadTeamDocs, isProcessDoc, DOC_KIND_LABEL } from '@/lib/team-docs'
 
 interface TeamPageProps {
@@ -32,7 +33,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
   const res = await resolveTeamForViewer(params.workspaceSlug, params.teamSlug)
   if (!res.ok && res.reason === 'no-auth') redirect('/auth/login')
   if (!res.ok) notFound()
-  const { userId, workspace, team } = res.ctx
+  const { userId, workspace, team, isAdmin } = res.ctx
 
   const admin = createAdminClient()
 
@@ -213,13 +214,23 @@ export default async function TeamPage({ params }: TeamPageProps) {
               </h2>
               <div className="flex items-center gap-2">
                 {team.space_id && (
-                  <NotesActionsBar
-                    workspaceId={workspace.id}
-                    workspaceSlug={params.workspaceSlug}
-                    spaceId={team.space_id}
-                    variant="subtle"
-                    label="Nuevo"
-                  />
+                  <>
+                    {/* Traer un documento que ya existe, sin duplicarlo. */}
+                    <AddExistingDocs
+                      workspaceId={workspace.id}
+                      spaceId={team.space_id}
+                      spaceName={null}
+                      currentUserId={userId}
+                      isAdmin={isAdmin}
+                    />
+                    <NotesActionsBar
+                      workspaceId={workspace.id}
+                      workspaceSlug={params.workspaceSlug}
+                      spaceId={team.space_id}
+                      variant="subtle"
+                      label="Nuevo"
+                    />
+                  </>
                 )}
                 <Link
                   href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/docs`}
@@ -257,7 +268,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
                   >
                     <span
                       className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-neutral-700"
-                      style={{ background: coverTint(d.id) }}
+                      style={{ background: coverTint(d.id, d.cover) }}
                     >
                       <NoteIcon icon={d.icon} size={15} />
                     </span>
