@@ -18,6 +18,14 @@ interface NotesActionsBarProps {
   parentNoteId?: string | null  // si está, crea como sub-página
   variant?: 'primary' | 'subtle'
   label?: string
+  /**
+   * Departamento donde nace el documento. Solo lo manda la vista de un equipo:
+   * ahí crear un documento ES el acto explícito de compartirlo con el
+   * departamento, así que la nota nace con `visibility: 'space'` en vez de
+   * privada. Desde el wiki general no se manda y la nota nace privada, que es
+   * la regla por defecto (ver src/lib/note-visibility.ts).
+   */
+  spaceId?: string | null
 }
 
 export function NotesActionsBar({
@@ -26,6 +34,7 @@ export function NotesActionsBar({
   parentNoteId,
   variant = 'primary',
   label,
+  spaceId,
 }: NotesActionsBarProps) {
   const router = useRouter()
   const tr = useT()
@@ -60,8 +69,11 @@ export function NotesActionsBar({
           content: template.content || null,
           icon: template.icon,
           // Nace privada; el autor decide despues si la comparte con su
-          // departamento (ver src/lib/note-visibility.ts).
-          visibility: 'private',
+          // departamento (ver src/lib/note-visibility.ts). La excepcion es
+          // crearla DESDE un equipo: ahi el acto de crear ya es el acto de
+          // compartir con ese departamento.
+          visibility: spaceId ? 'space' : 'private',
+          ...(spaceId ? { space_id: spaceId } : {}),
           ...(template.docKind ? { doc_kind: template.docKind } : {}),
           ...(template.sopStatus ? { sop_status: template.sopStatus } : {}),
         }),

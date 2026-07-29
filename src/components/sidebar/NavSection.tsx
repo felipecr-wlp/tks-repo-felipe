@@ -34,6 +34,7 @@ export function NavSection({ team, workspaceSlug, collapsed, pathname }: NavSect
   const anyChildActive =
     pathname.startsWith(`${teamBase}/scrum`) ||
     pathname.startsWith(`${teamBase}/chat`) ||
+    pathname.startsWith(`${teamBase}/docs`) ||
     pathname.startsWith(`${teamBase}/p/`)
   const suggestBoard = teamRootActive && !anyChildActive
 
@@ -140,6 +141,21 @@ export function NavSection({ team, workspaceSlug, collapsed, pathname }: NavSect
             <span className="truncate">Chat</span>
           </Link>
 
+          {/* Documentos del equipo: reglas, SOPs y notas del departamento */}
+          <Link
+            href={`${teamBase}/docs`}
+            className={cn(
+              'relative flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors',
+              'hover:bg-accent hover:text-accent-foreground',
+              pathname.startsWith(`${teamBase}/docs`)
+                ? 'bg-accent text-accent-foreground font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-full before:bg-primary'
+                : 'text-muted-foreground'
+            )}
+          >
+            <span className="flex-shrink-0 w-4 h-4"><DocsIcon /></span>
+            <span className="truncate">Documentos</span>
+          </Link>
+
           {team.projects.length === 0 && (
             <Link
               href={`${teamBase}/projects/new`}
@@ -183,6 +199,21 @@ function BoardIcon() {
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
       <path d="M6 2v12M10 2v12" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  )
+}
+
+// ── Icono de documentos del equipo (libro abierto) ────────────────────────────
+function DocsIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path
+        d="M8 4.2C7 3.4 5.7 3 4 3H2v9h2c1.7 0 3 .4 4 1.2M8 4.2C9 3.4 10.3 3 12 3h2v9h-2c-1.7 0-3 .4-4 1.2M8 4.2v9"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }
