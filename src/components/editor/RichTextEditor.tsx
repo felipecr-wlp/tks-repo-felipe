@@ -50,6 +50,13 @@ interface RichTextEditorProps {
    */
   blocks?: 'basic' | 'full'
   /**
+   * Densidad visual. 'compact' (default) es la caja chica de las descripciones
+   * de tarea: borde, texto pequeño, interlineado apretado. 'page' es el lienzo
+   * de una nota: sin caja, tipografía de documento y aire entre párrafos, con
+   * la barra de formato pegada arriba mientras se lee.
+   */
+  density?: 'compact' | 'page'
+  /**
    * Workspace de la nota. Requerido para crear pizarras incrustadas (el bloque
    * de pizarra crea un registro en `whiteboards` de este workspace). Solo lo
    * pasan las notas; las descripciones de tareas no lo necesitan.
@@ -97,6 +104,27 @@ const FULL_BLOCK_CLASSES = cn(
   '[&_[data-details-content]]:mt-2 [&_[data-details-content]]:pl-1',
 )
 
+// Tipografia de DOCUMENTO (density='page'). El editor venia con la misma escala
+// que una descripcion de tarea: 13px, parrafos pegados y encabezados casi del
+// mismo tamaño que el cuerpo. Eso es lo que hacia que una nota se leyera como un
+// campo de formulario en vez de como una pagina. Aqui se separa la jerarquia:
+// cuerpo 16px con interlineado de lectura, H2 y H3 que de verdad se ven titulos,
+// y aire entre bloques.
+const PAGE_TYPOGRAPHY = cn(
+  'text-[16px] leading-[1.75] text-foreground',
+  '[&_p]:my-[0.85em]',
+  '[&_h2]:text-[1.6em] [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:mt-[1.6em] [&_h2]:mb-[0.5em] [&_h2]:leading-tight',
+  '[&_h3]:text-[1.25em] [&_h3]:font-semibold [&_h3]:tracking-tight [&_h3]:mt-[1.3em] [&_h3]:mb-[0.4em] [&_h3]:leading-snug',
+  '[&_ul]:my-[0.8em] [&_ol]:my-[0.8em] [&_li]:my-[0.25em]',
+  '[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground',
+  '[&_hr]:my-[2em] [&_hr]:border-border',
+  // Los bloques anchos (tablas, pizarras, imagenes) pueden salirse de la columna
+  // de texto y usar todo el lienzo. Es lo que hace que se sienta amplio.
+  '[&_table]:!my-[1.4em] [&_table]:!text-[0.95em]',
+  '[&_[data-whiteboard]]:my-[1.5em]',
+  '[&_img]:rounded-lg [&_img]:my-[1.4em]',
+)
+
 export function RichTextEditor({
   value,
   onSave,
@@ -106,10 +134,12 @@ export function RichTextEditor({
   autosaveMs = 0,
   onDirty,
   blocks = 'basic',
+  density = 'compact',
   workspaceId,
   noteId,
 }: RichTextEditorProps) {
   const full = blocks === 'full'
+  const page = density === 'page'
 
   // Crea una pizarra real en este workspace y devuelve su id, para que el bloque
   // de pizarra incrustada la referencie. Reutiliza la API /api/whiteboards.
@@ -166,11 +196,12 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class: cn(
-          'prose prose-sm max-w-none outline-none',
-          'min-h-[80px] px-3 py-2',
-          '[&_p]:my-1 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-1',
-          '[&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-0.5',
+          'prose max-w-none outline-none',
+          page ? 'prose-base min-h-[60vh] px-0 py-4' : 'prose-sm min-h-[80px] px-3 py-2',
+          !page && '[&_p]:my-1 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-1',
+          !page && '[&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-0.5',
           full && FULL_BLOCK_CLASSES,
+          page && PAGE_TYPOGRAPHY,
         ),
       },
     },
@@ -222,12 +253,15 @@ export function RichTextEditor({
 
   return (
     <div className={cn(
-      'border border-input rounded-lg bg-background focus-within:ring-2 focus-within:ring-ring transition-shadow',
+      page
+        ? 'bg-transparent'
+        : 'border border-input rounded-lg bg-background focus-within:ring-2 focus-within:ring-ring transition-shadow',
       className,
     )}>
       <Toolbar
         editor={editor}
         full={full}
+        page={page}
         onCreateWhiteboard={full && workspaceId ? createWhiteboard : undefined}
       />
       <EditorContent editor={editor} />
@@ -352,10 +386,12 @@ function LinkButton({ editor, className }: { editor: NonNullable<Editor>; classN
 function Toolbar({
   editor,
   full = false,
+  page = false,
   onCreateWhiteboard,
 }: {
   editor: Editor
   full?: boolean
+  page?: boolean
   onCreateWhiteboard?: () => Promise<string | null>
 }) {
   if (!editor) return null
@@ -366,7 +402,14 @@ function Toolbar({
     )
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5 px-1.5 py-1 border-b border-border">
+    // En una nota la barra se queda pegada arriba: el formato sigue a la mano
+    // aunque el documento sea largo, en vez de perderse al primer scroll.
+    <div className={cn(
+      'flex flex-wrap items-center gap-0.5',
+      page
+        ? 'sticky top-0 z-20 -mx-2 px-2 py-1.5 mb-1 bg-background/85 backdrop-blur-sm border-b border-border/60 rounded-md'
+        : 'px-1.5 py-1 border-b border-border',
+    )}>
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleBold().run()}

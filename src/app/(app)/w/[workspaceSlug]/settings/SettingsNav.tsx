@@ -7,7 +7,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Settings, Users, UsersRound, FolderKanban, Ticket, Gauge, Clock, BookOpen } from 'lucide-react'
+import { Settings, Users, UsersRound, FolderKanban, Ticket, Gauge, Clock, BookOpen, Eye } from 'lucide-react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 
 export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
@@ -21,6 +21,9 @@ export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
     { href: `${base}/members`, label: t('settings.tabMembers'), icon: Users },
     { href: `${base}/teams`, label: t('settings.tabTeams'), icon: UsersRound },
     { href: `${base}/departments`, label: t('settings.tabDepartments'), icon: FolderKanban },
+    // Accesos va junto a Departamentos a propósito: es la MISMA palanca, vista
+    // desde el lado de las personas en vez del lado del departamento.
+    { href: `${base}/accesos`, label: 'Accesos', icon: Eye },
     { href: `${base}/invites`, label: t('settings.tabInvites'), icon: Ticket },
     { href: `${base}/performance`, label: t('settings.tabPerformance'), icon: Gauge },
     { href: `${base}/academia`, label: t('settings.tabAcademy'), icon: BookOpen },

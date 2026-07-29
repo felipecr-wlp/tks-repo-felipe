@@ -75,7 +75,7 @@ export default async function NotesPage({ params }: NotesPageProps) {
   const t = getServerT()
 
   return (
-    <div className="px-8 py-10 max-w-3xl mx-auto">
+    <div className="px-6 sm:px-10 lg:px-12 py-10 max-w-[980px] mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-foreground tracking-tight">
           {t('notesHome.wikiOf')} {workspace.name}

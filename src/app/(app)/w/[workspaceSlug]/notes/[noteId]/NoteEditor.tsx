@@ -14,6 +14,7 @@ import { Globe, Users, Folder, Lock, ChevronDown, Check, AlertTriangle, RotateCw
 import { cn, timeAgo } from '@/lib/utils'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { NoteIcon, NOTE_ICONS, normalizeNoteIconKey } from '@/lib/note-icons'
+import { coverGradient } from '@/lib/note-cover'
 import { NotesActionsBar } from '../NotesActionsBar'
 import { NoteComments } from './NoteComments'
 import { NoteBacklinks } from './NoteBacklinks'
@@ -200,9 +201,10 @@ export function NoteEditor({
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-8 py-8">
-      {/* Toolbar superior */}
-      <div className="flex items-center justify-between mb-6 gap-4">
+    <div className="pb-28">
+      {/* Barra superior: migas, estado de guardado y acciones */}
+      <div className="mx-auto w-full max-w-[980px] px-6 sm:px-10 lg:px-12 pt-6">
+      <div className="flex items-center justify-between mb-5 gap-4">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1 text-xs text-muted-foreground min-w-0 flex-1">
           <Link
@@ -394,13 +396,26 @@ export function NoteEditor({
           )}
         </div>
       </div>
+      </div>
+
+      {/* Portada. No se configura ni se sube nada: el color sale del id de la
+          nota, así que cada documento se reconoce de un vistazo y ninguno se ve
+          como un formulario en blanco. */}
+      <div
+        className="h-24 sm:h-32 w-full"
+        style={{ background: coverGradient(initial.id) }}
+        aria-hidden
+      />
+
+      {/* Columna del documento */}
+      <div className="mx-auto w-full max-w-[980px] px-6 sm:px-10 lg:px-12">
 
       {/* Icon + Title */}
-      <div className="flex items-start gap-3 mb-2">
-        <div className="relative">
+      <div className="mb-2 -mt-9 relative">
+        <div className="relative inline-block mb-2">
           <button
             onClick={() => setShowIconPicker(!showIconPicker)}
-            className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-lg p-2 transition-colors"
+            className="bg-background border border-border shadow-raised text-foreground hover:bg-accent rounded-xl p-2.5 transition-colors"
             title={tr('note.edChangeIcon')}
           >
             <NoteIcon icon={icon} size={40} />
@@ -432,7 +447,7 @@ export function NoteEditor({
           onChange={e => setTitle(e.target.value)}
           placeholder={tr('search.untitled')}
           rows={1}
-          className="flex-1 text-3xl font-bold text-foreground placeholder:text-muted-foreground/40 bg-transparent border-0 outline-none resize-none leading-tight pt-2"
+          className="w-full text-4xl sm:text-[2.75rem] font-bold tracking-tight text-foreground placeholder:text-muted-foreground/30 bg-transparent border-0 outline-none resize-none leading-[1.15]"
           onInput={e => {
             const target = e.target as HTMLTextAreaElement
             target.style.height = 'auto'
@@ -466,9 +481,9 @@ export function NoteEditor({
         onDirty={() => setStatus(s => (s === 'saving' ? s : 'dirty'))}
         autosaveMs={1200}
         blocks="full"
+        density="page"
         workspaceId={workspaceId}
         noteId={initial.id}
-        className="!border-0 [&_.ProseMirror]:px-0 [&_.ProseMirror]:py-2 [&_.ProseMirror]:min-h-[300px]"
       />
 
       {/* Sub-páginas */}
@@ -505,6 +520,7 @@ export function NoteEditor({
 
       {/* Comentarios (hilo lateral) */}
       <NoteComments noteId={initial.id} currentUserId={currentUserId} />
+      </div>
     </div>
   )
 }
