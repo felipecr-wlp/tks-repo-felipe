@@ -26,6 +26,8 @@ import { autoWatch } from '@/lib/watchers'
 import { sanitizeRichText } from '@/lib/sanitize'
 import { markdownToRichText } from '@/lib/ai/markdown-to-rich'
 import { loadNoteViewerContext, canViewNote, noteVisibilityPrefilter } from '@/lib/note-visibility'
+import { ensureDailyReport } from '@/lib/daily-report-store'
+import { isReportSupervisor } from '@/lib/daily-report-access'
 import {
   REPORT_CATEGORIES,
   REPORT_TIMEZONE,
@@ -61,49 +63,9 @@ function bodyToHtml(markdown: string | undefined | null): string | null {
   return sanitizeRichText(markdownToRichText(markdown)) || null
 }
 
-/**
- * Devuelve el reporte del dia de una persona, creandolo si no existe.
- *
- * Es lo primero que corre cada vez que alguien narra algo, asi que no puede
- * fallar por una carrera: dos mensajes seguidos entrarian a la vez y el segundo
- * chocaria con el UNIQUE (workspace, persona, fecha). Por eso el insert se hace
- * con `upsert` sobre esa misma restriccion e `ignoreDuplicates`, y despues se
- * relee: quien pierda la carrera se encuentra la fila del otro en vez de un
- * error.
- */
-async function ensureDailyReport(admin: Admin, workspaceId: string, userId: string, day: string) {
-  const { data: existing } = (await admin
-    .from('daily_reports')
-    .select('id')
-    .eq('workspace_id', workspaceId)
-    .eq('profile_id', userId)
-    .eq('report_date', day)
-    .maybeSingle()) as { data: { id: string } | null; error: unknown }
-
-  if (existing) return existing
-
-  const { error } = await admin
-    .from('daily_reports')
-    .upsert(
-      { workspace_id: workspaceId, profile_id: userId, report_date: day },
-      { onConflict: 'workspace_id,profile_id,report_date', ignoreDuplicates: true }
-    )
-
-  if (error) {
-    console.error('[ensureDailyReport] upsert error:', error)
-    return null
-  }
-
-  const { data: created } = (await admin
-    .from('daily_reports')
-    .select('id')
-    .eq('workspace_id', workspaceId)
-    .eq('profile_id', userId)
-    .eq('report_date', day)
-    .maybeSingle()) as { data: { id: string } | null; error: unknown }
-
-  return created
-}
+// `ensureDailyReport` se importa de src/lib/daily-report-store.ts. Vivia aqui
+// duplicada: la misma operacion, con la misma carrera adentro, escrita tres
+// veces. Una carrera arreglada en una sola de las copias sigue rota.
 
 /** Proyectos donde el usuario es miembro directo (base accionable de KERN). */
 async function listMemberProjects(admin: Admin, userId: string) {
@@ -942,6 +904,7 @@ export function buildKernTools(admin: Admin, userId: string) {
     list_team_daily_reports: tool({
       description:
         'Lista los reportes diarios del equipo para un dia (quien reporto y quien no). ' +
+        'Solo funciona para responsables de equipo. ' +
         'Uselo para "que hizo el equipo ayer", "quien no ha reportado" o para armar un resumen de la jornada.',
       parameters: z.object({
         date: z.string().optional().describe('Fecha YYYY-MM-DD. Por defecto hoy.'),
@@ -950,6 +913,17 @@ export function buildKernTools(admin: Admin, userId: string) {
         const workspaces = await listUserWorkspaces(admin, userId)
         const workspace = workspaces[0]
         if (!workspace) return { error: 'El usuario no pertenece a ningún espacio de trabajo.' }
+
+        // El reporte ajeno solo lo lee quien coordina. Sin este candado, la
+        // regla de privacidad de la pantalla seria decorativa: bastaria con
+        // pedirle a KERN por chat lo que la pantalla ya no muestra.
+        if (!(await isReportSupervisor(admin, workspace.id, userId))) {
+          return {
+            error:
+              'Los reportes diarios de otras personas solo los pueden consultar los responsables del equipo. ' +
+              'Puedo mostrarte el tuyo con get_daily_report.',
+          }
+        }
 
         const day = date && isValidReportDate(date) ? date : todayInReportTz()
 

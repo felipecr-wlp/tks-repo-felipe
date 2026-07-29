@@ -14,6 +14,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import { sanitizeRichText } from '@/lib/sanitize'
+import { ensureDailyReport } from '@/lib/daily-report-store'
 import { REPORT_CATEGORIES, todayInReportTz, isValidReportDate } from '@/lib/daily-reports'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -29,38 +31,10 @@ async function resolveWorkspace(admin: Admin, workspaceId: string, userId: strin
   return data?.workspace_id ?? null
 }
 
-/**
- * Reporte del dia, creandolo si hace falta. Mismo criterio que en KERN: upsert
- * con ignoreDuplicates y relectura, para que dos altas simultaneas no choquen
- * contra el UNIQUE (workspace, persona, fecha).
- */
-async function ensureReport(admin: Admin, workspaceId: string, userId: string, day: string) {
-  const find = async () =>
-    (await admin
-      .from('daily_reports')
-      .select('id, status')
-      .eq('workspace_id', workspaceId)
-      .eq('profile_id', userId)
-      .eq('report_date', day)
-      .maybeSingle()) as { data: { id: string; status: string } | null; error: unknown }
-
-  const { data: existing } = await find()
-  if (existing) return existing
-
-  const { error } = await admin
-    .from('daily_reports')
-    .upsert(
-      { workspace_id: workspaceId, profile_id: userId, report_date: day },
-      { onConflict: 'workspace_id,profile_id,report_date', ignoreDuplicates: true }
-    )
-  if (error) {
-    console.error('[daily-reports ensureReport] upsert error:', error)
-    return null
-  }
-
-  const { data: created } = await find()
-  return created
-}
+// El "abre el reporte del dia si no existe" vive en src/lib/daily-report-store.ts:
+// lo comparten esta ruta, las herramientas de KERN y el agente BITACORA. Tenia
+// tres copias de la misma operacion con una carrera adentro, y una carrera
+// arreglada en una sola de las tres copias sigue siendo un error.
 
 // ── POST: una actividad ──────────────────────────────────────────────────────
 const entrySchema = z
@@ -103,7 +77,7 @@ export async function POST(request: NextRequest) {
   }
 
   const day = date && isValidReportDate(date) ? date : todayInReportTz()
-  const report = await ensureReport(admin, workspace_id, user.id, day)
+  const report = await ensureDailyReport(admin, workspace_id, user.id, day)
   if (!report) return NextResponse.json({ error: 'No se pudo abrir el reporte del día' }, { status: 500 })
 
   const { data: entry, error } = (await admin
@@ -143,7 +117,10 @@ const reportSchema = z
   .object({
     workspace_id: z.string().uuid(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    summary: z.string().max(4000).trim().nullable().optional(),
+    // El resumen ahora puede venir como HTML del editor de documentos (la misma
+    // infraestructura que usan las notas), asi que el techo sube: el mismo texto
+    // etiquetado pesa varias veces mas. Se sanea abajo, antes de guardar.
+    summary: z.string().max(20000).trim().nullable().optional(),
     status: z.enum(['draft', 'submitted']).optional(),
   })
   .strict()
@@ -178,7 +155,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const day = date && isValidReportDate(date) ? date : todayInReportTz()
-  const report = await ensureReport(admin, workspace_id, user.id, day)
+  const report = await ensureDailyReport(admin, workspace_id, user.id, day)
   if (!report) return NextResponse.json({ error: 'No se pudo abrir el reporte del día' }, { status: 500 })
 
   const patch: {
@@ -187,7 +164,10 @@ export async function PATCH(request: NextRequest) {
     status?: string
     submitted_at?: string | null
   } = { updated_at: new Date().toISOString() }
-  if (summary !== undefined) patch.summary = summary
+  // Se sanea SIEMPRE, no solo cuando parece HTML: el criterio "empieza con <"
+  // lo decide el cliente y no es una barrera. sanitizeRichText deja intacto el
+  // texto plano que escribe el agente.
+  if (summary !== undefined) patch.summary = summary ? sanitizeRichText(summary) : summary
   if (status !== undefined) {
     patch.status = status
     // Reabrir un reporte limpia la marca de entrega: dejarla puesta diria que

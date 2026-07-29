@@ -467,6 +467,60 @@ export type Database = {
           },
         ]
       }
+      daily_report_images: {
+        Row: {
+          bytes: number | null
+          caption: string | null
+          created_at: string
+          entry_id: string
+          height: number | null
+          id: string
+          path: string
+          report_id: string
+          thumb_bytes: number | null
+          thumb_path: string
+          width: number | null
+        }
+        Insert: {
+          bytes?: number | null
+          caption?: string | null
+          created_at?: string
+          entry_id: string
+          height?: number | null
+          id?: string
+          path: string
+          report_id: string
+          thumb_bytes?: number | null
+          thumb_path: string
+          width?: number | null
+        }
+        Update: {
+          bytes?: number | null
+          caption?: string | null
+          created_at?: string
+          entry_id?: string
+          height?: number | null
+          id?: string
+          path?: string
+          report_id?: string
+          thumb_bytes?: number | null
+          thumb_path?: string
+          width?: number | null
+        }
+        // `report_id` NO declara relacion a proposito (tampoco la tiene en la
+        // base). Un segundo camino entre imagenes y reportes le daria a
+        // PostgREST dos formas de resolver el mismo embed y responderia 300 a
+        // todo. Ver la migracion 20260730000000.
+        Relationships: [
+          {
+            foreignKeyName: "daily_report_images_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "daily_report_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_field_definitions: {
         Row: {
           created_at: string
