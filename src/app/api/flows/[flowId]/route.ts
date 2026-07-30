@@ -74,7 +74,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   const admin = createAdminClient()
   const { flow, status } = await loadWithAccess(admin, params.flowId, user.id)
   if (!flow) return NextResponse.json({ error: 'No encontrado' }, { status })
-  return NextResponse.json(flow)
+
+  const { data: shares } = await admin
+    .from('flow_shares')
+    .select('id, permission, profile:profiles(id, email, display_name, avatar_url)')
+    .eq('flow_id', params.flowId) as { data: any[] | null; error: unknown }
+
+  return NextResponse.json({ ...flow, shares: shares ?? [] })
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
