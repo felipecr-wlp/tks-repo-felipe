@@ -2,31 +2,17 @@
 
 import { useCallback, useRef, useState } from 'react'
 import {
-  ReactFlow,
-  Controls,
-  Background,
-  MiniMap,
-  useNodesState,
-  useEdgesState,
-  addEdge,
-  Connection,
-  type Node,
-  type Edge,
-  BackgroundVariant,
-  Panel,
-  type NodeProps,
-  Handle,
-  Position,
+  ReactFlow, Controls, Background, MiniMap, useNodesState, useEdgesState,
+  addEdge, Connection, type Node, type Edge, BackgroundVariant, Panel,
+  type NodeProps, Handle, Position,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Trash2, FileText, Code, Link, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, FileText, Code, Link, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Minimize } from 'lucide-react'
 import LinkNext from 'next/link'
 
 type ShapeType = 'rect' | 'circle' | 'line' | 'grid'
-type ShapeData = {
-  shape: ShapeType; width: number; height: number; fill: string; stroke: string; rows?: number; cols?: number
-}
+type ShapeData = { shape: ShapeType; width: number; height: number; fill: string; stroke: string; rows?: number; cols?: number }
 type NodeContent = { contentType: 'text' | 'html' | 'url' | 'document'; content: string }
 type FlowNodeData = { label: string; content: NodeContent } | ShapeData
 
@@ -61,156 +47,91 @@ function ShapeNode({ data }: NodeProps) {
   const d = data as unknown as ShapeData
   const s = d.shape ?? 'rect'; const w = d.width ?? 160; const h = d.height ?? 120
   const fill = d.fill ?? '#f1f5f9'; const stroke = d.stroke ?? '#64748b'; const rows = d.rows ?? 3; const cols = d.cols ?? 3
-
-  if (s === 'circle') return <div style={{ width: w, height: h }}><svg width={w} height={h} className="overflow-visible"><ellipse cx={w/2} cy={h/2} rx={w/2-2} ry={h/2-2} fill={fill} stroke={stroke} strokeWidth={2}/></svg></div>
-  if (s === 'line') return <div style={{ width: w, height: h }}><svg width={w} height={h} className="overflow-visible"><line x1={0} y1={h/2} x2={w} y2={h/2} stroke={stroke} strokeWidth={3}/><polygon points={`${w-8},${h/2-5} ${w},${h/2} ${w-8},${h/2+5}`} fill={stroke}/></svg></div>
-  if (s === 'grid') {
-    const cw = w/cols; const rh = h/rows; const ls = []
-    for (let i=1;i<cols;i++) ls.push(<line key={`v${i}`} x1={i*cw} y1={0} x2={i*cw} y2={h} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>)
-    for (let i=1;i<rows;i++) ls.push(<line key={`h${i}`} x1={0} y1={i*rh} x2={w} y2={i*rh} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>)
-    return <div style={{ width: w, height: h }}><svg width={w} height={h} className="overflow-visible"><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={2}/>{ls}</svg></div>
-  }
-  return <div style={{ width: w, height: h }}><svg width={w} height={h} className="overflow-visible"><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={6}/></svg></div>
+  if (s==='circle') return <div style={{width:w,height:h}}><svg width={w} height={h} className="overflow-visible"><ellipse cx={w/2} cy={h/2} rx={w/2-2} ry={h/2-2} fill={fill} stroke={stroke} strokeWidth={2}/></svg></div>
+  if (s==='line') return <div style={{width:w,height:h}}><svg width={w} height={h} className="overflow-visible"><line x1={0} y1={h/2} x2={w} y2={h/2} stroke={stroke} strokeWidth={3}/><polygon points={`${w-8},${h/2-5} ${w},${h/2} ${w-8},${h/2+5}`} fill={stroke}/></svg></div>
+  if (s==='grid') { const cw=w/cols,rh=h/rows,ls=[]; for(let i=1;i<cols;i++)ls.push(<line key={`v${i}`} x1={i*cw} y1={0} x2={i*cw} y2={h} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>); for(let i=1;i<rows;i++)ls.push(<line key={`h${i}`} x1={0} y1={i*rh} x2={w} y2={i*rh} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>); return <div style={{width:w,height:h}}><svg width={w} height={h} className="overflow-visible"><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={2}/>{ls}</svg></div> }
+  return <div style={{width:w,height:h}}><svg width={w} height={h} className="overflow-visible"><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={6}/></svg></div>
 }
 
-interface FlowEditorProps {
-  flowId: string; workspaceSlug: string; initialNodes: Node[]; initialEdges: Edge[]
-  initialTitle: string; initialDescription: string | null; workspaceId: string
-}
+interface FlowEditorProps { flowId:string;workspaceSlug:string;initialNodes:Node[];initialEdges:Edge[];initialTitle:string;initialDescription:string|null;workspaceId:string }
 
-export default function FlowEditor({ flowId, workspaceSlug, initialNodes, initialEdges, initialTitle, initialDescription }: FlowEditorProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes as any)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges as any)
-  const [title, setTitle] = useState(initialTitle); const [description, setDescription] = useState(initialDescription ?? '')
-  const [saving, setSaving] = useState(false)
-  const [editingNodeId, setEditingNodeId] = useState<string | null>(null); const [nodeLabel, setNodeLabel] = useState('')
-  const [nodeContent, setNodeContent] = useState(''); const [nodeType, setNodeType] = useState<NodeContent['contentType']>('text')
-  const [previewHtml, setPreviewHtml] = useState(false)
-  const [editingShapeId, setEditingShapeId] = useState<string | null>(null)
-  const [shapeW, setShapeW] = useState(160); const [shapeH, setShapeH] = useState(120)
-  const [shapeFill, setShapeFill] = useState('#f1f5f9'); const [shapeStroke, setShapeStroke] = useState('#64748b')
-  const [shapeRows, setShapeRows] = useState(3); const [shapeCols, setShapeCols] = useState(3); const [shapeType, setShapeType] = useState<ShapeType>('rect')
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null)
-  const saveTimer = useRef<NodeJS.Timeout | null>(null)
+export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdges,initialTitle,initialDescription}:FlowEditorProps){
+  const [nodes,setNodes,onNodesChange]=useNodesState(initialNodes as any)
+  const [edges,setEdges,onEdgesChange]=useEdgesState(initialEdges as any)
+  const [title,setTitle]=useState(initialTitle); const [description,setDescription]=useState(initialDescription??'')
+  const [saving,setSaving]=useState(false)
+  const [editingNodeId,setEditingNodeId]=useState<string|null>(null); const [nodeLabel,setNodeLabel]=useState('')
+  const [nodeContent,setNodeContent]=useState(''); const [nodeType,setNodeType]=useState<NodeContent['contentType']>('text')
+  const [previewHtml,setPreviewHtml]=useState(false)
+  const [editingShapeId,setEditingShapeId]=useState<string|null>(null)
+  const [shapeW,setShapeW]=useState(160); const [shapeH,setShapeH]=useState(120)
+  const [shapeFill,setShapeFill]=useState('#f1f5f9'); const [shapeStroke,setShapeStroke]=useState('#64748b')
+  const [shapeRows,setShapeRows]=useState(3); const [shapeCols,setShapeCols]=useState(3); const [shapeType,setShapeType]=useState<ShapeType>('rect')
+  const [ctxMenu,setCtxMenu]=useState<{x:number;y:number;nodeId:string}|null>(null)
+  const [toolCollapsed,setToolCollapsed]=useState(false); const [toolPos,setToolPos]=useState({x:0,y:0})
+  const [fullscreen,setFullscreen]=useState(false)
+  const saveTimer=useRef<NodeJS.Timeout|null>(null)
 
-  const save = useCallback(async (n?: Node[], e?: Edge[]) => {
-    setSaving(true)
-    try {
-      await fetch(`/api/flows/${flowId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description, nodes: n ?? nodes, edges: e ?? edges }) })
-    } catch { toast.error('Error al guardar') } finally { setSaving(false) }
-  }, [flowId, title, description, nodes, edges])
+  const save=useCallback(async(n?:Node[],e?:Edge[])=>{setSaving(true);try{await fetch(`/api/flows/${flowId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,description,nodes:n??nodes,edges:e??edges})})}catch{toast.error('Error al guardar')}finally{setSaving(false)}},[flowId,title,description,nodes,edges])
+  const autoSave=useCallback((n?:Node[],e?:Edge[])=>{if(saveTimer.current)clearTimeout(saveTimer.current);saveTimer.current=setTimeout(()=>save(n,e),800)},[save])
+  const onConnect=useCallback((conn:Connection)=>{setEdges(eds=>{const u=addEdge(conn,eds);autoSave(nodes,u);return u})},[setEdges,nodes,autoSave])
+  const addNode=useCallback((ct:NodeContent['contentType']='text')=>{const id=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{id,type:'custom',position:{x:Math.random()*400+100,y:Math.random()*300+100},data:{label:'Nuevo nodo',content:{contentType:ct,content:''}}}];autoSave(u,edges);return u})},[setNodes,edges,autoSave])
+  const addShape=useCallback((shape:ShapeType)=>{const id=`shape-${Date.now()}`;const dims=shape==='line'?{width:200,height:40}:shape==='grid'?{width:240,height:200}:{width:160,height:120};setNodes((nds:any[])=>{const u=[...nds,{id,type:'shape',position:{x:Math.random()*400+50,y:Math.random()*250+50},data:{shape,...dims,fill:'#f1f5f9',stroke:'#64748b',rows:3,cols:3}}];autoSave(u,edges);return u})},[setNodes,edges,autoSave])
+  const deleteSelected=useCallback(()=>{setNodes((nds:any[])=>{const sel=nds.filter((n:any)=>n.selected);const rest=nds.filter((n:any)=>!n.selected);const ids=new Set(sel.map((n:any)=>n.id));setEdges(eds=>eds.filter(e=>!ids.has(e.source)&&!ids.has(e.target)));autoSave(rest);return rest})},[setNodes,setEdges,autoSave])
+  const onNodesDelete=useCallback((del:Node[])=>{const ids=new Set(del.map(n=>n.id));setEdges(eds=>eds.filter(e=>!ids.has(e.source)&&!ids.has(e.target)))},[setEdges])
+  const handleNodeDoubleClick=useCallback((_e:React.MouseEvent,node:Node)=>{const d=node.data as any;if('shape'in d&&d.shape){setEditingShapeId(node.id);setShapeW(d.width??160);setShapeH(d.height??120);setShapeFill(d.fill??'#f1f5f9');setShapeStroke(d.stroke??'#64748b');setShapeRows(d.rows??3);setShapeCols(d.cols??3);setShapeType(d.shape)}else{setEditingNodeId(node.id);setNodeLabel(d.label||'');setNodeContent(d.content?.content||'');setNodeType(d.content?.contentType||'text');setPreviewHtml(false)}},[])
+  const onNodeDragStop=useCallback(()=>autoSave(),[autoSave])
+  const onNodeContextMenu=useCallback((e:React.MouseEvent,node:Node)=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,nodeId:node.id})},[])
+  const bringToFront=useCallback((nodeId:string)=>{setNodes(nds=>{const idx=nds.findIndex((n:any)=>n.id===nodeId);if(idx<0)return nds;const u=[...nds];u.push(u.splice(idx,1)[0]);autoSave(u,edges);return u});setCtxMenu(null)},[setNodes,autoSave,edges])
+  const sendToBack=useCallback((nodeId:string)=>{setNodes(nds=>{const idx=nds.findIndex((n:any)=>n.id===nodeId);if(idx<0)return nds;const u=[...nds];u.unshift(u.splice(idx,1)[0]);autoSave(u,edges);return u});setCtxMenu(null)},[setNodes,autoSave,edges])
+  const duplicateNode=useCallback((nodeId:string)=>{const node=nodes.find((n:any)=>n.id===nodeId);if(!node)return;const newId=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{...node,id:newId,position:{x:node.position.x+40,y:node.position.y+40},selected:false,data:{...node.data}}];autoSave(u,edges);return u});setCtxMenu(null)},[nodes,setNodes,autoSave,edges])
+  const saveContentNode=useCallback(()=>{if(!editingNodeId)return;setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===editingNodeId?{...n,data:{...n.data,label:nodeLabel,content:{contentType:nodeType,content:nodeContent}}}:n);autoSave(u,edges);return u});setEditingNodeId(null)},[editingNodeId,nodeLabel,nodeContent,nodeType,setNodes,autoSave,edges])
+  const saveShapeEdit=useCallback(()=>{if(!editingShapeId)return;setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===editingShapeId?{...n,data:{...n.data,shape:shapeType,width:shapeW,height:shapeH,fill:shapeFill,stroke:shapeStroke,rows:shapeRows,cols:shapeCols}}:n);autoSave(u,edges);return u});setEditingShapeId(null)},[editingShapeId,shapeW,shapeH,shapeFill,shapeStroke,shapeRows,shapeCols,shapeType,setNodes,autoSave,edges])
 
-  const autoSave = useCallback((n?: Node[], e?: Edge[]) => {
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => save(n, e), 800)
-  }, [save])
-
-  const onConnect = useCallback((conn: Connection) => { setEdges((eds) => { const u = addEdge(conn, eds); autoSave(nodes, u); return u }) }, [setEdges, nodes, autoSave])
-
-  const addNode = useCallback((ct: NodeContent['contentType'] = 'text') => {
-    const id = `node-${Date.now()}`
-    setNodes((nds: any[]) => { const u = [...nds, { id, type: 'custom', position: { x: Math.random()*400+100, y: Math.random()*300+100 }, data: { label: 'Nuevo nodo', content: { contentType: ct, content: '' } } }]; autoSave(u, edges); return u })
-  }, [setNodes, edges, autoSave])
-
-  const addShape = useCallback((shape: ShapeType) => {
-    const id = `shape-${Date.now()}`
-    const dims = shape === 'line' ? { width: 200, height: 40 } : shape === 'grid' ? { width: 240, height: 200 } : { width: 160, height: 120 }
-    setNodes((nds: any[]) => { const u = [...nds, { id, type: 'shape', position: { x: Math.random()*400+50, y: Math.random()*250+50 }, data: { shape, ...dims, fill: '#f1f5f9', stroke: '#64748b', rows: 3, cols: 3 } }]; autoSave(u, edges); return u })
-  }, [setNodes, edges, autoSave])
-
-  const deleteSelected = useCallback(() => {
-    setNodes((nds: any[]) => {
-      const sel = nds.filter((n: any) => n.selected); const rest = nds.filter((n: any) => !n.selected)
-      const ids = new Set(sel.map((n: any) => n.id))
-      setEdges((eds) => eds.filter((e) => !ids.has(e.source) && !ids.has(e.target)))
-      autoSave(rest)
-      return rest
-    })
-  }, [setNodes, setEdges, autoSave])
-
-  const onNodesDelete = useCallback((del: Node[]) => { const ids = new Set(del.map(n=>n.id)); setEdges((eds)=>eds.filter(e=>!ids.has(e.source)&&!ids.has(e.target))) }, [setEdges])
-
-  const handleNodeDoubleClick = useCallback((_e: React.MouseEvent, node: Node) => {
-    const d = node.data as any
-    if ('shape' in d && d.shape) {
-      setEditingShapeId(node.id); setShapeW(d.width??160); setShapeH(d.height??120)
-      setShapeFill(d.fill??'#f1f5f9'); setShapeStroke(d.stroke??'#64748b')
-      setShapeRows(d.rows??3); setShapeCols(d.cols??3); setShapeType(d.shape)
-    } else {
-      setEditingNodeId(node.id); setNodeLabel(d.label||''); setNodeContent(d.content?.content||'')
-      setNodeType(d.content?.contentType||'text'); setPreviewHtml(false)
-    }
-  }, [])
-
-  const onNodeDragStop = useCallback(() => autoSave(), [autoSave])
-  const onNodeContextMenu = useCallback((e: React.MouseEvent, node: Node) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, nodeId: node.id }) }, [])
-
-  const bringToFront = useCallback((nodeId: string) => {
-    setNodes((nds) => { const idx = nds.findIndex((n: any) => n.id === nodeId); if (idx < 0) return nds; const u = [...nds]; u.push(u.splice(idx, 1)[0]); autoSave(u, edges); return u }); setCtxMenu(null)
-  }, [setNodes, autoSave, edges])
-
-  const sendToBack = useCallback((nodeId: string) => {
-    setNodes((nds) => { const idx = nds.findIndex((n: any) => n.id === nodeId); if (idx < 0) return nds; const u = [...nds]; u.unshift(u.splice(idx, 1)[0]); autoSave(u, edges); return u }); setCtxMenu(null)
-  }, [setNodes, autoSave, edges])
-
-  const duplicateNode = useCallback((nodeId: string) => {
-    const node = nodes.find((n: any) => n.id === nodeId); if (!node) return
-    const newId = `node-${Date.now()}`
-    setNodes((nds: any[]) => { const u = [...nds, { ...node, id: newId, position: { x: node.position.x + 40, y: node.position.y + 40 }, selected: false, data: { ...node.data } }]; autoSave(u, edges); return u }); setCtxMenu(null)
-  }, [nodes, setNodes, autoSave, edges])
-
-  const saveContentNode = useCallback(() => {
-    if (!editingNodeId) return
-    setNodes((nds: any[]) => { const u = nds.map((n: any) => n.id===editingNodeId ? { ...n, data: { ...n.data, label: nodeLabel, content: { contentType: nodeType, content: nodeContent } } } : n); autoSave(u, edges); return u }); setEditingNodeId(null)
-  }, [editingNodeId, nodeLabel, nodeContent, nodeType, setNodes, autoSave, edges])
-
-  const saveShapeEdit = useCallback(() => {
-    if (!editingShapeId) return
-    setNodes((nds: any[]) => { const u = nds.map((n: any) => n.id===editingShapeId ? { ...n, data: { ...n.data, shape: shapeType, width: shapeW, height: shapeH, fill: shapeFill, stroke: shapeStroke, rows: shapeRows, cols: shapeCols } } : n); autoSave(u, edges); return u }); setEditingShapeId(null)
-  }, [editingShapeId, shapeW, shapeH, shapeFill, shapeStroke, shapeRows, shapeCols, shapeType, setNodes, autoSave, edges])
+  const fullscreenClass = fullscreen ? 'fixed inset-0 z-50 bg-background' : ''
 
   return (
-    <div className="flex flex-col h-full">
-      <header className="flex items-center gap-3 px-4 py-2 border-b bg-card shrink-0">
-        <LinkNext href={`/w/${workspaceSlug}/flows`} className="text-muted-foreground hover:text-foreground"><ArrowLeft className="w-4 h-4" /></LinkNext>
-        <input value={title} onChange={(e) => { setTitle(e.target.value); autoSave() }} className="h-8 max-w-xs font-semibold border-0 bg-transparent shadow-none outline-none text-lg px-0" placeholder="Titulo del flujo" />
-        <div className="flex-1" /><span className="text-xs text-muted-foreground">{saving?'Guardando...':'Auto-guardado'}</span>
-        <button onClick={() => save()} disabled={saving} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors disabled:opacity-50"><Save className="w-4 h-4" />Guardar</button>
-      </header>
-      <div className="flex-1 relative" style={{ '--rf-edge-z': '50', '--rf-node-z': '1'} as React.CSSProperties}>
-        <style>{`
-          .rf-edges-on-top .react-flow__edges { z-index: 50 !important; }
-          .rf-edges-on-top .react-flow__nodes { z-index: 1 !important; }
-          .rf-edges-on-top .react-flow__edge { stroke-width: 2.5; }
-        `}</style>
-        <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodesDelete={onNodesDelete} onNodeDragStop={onNodeDragStop} onNodeDoubleClick={handleNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onPaneClick={() => setCtxMenu(null)} nodeTypes={{ custom: CustomNode, shape: ShapeNode }} fitView className="bg-background rf-edges-on-top">
+    <div className={`flex flex-col h-full ${fullscreenClass}`}>
+      {!fullscreen && (
+        <header className="flex items-center gap-3 px-4 py-2 border-b bg-card shrink-0">
+          <LinkNext href={`/w/${workspaceSlug}/flows`} className="text-muted-foreground hover:text-foreground"><ArrowLeft className="w-4 h-4" /></LinkNext>
+          <input value={title} onChange={e=>{setTitle(e.target.value);autoSave()}} className="h-8 max-w-xs font-semibold border-0 bg-transparent shadow-none outline-none text-lg px-0" placeholder="Titulo del flujo" />
+          <div className="flex-1" /><span className="text-xs text-muted-foreground">{saving?'Guardando...':'Auto-guardado'}</span>
+          <button onClick={()=>save()} disabled={saving} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors disabled:opacity-50"><Save className="w-4 h-4" />Guardar</button>
+        </header>
+      )}
+      <div className="flex-1 relative">
+        <style>{`.rf-edges-on-top .react-flow__edges{z-index:50!important}.rf-edges-on-top .react-flow__nodes{z-index:1!important}.rf-edges-on-top .react-flow__edge{stroke-width:2.5}`}</style>
+        <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodesDelete={onNodesDelete} onNodeDragStop={onNodeDragStop} onNodeDoubleClick={handleNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onPaneClick={()=>setCtxMenu(null)} nodeTypes={{custom:CustomNode,shape:ShapeNode}} fitView className="bg-background rf-edges-on-top">
           <Controls /><Background variant={BackgroundVariant.Dots} gap={20} size={1} /><MiniMap nodeColor="#94a3b8" className="!bg-card border" />
-          <Panel position="top-right" className="flex flex-col gap-1.5 bg-card border rounded-lg p-2 shadow-md">
-            <span className="text-xs font-medium text-muted-foreground px-1 mb-1">Contenido</span>
-            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors" onClick={()=>addNode('text')}><Type className="w-4 h-4"/>Texto</button>
-            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors" onClick={()=>addNode('html')}><Code className="w-4 h-4"/>HTML</button>
-            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors" onClick={()=>addNode('url')}><Link className="w-4 h-4"/>URL</button>
-            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors" onClick={()=>addNode('document')}><FileText className="w-4 h-4"/>Documento</button>
-            <hr className="my-1" /><span className="text-xs font-medium text-muted-foreground px-1 mb-1">Dibujo</span>
-            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors" onClick={()=>addShape('rect')}><Square className="w-4 h-4"/>Rectangulo</button>
-            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors" onClick={()=>addShape('circle')}><Circle className="w-4 h-4"/>Circulo</button>
-            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors" onClick={()=>addShape('line')}><Minus className="w-4 h-4"/>Linea</button>
-            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors" onClick={()=>addShape('grid')}><Grid3X3 className="w-4 h-4"/>Cuadricula</button>
-            <hr className="my-1" />
-            <button className="inline-flex items-center justify-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent text-destructive transition-colors" onClick={deleteSelected}><Trash2 className="w-4 h-4"/>Eliminar</button>
-          </Panel>
-          {ctxMenu && (
-            <Panel position="top-left" style={{ left: ctxMenu.x, top: ctxMenu.y }} className="!absolute z-[100] bg-card border rounded-lg shadow-xl p-1 min-w-[160px]">
-              <button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>bringToFront(ctxMenu.nodeId)}><ArrowUp className="w-3 h-3"/>Traer al frente</button>
-              <button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>sendToBack(ctxMenu.nodeId)}><ArrowDown className="w-3 h-3"/>Enviar al fondo</button>
-              <hr className="my-1" />
-              <button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>duplicateNode(ctxMenu.nodeId)}><Copy className="w-3 h-3"/>Duplicar</button>
-              <button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>{const nds=nodes.filter((n:any)=>n.id!==ctxMenu.nodeId);setNodes(nds as any);autoSave(nds as any);setCtxMenu(null)}}><Trash2 className="w-3 h-3 text-destructive"/>Eliminar</button>
-            </Panel>
-          )}
+          {ctxMenu&&<Panel position="top-left" style={{left:ctxMenu.x,top:ctxMenu.y}} className="!absolute z-[100] bg-card border rounded-lg shadow-xl p-1 min-w-[160px]"><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>bringToFront(ctxMenu.nodeId)}><ArrowUp className="w-3 h-3"/>Traer al frente</button><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>sendToBack(ctxMenu.nodeId)}><ArrowDown className="w-3 h-3"/>Enviar al fondo</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>duplicateNode(ctxMenu.nodeId)}><Copy className="w-3 h-3"/>Duplicar</button><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>{const nds=nodes.filter((n:any)=>n.id!==ctxMenu.nodeId);setNodes(nds as any);autoSave(nds as any);setCtxMenu(null)}}><Trash2 className="w-3 h-3 text-destructive"/>Eliminar</button></Panel>}
         </ReactFlow>
+
+        <div className="absolute bg-card border rounded-lg shadow-lg z-20 transition-all" style={{right:toolPos.x||12,top:toolPos.y||60,width:toolCollapsed?40:180}}>
+          <div className="flex items-center justify-between px-2 py-1.5 border-b cursor-move select-none" onMouseDown={e=>{e.preventDefault();const sx=e.clientX,sy=e.clientY,ox=toolPos.x,oy=toolPos.y;const m=(ev:MouseEvent)=>setToolPos({x:ox-(ev.clientX-sx),y:oy+(ev.clientY-sy)});const u=()=>{window.removeEventListener('mousemove',m);window.removeEventListener('mouseup',u)};window.addEventListener('mousemove',m);window.addEventListener('mouseup',u)}}>
+            <span className="text-[10px] font-medium text-muted-foreground">{toolCollapsed?'':'Herramientas'}</span>
+            <div className="flex items-center gap-0.5">
+              <button onClick={()=>setFullscreen(!fullscreen)} className="p-0.5 hover:bg-accent rounded" title="Pantalla completa">{fullscreen?<Minimize className="w-3 h-3"/>:<Maximize className="w-3 h-3"/>}</button>
+              <button onClick={()=>setToolCollapsed(!toolCollapsed)} className="p-0.5 hover:bg-accent rounded"><ChevronUp className={`w-3 h-3 transition-transform ${toolCollapsed?'rotate-180':''}`}/></button>
+            </div>
+          </div>
+          {!toolCollapsed&&<div className="flex flex-col gap-1 p-2">
+            <span className="text-[10px] font-medium text-muted-foreground px-1">Contenido</span>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors" onClick={()=>addNode('text')}><Type className="w-3.5 h-3.5"/>Texto</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors" onClick={()=>addNode('html')}><Code className="w-3.5 h-3.5"/>HTML</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors" onClick={()=>addNode('url')}><Link className="w-3.5 h-3.5"/>URL</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors" onClick={()=>addNode('document')}><FileText className="w-3.5 h-3.5"/>Documento</button>
+            <hr className="my-0.5"/><span className="text-[10px] font-medium text-muted-foreground px-1">Dibujo</span>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors" onClick={()=>addShape('rect')}><Square className="w-3.5 h-3.5"/>Rectangulo</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors" onClick={()=>addShape('circle')}><Circle className="w-3.5 h-3.5"/>Circulo</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors" onClick={()=>addShape('line')}><Minus className="w-3.5 h-3.5"/>Linea</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors" onClick={()=>addShape('grid')}><Grid3X3 className="w-3.5 h-3.5"/>Cuadricula</button>
+            <hr className="my-0.5"/>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent text-destructive transition-colors" onClick={deleteSelected}><Trash2 className="w-3.5 h-3.5"/>Eliminar</button>
+          </div>}
+        </div>
       </div>
-      {description!==undefined&&<footer className="px-4 py-2 border-t bg-card shrink-0"><input value={description} onChange={e=>{setDescription(e.target.value);autoSave()}} className="h-8 w-full border-0 bg-transparent shadow-none outline-none text-xs text-muted-foreground" placeholder="Descripcion (opcional)"/></footer>}
+      {description!==undefined&&!fullscreen&&<footer className="px-4 py-2 border-t bg-card shrink-0"><input value={description} onChange={e=>{setDescription(e.target.value);autoSave()}} className="h-8 w-full border-0 bg-transparent shadow-none outline-none text-xs text-muted-foreground" placeholder="Descripcion (opcional)"/></footer>}
       {editingNodeId&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={()=>setEditingNodeId(null)}><div className="bg-card border rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col m-4" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between px-5 py-3 border-b shrink-0"><div className="flex items-center gap-2">{icons[nodeType]}<span className="font-semibold text-sm">Editar nodo</span></div><button onClick={()=>setEditingNodeId(null)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4"/></button></div><div className="flex-1 overflow-y-auto p-5 space-y-4"><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Nombre</label><input value={nodeLabel} onChange={e=>setNodeLabel(e.target.value)} className="w-full h-9 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"/></div><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Tipo</label><div className="flex gap-1">{(['text','html','url','document']as const).map(t=><button key={t} onClick={()=>{setNodeType(t);setPreviewHtml(false)}} className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${nodeType===t?'bg-primary text-primary-foreground':'bg-muted hover:bg-accent'}`}>{icons[t]}{t==='text'?'Texto':t==='html'?'HTML':t==='url'?'URL':'Doc'}</button>)}</div></div><div><div className="flex items-center justify-between mb-1"><label className="text-xs font-medium text-muted-foreground">{nodeType==='url'?'URL':'Contenido'}</label>{nodeType==='html'&&<button onClick={()=>setPreviewHtml(!previewHtml)} className={`inline-flex items-center gap-1 text-xs rounded px-2 py-0.5 transition-colors ${previewHtml?'bg-primary text-primary-foreground':'bg-muted hover:bg-accent'}`}>{previewHtml?<Edit3 className="w-3 h-3"/>:<Eye className="w-3 h-3"/>}{previewHtml?'Codigo':'Preview'}</button>}</div>{nodeType==='html'&&previewHtml?<div className="w-full min-h-[200px] rounded-md border bg-white p-4 text-sm overflow-auto" dangerouslySetInnerHTML={{__html:nodeContent}}/>:<textarea value={nodeContent} onChange={e=>setNodeContent(e.target.value)} className="w-full min-h-[200px] rounded-md border bg-background px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20 resize-y" placeholder={nodeType==='url'?'https://ejemplo.com':nodeType==='html'?'<div><h1>Hola</h1></div>':'Contenido...'}/>}</div></div><div className="flex items-center justify-end gap-2 px-5 py-3 border-t shrink-0"><button onClick={()=>setEditingNodeId(null)} className="inline-flex items-center rounded-md bg-muted hover:bg-accent h-9 px-4 py-2 text-sm font-medium">Cancelar</button><button onClick={saveContentNode} className="inline-flex items-center gap-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 text-sm font-medium"><Save className="w-4 h-4"/>Guardar</button></div></div></div>}
       {editingShapeId&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={()=>setEditingShapeId(null)}><div className="bg-card border rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col m-4" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between px-5 py-3 border-b shrink-0"><span className="font-semibold text-sm">Propiedades</span><button onClick={()=>setEditingShapeId(null)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4"/></button></div><div className="flex-1 overflow-y-auto p-5 space-y-4"><div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Ancho</label><input type="number" value={shapeW} onChange={e=>setShapeW(Number(e.target.value))} className="w-full h-9 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" min={20} max={1200}/></div><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Alto</label><input type="number" value={shapeH} onChange={e=>setShapeH(Number(e.target.value))} className="w-full h-9 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" min={20} max={1200}/></div></div><div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Relleno</label><div className="flex gap-2"><input type="color" value={shapeFill} onChange={e=>setShapeFill(e.target.value)} className="w-9 h-9 rounded border cursor-pointer"/><input value={shapeFill} onChange={e=>setShapeFill(e.target.value)} className="flex-1 h-9 rounded-md border bg-background px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20"/></div></div><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Borde</label><div className="flex gap-2"><input type="color" value={shapeStroke} onChange={e=>setShapeStroke(e.target.value)} className="w-9 h-9 rounded border cursor-pointer"/><input value={shapeStroke} onChange={e=>setShapeStroke(e.target.value)} className="flex-1 h-9 rounded-md border bg-background px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20"/></div></div></div>{shapeType==='grid'&&<div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Columnas</label><input type="number" value={shapeCols} onChange={e=>setShapeCols(Number(e.target.value))} className="w-full h-9 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" min={1} max={20}/></div><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Filas</label><input type="number" value={shapeRows} onChange={e=>setShapeRows(Number(e.target.value))} className="w-full h-9 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" min={1} max={20}/></div></div>}<div className="flex gap-1">{(['rect','circle','line','grid']as ShapeType[]).map(t=><button key={t} onClick={()=>setShapeType(t)} className={`flex-1 inline-flex items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${shapeType===t?'bg-primary text-primary-foreground':'bg-muted hover:bg-accent'}`}>{t==='rect'?<Square className="w-3 h-3"/>:t==='circle'?<Circle className="w-3 h-3"/>:t==='line'?<Minus className="w-3 h-3"/>:<Grid3X3 className="w-3 h-3"/>}{t==='rect'?'Rect':t==='circle'?'Circ':t==='line'?'Linea':'Grid'}</button>)}</div></div><div className="flex items-center justify-end gap-2 px-5 py-3 border-t shrink-0"><button onClick={()=>setEditingShapeId(null)} className="inline-flex items-center rounded-md bg-muted hover:bg-accent h-9 px-4 py-2 text-sm font-medium">Cancelar</button><button onClick={saveShapeEdit} className="inline-flex items-center gap-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 text-sm font-medium"><Save className="w-4 h-4"/>Guardar</button></div></div></div>}
     </div>
