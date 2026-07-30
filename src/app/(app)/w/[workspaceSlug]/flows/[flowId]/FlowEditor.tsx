@@ -22,13 +22,32 @@ const icons: Record<string, React.ReactNode> = {
   url: <LinkIcon className="w-3 h-3" />, document: <FileText className="w-3 h-3" />,
 }
 
-function CustomNode({ data, selected }: NodeProps) {
+function CustomNode({ data, selected, id }: NodeProps) {
   const fd = data as unknown as FlowNodeData
   if ('shape' in fd) return null
   const ct = fd.content?.contentType ?? 'text'; const locked = (data as any).locked
+  const nodeW = (data as any).nodeWidth ?? 260
+  const rf = useReactFlow()
+  const doResize = (e: React.MouseEvent, corner: string) => {
+    e.stopPropagation(); e.preventDefault()
+    const sx = e.clientX; const sy = e.clientY
+    const node = rf.getNode(id); if(!node)return
+    const ow = nodeW; const ox = node.position.x; const oy = node.position.y
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - sx; const dy = ev.clientY - sy
+      let nw = ow; let px = ox; let py = oy
+      if (corner.includes('r')) nw = Math.max(120, ow + dx)
+      if (corner.includes('l')) { nw = Math.max(120, ow - dx); px = ox + dx }
+      rf.setNodes((nds: any[]) => nds.map((n: any) => n.id === id ? { ...n, position: { x: px, y: py }, data: { ...n.data, nodeWidth: nw } } : n))
+    }
+    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
   return (
-    <div className={`bg-card border-2 rounded-lg px-4 py-3 min-w-[180px] max-w-[260px] shadow-sm transition-all group relative ${selected?'border-primary ring-2 ring-primary/30 shadow-md':locked?'opacity-70 border-border':'border-border'}`}>
-      {selected && <CheckCircle className="absolute -top-1.5 -right-1.5 w-4 h-4 text-primary bg-background rounded-full" />}
+    <div className={`bg-card border-2 rounded-lg px-4 py-3 shadow-sm transition-all group relative ${selected?'border-primary ring-2 ring-primary/30 shadow-md':locked?'opacity-70 border-border':'border-border'}`} style={{width:nodeW,maxWidth:'none'}}>
+      {selected && <CheckCircle className="absolute -top-1.5 -right-1.5 w-4 h-4 text-primary bg-background rounded-full z-10" />}
+      {selected && <><div style={{position:'absolute',right:-6,bottom:-6,width:14,height:14,borderRadius:3,background:'#3b82f6',border:'2px solid #fff',cursor:'nwse-resize',zIndex:20}} onMouseDown={e=>doResize(e,'br')}/><div style={{position:'absolute',right:-6,top:nodeW/2-7,width:14,height:14,borderRadius:3,background:'#3b82f6',border:'2px solid #fff',cursor:'ew-resize',zIndex:20}} onMouseDown={e=>doResize(e,'r')}/></>}
       <Handle type="target" position={Position.Top} className="!bg-muted-foreground" />
       <div className="flex items-center gap-2 mb-1">
         <span className="text-primary/70">{icons[ct]}</span>
