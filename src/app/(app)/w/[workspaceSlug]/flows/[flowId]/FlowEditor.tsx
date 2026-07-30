@@ -59,18 +59,17 @@ function ShapeNode({ data, selected, id }: NodeProps) {
   const doResize = (e: React.MouseEvent, corner: string) => {
     e.stopPropagation(); e.preventDefault()
     const sx = e.clientX; const sy = e.clientY
+    const node = rf.getNode(id); if(!node)return
+    const ow = (node.data as any)?.width ?? 160; const oh = (node.data as any)?.height ?? 120
+    const ox = node.position.x; const oy = node.position.y
     const onMove = (ev: MouseEvent) => {
-      rf.setNodes((nds: any[]) => nds.map((n: any) => {
-        if (n.id !== id) return n
-        const dx = ev.clientX - sx; const dy = ev.clientY - sy
-        let nw = n.data?.width ?? 160; let nh = n.data?.height ?? 120
-        let px = n.position.x; let py = n.position.y
-        if (corner.includes('r')) nw = Math.max(20, (n.data?.width ?? 160) + dx)
-        if (corner.includes('l')) { nw = Math.max(20, (n.data?.width ?? 160) - dx); px = n.position.x + dx }
-        if (corner.includes('b')) nh = Math.max(20, (n.data?.height ?? 120) + dy)
-        if (corner.includes('t')) { nh = Math.max(20, (n.data?.height ?? 120) - dy); py = n.position.y + dy }
-        return { ...n, position: { x: px, y: py }, data: { ...n.data, width: nw, height: nh } }
-      }))
+      const dx = ev.clientX - sx; const dy = ev.clientY - sy
+      let nw = ow; let nh = oh; let px = ox; let py = oy
+      if (corner.includes('r')) nw = Math.max(20, ow + dx)
+      if (corner.includes('l')) { nw = Math.max(20, ow - dx); px = ox + dx }
+      if (corner.includes('b')) nh = Math.max(20, oh + dy)
+      if (corner.includes('t')) { nh = Math.max(20, oh - dy); py = oy + dy }
+      rf.setNodes((nds: any[]) => nds.map((n: any) => n.id === id ? { ...n, position: { x: px, y: py }, data: { ...n.data, width: nw, height: nh } } : n))
     }
     const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); if(d.onResizeEnd)d.onResizeEnd() }
     window.addEventListener('mousemove', onMove)
