@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from 'react'
 import {
   ReactFlow, Controls, Background, MiniMap, useNodesState, useEdgesState,
   addEdge, Connection, type Node, type Edge, BackgroundVariant, Panel,
-  type NodeProps, Handle, Position, MarkerType,
+  type NodeProps, Handle, Position, MarkerType, useReactFlow,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
@@ -12,7 +12,7 @@ import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil
 import LinkNext from 'next/link'
 
 type ShapeType = 'rect' | 'circle' | 'line' | 'grid' | 'text'
-type ShapeData = { shape: ShapeType; width: number; height: number; fill: string; stroke: string; label?: string; rows?: number; cols?: number }
+type ShapeData = { shape: ShapeType; width: number; height: number; fill: string; stroke: string; label?: string; rows?: number; cols?: number; onResizeEnd?: () => void }
 type NodeContent = { contentType: 'text' | 'html' | 'url' | 'document'; content: string }
 type FlowNodeData = { label: string; content: NodeContent } | ShapeData
 type EdgeStyle = { stroke?: string; strokeWidth?: number; animated?: boolean; label?: string; type?: string }
@@ -46,15 +46,52 @@ function CustomNode({ data, selected }: NodeProps) {
   )
 }
 
-function ShapeNode({ data, selected }: NodeProps) {
+function ShapeNode({ data, selected, id }: NodeProps) {
   const d = data as unknown as ShapeData
   const s = d.shape ?? 'rect'; const w = d.width ?? 160; const h = d.height ?? 120
   const fill = d.fill ?? '#f1f5f9'; const stroke = d.stroke ?? '#64748b'
   const rows = d.rows ?? 3; const cols = d.cols ?? 3; const label = d.label ?? ''; const locked = (data as any).locked
   const opacity = locked ? {opacity:0.6} : {}
   const selRing = selected ? {outline:'2px solid #3b82f6',outlineOffset:'2px',borderRadius:s==='circle'?'50%':s==='grid'?'4px':'8px'} : {}
+  const rf = useReactFlow()
   const Label = label ? <text x={w/2} y={h/2} textAnchor="middle" dominantBaseline="central" fill="#334155" fontSize={13} fontWeight={500} fontFamily="system-ui, sans-serif" style={{pointerEvents:'none'}}>{label}</text> : null
-  const D = <div style={{width:w,height:h,...opacity,...selRing,position:'relative'}}>{selected&&<CheckCircle className="absolute -top-2 -right-2 w-4 h-4 text-primary bg-background rounded-full z-10"/>}
+
+  const doResize = (e: React.MouseEvent, corner: string) => {
+    e.stopPropagation(); e.preventDefault()
+    const sx = e.clientX; const sy = e.clientY
+    const onMove = (ev: MouseEvent) => {
+      rf.setNodes((nds: any[]) => nds.map((n: any) => {
+        if (n.id !== id) return n
+        const dx = ev.clientX - sx; const dy = ev.clientY - sy
+        let nw = n.data?.width ?? 160; let nh = n.data?.height ?? 120
+        let px = n.position.x; let py = n.position.y
+        if (corner.includes('r')) nw = Math.max(20, (n.data?.width ?? 160) + dx)
+        if (corner.includes('l')) { nw = Math.max(20, (n.data?.width ?? 160) - dx); px = n.position.x + dx }
+        if (corner.includes('b')) nh = Math.max(20, (n.data?.height ?? 120) + dy)
+        if (corner.includes('t')) { nh = Math.max(20, (n.data?.height ?? 120) - dy); py = n.position.y + dy }
+        return { ...n, position: { x: px, y: py }, data: { ...n.data, width: nw, height: nh } }
+      }))
+    }
+    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); if(d.onResizeEnd)d.onResizeEnd() }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+  const hs = 8; const hSize = hs*2 + 2
+  const handle = (x: number, y: number, cursor: string, corner: string) =>
+    <div style={{position:'absolute',left:x-hs-1,top:y-hs-1,width:hSize,height:hSize,borderRadius:3,background:'#3b82f6',border:'2px solid #fff',cursor,zIndex:20,display:selected?'block':'none'}} onMouseDown={e => doResize(e, corner)} />
+
+  const D = <div style={{width:w,height:h,...opacity,...selRing,position:'relative'}}>
+    {selected && <CheckCircle className="absolute -top-2 -right-2 w-4 h-4 text-primary bg-background rounded-full z-10"/>}
+
+    {handle(0, 0, 'nwse-resize', 'tl')}
+    {handle(w, 0, 'nesw-resize', 'tr')}
+    {handle(0, h, 'nesw-resize', 'bl')}
+    {handle(w, h, 'nwse-resize', 'br')}
+    {handle(w/2, 0, 'ns-resize', 't')}
+    {handle(w/2, h, 'ns-resize', 'b')}
+    {handle(0, h/2, 'ew-resize', 'l')}
+    {handle(w, h/2, 'ew-resize', 'r')}
   {s==='circle' && <svg width={w} height={h} className="overflow-visible"><ellipse cx={w/2} cy={h/2} rx={w/2-2} ry={h/2-2} fill={fill} stroke={stroke} strokeWidth={2}/>{Label}</svg>}
   {s==='line' && <svg width={w} height={h} className="overflow-visible"><line x1={0} y1={h/2} x2={w} y2={h/2} stroke={stroke} strokeWidth={3}/><polygon points={`${w-8},${h/2-5} ${w},${h/2} ${w-8},${h/2+5}`} fill={stroke}/>{Label}</svg>}
   {s==='grid' && (()=>{const cw=w/cols,rh=h/rows,ls=[];for(let i=1;i<cols;i++)ls.push(<line key={`v${i}`} x1={i*cw} y1={0} x2={i*cw} y2={h} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>);for(let i=1;i<rows;i++)ls.push(<line key={`h${i}`} x1={0} y1={i*rh} x2={w} y2={i*rh} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>);return <svg width={w} height={h} className="overflow-visible"><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={2}/>{ls}{Label}</svg>})()}
@@ -102,7 +139,7 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
   const pasteSelected=useCallback(()=>{if(!clipboard.current.length)return;const pasted=clipboard.current.map((n:any)=>({...n,id:`node-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,position:{x:n.position.x+40,y:n.position.y+40}}));setNodes((nds:any[])=>{const u=[...nds,...pasted];autoSave(u,edges);return u})},[setNodes,autoSave,edges])
   const onConnect=useCallback((conn:Connection)=>{pushHistory(nodes,edges);setEdges(eds=>{const u=addEdge({...conn,style:{stroke:'#64748b',strokeWidth:2},markerEnd:{type:MarkerType.ArrowClosed,color:'#64748b'}},eds);autoSave(nodes,u);return u})},[setEdges,nodes,autoSave,pushHistory,edges])
   const addNode=useCallback((ct:NodeContent['contentType']='text')=>{const id=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{id,type:'custom',position:{x:Math.random()*400+100,y:Math.random()*300+100},data:{label:'Nuevo nodo',content:{contentType:ct,content:''}}}];pushHistory(u,edges);autoSave(u,edges);return u})},[setNodes,edges,autoSave,pushHistory])
-  const addShape=useCallback((shape:ShapeType)=>{const id=`shape-${Date.now()}`;const dims=shape==='line'?{width:200,height:40}:shape==='grid'?{width:240,height:200}:shape==='text'?{width:160,height:50}:{width:160,height:120};setNodes((nds:any[])=>{const u=[...nds,{id,type:'shape',position:{x:Math.random()*400+50,y:Math.random()*250+50},data:{shape,...dims,label:shape==='text'?'Nuevo texto':'',fill:'#f1f5f9',stroke:'#64748b',rows:3,cols:3}}];pushHistory(u,edges);autoSave(u,edges);return u})},[setNodes,edges,autoSave,pushHistory])
+  const addShape=useCallback((shape:ShapeType)=>{const id=`shape-${Date.now()}`;const dims=shape==='line'?{width:200,height:40}:shape==='grid'?{width:240,height:200}:shape==='text'?{width:160,height:50}:{width:160,height:120};setNodes((nds:any[])=>{const u=[...nds,{id,type:'shape',position:{x:Math.random()*400+50,y:Math.random()*250+50},data:{shape,...dims,label:shape==='text'?'Nuevo texto':'',fill:'#f1f5f9',stroke:'#64748b',rows:3,cols:3,onResizeEnd:autoSave}}];pushHistory(u,edges);autoSave(u,edges);return u})},[setNodes,edges,autoSave,pushHistory])
   const deleteSelected=useCallback(()=>{pushHistory(nodes,edges);setTimeout(()=>setNodes((nds:any[])=>{const sel=nds.filter((n:any)=>n.selected);const rest=nds.filter((n:any)=>!n.selected);const ids=new Set(sel.map((n:any)=>n.id));setEdges(eds=>eds.filter(e=>!ids.has(e.source)&&!ids.has(e.target)));autoSave(rest);return rest}),0)},[pushHistory,nodes,edges,setNodes,setEdges,autoSave])
   const onKeyDown=useCallback((e:React.KeyboardEvent)=>{if(e.key==='Alt'){setAltHeld(true);e.preventDefault();return};if(e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement)return;if(e.key==='Delete'||e.key==='Backspace'){deleteSelected()}else if(e.ctrlKey&&e.key==='z'){e.preventDefault();undo()}else if(e.ctrlKey&&e.key==='y'){e.preventDefault();redo()}else if(e.ctrlKey&&e.key==='c'){e.preventDefault();copySelected()}else if(e.ctrlKey&&e.key==='x'){e.preventDefault();copySelected();deleteSelected()}else if(e.ctrlKey&&e.key==='v'){e.preventDefault();pasteSelected()}},[deleteSelected,undo,redo,copySelected,pasteSelected])
   const onKeyUp = useCallback((e:React.KeyboardEvent)=>{if(e.key==='Alt')setAltHeld(false)},[])
