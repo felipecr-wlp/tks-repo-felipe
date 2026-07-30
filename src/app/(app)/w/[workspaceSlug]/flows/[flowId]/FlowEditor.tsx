@@ -39,7 +39,7 @@ function CustomNode({ data, selected, id }: NodeProps) {
       if (corner.includes('r')) nw = Math.max(120, ow + dx)
       if (corner.includes('l')) { nw = Math.max(120, ow - dx); px = ox + dx }
       if (corner.includes('b') || corner.includes('t')) { py = corner.includes('t') ? oy + dy : oy }
-      rf.setNodes((nds: any[]) => nds.map((n: any) => n.id === id ? { ...n, position: { x: px, y: py }, data: { ...n.data, nodeWidth: nw } } : n))
+      requestAnimationFrame(() => rf.setNodes((nds: any[]) => nds.map((n: any) => n.id === id ? { ...n, position: { x: px, y: py }, data: { ...n.data, nodeWidth: nw } } : n)))
     }
     const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
     window.addEventListener('mousemove', onMove)
@@ -93,7 +93,7 @@ function ShapeNode({ data, selected, id }: NodeProps) {
       if (corner.includes('l')) { nw = Math.max(20, ow - dx); px = ox + dx }
       if (corner.includes('b')) nh = Math.max(20, oh + dy)
       if (corner.includes('t')) { nh = Math.max(20, oh - dy); py = oy + dy }
-      rf.setNodes((nds: any[]) => nds.map((n: any) => n.id === id ? { ...n, position: { x: px, y: py }, data: { ...n.data, width: nw, height: nh } } : n))
+      requestAnimationFrame(() => rf.setNodes((nds: any[]) => nds.map((n: any) => n.id === id ? { ...n, position: { x: px, y: py }, data: { ...n.data, width: nw, height: nh } } : n)))
     }
     const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); if(d.onResizeEnd)d.onResizeEnd() }
     window.addEventListener('mousemove', onMove)
