@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { CalendarDays, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, ClipboardList } from 'lucide-react'
 import { shiftDate, formatWeekLabel, formatWeekDayShort, formatReportDate } from '@/lib/daily-reports'
+import { DigestButton } from '../DigestButton'
 
 export interface CeldaSemana {
   date: string
@@ -37,6 +38,7 @@ export interface BloqueoSemana {
 }
 
 interface Props {
+  workspaceId: string
   workspaceSlug: string
   dias: string[]
   today: string
@@ -83,6 +85,7 @@ function Avatar({ name, url, size = 22 }: { name: string; url: string | null; si
 }
 
 export function SemanaClient({
+  workspaceId,
   workspaceSlug,
   dias,
   today,
@@ -155,6 +158,17 @@ export function SemanaClient({
             <ClipboardList size={14} />
             Ver por día
           </Link>
+          {/* El reporte SEMANAL: lo que casi nadie escribe el viernes. El rango
+              es exactamente la semana que se está viendo, sin pedir fechas. */}
+          <DigestButton
+            workspaceId={workspaceId}
+            from={dias[0]}
+            to={dias[dias.length - 1]}
+            period="semana"
+            isSupervisor={isSupervisor}
+            label="Armar reporte de la semana"
+            className="text-sm text-muted-foreground hover:text-foreground"
+          />
           <span className="text-xs text-muted-foreground ml-auto">
             {totalSemana} {totalSemana === 1 ? 'actividad' : 'actividades'}
             {isSupervisor && sinReportar > 0 && ` · ${sinReportar} sin reportar`}

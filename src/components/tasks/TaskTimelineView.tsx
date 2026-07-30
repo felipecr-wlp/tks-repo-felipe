@@ -13,19 +13,28 @@
  *
  * Sin dependencias de fecha externas: toda la aritmetica de dias se hace con Date
  * en hora local para respetar la zona del usuario (mismos helpers que el
- * calendario). Interaccion de solo lectura: no hay arrastrar para reprogramar.
+ * calendario).
+ *
+ * Reprogramar arrastrando: arrastrar el cuerpo de la barra mueve inicio y fin
+ * juntos; arrastrar sus bordes cambia solo uno de los dos. Persiste con PATCH
+ * /api/tasks/[taskId] usando ISO a mediodia local para que la fecha no se corra
+ * por zona horaria. Es optimista: la barra se queda donde la soltaron y solo
+ * regresa si el servidor la rechaza, porque devolverla mientras responde la red
+ * se lee como si el arrastre hubiera fallado.
  */
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronRightSmall,
   GanttChartSquare, CalendarClock, AlertTriangle, CalendarOff, FileDown,
+  MoveHorizontal,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { useI18n } from '@/lib/i18n/LanguageProvider'
 import { exportGanttToPdf, type GanttExportGroup } from '@/lib/gantt-export'
+import { avanceDe, avanceIsHollow, AVANCE_COLOR, AVANCE_LABEL_KEY, AVANCE_ORDER } from '@/lib/task-progress'
 
 interface Status { id: string; name: string; color: string | null; category: string; position: number }
 interface Member { id: string; display_name: string; avatar_url: string | null }
@@ -96,8 +105,23 @@ function parseDay(iso: string): Date { const d = new Date(iso); return new Date(
 // Indice desde el lunes (0 = Lun ... 6 = Dom), para alinear columnas por semana.
 function mondayIndex(d: Date): number { return (d.getDay() + 6) % 7 }
 function daysBetween(a: Date, b: Date): number { return Math.round((b.getTime() - a.getTime()) / DAY_MS) }
+// ISO a mediodia local: parseDay (que usa Y/M/D local) recupera el mismo dia.
+function noonIso(d: Date): string { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0).toISOString() }
+function fmtDay(d: Date, locale: string): string { return d.toLocaleDateString(locale, { day: 'numeric', month: 'short' }) }
 
 interface DatedTask { task: Task; start: Date; end: Date }
+
+/** Modo de color de la barra. `avance` es el semaforo de arranque. */
+type ColorBy = 'phase' | 'priority' | 'avance'
+
+const DRAG_THRESHOLD = 4
+type DragMode = 'move' | 'start' | 'end'
+interface DragState { taskId: string; start: Date; end: Date; moved: boolean; x: number; y: number }
+interface DragSession {
+  taskId: string; mode: DragMode; startClientX: number
+  origStart: Date; origEnd: Date; curStart: Date; curEnd: Date
+  moved: boolean
+}
 
 export function TaskTimelineView({ projectId, tasks, statuses, members, currentUserId, projectName, workspaceName }: TaskTimelineViewProps) {
   const router = useRouter()
@@ -105,6 +129,7 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
   const locale = lang === 'en' ? 'en-US' : 'es-MX'
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [zoom, setZoom] = useState<Zoom>('mes')
+  const [colorBy, setColorBy] = useState<ColorBy>('phase')
   // Ancla del rango visible: inicio del periodo. Arranca en HOY menos un margen.
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()))
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
@@ -126,17 +151,29 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
   const today = startOfDay(new Date())
   const cfg = ZOOM_CONFIG[zoom]
 
+  // Fechas optimistas por tarea mientras el servidor confirma el PATCH. Al
+  // llegar tareas nuevas del servidor (realtime -> refresh) ya no hacen falta:
+  // la prop trae el valor confirmado.
+  const [overrides, setOverrides] = useState<Record<string, { start_date: string; due_date: string }>>({})
+  useEffect(() => { setOverrides({}) }, [tasks])
+
   // Rango de tarea: [start, end] en dias. Requiere al menos una de las fechas.
   const dated = useMemo<DatedTask[]>(() => tasks.map(t => {
-    const due = t.due_date ? parseDay(t.due_date) : null
-    const start = t.start_date ? parseDay(t.start_date) : null
+    const ov = overrides[t.id]
+    const dueStr = ov?.due_date ?? t.due_date
+    const startStr = ov?.start_date ?? t.start_date
+    const due = dueStr ? parseDay(dueStr) : null
+    const start = startStr ? parseDay(startStr) : null
     if (!due && !start) return null
     const s = start ?? due!
     const e = due ?? start!
     return { task: t, start: s <= e ? s : e, end: s <= e ? e : s }
-  }).filter((x): x is DatedTask => x != null), [tasks])
+  }).filter((x): x is DatedTask => x != null), [tasks, overrides])
 
-  const undated = useMemo(() => tasks.filter(t => !t.due_date && !t.start_date), [tasks])
+  const undated = useMemo(() => tasks.filter(t => {
+    const ov = overrides[t.id]
+    return !(ov?.due_date ?? t.due_date) && !(ov?.start_date ?? t.start_date)
+  }), [tasks, overrides])
 
   // Inicio de la rejilla alineado a lunes (para que las columnas por semana
   // caigan limpias) y ancho total en dias segun el zoom.
@@ -165,15 +202,108 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
   const gridWidth = totalDays * pxPerDay
 
   // Posicion horizontal (left, width) de una barra recortada al rango visible.
-  function barGeometry(d: DatedTask): { left: number; width: number; clipStart: boolean; clipEnd: boolean } | null {
-    if (d.end < gridStart || d.start > gridEnd) return null // fuera del rango
-    const clampedStart = d.start < gridStart ? gridStart : d.start
-    const clampedEnd = d.end > gridEnd ? gridEnd : d.end
+  function barGeometry(start: Date, end: Date): { left: number; width: number; clipStart: boolean; clipEnd: boolean } | null {
+    if (end < gridStart || start > gridEnd) return null // fuera del rango
+    const clampedStart = start < gridStart ? gridStart : start
+    const clampedEnd = end > gridEnd ? gridEnd : end
     const startOff = daysBetween(gridStart, clampedStart)
     const endOff = daysBetween(gridStart, clampedEnd)
     const left = startOff * pxPerDay
     const width = Math.max((endOff - startOff + 1) * pxPerDay, 8)
-    return { left, width, clipStart: d.start < gridStart, clipEnd: d.end > gridEnd }
+    return { left, width, clipStart: start < gridStart, clipEnd: end > gridEnd }
+  }
+
+  // ── Reprogramar arrastrando ───────────────────────────────────────────────
+  function commitDates(taskId: string, start: Date, end: Date) {
+    const s = start <= end ? start : end
+    const e = start <= end ? end : start
+    const startIso = noonIso(s)
+    const dueIso = noonIso(e)
+    setOverrides(o => ({ ...o, [taskId]: { start_date: startIso, due_date: dueIso } }))
+    fetch(`/api/tasks/${taskId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start_date: startIso, due_date: dueIso }),
+    })
+      .then(res => {
+        if (!res.ok) {
+          toast.error(res.status === 403 ? tr('toast.moveNoAccess') : tr('toast.moveFailed'))
+          setOverrides(o => { const n = { ...o }; delete n[taskId]; return n })
+        } else {
+          toast.success(tr('toast.dateUpdated'))
+          router.refresh()
+        }
+      })
+      .catch(() => {
+        toast.error(tr('toast.moveNetwork'))
+        setOverrides(o => { const n = { ...o }; delete n[taskId]; return n })
+      })
+  }
+
+  // Los listeners se montan UNA vez y leen refs. Volver a suscribirlos en cada
+  // movimiento del puntero perderia eventos a mitad del arrastre.
+  const [drag, setDrag] = useState<DragState | null>(null)
+  const dragSession = useRef<DragSession | null>(null)
+  const helpersRef = useRef({ pxPerDay, commitDates, openTask: setSelectedTaskId })
+  helpersRef.current = { pxPerDay, commitDates, openTask: setSelectedTaskId }
+
+  useEffect(() => {
+    function onMove(e: PointerEvent) {
+      const sess = dragSession.current
+      if (!sess) return
+      const { pxPerDay: ppd } = helpersRef.current
+      const dx = e.clientX - sess.startClientX
+      if (Math.abs(dx) > DRAG_THRESHOLD) sess.moved = true
+      const deltaDays = Math.round(dx / ppd)
+      let ns = sess.origStart
+      let ne = sess.origEnd
+      if (sess.mode === 'move') {
+        ns = addDays(sess.origStart, deltaDays)
+        ne = addDays(sess.origEnd, deltaDays)
+      } else if (sess.mode === 'start') {
+        ns = addDays(sess.origStart, deltaDays)
+        if (ns > sess.origEnd) ns = sess.origEnd
+        ne = sess.origEnd
+      } else {
+        ne = addDays(sess.origEnd, deltaDays)
+        if (ne < sess.origStart) ne = sess.origStart
+        ns = sess.origStart
+      }
+      sess.curStart = ns
+      sess.curEnd = ne
+      setDrag({ taskId: sess.taskId, start: ns, end: ne, moved: sess.moved, x: e.clientX, y: e.clientY })
+    }
+    function onUp() {
+      const sess = dragSession.current
+      dragSession.current = null
+      if (!sess) { setDrag(null); return }
+      const h = helpersRef.current
+      // Sin desplazamiento real fue un clic: abre la tarea, no reprograma.
+      if (!sess.moved) {
+        h.openTask(sess.taskId)
+      } else {
+        const changed = sess.curStart.getTime() !== sess.origStart.getTime()
+          || sess.curEnd.getTime() !== sess.origEnd.getTime()
+        if (changed) h.commitDates(sess.taskId, sess.curStart, sess.curEnd)
+      }
+      setDrag(null)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [])
+
+  function startDrag(e: React.PointerEvent, taskId: string, start: Date, end: Date, mode: DragMode) {
+    e.preventDefault()
+    e.stopPropagation()
+    dragSession.current = {
+      taskId, mode, startClientX: e.clientX,
+      origStart: start, origEnd: end, curStart: start, curEnd: end, moved: false,
+    }
+    setDrag({ taskId, start, end, moved: false, x: e.clientX, y: e.clientY })
   }
 
   // Agrupar tareas con fecha por categoria de estado, ordenadas por inicio.
@@ -193,6 +323,17 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
         items: items.sort((a, b) => a.start.getTime() - b.start.getTime() || a.end.getTime() - b.end.getTime()),
       }))
       .sort((a, b) => (CATEGORY_ORDER[a.key] ?? 99) - (CATEGORY_ORDER[b.key] ?? 99))
+  }, [dated])
+
+  // Conteo por cubo de avance, para la leyenda.
+  const avanceCount = useMemo(() => {
+    const acc: Partial<Record<ReturnType<typeof avanceDe>, number>> = {}
+    for (const d of dated) {
+      const a = avanceDe(d.task.status?.category, d.start, today)
+      acc[a] = (acc[a] ?? 0) + 1
+    }
+    return acc
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dated])
 
   // Centrar el scroll horizontal en HOY al montar y al cambiar de zoom/ancla.
@@ -286,9 +427,35 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
         <div className="flex items-center gap-2">
           <GanttChartSquare className="w-4 h-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold text-foreground capitalize">{rangeLabel}</h2>
+          <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-muted-foreground/70">
+            <MoveHorizontal className="w-3.5 h-3.5" />
+            {tr('gantt.reprogramHint')}
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Colorear por: fase, prioridad o avance */}
+          <div className="inline-flex items-center rounded-md border border-border overflow-hidden" title={tr('gantt.colorByTitle')}>
+            {(['phase', 'priority', 'avance'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setColorBy(mode)}
+                className={`px-2.5 py-1 text-xs transition-colors ${
+                  colorBy === mode
+                    ? 'bg-primary text-primary-foreground font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+                aria-pressed={colorBy === mode}
+              >
+                {mode === 'phase'
+                  ? tr('gantt.colorByPhase')
+                  : mode === 'priority'
+                    ? tr('gantt.colorByPriority')
+                    : tr('gantt.colorByAvance')}
+              </button>
+            ))}
+          </div>
+
           {/* Control segmentado de zoom */}
           <div className="inline-flex items-center rounded-md border border-border overflow-hidden">
             {(Object.keys(ZOOM_CONFIG) as Zoom[]).map(z => (
@@ -348,6 +515,32 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
           </button>
         </div>
       </div>
+
+      {/* Leyenda del semaforo de avance. Solo aparece en ese modo: una leyenda
+          permanente para colores que no se estan usando es ruido. Los conteos
+          son de TODAS las tareas con fecha, no solo del rango visible: "3 no
+          arrancaron" deja de servir si depende de a donde este el scroll. */}
+      {colorBy === 'avance' && (
+        <div className="flex items-center gap-3 flex-wrap mb-3 px-1">
+          {AVANCE_ORDER.map(a => {
+            const n = avanceCount[a] ?? 0
+            if (n === 0) return null
+            return (
+              <span key={a} className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span
+                  className="w-3 h-3 rounded-sm flex-shrink-0"
+                  style={{
+                    backgroundColor: avanceIsHollow(a) ? 'transparent' : `${AVANCE_COLOR[a]}44`,
+                    border: `1px ${avanceIsHollow(a) ? 'dashed' : 'solid'} ${AVANCE_COLOR[a]}`,
+                  }}
+                />
+                {tr(AVANCE_LABEL_KEY[a])}
+                <span className="tabular-nums font-medium text-foreground">{n}</span>
+              </span>
+            )
+          })}
+        </div>
+      )}
 
       {/* Modal de portada del PDF (nombre del cliente + direccion, editables) */}
       {exportOpen && (
@@ -506,10 +699,23 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
 
                       {!isCollapsed && group.items.map(d => {
                         const t = d.task
+                        const isDragging = drag?.taskId === t.id
+                        const effStart = isDragging ? drag!.start : d.start
+                        const effEnd = isDragging ? drag!.end : d.end
                         const done = t.status?.category === 'done' || t.status?.category === 'cancelled'
                         const bucket = dueBucket(t.due_date, done)
-                        const baseColor = PRIORITY_COLOR[t.priority] ?? PRIORITY_COLOR.none
-                        const geom = barGeometry(d)
+                        const priorityColor = PRIORITY_COLOR[t.priority] ?? PRIORITY_COLOR.none
+                        const avance = avanceDe(t.status?.category, d.start, today)
+                        // "Fase" es el color que Karla ya reconoce en la lista:
+                        // etiqueta primero, estado despues, prioridad al final.
+                        const firstLabel = t.labels && t.labels.length > 0 ? t.labels[0] : undefined
+                        const baseColor = colorBy === 'avance'
+                          ? AVANCE_COLOR[avance]
+                          : colorBy === 'priority'
+                            ? priorityColor
+                            : (firstLabel?.color ?? t.status?.color ?? priorityColor)
+                        const hollow = colorBy === 'avance' && avanceIsHollow(avance)
+                        const geom = barGeometry(effStart, effEnd)
                         const initials = t.assignee?.display_name
                           ? t.assignee.display_name.trim().slice(0, 2).toUpperCase()
                           : null
@@ -550,33 +756,55 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
                             {/* Carril de la barra */}
                             <div className="relative" style={{ width: gridWidth }}>
                               {geom && (
-                                <button
-                                  onClick={() => setSelectedTaskId(t.id)}
-                                  title={t.title}
-                                  className={`absolute top-1/2 -translate-y-1/2 h-[20px] flex items-center gap-1 px-1.5 rounded text-[11px] font-medium hover:brightness-110 hover:ring-1 hover:ring-foreground/20 hover:shadow-sm transition-all ${
-                                    bucket === 'overdue' ? 'ring-1 ring-destructive/70' : ''
-                                  }`}
-                                  style={{
-                                    left: geom.left + 1,
-                                    width: geom.width - 2,
-                                    backgroundColor: done
-                                      ? 'transparent'
-                                      : `${baseColor}22`,
-                                    color: done ? undefined : baseColor,
-                                    borderLeft: geom.clipStart ? undefined : `2px solid ${baseColor}`,
-                                    borderRight: geom.clipEnd ? `2px solid ${baseColor}` : undefined,
-                                    // Completadas/canceladas con patron rayado tenue.
-                                    backgroundImage: done
-                                      ? 'repeating-linear-gradient(45deg, var(--muted, #64748b22) 0, var(--muted, #64748b22) 4px, transparent 4px, transparent 8px)'
-                                      : undefined,
-                                  }}
+                                <div
+                                  className={`absolute top-1/2 -translate-y-1/2 h-[20px] group/bar select-none ${isDragging ? 'z-20' : ''}`}
+                                  style={{ left: geom.left + 1, width: geom.width - 2 }}
                                 >
-                                  {bucket === 'overdue' && <AlertTriangle className="w-3 h-3 flex-shrink-0" />}
-                                  {bucket === 'today' && <CalendarClock className="w-3 h-3 flex-shrink-0" />}
-                                  <span className={`truncate ${done ? 'text-muted-foreground line-through' : ''}`}>
-                                    {t.title}
-                                  </span>
-                                </button>
+                                  <div
+                                    onPointerDown={e => startDrag(e, t.id, effStart, effEnd, 'move')}
+                                    title={t.title}
+                                    className={`h-full w-full flex items-center gap-1 px-1.5 rounded text-[11px] font-medium cursor-grab active:cursor-grabbing hover:brightness-110 hover:shadow-sm transition-[filter,box-shadow] ${
+                                      bucket === 'overdue' ? 'ring-1 ring-destructive/70' : ''
+                                    } ${isDragging ? 'ring-1 ring-foreground/40 shadow-md' : ''}`}
+                                    style={{
+                                      backgroundColor: done || hollow ? 'transparent' : `${baseColor}22`,
+                                      color: done ? undefined : baseColor,
+                                      borderLeft: geom.clipStart ? undefined : `2px solid ${baseColor}`,
+                                      borderRight: geom.clipEnd ? `2px solid ${baseColor}` : undefined,
+                                      // Hueca y rayada: lo que no arranco no debe
+                                      // parecer trabajo en curso ni de lejos.
+                                      border: hollow ? `1px dashed ${baseColor}` : undefined,
+                                      backgroundImage: done
+                                        ? 'repeating-linear-gradient(45deg, var(--muted, #64748b22) 0, var(--muted, #64748b22) 4px, transparent 4px, transparent 8px)'
+                                        : hollow
+                                          ? `repeating-linear-gradient(45deg, ${baseColor}1f 0, ${baseColor}1f 3px, transparent 3px, transparent 7px)`
+                                          : undefined,
+                                    }}
+                                  >
+                                    {bucket === 'overdue' && <AlertTriangle className="w-3 h-3 flex-shrink-0" />}
+                                    {bucket === 'today' && <CalendarClock className="w-3 h-3 flex-shrink-0" />}
+                                    <span className={`truncate ${done ? 'text-muted-foreground line-through' : ''}`}>
+                                      {t.title}
+                                    </span>
+                                  </div>
+
+                                  {/* Manija izquierda (cambia inicio) */}
+                                  {!geom.clipStart && (
+                                    <div
+                                      onPointerDown={e => startDrag(e, t.id, effStart, effEnd, 'start')}
+                                      className="absolute left-0 top-0 h-full w-1.5 cursor-ew-resize rounded-l opacity-0 group-hover/bar:opacity-100 transition-opacity"
+                                      style={{ backgroundColor: baseColor }}
+                                    />
+                                  )}
+                                  {/* Manija derecha (cambia fin) */}
+                                  {!geom.clipEnd && (
+                                    <div
+                                      onPointerDown={e => startDrag(e, t.id, effStart, effEnd, 'end')}
+                                      className="absolute right-0 top-0 h-full w-1.5 cursor-ew-resize rounded-r opacity-0 group-hover/bar:opacity-100 transition-opacity"
+                                      style={{ backgroundColor: baseColor }}
+                                    />
+                                  )}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -628,6 +856,18 @@ export function TaskTimelineView({ projectId, tasks, statuses, members, currentU
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Etiqueta flotante con las fechas nuevas mientras se arrastra. Sin ella
+          el arrastre es a ciegas: la rejilla dice el dia pero no la fecha. */}
+      {drag && drag.moved && (
+        <div
+          className="fixed z-50 pointer-events-none px-2 py-1 rounded-md bg-foreground text-background text-[11px] font-medium shadow-lg tabular-nums"
+          style={{ left: drag.x + 14, top: drag.y + 14 }}
+        >
+          {fmtDay(drag.start, locale)} {tr('gantt.rangeTo')} {fmtDay(drag.end, locale)}
+          <span className="ml-1 opacity-70">({daysBetween(drag.start, drag.end) + 1}{tr('gantt.days')})</span>
         </div>
       )}
     </div>

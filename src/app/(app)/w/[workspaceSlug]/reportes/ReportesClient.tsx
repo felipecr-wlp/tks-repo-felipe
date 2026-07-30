@@ -46,8 +46,10 @@ import {
   ImagePlus,
   CheckSquare,
   CalendarDays,
+  CalendarRange,
   X,
 } from 'lucide-react'
+import { DigestButton } from './DigestButton'
 import {
   CATEGORY_LABEL,
   REPORT_CATEGORIES,
@@ -412,6 +414,26 @@ export function ReportesClient({
             <CalendarDays size={14} />
             La semana
           </Link>
+          {/* El calendario es la vista de arriba: cuanto se anoto cada dia del
+              periodo que se elija. Sirve para encontrar el hueco, no para leer. */}
+          <Link
+            href={`/w/${workspaceSlug}/reportes/calendario`}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            <CalendarRange size={14} />
+            Calendario
+          </Link>
+          {/* Armar el reporte del DIA. El periodo ya esta decidido por la
+              pantalla, asi que aqui no hay nada que elegir salvo el alcance. */}
+          <DigestButton
+            workspaceId={workspaceId}
+            from={date}
+            to={date}
+            period="dia"
+            isSupervisor={isSupervisor}
+            label="Armar reporte del día"
+            className="text-sm text-muted-foreground hover:text-foreground"
+          />
           <span className="text-xs text-muted-foreground ml-auto">
             {isSupervisor && (
               <>

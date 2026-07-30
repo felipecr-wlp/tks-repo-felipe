@@ -429,6 +429,67 @@ export type Database = {
           },
         ]
       }
+      daily_report_digests: {
+        Row: {
+          content: string
+          created_at: string
+          generated_by: string | null
+          id: string
+          period: string
+          period_end: string
+          period_start: string
+          profile_id: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          generated_by?: string | null
+          id?: string
+          period: string
+          period_end: string
+          period_start: string
+          profile_id?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          generated_by?: string | null
+          id?: string
+          period?: string
+          period_end?: string
+          period_start?: string
+          profile_id?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_report_digests_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_report_digests_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_report_digests_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_report_entries: {
         Row: {
           category: string

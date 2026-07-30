@@ -206,6 +206,7 @@ export default async function SemanaPage({ params, searchParams }: PageProps) {
 
   return (
     <SemanaClient
+      workspaceId={workspace.id}
       workspaceSlug={params.workspaceSlug}
       dias={dias}
       today={todayInReportTz()}
