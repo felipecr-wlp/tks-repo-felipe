@@ -31,7 +31,7 @@ function CustomNode({ data, selected, id }: NodeProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   useEffect(()=>{const el=containerRef.current;if(!el)return;const ro=new ResizeObserver(()=>{const w=el.offsetWidth;rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,nodeWidth:w}}:n))});ro.observe(el);return()=>ro.disconnect()},[id,rf])
   return (
-    <div ref={containerRef} className={`bg-card border-2 rounded-lg px-4 py-3 shadow-sm transition-all group relative ${selected?'border-primary ring-2 ring-primary/30 shadow-md':locked?'opacity-70 border-border':'border-border'}`} style={{width:nodeW,maxWidth:'none',resize:'horizontal',overflow:'hidden'}}>
+    <div ref={containerRef} className={`bg-card border-2 rounded-lg px-4 py-3 shadow-sm transition-all group relative ${selected?'border-primary ring-2 ring-primary/30 shadow-md':locked?'opacity-70 border-border':'border-border'}`} style={{width:nodeW,maxWidth:'none',resize:'horizontal',overflow:'auto'}}>
       {selected && <CheckCircle className="absolute -top-1.5 -right-1.5 w-4 h-4 text-primary bg-background rounded-full z-10" />}
       <Handle type="target" position={Position.Top} className="!bg-muted-foreground" />
       <div className="flex items-center gap-2 mb-1">
@@ -62,7 +62,7 @@ function ShapeNode({ data, selected, id }: NodeProps) {
   useEffect(()=>{const el=containerRef.current;if(!el)return;const ro=new ResizeObserver(()=>{const nw=el.offsetWidth;const nh=el.offsetHeight;if(nw>0&&nh>0)rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,width:nw,height:nh}}:n));if(d.onResizeEnd)d.onResizeEnd()});ro.observe(el);return()=>ro.disconnect()},[id,rf,d])
   const Label = label ? <text x={w/2} y={h/2} textAnchor="middle" dominantBaseline="central" fill="#334155" fontSize={13} fontWeight={500} fontFamily="system-ui, sans-serif" style={{pointerEvents:'none'}}>{label}</text> : null
 
-  const D = <div ref={containerRef} style={{width:w,height:h,...opacity,...selRing,position:'relative',resize:'both',overflow:'hidden'}}>
+  const D = <div ref={containerRef} style={{width:w,height:h,...opacity,...selRing,position:'relative',resize:'both',overflow:'auto'}}>
     {selected && <CheckCircle className="absolute -top-2 -right-2 w-4 h-4 text-primary bg-background rounded-full z-10"/>}
   {s==='circle' && <svg width={w} height={h} className="overflow-visible"><ellipse cx={w/2} cy={h/2} rx={w/2-2} ry={h/2-2} fill={fill} stroke={stroke} strokeWidth={2}/>{Label}</svg>}
   {s==='line' && <svg width={w} height={h} className="overflow-visible"><line x1={0} y1={h/2} x2={w} y2={h/2} stroke={stroke} strokeWidth={3}/><polygon points={`${w-8},${h/2-5} ${w},${h/2} ${w-8},${h/2+5}`} fill={stroke}/>{Label}</svg>}
