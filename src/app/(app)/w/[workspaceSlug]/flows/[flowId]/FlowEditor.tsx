@@ -50,7 +50,7 @@ function CustomNode({ data, selected, id }: NodeProps) {
       {selected && <CheckCircle className="absolute -top-1.5 -right-1.5 w-4 h-4 text-primary bg-background rounded-full z-10" />}
       {selected && <>
         {[[0,0,'nwse-resize','tl'],[nodeW,0,'nesw-resize','tr'],[0,68,'nesw-resize','bl'],[nodeW,68,'nwse-resize','br'],[nodeW/2,0,'ns-resize','t'],[nodeW/2,68,'ns-resize','b'],[0,34,'ew-resize','l'],[nodeW,34,'ew-resize','r']].map(([x,y,cursor,corner]:any[])=>
-          <div key={corner} style={{position:'absolute',left:x-7,top:y-7,width:16,height:16,borderRadius:3,background:'#3b82f6',border:'2px solid #fff',cursor,zIndex:20}} onMouseDown={e=>doResize(e,corner)}/>
+          <div key={corner} style={{position:'absolute',left:x-8,top:y-8,width:18,height:18,borderRadius:4,background:'#3b82f6',border:'2px solid #fff',cursor,zIndex:50,pointerEvents:'auto'}} onPointerDown={e=>{e.stopPropagation();e.preventDefault();doResize(e,corner)}}/>
         )}
       </>}
       <Handle type="target" position={Position.Top} className="!bg-muted-foreground" />
@@ -100,9 +100,9 @@ function ShapeNode({ data, selected, id }: NodeProps) {
     window.addEventListener('mouseup', onUp)
   }
 
-  const hs = 8; const hSize = hs*2 + 2
+  const hs = 10; const hSize = hs*2
   const handle = (x: number, y: number, cursor: string, corner: string) =>
-    <div style={{position:'absolute',left:x-hs-1,top:y-hs-1,width:hSize,height:hSize,borderRadius:3,background:'#3b82f6',border:'2px solid #fff',cursor,zIndex:20,display:selected?'block':'none'}} onMouseDown={e => doResize(e, corner)} />
+    <div style={{position:'absolute',left:x-hs,top:y-hs,width:hSize,height:hSize,borderRadius:4,background:'#3b82f6',border:'2px solid #fff',cursor,zIndex:50,pointerEvents:'auto',display:selected?'block':'none'}} onPointerDown={e => {e.stopPropagation();e.preventDefault();doResize(e, corner)}} />
 
   const D = <div style={{width:w,height:h,...opacity,...selRing,position:'relative'}}>
     {selected && <CheckCircle className="absolute -top-2 -right-2 w-4 h-4 text-primary bg-background rounded-full z-10"/>}
