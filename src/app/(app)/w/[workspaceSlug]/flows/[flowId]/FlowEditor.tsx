@@ -38,6 +38,7 @@ function CustomNode({ data, selected, id }: NodeProps) {
       let nw = ow; let px = ox; let py = oy
       if (corner.includes('r')) nw = Math.max(120, ow + dx)
       if (corner.includes('l')) { nw = Math.max(120, ow - dx); px = ox + dx }
+      if (corner.includes('b') || corner.includes('t')) { py = corner.includes('t') ? oy + dy : oy }
       rf.setNodes((nds: any[]) => nds.map((n: any) => n.id === id ? { ...n, position: { x: px, y: py }, data: { ...n.data, nodeWidth: nw } } : n))
     }
     const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
@@ -47,7 +48,11 @@ function CustomNode({ data, selected, id }: NodeProps) {
   return (
     <div className={`bg-card border-2 rounded-lg px-4 py-3 shadow-sm transition-all group relative ${selected?'border-primary ring-2 ring-primary/30 shadow-md':locked?'opacity-70 border-border':'border-border'}`} style={{width:nodeW,maxWidth:'none'}}>
       {selected && <CheckCircle className="absolute -top-1.5 -right-1.5 w-4 h-4 text-primary bg-background rounded-full z-10" />}
-      {selected && <><div style={{position:'absolute',right:-6,bottom:-6,width:14,height:14,borderRadius:3,background:'#3b82f6',border:'2px solid #fff',cursor:'nwse-resize',zIndex:20}} onMouseDown={e=>doResize(e,'br')}/><div style={{position:'absolute',right:-6,top:nodeW/2-7,width:14,height:14,borderRadius:3,background:'#3b82f6',border:'2px solid #fff',cursor:'ew-resize',zIndex:20}} onMouseDown={e=>doResize(e,'r')}/></>}
+      {selected && <>
+        {[[0,0,'nwse-resize','tl'],[nodeW,0,'nesw-resize','tr'],[0,68,'nesw-resize','bl'],[nodeW,68,'nwse-resize','br'],[nodeW/2,0,'ns-resize','t'],[nodeW/2,68,'ns-resize','b'],[0,34,'ew-resize','l'],[nodeW,34,'ew-resize','r']].map(([x,y,cursor,corner]:any[])=>
+          <div key={corner} style={{position:'absolute',left:x-7,top:y-7,width:16,height:16,borderRadius:3,background:'#3b82f6',border:'2px solid #fff',cursor,zIndex:20}} onMouseDown={e=>doResize(e,corner)}/>
+        )}
+      </>}
       <Handle type="target" position={Position.Top} className="!bg-muted-foreground" />
       <div className="flex items-center gap-2 mb-1">
         <span className="text-primary/70">{icons[ct]}</span>
