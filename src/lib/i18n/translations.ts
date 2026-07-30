@@ -128,6 +128,8 @@ export const translations: Record<Lang, Dict> = {
     'cal.empty': 'Sin tareas en el calendario',
     'cal.emptyHint': 'Crea tareas con fecha de vencimiento desde la vista Lista o Tablero y aparecerán aquí.',
     'cal.legendColor': 'Color por estado o prioridad',
+    'cal.dragHint': 'Arrastra una barra a otro día para mover sus fechas. Los extremos cambian solo el inicio o solo el fin. Un clic abre la tarea.',
+    'cal.dragMove': 'Arrastra para mover · clic para abrir',
     // Salud del proyecto (compartido calendario / carga de trabajo)
     'health.completed': 'completadas',
     'health.overdue': 'vencidas',
@@ -1660,6 +1662,8 @@ export const translations: Record<Lang, Dict> = {
     'cal.empty': 'No tasks on the calendar',
     'cal.emptyHint': 'Create tasks with a due date from the List or Board view and they will appear here.',
     'cal.legendColor': 'Color by status or priority',
+    'cal.dragHint': 'Drag a bar to another day to move its dates. The edges change only the start or only the end. A click opens the task.',
+    'cal.dragMove': 'Drag to move · click to open',
     // Project health (shared calendar / workload)
     'health.completed': 'completed',
     'health.overdue': 'overdue',
