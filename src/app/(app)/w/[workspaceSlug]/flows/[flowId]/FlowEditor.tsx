@@ -8,7 +8,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Lock, Unlock } from 'lucide-react'
 import LinkNext from 'next/link'
 
 type ShapeType = 'rect' | 'circle' | 'line' | 'grid' | 'text'
@@ -21,17 +21,18 @@ const icons: Record<string, React.ReactNode> = {
   url: <LinkIcon className="w-3 h-3" />, document: <FileText className="w-3 h-3" />,
 }
 
-function CustomNode({ data }: NodeProps) {
+function CustomNode({ data, selected }: NodeProps) {
   const fd = data as unknown as FlowNodeData
   if ('shape' in fd) return null
-  const ct = fd.content?.contentType ?? 'text'
+  const ct = fd.content?.contentType ?? 'text'; const locked = (data as any).locked
   return (
-    <div className="bg-card border-2 rounded-lg px-4 py-3 min-w-[180px] max-w-[260px] shadow-sm border-border group">
+    <div className={`bg-card border-2 rounded-lg px-4 py-3 min-w-[180px] max-w-[260px] shadow-sm transition-colors border-border group ${locked?'opacity-70':''}`}>
       <Handle type="target" position={Position.Top} className="!bg-muted-foreground" />
       <div className="flex items-center gap-2 mb-1">
         <span className="text-primary/70">{icons[ct]}</span>
         <span className="text-xs font-semibold truncate flex-1">{fd.label || 'Nodo'}</span>
         <button className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground" title="Editar"><Pencil className="w-3 h-3" /></button>
+        {locked && <Lock className="w-3 h-3 text-amber-500 ml-0.5 flex-shrink-0" />}
       </div>
       {fd.content?.content && (
         <div className="text-xs text-muted-foreground line-clamp-2 mt-1 break-all">
@@ -47,9 +48,10 @@ function ShapeNode({ data }: NodeProps) {
   const d = data as unknown as ShapeData
   const s = d.shape ?? 'rect'; const w = d.width ?? 160; const h = d.height ?? 120
   const fill = d.fill ?? '#f1f5f9'; const stroke = d.stroke ?? '#64748b'
-  const rows = d.rows ?? 3; const cols = d.cols ?? 3; const label = d.label ?? ''
+  const rows = d.rows ?? 3; const cols = d.cols ?? 3; const label = d.label ?? ''; const locked = (data as any).locked
+  const opacity = locked ? {opacity:0.6} : {}
   const Label = label ? <text x={w/2} y={h/2} textAnchor="middle" dominantBaseline="central" fill="#334155" fontSize={13} fontWeight={500} fontFamily="system-ui, sans-serif" style={{pointerEvents:'none'}}>{label}</text> : null
-  const D = <div style={{width:w,height:h}}>
+  const D = <div style={{width:w,height:h,...opacity}}>
   {s==='circle' && <svg width={w} height={h} className="overflow-visible"><ellipse cx={w/2} cy={h/2} rx={w/2-2} ry={h/2-2} fill={fill} stroke={stroke} strokeWidth={2}/>{Label}</svg>}
   {s==='line' && <svg width={w} height={h} className="overflow-visible"><line x1={0} y1={h/2} x2={w} y2={h/2} stroke={stroke} strokeWidth={3}/><polygon points={`${w-8},${h/2-5} ${w},${h/2} ${w-8},${h/2+5}`} fill={stroke}/>{Label}</svg>}
   {s==='grid' && (()=>{const cw=w/cols,rh=h/rows,ls=[];for(let i=1;i<cols;i++)ls.push(<line key={`v${i}`} x1={i*cw} y1={0} x2={i*cw} y2={h} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>);for(let i=1;i<rows;i++)ls.push(<line key={`h${i}`} x1={0} y1={i*rh} x2={w} y2={i*rh} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>);return <svg width={w} height={h} className="overflow-visible"><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={2}/>{ls}{Label}</svg>})()}
@@ -91,6 +93,7 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
   const bringToFront=useCallback((nodeId:string)=>{setNodes(nds=>{const idx=nds.findIndex((n:any)=>n.id===nodeId);if(idx<0)return nds;const u=[...nds];u.push(u.splice(idx,1)[0]);autoSave(u,edges);return u});setCtxMenu(null)},[setNodes,autoSave,edges])
   const sendToBack=useCallback((nodeId:string)=>{setNodes(nds=>{const idx=nds.findIndex((n:any)=>n.id===nodeId);if(idx<0)return nds;const u=[...nds];u.unshift(u.splice(idx,1)[0]);autoSave(u,edges);return u});setCtxMenu(null)},[setNodes,autoSave,edges])
   const duplicateNode=useCallback((nodeId:string)=>{const node=nodes.find((n:any)=>n.id===nodeId);if(!node)return;const newId=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{...node,id:newId,position:{x:node.position.x+40,y:node.position.y+40},selected:false,data:{...node.data}}];autoSave(u,edges);return u});setCtxMenu(null)},[nodes,setNodes,autoSave,edges])
+  const toggleLock=useCallback((nodeId:string)=>{setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===nodeId?{...n,draggable:n.draggable===false?undefined:false,data:{...n.data,locked:n.data?.locked?false:true}}:n);autoSave(u,edges);return u});setCtxMenu(null)},[setNodes,autoSave,edges])
   const saveContentNode=useCallback(()=>{if(!editingNodeId)return;setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===editingNodeId?{...n,data:{...n.data,label:nodeLabel,content:{contentType:nodeType,content:nodeContent}}}:n);autoSave(u,edges);return u});setEditingNodeId(null)},[editingNodeId,nodeLabel,nodeContent,nodeType,setNodes,autoSave,edges])
   const saveShapeEdit=useCallback(()=>{if(!editingShapeId)return;setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===editingShapeId?{...n,data:{...n.data,shape:shapeType,width:shapeW,height:shapeH,label:shapeLabel,fill:shapeFill,stroke:shapeStroke,rows:shapeRows,cols:shapeCols}}:n);autoSave(u,edges);return u});setEditingShapeId(null)},[editingShapeId,shapeW,shapeH,shapeLabel,shapeFill,shapeStroke,shapeRows,shapeCols,shapeType,setNodes,autoSave,edges])
 
@@ -110,7 +113,7 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
         <style>{`.rf-edges-on-top .react-flow__edges{z-index:50!important}.rf-edges-on-top .react-flow__nodes{z-index:1!important}.rf-edges-on-top .react-flow__edge{stroke-width:2.5}`}</style>
         <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodesDelete={onNodesDelete} onNodeDragStop={onNodeDragStop} onNodeDoubleClick={handleNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onPaneClick={()=>setCtxMenu(null)} nodeTypes={{custom:CustomNode,shape:ShapeNode}} fitView className="bg-background rf-edges-on-top">
           <Controls /><Background variant={BackgroundVariant.Dots} gap={20} size={1} /><MiniMap nodeColor="#94a3b8" className="!bg-card border" />
-          {ctxMenu&&<Panel position="top-left" style={{left:ctxMenu.x,top:ctxMenu.y}} className="!absolute z-[100] bg-card border rounded-lg shadow-xl p-1 min-w-[160px]"><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>bringToFront(ctxMenu.nodeId)}><ArrowUp className="w-3 h-3"/>Traer al frente</button><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>sendToBack(ctxMenu.nodeId)}><ArrowDown className="w-3 h-3"/>Enviar al fondo</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>duplicateNode(ctxMenu.nodeId)}><Copy className="w-3 h-3"/>Duplicar</button><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>{const nds=nodes.filter((n:any)=>n.id!==ctxMenu.nodeId);setNodes(nds as any);autoSave(nds as any);setCtxMenu(null)}}><Trash2 className="w-3 h-3 text-destructive"/>Eliminar</button></Panel>}
+          {ctxMenu&&<Panel position="top-left" style={{left:ctxMenu.x,top:ctxMenu.y}} className="!absolute z-[100] bg-card border rounded-lg shadow-xl p-1 min-w-[160px]"><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>toggleLock(ctxMenu.nodeId)}>{nodes.find((n:any)=>n.id===ctxMenu.nodeId)?.data?.locked?<><Unlock className="w-3 h-3"/>Desbloquear</>:<><Lock className="w-3 h-3"/>Bloquear</>}</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>bringToFront(ctxMenu.nodeId)}><ArrowUp className="w-3 h-3"/>Traer al frente</button><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>sendToBack(ctxMenu.nodeId)}><ArrowDown className="w-3 h-3"/>Enviar al fondo</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>duplicateNode(ctxMenu.nodeId)}><Copy className="w-3 h-3"/>Duplicar</button><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>{const nds=nodes.filter((n:any)=>n.id!==ctxMenu.nodeId);setNodes(nds as any);autoSave(nds as any);setCtxMenu(null)}}><Trash2 className="w-3 h-3 text-destructive"/>Eliminar</button></Panel>}
         </ReactFlow>
 
         <div className="absolute bg-card border rounded-lg shadow-lg z-20 transition-all" style={{right:toolPos.x||12,top:toolPos.y||60,width:toolCollapsed?40:180}}>
