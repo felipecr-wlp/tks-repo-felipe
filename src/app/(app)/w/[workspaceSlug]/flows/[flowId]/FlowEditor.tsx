@@ -89,21 +89,32 @@ function ShapeNode({ data, selected, id }: NodeProps) {
   const rows = d.rows ?? 3
   const cols = d.cols ?? 3
   const onResizeStart = (d as any).onResizeStart as ((e: React.MouseEvent, nodeId: string) => void) | undefined
+  const onResizeCorner = (d as any).onResizeCorner as ((e: React.MouseEvent, nodeId: string, corner: string) => void) | undefined
 
-  const ResizeHandle = onResizeStart && selected ? (
-    <rect
-      x={w - 10} y={h - 10} width={12} height={12}
-      fill="#3b82f6" stroke="#fff" strokeWidth={2} rx={2}
-      style={{ cursor: 'se-resize' }}
-      onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onResizeStart(e, id) }}
-    />
+  const handle = (x: number, y: number, cursor: string, corner: string) =>
+    onResizeCorner && selected ? (
+      <rect
+        x={x} y={y} width={10} height={10}
+        fill="#3b82f6" stroke="#fff" strokeWidth={2} rx={2}
+        style={{ cursor }}
+        onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onResizeCorner(e, id, corner) }}
+      />
+    ) : null
+
+  const ResizeHandles = onResizeCorner && selected ? (
+    <>
+      {handle(0, 0, 'nwse-resize', 'tl')}
+      {handle(w - 10, 0, 'nesw-resize', 'tr')}
+      {handle(0, h - 10, 'nesw-resize', 'bl')}
+      {handle(w - 10, h - 10, 'nwse-resize', 'br')}
+    </>
   ) : null
 
   if (s === 'circle') {
     return (
       <svg width={w} height={h} className="overflow-visible">
         <ellipse cx={w / 2} cy={h / 2} rx={w / 2 - 2} ry={h / 2 - 2} fill={fill} stroke={stroke} strokeWidth={2} />
-        {ResizeHandle}
+        {ResizeHandles}
       </svg>
     )
   }
@@ -126,7 +137,7 @@ function ShapeNode({ data, selected, id }: NodeProps) {
       <svg width={w} height={h} className="overflow-visible">
         <rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={2} />
         {lines}
-        {ResizeHandle}
+        {ResizeHandles}
       </svg>
     )
   }
@@ -134,7 +145,7 @@ function ShapeNode({ data, selected, id }: NodeProps) {
   return (
     <svg width={w} height={h} className="overflow-visible">
       <rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={6} />
-      {ResizeHandle}
+      {ResizeHandles}
     </svg>
   )
 }
@@ -202,7 +213,7 @@ export default function FlowEditor({
     setEdges((eds) => { const u = addEdge(connection, eds); autoSave(nodes, u); return u })
   }, [setEdges, nodes, autoSave])
 
-  const onResizeStart = useCallback((e: React.MouseEvent, nodeId: string) => {
+  const onResizeCorner = useCallback((e: React.MouseEvent, nodeId: string, corner: string) => {
     e.stopPropagation()
     e.preventDefault()
     const startX = e.clientX; const startY = e.clientY
@@ -210,7 +221,17 @@ export default function FlowEditor({
       setNodes((nds) => nds.map((n) => {
         if (n.id !== nodeId) return n
         const data = n.data as ShapeData
-        return { ...n, data: { ...n.data, width: Math.max(40, (data.width ?? 160) + (ev.clientX - startX)), height: Math.max(40, (data.height ?? 120) + (ev.clientY - startY)) } }
+        const dx = ev.clientX - startX
+        const dy = ev.clientY - startY
+        let nw = data.width ?? 160
+        let nh = data.height ?? 120
+        let nx = n.position.x
+        let ny = n.position.y
+        if (corner.includes('r')) nw = Math.max(40, (data.width ?? 160) + dx)
+        if (corner.includes('l')) { nw = Math.max(40, (data.width ?? 160) - dx); nx = (n.position.x as number) + dx }
+        if (corner.includes('b')) nh = Math.max(40, (data.height ?? 120) + dy)
+        if (corner.includes('t')) { nh = Math.max(40, (data.height ?? 120) - dy); ny = (n.position.y as number) + dy }
+        return { ...n, position: { x: nx, y: ny }, data: { ...n.data, width: nw, height: nh } }
       }))
     }
     const onUp = () => {
@@ -233,7 +254,7 @@ export default function FlowEditor({
     const dims = shape === 'line' ? { width: 200, height: 40 } : shape === 'grid' ? { width: 240, height: 200 } : { width: 160, height: 120 }
     const n: any = {
       id, type: 'shape', position: { x: Math.random() * 400 + 50, y: Math.random() * 250 + 50 },
-      data: { shape, ...dims, fill: '#f1f5f9', stroke: '#64748b', rows: 3, cols: 3, onResizeStart },
+      data: { shape, ...dims, fill: '#f1f5f9', stroke: '#64748b', rows: 3, cols: 3, onResizeCorner },
     }
     setNodes((nds) => { const u = [...nds, n]; autoSave(u, edges); return u })
   }, [setNodes, edges, autoSave])
