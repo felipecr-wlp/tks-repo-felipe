@@ -11,7 +11,7 @@ import {
   ShieldCheck, Power, AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { SCOPE_CATALOG, scopesForApp, type ConnectorApp } from '@/lib/connectors/scopes'
+import { scopesForApp, type ConnectorApp } from '@/lib/connectors/scopes'
 
 const APPS: { id: ConnectorApp; name: string }[] = [
   { id: 'wli', name: 'WLI Marketing OS' },
