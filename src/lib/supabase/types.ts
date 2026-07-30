@@ -16,6 +16,177 @@ export type Database = {
   }
   public: {
     Tables: {
+      connector_apps: {
+        Row: {
+          base_url: string
+          created_at: string
+          icon: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          base_url: string
+          created_at?: string
+          icon?: string | null
+          id: string
+          name: string
+        }
+        Update: {
+          base_url?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      connector_installs: {
+        Row: {
+          app_id: string
+          enabled: boolean
+          id: string
+          installed_at: string
+          installed_by: string | null
+          manifest: Json
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          app_id: string
+          enabled?: boolean
+          id?: string
+          installed_at?: string
+          installed_by?: string | null
+          manifest?: Json
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          app_id?: string
+          enabled?: boolean
+          id?: string
+          installed_at?: string
+          installed_by?: string | null
+          manifest?: Json
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      connector_keys: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          last_used_at: string | null
+          name: string
+          revoked_at: string | null
+          scopes: string[]
+          target_app: string
+          token_hash: string
+          token_prefix: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_used_at?: string | null
+          name: string
+          revoked_at?: string | null
+          scopes?: string[]
+          target_app: string
+          token_hash: string
+          token_prefix: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          revoked_at?: string | null
+          scopes?: string[]
+          target_app?: string
+          token_hash?: string
+          token_prefix?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      connector_webhooks: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          event: string
+          id: string
+          secret: string
+          source_app: string
+          target_url: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          event: string
+          id?: string
+          secret: string
+          source_app: string
+          target_url: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          event?: string
+          id?: string
+          secret?: string
+          source_app?: string
+          target_url?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      connector_call_log: {
+        Row: {
+          action: string | null
+          caller_app: string | null
+          created_at: string
+          id: number
+          key_id: string | null
+          scope: string | null
+          status: number | null
+          target_app: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          action?: string | null
+          caller_app?: string | null
+          created_at?: string
+          id?: number
+          key_id?: string | null
+          scope?: string | null
+          status?: number | null
+          target_app?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          action?: string | null
+          caller_app?: string | null
+          created_at?: string
+          id?: number
+          key_id?: string | null
+          scope?: string | null
+          status?: number | null
+          target_app?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
       academy_access: {
         Row: {
           course_id: string
