@@ -8,7 +8,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Lock, Unlock, Settings, Share2 } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Lock, Unlock, Settings, Share2, CheckCircle } from 'lucide-react'
 import LinkNext from 'next/link'
 
 type ShapeType = 'rect' | 'circle' | 'line' | 'grid' | 'text'
@@ -22,12 +22,13 @@ const icons: Record<string, React.ReactNode> = {
   url: <LinkIcon className="w-3 h-3" />, document: <FileText className="w-3 h-3" />,
 }
 
-function CustomNode({ data }: NodeProps) {
+function CustomNode({ data, selected }: NodeProps) {
   const fd = data as unknown as FlowNodeData
   if ('shape' in fd) return null
   const ct = fd.content?.contentType ?? 'text'; const locked = (data as any).locked
   return (
-    <div className={`bg-card border-2 rounded-lg px-4 py-3 min-w-[180px] max-w-[260px] shadow-sm transition-colors border-border group ${locked?'opacity-70':''}`}>
+    <div className={`bg-card border-2 rounded-lg px-4 py-3 min-w-[180px] max-w-[260px] shadow-sm transition-all group relative ${selected?'border-primary ring-2 ring-primary/30 shadow-md':locked?'opacity-70 border-border':'border-border'}`}>
+      {selected && <CheckCircle className="absolute -top-1.5 -right-1.5 w-4 h-4 text-primary bg-background rounded-full" />}
       <Handle type="target" position={Position.Top} className="!bg-muted-foreground" />
       <div className="flex items-center gap-2 mb-1">
         <span className="text-primary/70">{icons[ct]}</span>
@@ -45,14 +46,15 @@ function CustomNode({ data }: NodeProps) {
   )
 }
 
-function ShapeNode({ data }: NodeProps) {
+function ShapeNode({ data, selected }: NodeProps) {
   const d = data as unknown as ShapeData
   const s = d.shape ?? 'rect'; const w = d.width ?? 160; const h = d.height ?? 120
   const fill = d.fill ?? '#f1f5f9'; const stroke = d.stroke ?? '#64748b'
   const rows = d.rows ?? 3; const cols = d.cols ?? 3; const label = d.label ?? ''; const locked = (data as any).locked
   const opacity = locked ? {opacity:0.6} : {}
+  const selRing = selected ? {outline:'2px solid #3b82f6',outlineOffset:'2px',borderRadius:s==='circle'?'50%':s==='grid'?'4px':'8px'} : {}
   const Label = label ? <text x={w/2} y={h/2} textAnchor="middle" dominantBaseline="central" fill="#334155" fontSize={13} fontWeight={500} fontFamily="system-ui, sans-serif" style={{pointerEvents:'none'}}>{label}</text> : null
-  const D = <div style={{width:w,height:h,...opacity}}>
+  const D = <div style={{width:w,height:h,...opacity,...selRing,position:'relative'}}>{selected&&<CheckCircle className="absolute -top-2 -right-2 w-4 h-4 text-primary bg-background rounded-full z-10"/>}
   {s==='circle' && <svg width={w} height={h} className="overflow-visible"><ellipse cx={w/2} cy={h/2} rx={w/2-2} ry={h/2-2} fill={fill} stroke={stroke} strokeWidth={2}/>{Label}</svg>}
   {s==='line' && <svg width={w} height={h} className="overflow-visible"><line x1={0} y1={h/2} x2={w} y2={h/2} stroke={stroke} strokeWidth={3}/><polygon points={`${w-8},${h/2-5} ${w},${h/2} ${w-8},${h/2+5}`} fill={stroke}/>{Label}</svg>}
   {s==='grid' && (()=>{const cw=w/cols,rh=h/rows,ls=[];for(let i=1;i<cols;i++)ls.push(<line key={`v${i}`} x1={i*cw} y1={0} x2={i*cw} y2={h} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>);for(let i=1;i<rows;i++)ls.push(<line key={`h${i}`} x1={0} y1={i*rh} x2={w} y2={i*rh} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>);return <svg width={w} height={h} className="overflow-visible"><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={2}/>{ls}{Label}</svg>})()}
@@ -146,7 +148,7 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
       <div className="flex-1 relative">
         {altHeld && <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 bg-amber-500 text-white text-xs px-3 py-1 rounded-full shadow-lg pointer-events-none">Alt: mover area</div>}
         <style>{`.rf-edges-on-top .react-flow__edges{z-index:50!important}.rf-edges-on-top .react-flow__nodes{z-index:1!important}.rf-edges-on-top .react-flow__edge{stroke-width:2.5}`}</style>
-        <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodesDelete={onNodesDelete} onNodeDragStop={onNodeDragStop} onNodeDragStart={onNodeDragStarter} onNodeDoubleClick={handleNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onEdgeContextMenu={onEdgeContextMenu} onPaneClick={onPaneClick} onDragOver={onDragOver} onDrop={onDrop} onInit={(rf:any)=>reactFlowInstance.current=rf} nodeTypes={{custom:CustomNode,shape:ShapeNode}} fitView selectNodesOnDrag panOnDrag={altHeld} panActivationKeyCode="Alt" selectionKeyCode="Control" multiSelectionKeyCode="Control" deleteKeyCode={null} className="bg-background rf-edges-on-top">
+        <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodesDelete={onNodesDelete} onNodeDragStop={onNodeDragStop} onNodeDragStart={onNodeDragStarter} onNodeDoubleClick={handleNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onEdgeContextMenu={onEdgeContextMenu} onPaneClick={onPaneClick} onDragOver={onDragOver} onDrop={onDrop} onInit={(rf:any)=>reactFlowInstance.current=rf} nodeTypes={{custom:CustomNode,shape:ShapeNode}} fitView selectNodesOnDrag panOnDrag={altHeld} panActivationKeyCode="Alt" selectionKeyCode="Control" multiSelectionKeyCode="Control" deleteKeyCode={null} selectionMode="partial" className="bg-background rf-edges-on-top">
           <Controls /><Background variant={BackgroundVariant.Dots} gap={20} size={1} /><MiniMap nodeColor="#94a3b8" className="!bg-card border" />
           {nodes.filter((n:any)=>n.selected).length > 1 && <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 bg-primary text-primary-foreground text-xs px-3 py-1.5 rounded-full shadow-lg pointer-events-none">{nodes.filter((n:any)=>n.selected).length} seleccionados</div>}
         </ReactFlow>
