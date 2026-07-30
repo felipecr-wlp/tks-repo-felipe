@@ -8,7 +8,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Lock, Unlock, Settings, Share2, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Lock, Unlock, Settings, Share2, CheckCircle, Download, Upload } from 'lucide-react'
 import LinkNext from 'next/link'
 
 type ShapeType = 'rect' | 'circle' | 'line' | 'grid' | 'text'
@@ -140,6 +140,8 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
   const saveContentNode=useCallback(()=>{if(!editingNodeId)return;setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===editingNodeId?{...n,data:{...n.data,label:nodeLabel,content:{contentType:nodeType,content:nodeContent}}}:n);autoSave(u,edges);return u});setEditingNodeId(null)},[editingNodeId,nodeLabel,nodeContent,nodeType,setNodes,autoSave,edges])
   const saveShapeEdit=useCallback(()=>{if(!editingShapeId)return;setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===editingShapeId?{...n,data:{...n.data,shape:shapeType,width:shapeW,height:shapeH,label:shapeLabel,fill:shapeFill,stroke:shapeStroke,rows:shapeRows,cols:shapeCols}}:n);autoSave(u,edges);return u});setEditingShapeId(null)},[editingShapeId,shapeW,shapeH,shapeLabel,shapeFill,shapeStroke,shapeRows,shapeCols,shapeType,setNodes,autoSave,edges])
   const saveEdgeEdit=useCallback(()=>{if(!editingEdgeId)return;setEdges((eds:any[])=>{const u=eds.map((e:any)=>e.id===editingEdgeId?{...e,label:edgeLabel||undefined,style:{...e.style,stroke:edgeColor,strokeWidth:edgeWidth},animated:edgeAnim,type:edgeType==='default'?undefined:edgeType,markerEnd:{type:MarkerType.ArrowClosed,color:edgeColor}}:e);autoSave(nodes,u);return u});setEditingEdgeId(null)},[editingEdgeId,edgeLabel,edgeColor,edgeWidth,edgeAnim,edgeType,setEdges,autoSave,nodes])
+  const handleExport=useCallback(()=>{const data={title,description,nodes:JSON.parse(JSON.stringify(nodes)),edges:JSON.parse(JSON.stringify(edges))};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`${title||'flujo'}.wlo.json`;a.click();URL.revokeObjectURL(url);toast.success('Flujo exportado')},[title,description,nodes,edges])
+  const handleImport=useCallback(()=>{const el=document.createElement('input');el.type='file';el.accept='.json';el.onchange=async(e:any)=>{const file=e.target.files?.[0];if(!file)return;try{const text=await file.text();const data=JSON.parse(text);if(data.nodes){setNodes(data.nodes);setEdges(data.edges||[]);if(data.title)setTitle(data.title);if(data.description!==undefined)setDescription(data.description);autoSave(data.nodes,data.edges||[]);toast.success('Flujo importado')}}catch{toast.error('Archivo invalido')}};el.click()},[setNodes,setEdges,setTitle,setDescription,autoSave])
 
   const shapeTypes = ['rect','circle','line','grid','text'] as ShapeType[]
   const shapeIcons: Record<ShapeType,React.ReactNode> = {rect:<Square className="w-3 h-3"/>,circle:<Circle className="w-3 h-3"/>,line:<Minus className="w-3 h-3"/>,grid:<Grid3X3 className="w-3 h-3"/>,text:<Type className="w-3 h-3"/>}
@@ -152,6 +154,8 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
         <input value={title} onChange={e=>{setTitle(e.target.value);autoSave()}} className="h-8 max-w-xs font-semibold border-0 bg-transparent shadow-none outline-none text-lg px-0" placeholder="Titulo del flujo" />
         <div className="flex-1" /><span className="text-xs text-muted-foreground">{saving?'Guardando...':'Auto-guardado'}</span>
         <button onClick={()=>save()} disabled={saving} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors disabled:opacity-50"><Save className="w-4 h-4" />Guardar</button>
+        <button onClick={handleExport} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Exportar"><Download className="w-4 h-4"/>Exportar</button>
+        <button onClick={handleImport} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Importar"><Upload className="w-4 h-4"/>Importar</button>
         <button onClick={async()=>{setShowShare(true);try{const[r1,r2]=await Promise.all([fetch(`/api/flows/${flowId}`).then(r=>r.json()),fetch(`/api/flows/${flowId}/members`).then(r=>r.json())]);setShares(r1.shares||[]);setMembers(r2.profiles||[])}catch{}}} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Compartir"><Share2 className="w-4 h-4"/>Compartir</button>
       </header>
       <div className="flex-1 relative">
