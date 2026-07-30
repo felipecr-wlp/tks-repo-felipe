@@ -62,15 +62,15 @@ function ShapeNode({ data }: NodeProps) {
   const s = d.shape ?? 'rect'; const w = d.width ?? 160; const h = d.height ?? 120
   const fill = d.fill ?? '#f1f5f9'; const stroke = d.stroke ?? '#64748b'; const rows = d.rows ?? 3; const cols = d.cols ?? 3
 
-  if (s === 'circle') return <svg width={w} height={h} className="overflow-visible"><ellipse cx={w/2} cy={h/2} rx={w/2-2} ry={h/2-2} fill={fill} stroke={stroke} strokeWidth={2}/></svg>
-  if (s === 'line') return <svg width={w} height={h} className="overflow-visible"><line x1={0} y1={h/2} x2={w} y2={h/2} stroke={stroke} strokeWidth={3}/><polygon points={`${w-8},${h/2-5} ${w},${h/2} ${w-8},${h/2+5}`} fill={stroke}/></svg>
+  if (s === 'circle') return <div style={{ width: w, height: h }}><svg width={w} height={h} className="overflow-visible"><ellipse cx={w/2} cy={h/2} rx={w/2-2} ry={h/2-2} fill={fill} stroke={stroke} strokeWidth={2}/></svg></div>
+  if (s === 'line') return <div style={{ width: w, height: h }}><svg width={w} height={h} className="overflow-visible"><line x1={0} y1={h/2} x2={w} y2={h/2} stroke={stroke} strokeWidth={3}/><polygon points={`${w-8},${h/2-5} ${w},${h/2} ${w-8},${h/2+5}`} fill={stroke}/></svg></div>
   if (s === 'grid') {
     const cw = w/cols; const rh = h/rows; const ls = []
     for (let i=1;i<cols;i++) ls.push(<line key={`v${i}`} x1={i*cw} y1={0} x2={i*cw} y2={h} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>)
     for (let i=1;i<rows;i++) ls.push(<line key={`h${i}`} x1={0} y1={i*rh} x2={w} y2={i*rh} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>)
-    return <svg width={w} height={h} className="overflow-visible"><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={2}/>{ls}</svg>
+    return <div style={{ width: w, height: h }}><svg width={w} height={h} className="overflow-visible"><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={2}/>{ls}</svg></div>
   }
-  return <svg width={w} height={h} className="overflow-visible"><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={6}/></svg>
+  return <div style={{ width: w, height: h }}><svg width={w} height={h} className="overflow-visible"><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={6}/></svg></div>
 }
 
 interface FlowEditorProps {
