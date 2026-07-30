@@ -24,14 +24,26 @@
  * Regla de forma: NO se inventan fechas. Si una tarea solo tenia vencimiento, al
  * moverla solo cambia el vencimiento; el inicio nace unicamente si alguien jala
  * el extremo izquierdo a proposito.
+ *
+ * COLOR (v6). Antes el color salia del estado, y como casi todas las tareas de un
+ * proyecto nuevo viven en el mismo estado, el mes entero se pintaba del mismo
+ * gris: veintinueve barras iguales no informan nada y encima no se leen. Ahora el
+ * criterio se ELIGE (avance, estado, prioridad o responsable), igual que en el
+ * Gantt, y el color por defecto es el de avance porque es el unico que contesta
+ * "que deberia estar corriendo y no arranco".
+ *
+ * Legibilidad: el texto va en color de texto normal, NO en el color de la barra.
+ * Texto de color sobre fondo del mismo color con transparencia es exactamente lo
+ * que hacia ilegible la vista. El color vive en el borde, el punto y el tinte.
  */
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, CalendarDays, CheckCircle2, AlertTriangle, CalendarClock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, CheckCircle2, AlertTriangle, CalendarClock, MoveHorizontal } from 'lucide-react'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { useI18n } from '@/lib/i18n/LanguageProvider'
+import { avanceDe, avanceIsHollow, AVANCE_COLOR, AVANCE_LABEL_KEY, AVANCE_ORDER, type Avance } from '@/lib/task-progress'
 
 interface Status { id: string; name: string; color: string | null; category: string; position: number }
 interface Member { id: string; display_name: string; avatar_url: string | null }
@@ -59,6 +71,25 @@ const DAY_MS = 86_400_000
 const WEEKDAY_KEYS = ['cal.wdMon', 'cal.wdTue', 'cal.wdWed', 'cal.wdThu', 'cal.wdFri', 'cal.wdSat', 'cal.wdSun']
 const PRIORITY_COLOR: Record<string, string> = {
   urgent: '#ef4444', high: '#f97316', medium: '#eab308', low: '#3b82f6', none: '#94a3b8',
+}
+
+/** Criterio de color de las barras. Mismo vocabulario que el Gantt. */
+type ColorBy = 'avance' | 'status' | 'priority' | 'assignee'
+const COLOR_BY_KEY = 'wlo.cal.colorBy'
+
+/**
+ * Paleta para colorear por responsable. Se elige por hash del id, no por el
+ * orden de la lista: asi el color de una persona no cambia porque alguien mas
+ * entro o salio del proyecto.
+ */
+const PERSON_PALETTE = [
+  '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#ca8a04',
+  '#16a34a', '#0891b2', '#4f46e5', '#be123c', '#0d9488',
+]
+function colorDePersona(id: string): string {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
+  return PERSON_PALETTE[h % PERSON_PALETTE.length]
 }
 
 // Clasifica el vencimiento relativo a HOY (medianoche local, sin corrimiento por
@@ -112,6 +143,9 @@ interface Bar {
 /** Cuantos pixeles hay que moverse antes de que esto deje de ser un clic. */
 const DRAG_THRESHOLD = 4
 
+/** Alto de carril: barra de 21px mas 3px de aire. Menos que eso y no se leen. */
+const LANE_PITCH = 24
+
 type DragMode = 'move' | 'start' | 'end'
 
 interface DragSession {
@@ -135,6 +169,19 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
   const { t: tr, lang } = useI18n()
   const locale = lang === 'en' ? 'en-US' : 'es-MX'
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  // El criterio de color se recuerda por navegador. Es preferencia de lectura de
+  // cada quien, no una propiedad del proyecto, asi que no va a la base.
+  const [colorBy, setColorBy] = useState<ColorBy>('avance')
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(COLOR_BY_KEY)
+      if (v === 'avance' || v === 'status' || v === 'priority' || v === 'assignee') setColorBy(v)
+    } catch { /* modo privado sin storage: se queda el de por defecto */ }
+  }, [])
+  function elegirColorBy(m: ColorBy) {
+    setColorBy(m)
+    try { localStorage.setItem(COLOR_BY_KEY, m) } catch { /* ignorado a proposito */ }
+  }
   // Mes inicial: el actual si tiene tareas con fecha; si no, salta al primer mes
   // proximo con tareas (o al mas reciente hacia atras) para no abrir vacio.
   const [cursor, setCursor] = useState(() => {
@@ -160,6 +207,47 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
   })
 
   const today = startOfDay(new Date())
+
+  /**
+   * Color de una barra segun el criterio elegido. `hollow` solo lo usa el modo
+   * avance: lo que todavia no arranca se dibuja hueco y rayado, para que no se
+   * confunda con trabajo en curso ni de reojo.
+   */
+  function colorDeBarra(t: Task, start: Date): { color: string; hollow: boolean } {
+    if (colorBy === 'status') return { color: t.status?.color ?? PRIORITY_COLOR.none, hollow: false }
+    if (colorBy === 'priority') return { color: PRIORITY_COLOR[t.priority] ?? PRIORITY_COLOR.none, hollow: false }
+    if (colorBy === 'assignee') {
+      return { color: t.assignee ? colorDePersona(t.assignee.id) : PRIORITY_COLOR.none, hollow: !t.assignee }
+    }
+    const a = avanceDe(t.status?.category, start, today)
+    return { color: AVANCE_COLOR[a], hollow: avanceIsHollow(a) }
+  }
+
+  // Leyenda: cambia con el criterio. Una leyenda que no corresponde a lo que se
+  // ve pintado es peor que no tener leyenda.
+  const leyenda = useMemo<{ color: string; label: string; hollow?: boolean }[]>(() => {
+    if (colorBy === 'status') {
+      return statuses.slice().sort((a, b) => a.position - b.position)
+        .map(s => ({ color: s.color ?? PRIORITY_COLOR.none, label: s.name }))
+    }
+    if (colorBy === 'priority') {
+      return ['urgent', 'high', 'medium', 'low', 'none']
+        .map(p => ({ color: PRIORITY_COLOR[p], label: tr(`priority.${p}`) }))
+    }
+    if (colorBy === 'assignee') {
+      const vistos = new Map<string, string>()
+      for (const t of tasks) if (t.assignee) vistos.set(t.assignee.id, t.assignee.display_name)
+      const lista: { color: string; label: string; hollow?: boolean }[] = Array.from(vistos.entries())
+        .sort((a, b) => a[1].localeCompare(b[1], 'es'))
+        .slice(0, 12)
+        .map(([id, nombre]) => ({ color: colorDePersona(id), label: nombre }))
+      if (tasks.some(t => !t.assignee)) lista.push({ color: PRIORITY_COLOR.none, label: tr('cal.sinResponsable'), hollow: true })
+      return lista
+    }
+    return AVANCE_ORDER.map((a: Avance) => ({
+      color: AVANCE_COLOR[a], label: tr(AVANCE_LABEL_KEY[a]), hollow: avanceIsHollow(a),
+    }))
+  }, [colorBy, statuses, tasks, tr])
 
   // ── Arrastre ───────────────────────────────────────────────────────────────
   // `overrides` pinta el resultado antes de que conteste el servidor: esperar el
@@ -371,8 +459,36 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
         <div className="flex items-center gap-2">
           <CalendarDays className="w-4 h-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold text-foreground capitalize">{monthLabel}</h2>
+          <span className="hidden lg:inline-flex items-center gap-1 text-[11px] text-muted-foreground/70">
+            <MoveHorizontal className="w-3.5 h-3.5" />
+            {tr('cal.dragMove')}
+          </span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {/* Colorear por: el mismo vocabulario que el Gantt */}
+          <div className="inline-flex items-center rounded-md border border-border overflow-hidden" title={tr('cal.colorByTitle')}>
+            {(['avance', 'status', 'priority', 'assignee'] as const).map(m => (
+              <button
+                key={m}
+                onClick={() => elegirColorBy(m)}
+                aria-pressed={colorBy === m}
+                className={`px-2.5 py-1 text-xs transition-colors ${
+                  colorBy === m
+                    ? 'bg-primary text-primary-foreground font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+              >
+                {m === 'avance'
+                  ? tr('gantt.colorByAvance')
+                  : m === 'status'
+                    ? tr('gantt.colorByStatus')
+                    : m === 'priority'
+                      ? tr('gantt.colorByPriority')
+                      : tr('cal.colorByAssignee')}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1">
           <button
             onClick={() => setCursor(c => new Date(c.getFullYear(), c.getMonth() - 1, 1))}
             className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
@@ -393,6 +509,7 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
           >
             <ChevronRight className="w-4 h-4" />
           </button>
+          </div>
         </div>
       </div>
 
@@ -438,22 +555,29 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
         )
       })()}
 
-      {/* Leyenda de colores de las barras */}
+      {/* Leyenda: sigue al criterio de color elegido */}
       {dated.length > 0 && (
-        <div className="mb-3 flex items-center gap-x-4 gap-y-1 flex-wrap text-[11px] text-muted-foreground">
+        <div className="mb-3 flex items-center gap-x-3 gap-y-1.5 flex-wrap text-[11px] text-muted-foreground">
+          {leyenda.map((l, i) => (
+            <span key={i} className="inline-flex items-center gap-1.5">
+              <span
+                className="w-3 h-3 rounded-[3px] border"
+                style={{
+                  borderColor: l.color,
+                  backgroundColor: l.hollow ? 'transparent' : l.color,
+                  backgroundImage: l.hollow
+                    ? `repeating-linear-gradient(45deg, ${l.color}40 0, ${l.color}40 2px, transparent 2px, transparent 5px)`
+                    : undefined,
+                }}
+              />
+              {l.label}
+            </span>
+          ))}
+          {/* Vencida no es un color: es un anillo rojo encima del color elegido. */}
           <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#3b82f6' }} />
-            {tr('cal.legendColor')}
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
+            <span className="w-3 h-3 rounded-[3px] bg-muted ring-2 ring-destructive/70" />
             {tr('health.overdue')}
           </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#f59e0b' }} />
-            {tr('health.today')}
-          </span>
-          <span className="w-full sm:w-auto text-muted-foreground/80">{tr('cal.dragHint')}</span>
         </div>
       )}
 
@@ -469,7 +593,7 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
         {weeks.map((week, wi) => {
           const bars = barsForWeek(week)
           const laneCount = bars.reduce((m, b) => Math.max(m, b.lane + 1), 0)
-          const barsHeight = laneCount * 22 + 4
+          const barsHeight = laneCount * LANE_PITCH + 4
           return (
             <div key={wi} className="grid grid-cols-7 gap-px">
               {week.map((day, di) => {
@@ -506,46 +630,51 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
                   {bars.map((b, bi) => {
                     const done = b.task.status?.category === 'done' || b.task.status?.category === 'cancelled'
                     const bucket = b.task.due_date ? bucketDeFecha(b.end, done) : null
-                    // Tinte por vencimiento: vencidas en rojo, para hoy en ambar; el
-                    // resto conserva el color de estado o prioridad.
-                    const baseColor = b.task.status?.color ?? PRIORITY_COLOR[b.task.priority] ?? PRIORITY_COLOR.none
-                    const color = bucket === 'overdue' ? '#ef4444' : bucket === 'today' ? '#f59e0b' : baseColor
+                    // El color lo manda el criterio elegido. El vencimiento NO lo
+                    // pisa: se marca con un anillo rojo encima, para no perder la
+                    // lectura del criterio justo en las barras que mas importan.
+                    const { color, hollow } = colorDeBarra(b.task, b.start)
                     const leftPct = (b.startCol / 7) * 100
                     const widthPct = ((b.endCol - b.startCol + 1) / 7) * 100
                     const isDragging = drag?.taskId === b.task.id
                     return (
                       <div
                         key={bi}
-                        className={`absolute pointer-events-auto group/bar h-[19px] ${isDragging ? 'z-20' : ''}`}
+                        className={`absolute pointer-events-auto group/bar h-[21px] ${isDragging ? 'z-20' : ''}`}
                         style={{
                           left: `calc(${leftPct}% + 2px)`,
                           width: `calc(${widthPct}% - 4px)`,
-                          top: b.lane * 22,
+                          top: b.lane * LANE_PITCH,
                         }}
                       >
                         <div
                           onPointerDown={e => startDrag(e, b.task, b.start, b.end, 'move')}
                           title={`${b.task.title}\n${tr('cal.dragMove')}`}
-                          className={`h-full w-full flex items-center gap-1 px-1.5 rounded text-[11px] font-medium cursor-grab active:cursor-grabbing hover:brightness-110 hover:ring-1 hover:ring-foreground/20 hover:shadow-sm transition-all ${
-                            isDragging ? 'ring-1 ring-foreground/40 shadow-md' : ''
-                          }`}
+                          className={`h-full w-full flex items-center gap-1.5 pl-1.5 pr-2 rounded-[4px] text-[11px] font-medium text-foreground cursor-grab active:cursor-grabbing hover:brightness-105 hover:shadow-sm transition-all ${
+                            bucket === 'overdue' ? 'ring-1 ring-destructive/70' : ''
+                          } ${isDragging ? 'ring-1 ring-foreground/50 shadow-md' : ''}`}
                           style={{
-                            backgroundColor: `${color}2E`,
-                            color,
+                            // Relleno solido y suave (no un tinte translucido del
+                            // mismo color del texto): asi el titulo se lee.
+                            backgroundColor: hollow ? 'transparent' : `${color}26`,
+                            border: hollow ? `1px dashed ${color}` : `1px solid ${color}59`,
                             borderLeft: `3px solid ${color}`,
+                            backgroundImage: hollow
+                              ? `repeating-linear-gradient(45deg, ${color}1a 0, ${color}1a 3px, transparent 3px, transparent 7px)`
+                              : undefined,
                           }}
                         >
                           {bucket === 'overdue' ? (
-                            <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                            <AlertTriangle className="w-3 h-3 flex-shrink-0 text-destructive" />
                           ) : bucket === 'today' ? (
-                            <CalendarClock className="w-3 h-3 flex-shrink-0" />
+                            <CalendarClock className="w-3 h-3 flex-shrink-0 text-amber-500" />
                           ) : (
                             <span
-                              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                              className="w-2 h-2 rounded-full flex-shrink-0"
                               style={{ backgroundColor: color }}
                             />
                           )}
-                          <span className={`truncate ${done ? 'line-through opacity-70' : ''}`}>{b.task.title}</span>
+                          <span className={`truncate ${done ? 'line-through text-muted-foreground' : ''}`}>{b.task.title}</span>
                         </div>
 
                         {/* Manijas: solo donde la barra de verdad empieza o termina. */}
@@ -573,8 +702,10 @@ export function TaskCalendarView({ projectId, tasks, statuses, members, currentU
         })}
       </div>
 
+      <p className="mt-3 text-[11px] text-muted-foreground/80">{tr('cal.dragHint')}</p>
+
       {undated > 0 && (
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className="mt-1 text-xs text-muted-foreground">
           {undated} {undated === 1 ? tr('cal.undatedOne') : tr('cal.undatedMany')} {undated === 1 ? tr('cal.undatedSuffixOne') : tr('cal.undatedSuffixMany')}
         </p>
       )}

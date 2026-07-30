@@ -130,6 +130,9 @@ export const translations: Record<Lang, Dict> = {
     'cal.legendColor': 'Color por estado o prioridad',
     'cal.dragHint': 'Arrastra una barra a otro día para mover sus fechas. Los extremos cambian solo el inicio o solo el fin. Un clic abre la tarea.',
     'cal.dragMove': 'Arrastra para mover · clic para abrir',
+    'cal.colorByTitle': 'Colorear las barras por avance, estado, prioridad o responsable',
+    'cal.colorByAssignee': 'Responsable',
+    'cal.sinResponsable': 'Sin responsable',
     // Salud del proyecto (compartido calendario / carga de trabajo)
     'health.completed': 'completadas',
     'health.overdue': 'vencidas',
@@ -1664,6 +1667,9 @@ export const translations: Record<Lang, Dict> = {
     'cal.legendColor': 'Color by status or priority',
     'cal.dragHint': 'Drag a bar to another day to move its dates. The edges change only the start or only the end. A click opens the task.',
     'cal.dragMove': 'Drag to move · click to open',
+    'cal.colorByTitle': 'Color the bars by progress, status, priority or assignee',
+    'cal.colorByAssignee': 'Assignee',
+    'cal.sinResponsable': 'Unassigned',
     // Project health (shared calendar / workload)
     'health.completed': 'completed',
     'health.overdue': 'overdue',
