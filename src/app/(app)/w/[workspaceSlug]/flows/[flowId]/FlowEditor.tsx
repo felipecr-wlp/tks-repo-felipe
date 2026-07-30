@@ -63,15 +63,29 @@ function ShapeNode({ data, selected, id }: NodeProps) {
   const s = d.shape ?? 'rect'; const w = d.width ?? 160; const h = d.height ?? 120
   const fill = d.fill ?? '#f1f5f9'; const stroke = d.stroke ?? '#64748b'; const rows = d.rows ?? 3; const cols = d.cols ?? 3
   const rf = useReactFlow()
-  const hs = 10
+  const hs = 12
+  const nodeRef = useRef<HTMLDivElement>(null)
 
-  const doResize = useCallback((e: React.MouseEvent, corner: string) => {
+  const updateNode = useCallback((updater: (n: any) => any) => {
+    rf.setNodes((nds: any[]) => nds.map((n: any) => n.id === id ? updater(n) : n))
+  }, [id, rf])
+
+  const startMove = useCallback((e: React.MouseEvent) => {
     e.stopPropagation(); e.preventDefault()
     const startX = e.clientX; const startY = e.clientY
-    const nodeId = id
     const onMove = (ev: MouseEvent) => {
-      rf.setNodes((nds: any[]) => nds.map((n: any) => {
-        if (n.id !== nodeId) return n
+      updateNode((n: any) => ({ ...n, position: { x: n.position.x + (ev.clientX - startX), y: n.position.y + (ev.clientY - startY) } }))
+    }
+    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [updateNode])
+
+  const startResize = useCallback((e: React.MouseEvent, corner: string) => {
+    e.stopPropagation(); e.preventDefault()
+    const startX = e.clientX; const startY = e.clientY
+    const onMove = (ev: MouseEvent) => {
+      updateNode((n: any) => {
         const dx = ev.clientX - startX; const dy = ev.clientY - startY
         let nw = n.data?.width ?? 160; let nh = n.data?.height ?? 120
         let px = n.position.x; let py = n.position.y
@@ -80,29 +94,40 @@ function ShapeNode({ data, selected, id }: NodeProps) {
         if (corner.includes('b')) nh = Math.max(30, (n.data?.height ?? 120) + dy)
         if (corner.includes('t')) { nh = Math.max(30, (n.data?.height ?? 120) - dy); py = n.position.y + dy }
         return { ...n, position: { x: px, y: py }, data: { ...n.data, width: nw, height: nh } }
-      }))
+      })
     }
     const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [id, rf])
+  }, [updateNode])
 
   const handle = (x: number, y: number, cursor: string, corner: string) =>
     <rect x={x - hs/2} y={y - hs/2} width={hs} height={hs} fill="#3b82f6" stroke="#fff" strokeWidth={2} rx={2}
-      style={{ cursor, display: selected ? undefined : 'none' }}
-      onMouseDown={(e) => doResize(e, corner)} />
+      style={{ cursor, display: selected ? undefined : 'none', pointerEvents: 'auto' }}
+      onMouseDown={(e) => startResize(e, corner)} />
 
   const handles = selected ? <>{handle(0,0,'nwse-resize','tl')}{handle(w,0,'nesw-resize','tr')}{handle(0,h,'nesw-resize','bl')}{handle(w,h,'nwse-resize','br')}</> : null
 
-  if (s === 'circle') return <svg width={w} height={h} className="overflow-visible"><ellipse cx={w/2} cy={h/2} rx={w/2-2} ry={h/2-2} fill={fill} stroke={stroke} strokeWidth={2}/>{handles}</svg>
-  if (s === 'line') return <svg width={w} height={h} className="overflow-visible"><line x1={0} y1={h/2} x2={w} y2={h/2} stroke={stroke} strokeWidth={3}/><polygon points={`${w-8},${h/2-5} ${w},${h/2} ${w-8},${h/2+5}`} fill={stroke}/>{handles}</svg>
+  const shapeContent = (() => {
+  if (s === 'circle') return <ellipse cx={w/2} cy={h/2} rx={w/2-2} ry={h/2-2} fill={fill} stroke={stroke} strokeWidth={2}/>
+  if (s === 'line') return <><line x1={0} y1={h/2} x2={w} y2={h/2} stroke={stroke} strokeWidth={3}/><polygon points={`${w-8},${h/2-5} ${w},${h/2} ${w-8},${h/2+5}`} fill={stroke}/></>
   if (s === 'grid') {
-    const cw = w/cols; const rh = h/rows; const lines = []
-    for (let i=1;i<cols;i++) lines.push(<line key={`v${i}`} x1={i*cw} y1={0} x2={i*cw} y2={h} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>)
-    for (let i=1;i<rows;i++) lines.push(<line key={`h${i}`} x1={0} y1={i*rh} x2={w} y2={i*rh} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>)
-    return <svg width={w} height={h} className="overflow-visible"><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={2}/>{lines}{handles}</svg>
+    const cw = w/cols; const rh = h/rows; const ls = []
+    for (let i=1;i<cols;i++) ls.push(<line key={`v${i}`} x1={i*cw} y1={0} x2={i*cw} y2={h} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>)
+    for (let i=1;i<rows;i++) ls.push(<line key={`h${i}`} x1={0} y1={i*rh} x2={w} y2={i*rh} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>)
+    return <><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={2}/>{ls}</>
   }
-  return <svg width={w} height={h} className="overflow-visible"><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={6}/>{handles}</svg>
+  return <rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={6}/>
+  })()
+
+  return (
+    <div style={{ width: w, height: h, position: 'relative' }} onMouseDown={startMove}>
+      <svg width={w} height={h} className="overflow-visible" style={{ pointerEvents: 'none' }}>
+        {shapeContent}
+      </svg>
+      <svg className="overflow-visible absolute inset-0 pointer-events-none">{handles}</svg>
+    </div>
+  )
 }
 
 interface FlowEditorProps {
@@ -147,7 +172,7 @@ export default function FlowEditor({ flowId, workspaceSlug, initialNodes, initia
   const addShape = useCallback((shape: ShapeType) => {
     const id = `shape-${Date.now()}`
     const dims = shape === 'line' ? { width: 200, height: 40 } : shape === 'grid' ? { width: 240, height: 200 } : { width: 160, height: 120 }
-    setNodes((nds: any[]) => { const u = [...nds, { id, type: 'shape', position: { x: Math.random()*400+50, y: Math.random()*250+50 }, data: { shape, ...dims, fill: '#f1f5f9', stroke: '#64748b', rows: 3, cols: 3 } }]; autoSave(u, edges); return u })
+    setNodes((nds: any[]) => { const u = [...nds, { id, type: 'shape', position: { x: Math.random()*400+50, y: Math.random()*250+50 }, draggable: false, data: { shape, ...dims, fill: '#f1f5f9', stroke: '#64748b', rows: 3, cols: 3 } }]; autoSave(u, edges); return u })
   }, [setNodes, edges, autoSave])
 
   const deleteSelected = useCallback(() => {
