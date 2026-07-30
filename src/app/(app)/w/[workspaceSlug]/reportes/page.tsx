@@ -93,6 +93,10 @@ export default async function ReportesPage({ params, searchParams }: PageProps) 
 
   // Todas las actividades del dia en UNA consulta. Una por reporte convertiria
   // un equipo de doce personas en doce viajes a la base por cada visita.
+  //
+  // La tarea viaja como embed y no como consulta aparte: `task_id` es el UNICO
+  // camino entre daily_report_entries y tasks, asi que PostgREST lo resuelve sin
+  // ambiguedad (si algun dia hay un segundo camino, esto responderia HTTP 300).
   type EntryRow = {
     id: string
     report_id: string
@@ -101,12 +105,13 @@ export default async function ReportesPage({ params, searchParams }: PageProps) 
     minutes: number | null
     source: string
     created_at: string
+    task: { id: string; title: string } | null
   }
   let entries: EntryRow[] = []
   if (reports.length > 0) {
     const { data } = (await admin
       .from('daily_report_entries')
-      .select('id, report_id, content, category, minutes, source, created_at')
+      .select('id, report_id, content, category, minutes, source, created_at, task:tasks ( id, title )')
       .in(
         'report_id',
         reports.map(r => r.id)
@@ -215,6 +220,7 @@ export default async function ReportesPage({ params, searchParams }: PageProps) 
         minutes: e.minutes,
         source: e.source,
         created_at: e.created_at,
+        task: e.task ?? null,
         images: byEntry.get(e.id) ?? [],
       })),
     }))

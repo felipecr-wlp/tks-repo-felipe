@@ -356,6 +356,7 @@ export const translations: Record<Lang, Dict> = {
     'inbox.verb.sop_review_due_soon': 'revisión de SOP por vencer:',
     'inbox.verb.sop_assigned': 'debes leer y confirmar:',
     'inbox.verb.daily_report_missing': 'sin reporte de actividades:',
+    'inbox.verb.daily_report_blocker': 'está bloqueado, reporte del',
     'inbox.verb.project.member_added': 'te agregó al proyecto',
     'inbox.verb.workspace.member_joined': 'se unió al workspace',
 
@@ -1859,6 +1860,7 @@ export const translations: Record<Lang, Dict> = {
     'inbox.verb.sop_review_due_soon': 'SOP review due soon:',
     'inbox.verb.sop_assigned': 'you must read and confirm:',
     'inbox.verb.daily_report_missing': 'no activity report:',
+    'inbox.verb.daily_report_blocker': 'is blocked, report for',
     'inbox.verb.project.member_added': 'added you to the project',
     'inbox.verb.workspace.member_joined': 'joined the workspace',
 

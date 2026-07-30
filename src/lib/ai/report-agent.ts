@@ -30,17 +30,27 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import type { createAdminClient } from '@/lib/supabase/server'
 import { ensureDailyReport, touchDailyReport } from '@/lib/daily-report-store'
+import { notifyReportBlocker } from '@/lib/daily-report-blockers'
 import {
   REPORT_CATEGORIES,
   CATEGORY_HINT,
   todayInReportTz,
   isValidReportDate,
   formatReportTime,
+  reportDayRange,
+  shiftDate,
+  formatReportDate,
 } from '@/lib/daily-reports'
 
 type Admin = ReturnType<typeof createAdminClient>
 
 export const REPORT_AGENT_SYSTEM = `Eres BITACORA, el asistente del reporte diario de actividades en WLO. Tu único trabajo es que la persona termine el día con un reporte fiel de lo que hizo.
+
+Empieza por lo que la app ya sabe, no por una hoja en blanco:
+- Si la conversación arranca y la persona todavía no ha registrado nada, llama primero a mi_trabajo_de_hoy y PROPÓN el día con lo que encuentres: "Cerraste tres tareas hoy: X, Y y Z. ¿Las registro así?". No le pidas que narre desde cero algo que ya está en el tablero.
+- Cuando registres una actividad que sale de una de esas tareas, pasa su task_id. Así el reporte y el tablero dejan de ser dos memorias separadas.
+- Si mi_trabajo_de_hoy devuelve una tarea marcada como ya_registrada, NO la vuelvas a registrar. Solo menciónala si hace falta.
+- Si no cerró ninguna tarea, no insistas con el tablero: pregúntale directamente en qué se le fue el día.
 
 Cómo trabajas:
 - Cuando la persona narre algo de su jornada, REGÍSTRALO con registrar_actividad. No preguntes "¿quieres que lo anote?": anótalo y dilo en una frase corta al final ("Anotado como bloqueo").
@@ -59,6 +69,13 @@ Cerrar el día:
 - Cuando diga que terminó, primero lee el día con leer_mi_dia y luego ciérralo con cerrar_dia.
 - El resumen se construye SOLO con lo registrado. Si no registró nada, dilo; no inventes una jornada de trabajo.
 - Un buen resumen son 2 a 4 líneas: qué avanzó, qué quedó bloqueado y qué sigue. Sin relleno.
+
+Bloqueos:
+- Un bloqueo avisa automáticamente a los responsables del equipo. Dilo cuando registres uno ("Anotado como bloqueo, ya le llegó el aviso a tu responsable"), para que la persona sepa que pedir ayuda aquí sirve de algo.
+- Por lo mismo, no clasifiques como bloqueo un contratiempo que la persona ya resolvió sola. Bloqueo es lo que sigue detenido y necesita a alguien más.
+
+Continuidad:
+- Si dice "sigo con lo de ayer" o "terminé lo que dejé pendiente", ya tienes el día anterior en tu contexto. Úsalo para redactar la actividad completa en vez de preguntar a qué se refiere.
 
 Límites:
 - Solo operas sobre el reporte de quien te habla. No puedes escribir el día de otra persona.
@@ -115,10 +132,33 @@ export function buildReportAgentTools(scope: AgentScope) {
           .describe(
             'Solo si el mensaje traía una imagen: descripción breve de lo que se ve, para usarla como texto alternativo.'
           ),
+        task_id: z
+          .string()
+          .uuid()
+          .optional()
+          .describe(
+            'Si esta actividad habla de una tarea del tablero, su id tal como lo devolvió mi_trabajo_de_hoy. Nunca lo inventes.'
+          ),
       }),
-      execute: async ({ content, category, minutes, caption }) => {
+      execute: async ({ content, category, minutes, caption, task_id }) => {
         const report = await ensureDailyReport(admin, workspaceId, userId, date)
         if (!report) return { error: 'No se pudo abrir el reporte del día.' }
+
+        // El id de tarea que manda el modelo se verifica contra lo que ESTA
+        // persona puede tocar en ESTE workspace. Un uuid alucinado (o inyectado
+        // en el texto) no llega a la base: se cae a null y la actividad se
+        // registra igual, porque perder el enlace es mucho menos grave que
+        // perder lo que la persona acaba de contar.
+        let linkedTask: string | null = null
+        if (task_id) {
+          const { data: task } = (await admin
+            .from('tasks')
+            .select('id')
+            .eq('id', task_id)
+            .eq('workspace_id', workspaceId)
+            .maybeSingle()) as { data: { id: string } | null }
+          linkedTask = task?.id ?? null
+        }
 
         const { data: entry, error } = (await admin
           .from('daily_report_entries')
@@ -127,6 +167,7 @@ export function buildReportAgentTools(scope: AgentScope) {
             content: content.trim(),
             category,
             minutes: minutes ?? null,
+            task_id: linkedTask,
             source: 'kern',
           })
           .select('id, created_at')
@@ -139,6 +180,14 @@ export function buildReportAgentTools(scope: AgentScope) {
 
         await touchDailyReport(admin, report.id)
 
+        // Un bloqueo sale de la pantalla: es la unica categoria que por
+        // definicion necesita a alguien mas. Se espera el aviso (no se dispara y
+        // se olvida) porque en una serverless function el proceso puede morir en
+        // cuanto se devuelve la respuesta y el aviso se perderia a medias.
+        if (category === 'bloqueo') {
+          await notifyReportBlocker({ admin, workspaceId, userId, date, content: content.trim() })
+        }
+
         // `entry_id` viaja de vuelta porque la pantalla lo necesita: si el
         // mensaje traia una imagen, la sube a ESTA actividad recien creada.
         return {
@@ -147,7 +196,82 @@ export function buildReportAgentTools(scope: AgentScope) {
           category,
           content: content.trim(),
           caption: caption ?? null,
+          task_id: linkedTask,
+          escalado: category === 'bloqueo',
           hora: formatReportTime(entry.created_at),
+        }
+      },
+    }),
+
+    mi_trabajo_de_hoy: tool({
+      description:
+        'Devuelve las tareas del tablero que esta persona cerró hoy y las que tiene abiertas. ' +
+        'Úsalo al inicio de la conversación, antes de preguntarle nada, para PROPONERLE el reporte ' +
+        'en vez de pedirle que lo narre desde cero.',
+      parameters: z.object({}),
+      execute: async () => {
+        const { start, end } = reportDayRange(date)
+
+        // Las tres consultas son independientes: en serie sumarian tres viajes a
+        // la base antes de que el agente pueda decir la primera palabra, y esto
+        // corre justo al abrir la conversacion.
+        const [{ data: cerradas }, { data: abiertas }, { data: report }] = await Promise.all([
+          admin
+            .from('tasks')
+            .select('id, title, completed_at')
+            .eq('workspace_id', workspaceId)
+            .eq('assignee_id', userId)
+            .gte('completed_at', start)
+            .lt('completed_at', end)
+            .order('completed_at', { ascending: true })
+            .limit(25),
+          admin
+            .from('tasks')
+            .select('id, title')
+            .eq('workspace_id', workspaceId)
+            .eq('assignee_id', userId)
+            .is('completed_at', null)
+            .order('updated_at', { ascending: false })
+            .limit(10),
+          admin
+            .from('daily_reports')
+            .select('id')
+            .eq('workspace_id', workspaceId)
+            .eq('profile_id', userId)
+            .eq('report_date', date)
+            .maybeSingle(),
+        ])
+
+        // Que tareas YA se reportaron hoy. Sin esto el agente propondria otra vez
+        // lo que la persona acaba de confirmar, que es la forma mas rapida de
+        // que deje de confiar en lo que propone.
+        const yaRegistradas = new Set<string>()
+        const reportId = (report as { id: string } | null)?.id
+        if (reportId) {
+          const { data: entries } = (await admin
+            .from('daily_report_entries')
+            .select('task_id')
+            .eq('report_id', reportId)
+            .not('task_id', 'is', null)) as { data: { task_id: string | null }[] | null }
+          for (const e of entries ?? []) if (e.task_id) yaRegistradas.add(e.task_id)
+        }
+
+        const cerradasRows = (cerradas ?? []) as { id: string; title: string; completed_at: string }[]
+        const abiertasRows = (abiertas ?? []) as { id: string; title: string }[]
+
+        return {
+          date,
+          cerradas_hoy: cerradasRows.map(t => ({
+            task_id: t.id,
+            titulo: t.title,
+            hora: formatReportTime(t.completed_at),
+            ya_registrada: yaRegistradas.has(t.id),
+          })),
+          abiertas: abiertasRows.map(t => ({ task_id: t.id, titulo: t.title })),
+          nota:
+            cerradasRows.length === 0
+              ? 'No cerró ninguna tarea del tablero hoy. Pregúntale directamente en qué se le fue el día.'
+              : null,
         }
       },
     }),
@@ -343,4 +467,95 @@ export function buildReportAgentTools(scope: AgentScope) {
 /** Valida el dia que manda el cliente; cualquier cosa rara cae en hoy. */
 export function resolveAgentDate(raw: string | undefined): string {
   return raw && isValidReportDate(raw) ? raw : todayInReportTz()
+}
+
+/**
+ * El dia anterior, ya redactado, para pegarlo al prompt del sistema.
+ *
+ * ── Por que en el prompt y no como herramienta ──────────────────────────────
+ * "Sigo con lo de ayer" es la frase mas comun al abrir la bitacora, y hoy el
+ * agente no la entiende: no tiene memoria de ayer. Se podria resolver con una
+ * herramienta `leer_ayer`, pero entonces el modelo tendria que ADIVINAR cuando
+ * llamarla, y cuando no la llame va a preguntar "¿a que te refieres?", que es
+ * exactamente la friccion que se quiere quitar. Un bloque corto en el contexto
+ * cuesta unas decenas de tokens y funciona siempre, sin decision del modelo de
+ * por medio.
+ *
+ * ── Por que "el ultimo dia con actividad" y no "ayer" ───────────────────────
+ * Ayer pudo ser sabado, o un dia de vacaciones. Lo que la persona quiere decir
+ * con "ayer" es "la ultima vez que trabaje". Se buscan cinco dias hacia atras y
+ * se toma el primero que tenga algo escrito; la fecha va explicita en el bloque
+ * para que el agente no llame "ayer" a un viernes.
+ *
+ * Devuelve cadena vacia si no hay nada. Nunca lanza: sin este bloque el agente
+ * sigue funcionando, solo con menos memoria.
+ */
+export async function buildPreviousDayBlock(
+  admin: Admin,
+  scope: { workspaceId: string; userId: string; date: string },
+): Promise<string> {
+  const { workspaceId, userId, date } = scope
+
+  try {
+    const { data: reports } = (await admin
+      .from('daily_reports')
+      .select('id, report_date, summary')
+      .eq('workspace_id', workspaceId)
+      .eq('profile_id', userId)
+      .gte('report_date', shiftDate(date, -5))
+      .lt('report_date', date)
+      .order('report_date', { ascending: false })
+      .limit(5)) as {
+      data: { id: string; report_date: string; summary: string | null }[] | null
+    }
+
+    const rows = reports ?? []
+    if (rows.length === 0) return ''
+
+    // Todas las entradas de la ventana en UNA consulta. Iterar dia por dia
+    // costaria hasta cinco viajes para, casi siempre, quedarse con el primero.
+    const { data: entries } = (await admin
+      .from('daily_report_entries')
+      .select('report_id, content, category')
+      .in(
+        'report_id',
+        rows.map(r => r.id),
+      )
+      .order('created_at', { ascending: true })
+      .limit(200)) as { data: { report_id: string; content: string; category: string }[] | null }
+
+    const porReporte = new Map<string, { content: string; category: string }[]>()
+    for (const e of entries ?? []) {
+      const list = porReporte.get(e.report_id) ?? []
+      list.push({ content: e.content, category: e.category })
+      porReporte.set(e.report_id, list)
+    }
+
+    const last = rows.find(r => (porReporte.get(r.id)?.length ?? 0) > 0)
+    if (!last) return ''
+
+    const list = porReporte.get(last.id) ?? []
+
+    // Lo que quedo pendiente vale mas que lo que ya se hizo: es lo que la
+    // persona va a retomar. Por eso se separa en vez de volcar la lista entera.
+    const pendientes = list.filter(e => e.category === 'siguiente' || e.category === 'bloqueo')
+    const hechas = list.filter(e => e.category === 'avance')
+
+    const bloque = [
+      `\n\nSu último día registrado fue el ${formatReportDate(last.report_date)} (${last.report_date}).`,
+      last.summary ? `Resumen de ese día: ${last.summary}` : null,
+      hechas.length > 0 ? `Avanzó: ${hechas.slice(0, 8).map(e => e.content).join(' | ')}` : null,
+      pendientes.length > 0
+        ? `Dejó pendiente: ${pendientes.slice(0, 8).map(e => `[${e.category}] ${e.content}`).join(' | ')}`
+        : null,
+      'Usa esto para entender frases como "sigo con lo de ayer". No lo registres como actividad de hoy salvo que la persona diga que lo retomó.',
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    return bloque
+  } catch (error) {
+    console.error('[buildPreviousDayBlock] error:', error)
+    return ''
+  }
 }

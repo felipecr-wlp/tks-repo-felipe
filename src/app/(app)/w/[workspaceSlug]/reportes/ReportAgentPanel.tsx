@@ -34,10 +34,21 @@ const SUGERENCIAS = [
   'Léeme lo que llevo hoy',
 ]
 
+/**
+ * El atajo que invierte el flujo.
+ *
+ * La pregunta "¿que hiciste hoy?" pone a la persona a redactar desde cero algo
+ * que la app ya sabe: las tareas que cerro estan en el tablero. Este boton le
+ * pide al agente que lea ese tablero y PROPONGA el reporte, para que la persona
+ * solo confirme o corrija. Confirmar cuesta un clic; redactar cuesta el dia.
+ */
+const PROPONER = 'Revisa lo que ya cerré hoy y propónme el reporte.'
+
 // El nombre tecnico de la herramienta jamas se muestra crudo. Si se agrega una
 // nueva en report-agent.ts hay que darla de alta aqui.
 const TOOL_LABELS: Record<string, { running: string; done: string }> = {
   registrar_actividad: { running: 'Registrando actividad', done: 'Actividad registrada' },
+  mi_trabajo_de_hoy: { running: 'Revisando tu tablero', done: 'Tablero revisado' },
   leer_mi_dia: { running: 'Leyendo tu día', done: 'Día leído' },
   borrar_actividad: { running: 'Quitando actividad', done: 'Actividad quitada' },
   cerrar_dia: { running: 'Cerrando el reporte', done: 'Reporte cerrado' },
@@ -131,12 +142,21 @@ export function ReportAgentPanel({ workspaceId, date, onChanged }: Props) {
     [onChanged, router, subirAdjunto]
   )
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading, error, setMessages, setInput } =
-    useChat({
-      api: '/api/daily-reports/agent',
-      body: { workspace_id: workspaceId, date },
-      onFinish: alTerminar,
-    })
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    append,
+    isLoading,
+    error,
+    setMessages,
+    setInput,
+  } = useChat({
+    api: '/api/daily-reports/agent',
+    body: { workspace_id: workspaceId, date },
+    onFinish: alTerminar,
+  })
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
@@ -242,6 +262,16 @@ export function ReportAgentPanel({ workspaceId, date, onChanged }: Props) {
             <p className="mt-1 mb-4 text-xs text-muted-foreground">
               Escríbelo como se lo contarías a alguien. También puedes pegar una captura como evidencia.
             </p>
+
+            {/* Camino corto primero: que el agente lea el tablero y proponga. */}
+            <button
+              onClick={() => void append({ role: 'user', content: PROPONER })}
+              disabled={isLoading}
+              className="mb-3 w-full rounded-lg bg-[#0F0F10] px-3 py-2.5 text-xs font-medium text-[#FED500] transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              Armar mi día con lo que ya cerré
+            </button>
+
             <div className="flex w-full flex-col gap-1.5">
               {SUGERENCIAS.map(s => (
                 <button

@@ -438,6 +438,7 @@ export type Database = {
           minutes: number | null
           report_id: string
           source: string
+          task_id: string | null
         }
         Insert: {
           category?: string
@@ -447,6 +448,7 @@ export type Database = {
           minutes?: number | null
           report_id: string
           source?: string
+          task_id?: string | null
         }
         Update: {
           category?: string
@@ -456,6 +458,7 @@ export type Database = {
           minutes?: number | null
           report_id?: string
           source?: string
+          task_id?: string | null
         }
         Relationships: [
           {
@@ -463,6 +466,13 @@ export type Database = {
             columns: ["report_id"]
             isOneToOne: false
             referencedRelation: "daily_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_report_entries_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
         ]

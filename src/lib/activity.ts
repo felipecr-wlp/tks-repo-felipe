@@ -170,6 +170,10 @@ const EMAIL_NOTIFY: Record<string, { phrase: string; objectLabel: string }> = {
   project_approved:      { phrase: 'aprobo tu proyecto',       objectLabel: 'un proyecto' },
   project_rejected:      { phrase: 'reviso tu proyecto',       objectLabel: 'un proyecto' },
   project_pending_approval: { phrase: 'propuso un proyecto por aprobar', objectLabel: 'un proyecto' },
+  // Un bloqueo es, por definicion, algo que la persona NO puede desatorar sola.
+  // Es el unico evento del reporte diario que amerita salir de la app: si el
+  // aviso espera a que el mando abra la bandeja, el equipo pierde el dia.
+  daily_report_blocker:  { phrase: 'reporto un bloqueo en',     objectLabel: 'su reporte del dia' },
 }
 
 /**
@@ -387,6 +391,7 @@ export const NotificationTypes = {
   SOP_REVIEW_DUE_SOON:   'sop_review_due_soon',   // al owner del SOP: la revision vence dentro de 7 dias (recordatorio diario, sistema)
   SOP_ASSIGNED:          'sop_assigned',          // al lector requerido: debes leer y confirmar este documento
   DAILY_REPORT_MISSING:  'daily_report_missing',  // a la persona: termina el dia sin actividades registradas (recordatorio, sistema)
+  DAILY_REPORT_BLOCKER:  'daily_report_blocker',  // a los mandos: alguien del equipo esta atorado y necesita que lo desatoren
   REMINDER:              'reminder',              // recordatorio programado desde el chat (Circuito 1.C)
   AUTOMATION:            'automation',            // aviso disparado por una regla de automatizacion (Circuito 3)
 } as const

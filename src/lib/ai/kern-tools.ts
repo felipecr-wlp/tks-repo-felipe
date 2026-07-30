@@ -28,6 +28,7 @@ import { markdownToRichText } from '@/lib/ai/markdown-to-rich'
 import { loadNoteViewerContext, canViewNote, noteVisibilityPrefilter } from '@/lib/note-visibility'
 import { ensureDailyReport } from '@/lib/daily-report-store'
 import { isReportSupervisor } from '@/lib/daily-report-access'
+import { notifyReportBlocker } from '@/lib/daily-report-blockers'
 import {
   REPORT_CATEGORIES,
   REPORT_TIMEZONE,
@@ -799,11 +800,25 @@ export function buildKernTools(admin: Admin, userId: string) {
           .update({ updated_at: new Date().toISOString() })
           .eq('id', report.id)
 
+        // Misma regla que en BITACORA: un bloqueo escala a los responsables. La
+        // escalacion vive en un modulo compartido justo para que las dos bocas
+        // que escriben actividades no puedan divergir.
+        if (category === 'bloqueo') {
+          await notifyReportBlocker({
+            admin,
+            workspaceId: workspace.id,
+            userId,
+            date: day,
+            content: content.trim(),
+          })
+        }
+
         return {
           registered: {
             date: day,
             category: category ?? 'avance',
             content: content.trim(),
+            escalado: category === 'bloqueo',
           },
         }
       },

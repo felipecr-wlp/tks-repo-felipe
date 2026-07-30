@@ -24,6 +24,7 @@
  */
 import { useRef, useState, useTransition } from 'react'
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -43,6 +44,7 @@ import {
   Lock,
   Unlock,
   ImagePlus,
+  CheckSquare,
   X,
 } from 'lucide-react'
 import {
@@ -77,6 +79,8 @@ export interface ReporteEntrada {
   minutes: number | null
   source: string
   created_at: string
+  /** Tarea del tablero de la que habla la actividad, si BITÁCORA la enlazó. */
+  task: { id: string; title: string } | null
   images: ReporteImagen[]
 }
 
@@ -535,6 +539,18 @@ export function ReportesClient({
                           </>
                         )}
                       </p>
+                      {/* El puente al tablero. Va como enlace y no como texto
+                          porque el valor de amarrar la actividad a la tarea es
+                          poder saltar de "que hice" a "donde esta". */}
+                      {e.task && (
+                        <Link
+                          href={`/w/${workspaceSlug}/task/${e.task.id}`}
+                          className="mt-1 inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        >
+                          <CheckSquare size={10} className="flex-shrink-0" />
+                          <span className="truncate">{e.task.title}</span>
+                        </Link>
+                      )}
                       <ReportImageStrip images={e.images} canDelete onDeleted={refrescar} />
                     </div>
                     <button

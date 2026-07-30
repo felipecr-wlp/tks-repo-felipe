@@ -50,6 +50,57 @@ export async function isReportSupervisor(
   return role === 'owner' || role === 'admin'
 }
 
+/**
+ * Los mandos de ESTE workspace, para avisarles de algo (hoy: un bloqueo).
+ *
+ * Es la contraparte de `isReportSupervisor`: aquella pregunta "¿este usuario es
+ * mando?", esta responde "¿quienes lo son?". Comparte deliberadamente el mismo
+ * criterio (admin/owner de la organizacion, o admin/owner del workspace) para
+ * que no puedan divergir: seria absurdo que alguien pudiera leer el reporte de
+ * un bloqueo pero nunca enterarse de que existe.
+ *
+ * Solo se consideran mandos que SEAN miembros del workspace. Un admin de la
+ * organizacion que no pertenece a este equipo no recibe el aviso: no tiene el
+ * contexto para desatorarlo y llenarle la bandeja es la forma mas rapida de que
+ * deje de mirarla.
+ */
+export async function listReportSupervisors(
+  admin: Admin,
+  workspaceId: string,
+  excludeUserId?: string,
+): Promise<string[]> {
+  const { data: members } = (await admin
+    .from('workspace_members')
+    .select('profile_id, role')
+    .eq('workspace_id', workspaceId)
+    .limit(500)) as { data: { profile_id: string; role: string | null }[] | null }
+
+  const rows = members ?? []
+  if (rows.length === 0) return []
+
+  // Una sola consulta para los roles de organizacion de todo el equipo: pedir
+  // uno por miembro convertiria un workspace de doce personas en doce viajes.
+  const { data: profiles } = (await admin
+    .from('profiles')
+    .select('id, org_role')
+    .in(
+      'id',
+      rows.map(r => r.profile_id),
+    )) as { data: { id: string; org_role: string | null }[] | null }
+
+  const orgRole = new Map((profiles ?? []).map(p => [p.id, p.org_role ?? 'member']))
+
+  const ids = rows
+    .filter(r => {
+      const org = orgRole.get(r.profile_id) ?? 'member'
+      return org === 'owner' || org === 'admin' || r.role === 'owner' || r.role === 'admin'
+    })
+    .map(r => r.profile_id)
+    .filter(id => id !== excludeUserId)
+
+  return Array.from(new Set(ids))
+}
+
 export interface EntryOwnership {
   entry_id: string
   report_id: string

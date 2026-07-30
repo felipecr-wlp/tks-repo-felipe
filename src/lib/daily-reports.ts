@@ -59,6 +59,50 @@ export function shiftDate(date: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+/**
+ * Desfase de REPORT_TIMEZONE, en minutos, para un dia concreto.
+ *
+ * Se pregunta por dia y no se fija en -06:00 porque una constante asi envejece
+ * mal: Mexico dejo el horario de verano en 2022, pero la zona sigue siendo el
+ * dato autoritativo y quien mueva REPORT_TIMEZONE no deberia tener que acordarse
+ * de mover tambien un numero escondido.
+ */
+function tzOffsetMinutes(date: string): number {
+  const probe = new Date(`${date}T12:00:00Z`)
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: REPORT_TIMEZONE,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(probe)
+
+  const get = (type: string) => Number(parts.find(p => p.type === type)?.value ?? 0)
+  // La misma pared de reloj, leida como si fuera UTC. La diferencia con el
+  // instante real ES el desfase.
+  const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'))
+  return (asUtc - probe.getTime()) / 60000
+}
+
+/**
+ * Instantes ISO que abren y cierran un dia laboral.
+ *
+ * Hace falta porque el reporte se guarda por fecha (`date`) pero todo lo demas
+ * en la app se guarda por marca de tiempo (`timestamptz`). Preguntar "¿que
+ * tareas cerre hoy?" con un rango calculado en UTC le atribuiria al dia
+ * siguiente todo lo que pasa despues de las 6 de la tarde en Mexico.
+ */
+export function reportDayRange(date: string): { start: string; end: string } {
+  const next = shiftDate(date, 1)
+  const at = (day: string) => {
+    const [y, m, d] = day.split('-').map(Number)
+    return new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - tzOffsetMinutes(day) * 60000).toISOString()
+  }
+  return { start: at(date), end: at(next) }
+}
+
 /** ¿Es una fecha YYYY-MM-DD valida? Guarda de entrada para rutas y herramientas. */
 export function isValidReportDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
