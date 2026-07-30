@@ -8,7 +8,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Lock, Unlock, Settings } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Lock, Unlock, Settings, Share2 } from 'lucide-react'
 import LinkNext from 'next/link'
 
 type ShapeType = 'rect' | 'circle' | 'line' | 'grid' | 'text'
@@ -80,6 +80,7 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
   const [ctxEdgeMenu,setCtxEdgeMenu]=useState<{x:number;y:number;edgeId:string}|null>(null)
   const [editingEdgeId,setEditingEdgeId]=useState<string|null>(null)
   const [edgeLabel,setEdgeLabel]=useState('');const [edgeColor,setEdgeColor]=useState('#64748b');const [edgeWidth,setEdgeWidth]=useState(2);const [edgeAnim,setEdgeAnim]=useState(false);const [edgeType,setEdgeType]=useState('default')
+  const [showShare,setShowShare]=useState(false);const [shares,setShares]=useState<any[]>([]);const [shareEmail,setShareEmail]=useState('');const [sharePerm,setSharePerm]=useState<'view'|'edit'>('view')
   const [toolCollapsed,setToolCollapsed]=useState(false);const [toolPos,setToolPos]=useState({x:0,y:0})
   const reactFlowInstance = useRef<any>(null)
   const saveTimer=useRef<NodeJS.Timeout|null>(null)
@@ -139,6 +140,7 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
         <input value={title} onChange={e=>{setTitle(e.target.value);autoSave()}} className="h-8 max-w-xs font-semibold border-0 bg-transparent shadow-none outline-none text-lg px-0" placeholder="Titulo del flujo" />
         <div className="flex-1" /><span className="text-xs text-muted-foreground">{saving?'Guardando...':'Auto-guardado'}</span>
         <button onClick={()=>save()} disabled={saving} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors disabled:opacity-50"><Save className="w-4 h-4" />Guardar</button>
+        <button onClick={async()=>{setShowShare(true);try{const r=await fetch(`/api/flows/${flowId}`);const j=await r.json();setShares(j.shares||[])}catch{}}} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Compartir"><Share2 className="w-4 h-4"/>Compartir</button>
       </header>
       <div className="flex-1 relative">
         {altHeld && <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 bg-amber-500 text-white text-xs px-3 py-1 rounded-full shadow-lg pointer-events-none">Alt: mover area</div>}
