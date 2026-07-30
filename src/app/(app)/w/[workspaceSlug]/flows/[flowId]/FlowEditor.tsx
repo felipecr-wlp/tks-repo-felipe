@@ -177,8 +177,13 @@ export default function FlowEditor({ flowId, workspaceSlug, initialNodes, initia
         <div className="flex-1" /><span className="text-xs text-muted-foreground">{saving?'Guardando...':'Auto-guardado'}</span>
         <button onClick={() => save()} disabled={saving} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors disabled:opacity-50"><Save className="w-4 h-4" />Guardar</button>
       </header>
-      <div className="flex-1 relative">
-        <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodesDelete={onNodesDelete} onNodeDragStop={onNodeDragStop} onNodeDoubleClick={handleNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onPaneClick={() => setCtxMenu(null)} nodeTypes={{ custom: CustomNode, shape: ShapeNode }} fitView className="bg-background">
+      <div className="flex-1 relative" style={{ '--rf-edge-z': '50', '--rf-node-z': '1'} as React.CSSProperties}>
+        <style>{`
+          .rf-edges-on-top .react-flow__edges { z-index: 50 !important; }
+          .rf-edges-on-top .react-flow__nodes { z-index: 1 !important; }
+          .rf-edges-on-top .react-flow__edge { stroke-width: 2.5; }
+        `}</style>
+        <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodesDelete={onNodesDelete} onNodeDragStop={onNodeDragStop} onNodeDoubleClick={handleNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onPaneClick={() => setCtxMenu(null)} nodeTypes={{ custom: CustomNode, shape: ShapeNode }} fitView className="bg-background rf-edges-on-top">
           <Controls /><Background variant={BackgroundVariant.Dots} gap={20} size={1} /><MiniMap nodeColor="#94a3b8" className="!bg-card border" />
           <Panel position="top-right" className="flex flex-col gap-1.5 bg-card border rounded-lg p-2 shadow-md">
             <span className="text-xs font-medium text-muted-foreground px-1 mb-1">Contenido</span>
