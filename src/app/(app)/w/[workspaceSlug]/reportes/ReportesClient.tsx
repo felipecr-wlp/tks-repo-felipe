@@ -45,6 +45,7 @@ import {
   Unlock,
   ImagePlus,
   CheckSquare,
+  CalendarDays,
   X,
 } from 'lucide-react'
 import {
@@ -79,6 +80,8 @@ export interface ReporteEntrada {
   minutes: number | null
   source: string
   created_at: string
+  /** Solo para bloqueos: cuándo se destrabó. null = sigue detenido. */
+  resolved_at: string | null
   /** Tarea del tablero de la que habla la actividad, si BITÁCORA la enlazó. */
   task: { id: string; title: string } | null
   images: ReporteImagen[]
@@ -315,6 +318,27 @@ export function ReportesClient({
     }
   }
 
+  /**
+   * Cierra (o reabre) un bloqueo. Sin dialogo de confirmacion a proposito: es
+   * reversible con el mismo boton, y poner una barrera a "ya se resolvio" es
+   * poner una barrera justo a la parte buena.
+   */
+  async function resolverBloqueo(entryId: string, resolved: boolean) {
+    try {
+      const res = await fetch(`/api/daily-reports/entries/${entryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolved }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? 'No se pudo actualizar el bloqueo')
+      if (resolved) toast.success('Bloqueo cerrado. Se avisó a tu responsable.')
+      refrescar()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+    }
+  }
+
   async function guardarReporte(patch: { summary?: string | null; status?: 'draft' | 'submitted' }) {
     try {
       const res = await fetch('/api/daily-reports', {
@@ -378,6 +402,16 @@ export function ReportesClient({
               Ir a hoy
             </button>
           )}
+          {/* La semana vive en su propia pantalla y no en una pestaña de esta:
+              alli no se registra nada, solo se lee, y mezclar las dos cosas
+              convertiria la vista de hoy en un tablero de consulta. */}
+          <Link
+            href={`/w/${workspaceSlug}/reportes/semana?d=${date}`}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            <CalendarDays size={14} />
+            La semana
+          </Link>
           <span className="text-xs text-muted-foreground ml-auto">
             {isSupervisor && (
               <>
@@ -517,13 +551,29 @@ export function ReportesClient({
                     key={e.id}
                     className="group flex items-start gap-2.5 px-2.5 py-2 rounded-lg hover:bg-accent/50 transition-colors"
                   >
-                    <Icon size={15} className={cn('mt-0.5 flex-shrink-0', className)} />
+                    <Icon
+                      size={15}
+                      className={cn('mt-0.5 flex-shrink-0', e.resolved_at ? 'text-muted-foreground' : className)}
+                    />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-foreground break-words">{e.content}</p>
+                      <p
+                        className={cn(
+                          'text-sm break-words',
+                          e.resolved_at ? 'text-muted-foreground line-through' : 'text-foreground'
+                        )}
+                      >
+                        {e.content}
+                      </p>
                       <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
                         <span>{formatReportTime(e.created_at)}</span>
                         <span>·</span>
                         <span>{CATEGORY_LABEL[asCategory(e.category)]}</span>
+                        {e.resolved_at && (
+                          <>
+                            <span>·</span>
+                            <span className="text-emerald-600 dark:text-emerald-500">resuelto</span>
+                          </>
+                        )}
                         {e.minutes != null && (
                           <>
                             <span>·</span>
@@ -553,6 +603,24 @@ export function ReportesClient({
                       )}
                       <ReportImageStrip images={e.images} canDelete onDeleted={refrescar} />
                     </div>
+                    {/* Cerrar el bloqueo es una accion de primera clase, no algo
+                        escondido tras el hover: si destrabarse cuesta encontrar
+                        un boton, los bloqueos se quedan abiertos para siempre y
+                        la alerta que llega a los mandos deja de significar
+                        nada. */}
+                    {e.category === 'bloqueo' && (
+                      <button
+                        onClick={() => void resolverBloqueo(e.id, !e.resolved_at)}
+                        className={cn(
+                          'flex-shrink-0 px-2 py-1 rounded-md text-[11px] font-medium transition-colors',
+                          e.resolved_at
+                            ? 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                            : 'border border-emerald-600/30 text-emerald-700 dark:text-emerald-500 hover:bg-emerald-500/10'
+                        )}
+                      >
+                        {e.resolved_at ? 'Reabrir' : 'Ya se resolvió'}
+                      </button>
+                    )}
                     <button
                       onClick={() => void borrar(e.id)}
                       className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
@@ -679,9 +747,27 @@ export function ReportesClient({
                   const { icon: Icon, className } = categoryStyle(e.category)
                   return (
                     <li key={e.id} className="flex items-start gap-2 text-sm">
-                      <Icon size={14} className={cn('mt-1 flex-shrink-0', className)} />
+                      <Icon
+                        size={14}
+                        className={cn('mt-1 flex-shrink-0', e.resolved_at ? 'text-muted-foreground' : className)}
+                      />
                       <div className="min-w-0 flex-1">
-                        <span className="text-foreground break-words">{e.content}</span>
+                        <span
+                          className={cn(
+                            'break-words',
+                            e.resolved_at ? 'text-muted-foreground line-through' : 'text-foreground'
+                          )}
+                        >
+                          {e.content}
+                        </span>
+                        {/* Un bloqueo abierto en el dia de otro es lo unico de
+                            esta lista que pide una decision del mando, asi que
+                            se etiqueta en vez de quedar como una linea mas. */}
+                        {e.category === 'bloqueo' && !e.resolved_at && (
+                          <span className="ml-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-500">
+                            sigue abierto
+                          </span>
+                        )}
                         {/* Sin `canDelete`: un mando lee el dia ajeno, no lo corrige. */}
                         <ReportImageStrip images={e.images} />
                       </div>

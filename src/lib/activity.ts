@@ -174,6 +174,10 @@ const EMAIL_NOTIFY: Record<string, { phrase: string; objectLabel: string }> = {
   // Es el unico evento del reporte diario que amerita salir de la app: si el
   // aviso espera a que el mando abra la bandeja, el equipo pierde el dia.
   daily_report_blocker:  { phrase: 'reporto un bloqueo en',     objectLabel: 'su reporte del dia' },
+  // OJO: `daily_report_unblocked` NO esta aqui a proposito. Que algo se haya
+  // resuelto es buena noticia, y las buenas noticias no justifican un correo:
+  // basta con que la bandeja deje de mostrarlo como pendiente. Mandar correo por
+  // cada cierre convertiria la alerta de bloqueo en algo que se filtra.
 }
 
 /**
@@ -392,6 +396,7 @@ export const NotificationTypes = {
   SOP_ASSIGNED:          'sop_assigned',          // al lector requerido: debes leer y confirmar este documento
   DAILY_REPORT_MISSING:  'daily_report_missing',  // a la persona: termina el dia sin actividades registradas (recordatorio, sistema)
   DAILY_REPORT_BLOCKER:  'daily_report_blocker',  // a los mandos: alguien del equipo esta atorado y necesita que lo desatoren
+  DAILY_REPORT_UNBLOCKED: 'daily_report_unblocked', // a los mandos: ese bloqueo ya se resolvio (cierra el ciclo, sin correo)
   REMINDER:              'reminder',              // recordatorio programado desde el chat (Circuito 1.C)
   AUTOMATION:            'automation',            // aviso disparado por una regla de automatizacion (Circuito 3)
 } as const

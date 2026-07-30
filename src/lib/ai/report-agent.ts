@@ -30,7 +30,7 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import type { createAdminClient } from '@/lib/supabase/server'
 import { ensureDailyReport, touchDailyReport } from '@/lib/daily-report-store'
-import { notifyReportBlocker } from '@/lib/daily-report-blockers'
+import { notifyReportBlocker, notifyBlockerResolved, listOpenBlockers } from '@/lib/daily-report-blockers'
 import {
   REPORT_CATEGORIES,
   CATEGORY_HINT,
@@ -73,6 +73,7 @@ Cerrar el día:
 Bloqueos:
 - Un bloqueo avisa automáticamente a los responsables del equipo. Dilo cuando registres uno ("Anotado como bloqueo, ya le llegó el aviso a tu responsable"), para que la persona sepa que pedir ayuda aquí sirve de algo.
 - Por lo mismo, no clasifiques como bloqueo un contratiempo que la persona ya resolvió sola. Bloqueo es lo que sigue detenido y necesita a alguien más.
+- Si tiene bloqueos abiertos de días anteriores los verás listados abajo. Cuando diga que uno ya se destrabó ("ya me dieron el acceso", "eso ya quedó"), ciérralo con resolver_bloqueo en vez de registrar una actividad nueva. Si lleva varios días abierto y no lo menciona, pregúntale UNA vez si sigue igual.
 
 Continuidad:
 - Si dice "sigo con lo de ayer" o "terminé lo que dejé pendiente", ya tienes el día anterior en tu contexto. Úsalo para redactar la actividad completa en vez de preguntar a qué se refiere.
@@ -276,6 +277,61 @@ export function buildReportAgentTools(scope: AgentScope) {
       },
     }),
 
+    resolver_bloqueo: tool({
+      description:
+        'Marca como resuelto un bloqueo que la persona reportó antes, cuando diga que ya se destrabó. ' +
+        'Usa el entry_id de la lista de bloqueos abiertos que tienes en contexto. ' +
+        'No sirve para actividades que no sean bloqueos.',
+      parameters: z.object({
+        entry_id: z.string().uuid().describe('El id del bloqueo abierto, tal como aparece en tu contexto.'),
+      }),
+      execute: async ({ entry_id }) => {
+        // La entrada puede ser de CUALQUIER dia (un bloqueo del martes se
+        // resuelve el jueves), asi que no se acota por fecha. La pertenencia se
+        // verifica subiendo al reporte: el dueño sale del scope del servidor.
+        const { data: entry } = (await admin
+          .from('daily_report_entries')
+          .select('id, category, content, resolved_at, report:daily_reports ( profile_id, workspace_id, report_date )')
+          .eq('id', entry_id)
+          .maybeSingle()) as {
+          data: {
+            id: string
+            category: string
+            content: string
+            resolved_at: string | null
+            report: { profile_id: string; workspace_id: string; report_date: string } | null
+          } | null
+        }
+
+        if (!entry?.report) return { error: 'No encuentro ese bloqueo.' }
+        if (entry.report.profile_id !== userId || entry.report.workspace_id !== workspaceId) {
+          return { error: 'Ese bloqueo no es tuyo.' }
+        }
+        if (entry.category !== 'bloqueo') return { error: 'Esa actividad no es un bloqueo.' }
+        if (entry.resolved_at) return { ok: true, ya_estaba: true, content: entry.content }
+
+        const { error } = await admin
+          .from('daily_report_entries')
+          .update({ resolved_at: new Date().toISOString() })
+          .eq('id', entry_id)
+
+        if (error) {
+          console.error('[bitacora resolver_bloqueo] update error:', error)
+          return { error: 'No se pudo cerrar el bloqueo.' }
+        }
+
+        await notifyBlockerResolved({
+          admin,
+          workspaceId,
+          userId,
+          date: entry.report.report_date,
+          content: entry.content,
+        })
+
+        return { ok: true, content: entry.content, desde: entry.report.report_date }
+      },
+    }),
+
     leer_mi_dia: tool({
       description:
         'Devuelve lo que la persona lleva registrado hoy, con hora y categoría. ' +
@@ -467,6 +523,35 @@ export function buildReportAgentTools(scope: AgentScope) {
 /** Valida el dia que manda el cliente; cualquier cosa rara cae en hoy. */
 export function resolveAgentDate(raw: string | undefined): string {
   return raw && isValidReportDate(raw) ? raw : todayInReportTz()
+}
+
+/**
+ * Los bloqueos que esta persona sigue arrastrando, para el prompt del sistema.
+ *
+ * Va en el contexto y no en una herramienta por lo mismo que el dia anterior: el
+ * momento en que hace falta es justo cuando la persona dice "eso ya quedo", y
+ * ahi el modelo no tiene forma de saber que debe ir a buscar una lista. Ademas
+ * el `entry_id` tiene que estar a la vista para poder cerrarlo, porque el agente
+ * no puede inventar uuids.
+ *
+ * Devuelve cadena vacia si no hay ninguno. Nunca lanza.
+ */
+export async function buildOpenBlockersBlock(
+  admin: Admin,
+  scope: { workspaceId: string; userId: string; date: string },
+): Promise<string> {
+  const abiertos = await listOpenBlockers(admin, scope)
+  if (abiertos.length === 0) return ''
+
+  const lineas = abiertos
+    .slice(0, 8)
+    .map(b => `- [${b.entry_id}] ${b.content} (desde el ${b.date}, ${b.dias === 0 ? 'hoy' : `${b.dias} días`})`)
+
+  return [
+    '\n\nBloqueos suyos que siguen abiertos:',
+    ...lineas,
+    'Si dice que alguno ya se destrabó, ciérralo con resolver_bloqueo usando su id. No los registres otra vez como actividad de hoy.',
+  ].join('\n')
 }
 
 /**

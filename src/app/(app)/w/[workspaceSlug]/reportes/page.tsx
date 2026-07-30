@@ -105,13 +105,16 @@ export default async function ReportesPage({ params, searchParams }: PageProps) 
     minutes: number | null
     source: string
     created_at: string
+    resolved_at: string | null
     task: { id: string; title: string } | null
   }
   let entries: EntryRow[] = []
   if (reports.length > 0) {
     const { data } = (await admin
       .from('daily_report_entries')
-      .select('id, report_id, content, category, minutes, source, created_at, task:tasks ( id, title )')
+      .select(
+        'id, report_id, content, category, minutes, source, created_at, resolved_at, task:tasks ( id, title )'
+      )
       .in(
         'report_id',
         reports.map(r => r.id)
@@ -220,6 +223,7 @@ export default async function ReportesPage({ params, searchParams }: PageProps) 
         minutes: e.minutes,
         source: e.source,
         created_at: e.created_at,
+        resolved_at: e.resolved_at,
         task: e.task ?? null,
         images: byEntry.get(e.id) ?? [],
       })),

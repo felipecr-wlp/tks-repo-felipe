@@ -437,6 +437,7 @@ export type Database = {
           id: string
           minutes: number | null
           report_id: string
+          resolved_at: string | null
           source: string
           task_id: string | null
         }
@@ -447,6 +448,7 @@ export type Database = {
           id?: string
           minutes?: number | null
           report_id: string
+          resolved_at?: string | null
           source?: string
           task_id?: string | null
         }
@@ -457,6 +459,7 @@ export type Database = {
           id?: string
           minutes?: number | null
           report_id?: string
+          resolved_at?: string | null
           source?: string
           task_id?: string | null
         }

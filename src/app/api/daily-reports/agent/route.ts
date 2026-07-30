@@ -35,6 +35,7 @@ import {
   REPORT_AGENT_SYSTEM,
   buildReportAgentTools,
   buildPreviousDayBlock,
+  buildOpenBlockersBlock,
   resolveAgentDate,
 } from '@/lib/ai/report-agent'
 
@@ -135,11 +136,12 @@ export async function POST(request: NextRequest) {
 
   const day = resolveAgentDate(date)
 
-  // El rol y la memoria del dia anterior son independientes entre si, y el
-  // segundo son dos consultas: en serie se notarian antes del primer token.
-  const [isSupervisor, previousDay] = await Promise.all([
+  // Los tres bloques de contexto son independientes entre si y cada uno son dos
+  // consultas: en serie se notarian antes del primer token.
+  const [isSupervisor, previousDay, openBlockers] = await Promise.all([
     isReportSupervisor(admin, workspace_id, user.id),
     buildPreviousDayBlock(admin, { workspaceId: workspace_id, userId: user.id, date: day }),
+    buildOpenBlockersBlock(admin, { workspaceId: workspace_id, userId: user.id, date: day }),
   ])
 
   // ── Mensajes ────────────────────────────────────────────────────────────────
@@ -173,7 +175,7 @@ export async function POST(request: NextRequest) {
   try {
     const result = await streamText({
       model: geminiFlash,
-      system: REPORT_AGENT_SYSTEM + scopeBlock + previousDay,
+      system: REPORT_AGENT_SYSTEM + scopeBlock + previousDay + openBlockers,
       messages,
       temperature: 0.4,
       tools: buildReportAgentTools({

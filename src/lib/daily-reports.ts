@@ -103,6 +103,45 @@ export function reportDayRange(date: string): { start: string; end: string } {
   return { start: at(date), end: at(next) }
 }
 
+/**
+ * Los siete dias de la semana a la que pertenece una fecha, de lunes a domingo.
+ *
+ * La semana empieza en lunes y no en domingo porque lo que se lee aqui es una
+ * semana LABORAL: partirla en domingo dejaria el sabado y el domingo en bloques
+ * distintos y volveria ilegible el fin de semana de quien si trabajo.
+ *
+ * Se devuelven los siete y no solo los cinco habiles a proposito: en obra se
+ * trabaja sabado, y una vista que esconde el sabado esconde trabajo real.
+ */
+export function reportWeekDays(date: string): string[] {
+  const dow = new Date(`${date}T12:00:00Z`).getUTCDay() // 0 = domingo
+  const monday = shiftDate(date, dow === 0 ? -6 : 1 - dow)
+  return Array.from({ length: 7 }, (_, i) => shiftDate(monday, i))
+}
+
+/** "lun 27" para los encabezados de columna de la semana. */
+export function formatWeekDayShort(date: string): string {
+  const d = new Date(`${date}T12:00:00Z`)
+  return new Intl.DateTimeFormat('es-MX', { timeZone: 'UTC', weekday: 'short', day: 'numeric' }).format(d)
+}
+
+/** "27 de julio al 2 de agosto" para el encabezado de la semana. */
+export function formatWeekLabel(days: string[]): string {
+  const fmt = (date: string, withMonth: boolean) =>
+    new Intl.DateTimeFormat('es-MX', {
+      timeZone: 'UTC',
+      day: 'numeric',
+      ...(withMonth ? { month: 'long' } : {}),
+    }).format(new Date(`${date}T12:00:00Z`))
+
+  const first = days[0]
+  const last = days[days.length - 1]
+  // Si la semana no cruza de mes, el mes se dice una sola vez: "27 al 2 de
+  // agosto" se lee mal, "27 al 31 de julio" se lee bien.
+  const mismoMes = first.slice(0, 7) === last.slice(0, 7)
+  return `${fmt(first, !mismoMes)} al ${fmt(last, true)}`
+}
+
 /** ¿Es una fecha YYYY-MM-DD valida? Guarda de entrada para rutas y herramientas. */
 export function isValidReportDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
