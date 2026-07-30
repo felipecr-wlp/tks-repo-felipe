@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ReactFlow, Controls, Background, MiniMap, useNodesState, useEdgesState,
   addEdge, Connection, type Node, type Edge, BackgroundVariant, Panel,
@@ -28,31 +28,11 @@ function CustomNode({ data, selected, id }: NodeProps) {
   const ct = fd.content?.contentType ?? 'text'; const locked = (data as any).locked
   const nodeW = (data as any).nodeWidth ?? 260
   const rf = useReactFlow()
-  const doResize = (e: React.MouseEvent, corner: string) => {
-    e.stopPropagation(); e.preventDefault()
-    const sx = e.clientX; const sy = e.clientY
-    const node = rf.getNode(id); if(!node)return
-    const ow = nodeW; const ox = node.position.x; const oy = node.position.y
-    const onMove = (ev: MouseEvent) => {
-      const dx = ev.clientX - sx; const dy = ev.clientY - sy
-      let nw = ow; let px = ox; let py = oy
-      if (corner.includes('r')) nw = Math.max(120, ow + dx)
-      if (corner.includes('l')) { nw = Math.max(120, ow - dx); px = ox + dx }
-      if (corner.includes('b') || corner.includes('t')) { py = corner.includes('t') ? oy + dy : oy }
-      requestAnimationFrame(() => rf.setNodes((nds: any[]) => nds.map((n: any) => n.id === id ? { ...n, position: { x: px, y: py }, data: { ...n.data, nodeWidth: nw } } : n)))
-    }
-    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }
+  const containerRef = useRef<HTMLDivElement>(null)
+  useEffect(()=>{const el=containerRef.current;if(!el)return;const ro=new ResizeObserver(()=>{const w=el.offsetWidth;rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,nodeWidth:w}}:n))});ro.observe(el);return()=>ro.disconnect()},[id,rf])
   return (
-    <div className={`bg-card border-2 rounded-lg px-4 py-3 shadow-sm transition-all group relative ${selected?'border-primary ring-2 ring-primary/30 shadow-md':locked?'opacity-70 border-border':'border-border'}`} style={{width:nodeW,maxWidth:'none'}}>
+    <div ref={containerRef} className={`bg-card border-2 rounded-lg px-4 py-3 shadow-sm transition-all group relative ${selected?'border-primary ring-2 ring-primary/30 shadow-md':locked?'opacity-70 border-border':'border-border'}`} style={{width:nodeW,maxWidth:'none',resize:'horizontal',overflow:'hidden'}}>
       {selected && <CheckCircle className="absolute -top-1.5 -right-1.5 w-4 h-4 text-primary bg-background rounded-full z-10" />}
-      {selected && <>
-        {[[0,0,'nwse-resize','tl'],[nodeW,0,'nesw-resize','tr'],[0,68,'nesw-resize','bl'],[nodeW,68,'nwse-resize','br'],[nodeW/2,0,'ns-resize','t'],[nodeW/2,68,'ns-resize','b'],[0,34,'ew-resize','l'],[nodeW,34,'ew-resize','r']].map(([x,y,cursor,corner]:any[])=>
-          <div key={corner} style={{position:'absolute',left:x-8,top:y-8,width:18,height:18,borderRadius:4,background:'#3b82f6',border:'2px solid #fff',cursor,zIndex:50,pointerEvents:'auto'}} onPointerDown={e=>{e.stopPropagation();e.preventDefault();doResize(e,corner)}}/>
-        )}
-      </>}
       <Handle type="target" position={Position.Top} className="!bg-muted-foreground" />
       <div className="flex items-center gap-2 mb-1">
         <span className="text-primary/70">{icons[ct]}</span>
@@ -78,43 +58,12 @@ function ShapeNode({ data, selected, id }: NodeProps) {
   const opacity = locked ? {opacity:0.6} : {}
   const selRing = selected ? {outline:'2px solid #3b82f6',outlineOffset:'2px',borderRadius:s==='circle'?'50%':s==='grid'?'4px':'8px'} : {}
   const rf = useReactFlow()
+  const containerRef = useRef<HTMLDivElement>(null)
+  useEffect(()=>{const el=containerRef.current;if(!el)return;const ro=new ResizeObserver(()=>{const nw=el.offsetWidth;const nh=el.offsetHeight;if(nw>0&&nh>0)rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,width:nw,height:nh}}:n));if(d.onResizeEnd)d.onResizeEnd()});ro.observe(el);return()=>ro.disconnect()},[id,rf,d])
   const Label = label ? <text x={w/2} y={h/2} textAnchor="middle" dominantBaseline="central" fill="#334155" fontSize={13} fontWeight={500} fontFamily="system-ui, sans-serif" style={{pointerEvents:'none'}}>{label}</text> : null
 
-  const doResize = (e: React.MouseEvent, corner: string) => {
-    e.stopPropagation(); e.preventDefault()
-    const sx = e.clientX; const sy = e.clientY
-    const node = rf.getNode(id); if(!node)return
-    const ow = (node.data as any)?.width ?? 160; const oh = (node.data as any)?.height ?? 120
-    const ox = node.position.x; const oy = node.position.y
-    const onMove = (ev: MouseEvent) => {
-      const dx = ev.clientX - sx; const dy = ev.clientY - sy
-      let nw = ow; let nh = oh; let px = ox; let py = oy
-      if (corner.includes('r')) nw = Math.max(20, ow + dx)
-      if (corner.includes('l')) { nw = Math.max(20, ow - dx); px = ox + dx }
-      if (corner.includes('b')) nh = Math.max(20, oh + dy)
-      if (corner.includes('t')) { nh = Math.max(20, oh - dy); py = oy + dy }
-      requestAnimationFrame(() => rf.setNodes((nds: any[]) => nds.map((n: any) => n.id === id ? { ...n, position: { x: px, y: py }, data: { ...n.data, width: nw, height: nh } } : n)))
-    }
-    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); if(d.onResizeEnd)d.onResizeEnd() }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }
-
-  const hs = 10; const hSize = hs*2
-  const handle = (x: number, y: number, cursor: string, corner: string) =>
-    <div style={{position:'absolute',left:x-hs,top:y-hs,width:hSize,height:hSize,borderRadius:4,background:'#3b82f6',border:'2px solid #fff',cursor,zIndex:50,pointerEvents:'auto',display:selected?'block':'none'}} onPointerDown={e => {e.stopPropagation();e.preventDefault();doResize(e, corner)}} />
-
-  const D = <div style={{width:w,height:h,...opacity,...selRing,position:'relative'}}>
+  const D = <div ref={containerRef} style={{width:w,height:h,...opacity,...selRing,position:'relative',resize:'both',overflow:'hidden'}}>
     {selected && <CheckCircle className="absolute -top-2 -right-2 w-4 h-4 text-primary bg-background rounded-full z-10"/>}
-
-    {handle(0, 0, 'nwse-resize', 'tl')}
-    {handle(w, 0, 'nesw-resize', 'tr')}
-    {handle(0, h, 'nesw-resize', 'bl')}
-    {handle(w, h, 'nwse-resize', 'br')}
-    {handle(w/2, 0, 'ns-resize', 't')}
-    {handle(w/2, h, 'ns-resize', 'b')}
-    {handle(0, h/2, 'ew-resize', 'l')}
-    {handle(w, h/2, 'ew-resize', 'r')}
   {s==='circle' && <svg width={w} height={h} className="overflow-visible"><ellipse cx={w/2} cy={h/2} rx={w/2-2} ry={h/2-2} fill={fill} stroke={stroke} strokeWidth={2}/>{Label}</svg>}
   {s==='line' && <svg width={w} height={h} className="overflow-visible"><line x1={0} y1={h/2} x2={w} y2={h/2} stroke={stroke} strokeWidth={3}/><polygon points={`${w-8},${h/2-5} ${w},${h/2} ${w-8},${h/2+5}`} fill={stroke}/>{Label}</svg>}
   {s==='grid' && (()=>{const cw=w/cols,rh=h/rows,ls=[];for(let i=1;i<cols;i++)ls.push(<line key={`v${i}`} x1={i*cw} y1={0} x2={i*cw} y2={h} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>);for(let i=1;i<rows;i++)ls.push(<line key={`h${i}`} x1={0} y1={i*rh} x2={w} y2={i*rh} stroke={stroke} strokeWidth={1} strokeDasharray="4 2"/>);return <svg width={w} height={h} className="overflow-visible"><rect x={0} y={0} width={w} height={h} fill={fill} stroke={stroke} strokeWidth={2} rx={2}/>{ls}{Label}</svg>})()}
