@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { toast } from 'sonner'
-import { Hash, Clock, Workflow, ToggleLeft, ToggleRight, Power } from 'lucide-react'
+import { Hash, Clock, Workflow, Power, ChevronRight, ToggleRight, ToggleLeft } from 'lucide-react'
 
 const PLUGIN_ICONS: Record<string, React.ReactNode> = {
   hash: <Hash className="w-5 h-5" />,
@@ -61,7 +62,12 @@ export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, 
         const isEnabled = inst?.enabled ?? false
 
         return (
-          <div key={app.id} className="flex items-center gap-4 p-4 border rounded-xl bg-card hover:bg-accent/30 transition-colors">
+          <Link
+            key={app.id}
+            href={isInstalled ? `/w/${workspaceSlug}/settings/plugins/${inst!.id}` : '#'}
+            onClick={e => { if (!isInstalled) e.preventDefault() }}
+            className={`flex items-center gap-4 p-4 border rounded-xl bg-card transition-colors ${isInstalled ? 'hover:bg-accent/30 cursor-pointer' : 'opacity-50'}`}
+          >
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
               {PLUGIN_ICONS[app.icon] || <Power className="w-5 h-5" />}
             </div>
@@ -82,20 +88,17 @@ export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, 
                 )}
               </div>
             </div>
-            {isAdmin && (
+            {isInstalled && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+            {!isInstalled && isAdmin && (
               <button
-                onClick={() => toggle(app.id, inst?.id)}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggle(app.id) }}
                 disabled={loading === app.id}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  isInstalled
-                    ? 'bg-destructive/10 text-destructive hover:bg-destructive/20'
-                    : 'bg-primary/10 text-primary hover:bg-primary/20'
-                } disabled:opacity-50`}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
               >
-                {loading === app.id ? '...' : isInstalled ? 'Desinstalar' : 'Instalar'}
+                {loading === app.id ? '...' : 'Instalar'}
               </button>
             )}
-          </div>
+          </Link>
         )
       })}
       {catalog.length === 0 && (
