@@ -555,6 +555,148 @@ El WidgetSlot usa caché (`loadedComponents` Map). Para limpiar la caché, recar
 
 ---
 
+## Exponer tu Plugin — API REST + Inyección en WLO
+
+### A. Exponer una API REST desde tu plugin
+
+Tu plugin puede ser un servidor HTTP completo. WLO se comunica con él via HTTP:
+
+```
+Tu Plugin (Node.js, Python, PHP, etc.)
+  ├── GET  /api/health          → health check
+  ├── POST /api/receive-data    → WLO envía datos
+  ├── GET  /api/get-data        → WLO consulta datos
+  └── POST /webhook             → WLO notifica eventos
+```
+
+**Ejemplo: plugin con Express (Node.js)**
+
+```javascript
+// plugin-server.js - Deploy independiente
+const express = require('express')
+const app = express()
+app.use(express.json())
+
+// Health check (WLO verifica que el plugin esté vivo)
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', version: '1.0.0' })
+})
+
+// Recibir datos desde WLO
+app.post('/api/receive', (req, res) => {
+  const { workspace_id, event, data } = req.body
+  // Procesar datos...
+  console.log(`Workspace ${workspace_id}: ${event}`, data)
+  res.json({ received: true })
+})
+
+// WLO consulta datos del plugin
+app.get('/api/data', (req, res) => {
+  const wsId = req.query.workspace_id
+  res.json({ workspace: wsId, items: [] })
+})
+
+app.listen(process.env.PORT || 3001)
+```
+
+**Registrar en WLO**:
+
+```json
+// manifest.json
+{
+  "name": "Mi Plugin API",
+  "id": "wlo-mi-api",
+  "type": "page",
+  "api": [
+    { "path": "/api/receive", "method": "POST", "description": "Recibe datos de WLO" },
+    { "path": "/api/data", "method": "GET", "description": "WLO consulta datos" }
+  ],
+  "webhooks": [
+    { "event": "task.created", "description": "Notificar cuando se crea una tarea" }
+  ]
+}
+```
+
+### B. Inyección en páginas de WLO (Slots)
+
+Los plugins pueden aparecer en ubicaciones específicas de WLO definidas en el manifest:
+
+```json
+{
+  "slots": [
+    "dashboard",         // Widget en el dashboard
+    "sidebar-workspace", // Item en menú Workspace
+    "sidebar-complementos", // Item en Complementos
+    "header"             // Botón en barra superior
+  ]
+}
+```
+
+| Slot | Ubicación | Renderizado | Ideal para |
+|------|-----------|-------------|------------|
+| `dashboard` | Debajo de métricas en el dashboard | WidgetSlot (iframe) | Widgets, métricas |
+| `sidebar-workspace` | Menú lateral → Workspace | NavItem con link | Páginas del plugin |
+| `sidebar-complementos` | Menú lateral → Complementos | NavItem con link | Plugins instalables |
+| `header` | Barra superior de la app | iframe pequeño | Botones, notificaciones |
+
+**Ejemplo: plugin con widget + página + botón en header**:
+
+```json
+{
+  "name": "Mi Plugin Completo",
+  "id": "wlo-completo",
+  "type": "page",
+  "slots": ["dashboard", "sidebar-complementos", "header"],
+  "routes": [
+    { "path": "/w/:slug/p/wlo-completo", "label": "Mi Plugin" }
+  ]
+}
+```
+
+### C. Arquitectura de despliegue
+
+```
+┌────────────────────────────────────────────────┐
+│ WLO (Next.js en Vercel)                        │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────┐ │
+│  │ WidgetSlot│  │ Sidebar  │  │ p/ catch-all │ │
+│  │ (iframe) │  │ (link)   │  │ (iframe)     │ │
+│  └─────┬────┘  └────┬─────┘  └──────┬───────┘ │
+└────────┼────────────┼───────────────┼──────────┘
+         │            │               │
+    ┌────▼────────────▼───────────────▼──────────┐
+    │ Tu Plugin (deploy independiente)           │
+    │ Puede ser: Vercel, Netlify, Railway,       │
+    │ Cloudflare Workers, servidor propio        │
+    │                                            │
+    │  ├── page.js/html    ← Widget/página       │
+    │  ├── server.js       ← API endpoints       │
+    │  └── manifest.json   ← Registro en WLO     │
+    └────────────────────────────────────────────┘
+```
+
+### D. Comunicación bidireccional completa
+
+```
+WLO → Plugin (iframe):
+  URL params: ?workspace_id=xxx&workspace_slug=xxx
+
+Plugin → WLO (postMessage):
+  { type: 'wlo-resize', height: N }
+  { type: 'wlo-navigate', path: '/w/slug/tasks' }
+  { type: 'wlo-event', action: 'custom', data: {...} }
+
+WLO → Plugin (HTTP):
+  POST https://mi-plugin.com/api/receive
+  GET  https://mi-plugin.com/api/data
+
+Plugin → WLO (HTTP + API Key):
+  GET  https://wlo.vercel.app/rest/v1/tasks
+  POST https://wlo.vercel.app/api/connectors/call/...
+```
+
+---
+
 ## Limitaciones Actuales
 
 | Limitación | Explicación |
