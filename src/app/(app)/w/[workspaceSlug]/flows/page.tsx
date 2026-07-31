@@ -1,7 +1,5 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import * as path from 'path'
-import * as fs from 'fs'
 
 interface FlowsPageProps {
   params: { workspaceSlug: string }
@@ -25,7 +23,6 @@ export default async function FlowsPage({ params }: FlowsPageProps) {
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
 
-  // Check plugin is installed
   const { data: plugin } = await admin
     .from('connector_installs')
     .select('id')
@@ -35,15 +32,6 @@ export default async function FlowsPage({ params }: FlowsPageProps) {
     .maybeSingle() as { data: { id: string } | null; error: unknown }
   if (!plugin) redirect(`/w/${params.workspaceSlug}`)
 
-  // Load real implementation from plugin directory
-  const pluginPath = path.join(process.cwd(), 'plugins', 'wlo-flows', 'pages', 'list.js')
-  if (fs.existsSync(pluginPath)) {
-    delete require.cache[require.resolve(pluginPath)]
-    const PluginListPage = require(pluginPath).default
-    return <PluginListPage params={params} workspaceId={workspace.id} workspaceSlug={params.workspaceSlug} />
-  }
-
-  // Fallback: render inline (original code)
   const { PenTool } = await import('lucide-react')
   const { NewFlowButton } = await import('./NewFlowButton')
   const { FlowCard } = await import('./FlowCard')
