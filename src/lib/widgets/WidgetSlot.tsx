@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, Component, type ReactNode, createElement } from 'react'
+import { useEffect, useState, Component, type ReactNode } from 'react'
 import type { WidgetInstall } from './registry'
 
 class WidgetErrorBoundary extends Component<{ children: ReactNode; name: string }, { hasError: boolean }> {
