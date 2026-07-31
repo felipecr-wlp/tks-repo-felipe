@@ -53,15 +53,15 @@ export function WidgetSlot({ workspaceId, slot }: Props) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-      {widgets.filter(w => w.enabled && w.widget).map(w => (
-        <WidgetErrorBoundary key={w.id} name={w.widget!.name}>
-          {(() => {
-            const Component = WIDGET_COMPONENTS[w.widget!.component]
-            if (!Component) return null
-            return <Component />
-          })()}
-        </WidgetErrorBoundary>
-      ))}
+      {widgets.filter(w => w.enabled && w.widget).map(w => {
+        const Component = WIDGET_COMPONENTS[w.widget!.component]
+        if (!Component) return null
+        return (
+          <WidgetErrorBoundary key={w.id} name={w.widget!.name}>
+            <Component />
+          </WidgetErrorBoundary>
+        )
+      })}
     </div>
   )
 }
