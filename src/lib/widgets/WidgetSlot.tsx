@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, Component, type ReactNode } from 'react'
+import { SampleCounterWidget, SampleClockWidget } from './samples'
 
 class WidgetErrorBoundary extends Component<{ children: ReactNode; name: string }, { hasError: boolean }> {
   constructor(props: { children: ReactNode; name: string }) {
@@ -57,12 +58,8 @@ function WidgetIframe({ widget, workspaceSlug }: { widget: WidgetData; workspace
 }
 
 function LocalWidgetFallback({ appId, name }: { appId: string; name: string }) {
-  // Use local React components for built-in widgets
-  if (appId === 'wlo-counter' || appId === 'wlo-clock') {
-    const { SampleCounterWidget, SampleClockWidget } = require('./samples')
-    const Comp = appId === 'wlo-clock' ? SampleClockWidget : SampleCounterWidget
-    return <Comp />
-  }
+  if (appId === 'wlo-clock') return <SampleClockWidget />
+  if (appId === 'wlo-counter') return <SampleCounterWidget />
   return (
     <div className="border rounded-xl p-4 h-full">
       <h4 className="text-xs font-semibold text-muted-foreground mb-3">{name}</h4>

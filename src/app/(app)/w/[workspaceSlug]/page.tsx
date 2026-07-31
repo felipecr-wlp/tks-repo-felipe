@@ -279,7 +279,7 @@ export default async function WorkspaceDashboardPage({
       )}
 
       {/* ── Widgets (plugins) ──────────────────────────────────────────────── */}
-      <WidgetSlot workspaceId={workspace.id} slot="dashboard" />
+      <WidgetSlot workspaceId={workspace.id} workspaceSlug={params.workspaceSlug} slot="dashboard" />
 
       {/* ── Mis tareas + Actividad ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-10">
