@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Hash, Clock, Workflow, Power, ChevronRight, ToggleRight, ToggleLeft } from 'lucide-react'
+import { Hash, Clock, Workflow, Power, ChevronRight, ToggleRight, ToggleLeft, Upload } from 'lucide-react'
 
 const PLUGIN_ICONS: Record<string, React.ReactNode> = {
   hash: <Hash className="w-5 h-5" />,
@@ -56,12 +56,39 @@ export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, 
 
   return (
     <div className="space-y-3">
+      {isAdmin && (
+        <div className="flex justify-end">
+          <button onClick={uploadZip} disabled={loading === 'upload'} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium hover:bg-accent transition-colors disabled:opacity-50">
+            <Upload className="w-3.5 h-3.5" />{loading === 'upload' ? 'Instalando...' : 'Subir plugin (.zip)'}
+          </button>
+        </div>
+      )}
       {catalog.map(app => {
         const inst = installMap.get(app.id)
         const isInstalled = !!inst
         const isEnabled = inst?.enabled ?? false
 
-        return (
+  async function uploadZip() {
+    const el = document.createElement('input')
+    el.type = 'file'; el.accept = '.zip'
+    el.onchange = async (e: any) => {
+      const file = e.target.files?.[0]; if (!file) return
+      setLoading('upload')
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('workspace_id', workspaceId)
+      try {
+        const r = await fetch('/api/plugins/upload', { method: 'POST', body: fd })
+        if (!r.ok) throw new Error((await r.json()).error || 'Error')
+        toast.success('Plugin instalado')
+        router.refresh()
+      } catch (e: any) { toast.error(e.message || 'Error al instalar') }
+      finally { setLoading(null) }
+    }
+    el.click()
+  }
+
+  return (
           <Link
             key={app.id}
             href={isInstalled ? `/w/${workspaceSlug}/settings/plugins/${inst!.id}` : '#'}
