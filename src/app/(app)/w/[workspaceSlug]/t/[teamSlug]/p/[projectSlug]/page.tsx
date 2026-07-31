@@ -461,6 +461,7 @@ export default async function ProjectPage({
           canManage ? (
             <AutomationsPanel
               projectId={project.id}
+              workspaceId={project.workspace_id}
               statuses={(statuses ?? []).map(s => ({ id: s.id, name: s.name, category: s.category }))}
               members={memberProfiles}
               sprints={sprintList}

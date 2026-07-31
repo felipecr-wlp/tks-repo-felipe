@@ -28,6 +28,11 @@ const actionSchema = z.object({
   sprint_id:   z.string().uuid().nullable().optional(),
   recipient_id: z.string().max(60).optional(), // 'assignee' o un uuid
   body:        z.string().max(4000).optional(),
+  sequence_id: z.string().uuid().nullable().optional(), // emailer_enroll
+  // `email` no se valida como direccion aqui a proposito: admite el token
+  // {email_tarea}. Quien decide si la cadena sirve es resolverEmail(), en el
+  // momento de disparar, que es cuando existe la tarea de la que sacarla.
+  email:       z.string().max(320).optional(),
 })
 
 const triggerConfigSchema = z.object({

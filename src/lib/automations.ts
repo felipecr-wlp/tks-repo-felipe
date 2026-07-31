@@ -16,7 +16,7 @@ import { autoWatch } from '@/lib/watchers'
 export type AutomationTrigger = 'status_changed' | 'assigned' | 'task_created' | 'due'
 
 export type AutomationActionType =
-  | 'assign' | 'move_status' | 'move_sprint' | 'notify' | 'chat_post'
+  | 'assign' | 'move_status' | 'move_sprint' | 'notify' | 'chat_post' | 'emailer_enroll'
 
 export interface AutomationAction {
   type: AutomationActionType
@@ -30,6 +30,15 @@ export interface AutomationAction {
   recipient_id?: string
   /** chat_post: texto a publicar. Se sustituye {tarea} por el titulo. */
   body?: string
+  /** emailer_enroll: secuencia del Emailer de WLI. */
+  sequence_id?: string | null
+  /**
+   * emailer_enroll: a quien enrolar. Puede ser una direccion fija o el token
+   * `{email_tarea}`, que toma la PRIMERA direccion que aparezca en el titulo o
+   * la descripcion de la tarea. Si el token no encuentra nada, no se enrola a
+   * nadie: adivinar el destinatario de un correo de marketing no es una opcion.
+   */
+  email?: string
 }
 
 export interface AutomationCondition {
@@ -93,6 +102,50 @@ function conditionsPass(
     if (c.op === 'neq' ? equal : !equal) return false
   }
   return true
+}
+
+// ── Destinatario de una accion de correo ────────────────────────────────────
+const RE_EMAIL = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i
+
+/**
+ * Devuelve la direccion a la que enrolar, o null si no hay una CIERTA.
+ *
+ * Acepta dos formas: una direccion fija escrita en la regla, o el token
+ * `{email_tarea}` que la saca del titulo o la descripcion de la tarea (el caso
+ * real: tareas de seguimiento a un prospecto que llevan su correo escrito).
+ *
+ * Devolver null cuando no encuentra nada es la parte importante. La alternativa
+ * seria caer al correo del asignado, y entonces mover una tarea de columna
+ * meteria al propio equipo en una secuencia de marketing.
+ */
+async function resolverEmail(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  configurado: string,
+  task: AutomationTaskSnapshot,
+): Promise<string | null> {
+  const valor = (configurado ?? '').trim()
+  if (!valor) return null
+
+  if (!/\{email_tarea\}/i.test(valor)) {
+    return RE_EMAIL.test(valor) ? valor.toLowerCase() : null
+  }
+
+  const enTitulo = task.title.match(RE_EMAIL)
+  if (enTitulo) return enTitulo[0].toLowerCase()
+
+  // La descripcion no viene en el snapshot: se pide solo si hizo falta.
+  try {
+    const { data } = (await admin
+      .from('tasks')
+      .select('description')
+      .eq('id', task.id)
+      .maybeSingle()) as { data: { description: string | null } | null }
+    const enDescripcion = (data?.description ?? '').match(RE_EMAIL)
+    return enDescripcion ? enDescripcion[0].toLowerCase() : null
+  } catch {
+    return null
+  }
 }
 
 // ── Ejecucion de acciones de una regla ──────────────────────────────────────
@@ -194,6 +247,39 @@ async function runActions(
           })
           break
         }
+
+        // ── Enrolar a alguien en una secuencia del Emailer de WLI ───────────
+        // Es la primera accion que sale de WLO. Todo lo demas de este motor
+        // escribe en la propia base; esta le habla a otra app y le manda correo
+        // a una persona real, asi que es la unica con dos candados: el
+        // complemento tiene que estar instalado en el workspace, y el
+        // destinatario tiene que ser explicito.
+        case 'emailer_enroll': {
+          const secuencia = action.sequence_id ?? null
+          if (!secuencia) break
+
+          const destino = await resolverEmail(admin, action.email ?? '', task)
+          if (!destino) break // sin direccion cierta no se manda nada
+
+          const { callConnector } = await import('@/lib/connectors/outbound')
+          const r = await callConnector({
+            app: 'wli',
+            action: 'emailer/enroll_contact',
+            payload: {
+              sequence_id: secuencia,
+              email: destino,
+              attributes: {
+                origen: 'automatizacion wlo',
+                tarea: task.title,
+                tarea_id: task.id,
+              },
+            },
+            admin,
+            workspaceId: task.workspace_id,
+          })
+          if (!r.ok) console.error('[automations] emailer_enroll', rule.id, r.error)
+          break
+        }
       }
     } catch (e) {
       console.error('[automations] accion fallo', rule.id, action.type, e)
@@ -240,4 +326,4 @@ export async function runAutomations(opts: {
 export const AUTOMATION_TRIGGERS: AutomationTrigger[] =
   ['status_changed', 'assigned', 'task_created', 'due']
 export const AUTOMATION_ACTION_TYPES: AutomationActionType[] =
-  ['assign', 'move_status', 'move_sprint', 'notify', 'chat_post']
+  ['assign', 'move_status', 'move_sprint', 'notify', 'chat_post', 'emailer_enroll']

@@ -21,6 +21,7 @@ export interface ScopeDef {
 
 export const SCOPE_CATALOG: ScopeDef[] = [
   // WLI (marketing OS)
+  { scope: 'emailer:read_sequences', app: 'wli', label: 'Leer las secuencias del Emailer', risk: 'bajo' },
   { scope: 'emailer:enroll_contact', app: 'wli', label: 'Enrolar contacto en secuencia', risk: 'medio' },
   { scope: 'emailer:send_campaign',  app: 'wli', label: 'Disparar una campana',           risk: 'alto'  },
   { scope: 'leads:create',           app: 'wli', label: 'Crear LEAD en Pipedrive',         risk: 'medio' },
