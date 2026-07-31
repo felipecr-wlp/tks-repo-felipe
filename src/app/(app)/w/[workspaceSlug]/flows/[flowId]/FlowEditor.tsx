@@ -8,7 +8,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Lock, Unlock, Settings, Share2, CheckCircle, Download, Upload, HelpCircle } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Lock, Unlock, Settings, Share2, CheckCircle, Download, Upload, HelpCircle, Undo2, Redo2, MousePointer2, ZoomIn, ZoomOut, Move } from 'lucide-react'
 import LinkNext from 'next/link'
 
 type ShapeType = 'rect' | 'circle' | 'line' | 'grid' | 'text'
@@ -158,6 +158,25 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
         <button onClick={handleImport} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Importar"><Upload className="w-4 h-4"/>Importar</button>
         <button onClick={async()=>{setShowShare(true);try{const[r1,r2]=await Promise.all([fetch(`/api/flows/${flowId}`).then(r=>r.json()),fetch(`/api/flows/${flowId}/members`).then(r=>r.json())]);setShares(r1.shares||[]);setMembers(r2.profiles||[])}catch{}}} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Compartir"><Share2 className="w-4 h-4"/>Compartir</button>
       </header>
+      <div className="flex items-center gap-1 px-3 py-1.5 border-b bg-muted/30 shrink-0">
+        <button onClick={undo} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Deshacer (Ctrl+Z)"><Undo2 className="w-3.5 h-3.5"/></button>
+        <button onClick={redo} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Rehacer (Ctrl+Y)"><Redo2 className="w-3.5 h-3.5"/></button>
+        <div className="w-px h-5 bg-border mx-1"/>
+        <button onClick={copySelected} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Copiar (Ctrl+C)"><Copy className="w-3.5 h-3.5"/></button>
+        <button onClick={pasteSelected} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Pegar (Ctrl+V)"><FileText className="w-3.5 h-3.5"/></button>
+        <button onClick={()=>{nodes.filter((n:any)=>n.selected).forEach((n:any)=>duplicateNode(n.id))}} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Clonar seleccion"><Copy className="w-3.5 h-3.5"/>+</button>
+        <button onClick={deleteSelected} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-destructive transition-colors" title="Eliminar (Delete)"><Trash2 className="w-3.5 h-3.5"/></button>
+        <div className="w-px h-5 bg-border mx-1"/>
+        <button onClick={()=>{nodes.filter((n:any)=>n.selected).forEach((n:any)=>toggleLock(n.id))}} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Bloquear seleccion"><Lock className="w-3.5 h-3.5"/></button>
+        <button onClick={()=>{nodes.filter((n:any)=>n.selected).forEach((n:any)=>bringToFront(n.id))}} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Traer al frente"><ArrowUp className="w-3.5 h-3.5"/></button>
+        <button onClick={()=>{nodes.filter((n:any)=>n.selected).forEach((n:any)=>sendToBack(n.id))}} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Enviar al fondo"><ArrowDown className="w-3.5 h-3.5"/></button>
+        <div className="flex-1"/>
+        <button onClick={()=>reactFlowInstance.current?.zoomIn()} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Zoom in"><ZoomIn className="w-3.5 h-3.5"/></button>
+        <button onClick={()=>reactFlowInstance.current?.zoomOut()} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Zoom out"><ZoomOut className="w-3.5 h-3.5"/></button>
+        <button onClick={()=>reactFlowInstance.current?.fitView()} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Ajustar vista"><Move className="w-3.5 h-3.5"/></button>
+        <div className="w-px h-5 bg-border mx-1"/>
+        <button onClick={()=>setShowHelp(true)} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Ayuda"><HelpCircle className="w-3.5 h-3.5"/></button>
+      </div>
       <div className="flex-1 relative">
         {altHeld && <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 bg-amber-500 text-white text-xs px-3 py-1 rounded-full shadow-lg pointer-events-none">Alt: mover area</div>}
         <style>{`.rf-edges-on-top .react-flow__edges{z-index:50!important}.rf-edges-on-top .react-flow__nodes{z-index:1!important}.rf-edges-on-top .react-flow__edge{stroke-width:2.5}`}</style>
