@@ -1,7 +1,8 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import * as path from 'path'
-import * as fs from 'fs'
+import { PenTool } from 'lucide-react'
+import { NewFlowButton } from './NewFlowButton'
+import { FlowCard } from './FlowCard'
 
 interface FlowsPageProps {
   params: { workspaceSlug: string }
@@ -25,28 +26,16 @@ export default async function FlowsPage({ params }: FlowsPageProps) {
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
 
-  // Check plugin is installed
+  // Verificar que el plugin Flows este instalado
   const { data: plugin } = await admin
     .from('connector_installs')
     .select('id')
     .eq('workspace_id', workspace.id)
     .eq('app_id', 'wlo-flows')
+    .eq('plugin_type', 'widget')
     .eq('enabled', true)
     .maybeSingle() as { data: { id: string } | null; error: unknown }
   if (!plugin) redirect(`/w/${params.workspaceSlug}`)
-
-  // Load real implementation from plugin directory
-  const pluginPath = path.join(process.cwd(), 'plugins', 'wlo-flows', 'pages', 'list.js')
-  if (fs.existsSync(pluginPath)) {
-    delete require.cache[require.resolve(pluginPath)]
-    const PluginListPage = require(pluginPath).default
-    return <PluginListPage params={params} workspaceId={workspace.id} workspaceSlug={params.workspaceSlug} />
-  }
-
-  // Fallback: render inline (original code)
-  const { PenTool } = await import('lucide-react')
-  const { NewFlowButton } = await import('./NewFlowButton')
-  const { FlowCard } = await import('./FlowCard')
 
   const { data: flows } = await admin
     .from('flows')
@@ -76,9 +65,16 @@ export default async function FlowsPage({ params }: FlowsPageProps) {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {flows.map((flow) => (
-            <FlowCard key={flow.id} flowId={flow.id} title={flow.title} description={flow.description}
-              visibility={flow.visibility} updatedAt={flow.updated_at}
-              author={flow.author?.display_name ?? 'Desconocido'} workspaceSlug={params.workspaceSlug} />
+            <FlowCard
+              key={flow.id}
+              flowId={flow.id}
+              title={flow.title}
+              description={flow.description}
+              visibility={flow.visibility}
+              updatedAt={flow.updated_at}
+              author={flow.author?.display_name ?? 'Desconocido'}
+              workspaceSlug={params.workspaceSlug}
+            />
           ))}
         </div>
       )}
