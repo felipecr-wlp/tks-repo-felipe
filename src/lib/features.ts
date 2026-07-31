@@ -124,6 +124,9 @@ export const FEATURES: FeatureDef[] = [
     labelKey: 'nav.flows',
     description: 'Diagramas de flujo y automatizaciones del proceso de trabajo.',
     group: 'workspace',
+    // Es un modulo nuevo: si arranca detras de "Ver mas" nadie lo encuentra.
+    // Cuando deje de ser novedad se puede bajar al bloque secundario.
+    primary: true,
   },
   {
     key: 'guia',
