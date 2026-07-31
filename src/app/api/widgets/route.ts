@@ -19,6 +19,10 @@ export async function GET(request: NextRequest) {
     .eq('plugin_type', 'widget')
 
   const { data: installs, error } = await query as { data: any[] | null; error: unknown }
+  if (error) {
+    console.error('[widgets GET]', error)
+    return NextResponse.json({ error: 'Error al cargar widgets' }, { status: 500 })
+  }
 
   // Get widget catalog entries for installed widgets
   const installedAppIds = [...new Set((installs ?? []).map((i: any) => i.app_id))]
@@ -37,4 +41,6 @@ export async function GET(request: NextRequest) {
     ...i,
     widget: widgetMap[i.app_id] || null,
   })).filter((w: any) => slot ? !w.widget || w.widget.slot === slot : true)
+
+  return NextResponse.json({ widgets })
 }
