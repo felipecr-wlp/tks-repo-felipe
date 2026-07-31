@@ -31,6 +31,7 @@ interface WidgetData {
 function WidgetIframe({ widget, workspaceSlug }: { widget: WidgetData; workspaceSlug: string }) {
   const ref = useRef<HTMLIFrameElement>(null)
   const [height, setHeight] = useState(200)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
@@ -40,46 +41,34 @@ function WidgetIframe({ widget, workspaceSlug }: { widget: WidgetData; workspace
     return () => window.removeEventListener('message', handler)
   }, [])
 
-  // No URL: try loading from plugin filesystem
-  if (!widget.base_url) return <DynamicPluginWidget appId={widget.app_id} name={widget.widget?.name || widget.app_id} />
+  // No URL or load error: fall back to local component
+  if (!widget.base_url || loadError) return <LocalWidgetFallback appId={widget.app_id} name={widget.widget?.name || widget.app_id} />
 
   return (
     <iframe
       ref={ref}
       src={`${widget.base_url}?workspace_slug=${workspaceSlug}&app_id=${widget.app_id}`}
       className="w-full border-0 rounded-xl bg-card"
-      style={{ height: `${height}px`, minHeight: '120px' }}
+      style={{ height: `${height}px`, minHeight: '140px' }}
+      onError={() => setLoadError(true)}
       title={widget.widget?.name || widget.app_id}
     />
   )
 }
 
-const loadedComponents = new Map<string, React.ComponentType<any>>()
-
-function DynamicPluginWidget({ appId, name }: { appId: string; name: string }) {
-  const [Comp, setComp] = useState<React.ComponentType<any> | null>(null)
-  const [err, setErr] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (loadedComponents.has(appId)) { setComp(loadedComponents.get(appId)!); return }
-    fetch(`/api/widgets/component/${appId}`)
-      .then(r => { if (!r.ok) throw new Error('Not found'); return r.text() })
-      .then(code => {
-        const mods: Record<string, any> = { react: require('react'), 'react-dom': require('react-dom') }
-        const req = (n: string) => mods[n] || (() => { throw new Error(`Module not found: ${n}`) })()
-        const fn = new Function('module', 'exports', 'require', code)
-        const mod = { exports: {} as any }
-        fn(mod, mod.exports, req)
-        const C = mod.exports.default || mod.exports
-        if (typeof C === 'function') { loadedComponents.set(appId, C); setComp(() => C) }
-        else setErr(`No export for ${appId}`)
-      })
-      .catch(e => setErr(e.message))
-  }, [appId])
-
-  if (err) return <div className="border rounded-xl p-4 text-xs text-muted-foreground">{name}: {err}</div>
-  if (!Comp) return <div className="border rounded-xl p-4 animate-pulse"><div className="h-4 bg-muted rounded w-24" /></div>
-  return <Comp />
+function LocalWidgetFallback({ appId, name }: { appId: string; name: string }) {
+  // Use local React components for built-in widgets
+  if (appId === 'wlo-counter' || appId === 'wlo-clock') {
+    const { SampleCounterWidget, SampleClockWidget } = require('./samples')
+    const Comp = appId === 'wlo-clock' ? SampleClockWidget : SampleCounterWidget
+    return <Comp />
+  }
+  return (
+    <div className="border rounded-xl p-4 h-full">
+      <h4 className="text-xs font-semibold text-muted-foreground mb-3">{name}</h4>
+      <p className="text-xs text-muted-foreground">Plugin sin URL</p>
+    </div>
+  )
 }
 
 interface Props {
