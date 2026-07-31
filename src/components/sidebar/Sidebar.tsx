@@ -71,6 +71,9 @@ import {
   Lock,
   Building2,
   MoreHorizontal,
+  Puzzle,
+  Hash,
+  Clock,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -94,6 +97,18 @@ const FEATURE_ICONS: Record<FeatureKey, LucideIcon> = {
   tracking: Timer,
   projects: Compass,
   cv: IdCard,
+}
+
+const PLUGIN_ICONS_MAP: Record<string, LucideIcon> = {
+  'wlo-flows': Workflow,
+  'wlo-counter': Hash,
+  'wlo-clock': Clock,
+}
+
+const PLUGIN_LABELS: Record<string, string> = {
+  'wlo-flows': 'Flows',
+  'wlo-counter': 'Contador',
+  'wlo-clock': 'Reloj',
 }
 
 interface SidebarProps {
@@ -544,10 +559,13 @@ export function Sidebar({
             active={activeIn.complementos}
           >
             {plugins.filter(p => p.enabled).map(p => {
-              if (p.app_id === 'wlo-flows') return (
-                <NavItem key={p.id} href={`${base}/flows`} icon={<Workflow size={16} />} label={t('nav.flows')} collapsed={collapsed} active={isActive(`${base}/flows`)} />
+              const PluginIcon = PLUGIN_ICONS_MAP[p.app_id] || Puzzle
+              const href = p.app_id === 'wlo-flows' ? `${base}/flows` : `${base}/p/${p.app_id}`
+              const label = PLUGIN_LABELS[p.app_id] || p.app_id
+              const active = p.app_id === 'wlo-flows' ? isActive(`${base}/flows`) : isActive(`${base}/p/${p.app_id}`)
+              return (
+                <NavItem key={p.id} href={href} icon={<PluginIcon size={16} />} label={label} collapsed={collapsed} active={active} />
               )
-              return null
             })}
           </NavGroup>
         )}
