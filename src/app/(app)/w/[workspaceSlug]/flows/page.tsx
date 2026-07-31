@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { PenTool } from 'lucide-react'
 import { NewFlowButton } from './NewFlowButton'
 import { FlowCard } from './FlowCard'
+import { sharedFlowIds } from '@/lib/flows/access'
 
 interface FlowsPageProps {
   params: { workspaceSlug: string }
@@ -26,11 +27,22 @@ export default async function FlowsPage({ params }: FlowsPageProps) {
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
 
+  // Los privados que ALGUIEN ME COMPARTIO tambien cuentan. La API ya lo hacia
+  // asi, pero esta pantalla no, y por eso un flujo compartido en privado no
+  // aparecia nunca aunque su duenno hubiera hecho todo bien.
+  const compartidos = await sharedFlowIds(admin, user.id)
+  const filtro = [
+    'visibility.neq.private',
+    'visibility.is.null',
+    `created_by.eq.${user.id}`,
+    ...(compartidos.length > 0 ? [`id.in.(${compartidos.join(',')})`] : []),
+  ].join(',')
+
   const { data: flows } = await admin
     .from('flows')
     .select('id, title, description, visibility, created_at, updated_at, created_by, author:profiles(display_name)')
     .eq('workspace_id', workspace.id)
-    .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
+    .or(filtro)
     .order('updated_at', { ascending: false })
     .limit(100) as { data: Array<{
       id: string; title: string; description: string|null; visibility: string; updated_at: string;
@@ -41,8 +53,8 @@ export default async function FlowsPage({ params }: FlowsPageProps) {
     <div className="flex flex-col h-full max-w-5xl mx-auto p-6">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Flows</h1>
-          <p className="text-muted-foreground text-sm mt-1">Diagramas de flujo interactivos con nodos y contenido embebido</p>
+          <h1 className="text-2xl font-bold tracking-tight">Flujos</h1>
+          <p className="text-muted-foreground text-sm mt-1">Diagramas interactivos con nodos, contenido embebido y figuras</p>
         </div>
         <NewFlowButton workspaceId={workspace.id} workspaceSlug={params.workspaceSlug} />
       </div>

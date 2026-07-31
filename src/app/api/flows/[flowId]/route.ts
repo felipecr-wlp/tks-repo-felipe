@@ -16,6 +16,10 @@ const patchSchema = z.object({
   nodes:      z.array(z.unknown()).optional(),
   edges:      z.array(z.unknown()).optional(),
   visibility: z.enum(['private', 'project', 'team', 'workspace']).optional(),
+  // Version del flujo sobre la que se hicieron los cambios. Si en la base ya hay
+  // otra mas nueva, alguien mas guardo primero y se responde 409 en vez de
+  // pisarlo. El editor decide entonces si recarga o si insiste sin este campo.
+  expected_updated_at: z.string().optional(),
 }).strict()
 
 interface FlowFull {
@@ -120,6 +124,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       { error: 'Solo quien creó el flujo puede cambiar su visibilidad' },
       { status: 403 },
     )
+  }
+
+  // Control de concurrencia. Sin esto, dos personas editando el mismo flujo se
+  // pisan en silencio: gana quien guarde de ultimo y el otro pierde su trabajo
+  // sin enterarse. Se comparan instantes, no cadenas, porque el formato del
+  // timestamp que devuelve Postgres no siempre es identico al que se guardo.
+  if (parsed.data.expected_updated_at) {
+    const esperado = new Date(parsed.data.expected_updated_at).getTime()
+    const actual = new Date(flow.updated_at).getTime()
+    if (Number.isFinite(esperado) && Number.isFinite(actual) && esperado !== actual) {
+      return NextResponse.json(
+        { error: 'El flujo cambió desde que lo abriste', current_updated_at: flow.updated_at },
+        { status: 409 },
+      )
+    }
   }
 
   const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }

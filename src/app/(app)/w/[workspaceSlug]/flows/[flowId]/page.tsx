@@ -43,6 +43,7 @@ export default async function FlowDetailPage({ params }: FlowDetailProps) {
       edges: unknown
       visibility: string
       created_by: string
+      updated_at: string | null
     } | null; error: unknown }
 
   if (!flow) redirect(`/w/${params.workspaceSlug}/flows`)
@@ -72,6 +73,7 @@ export default async function FlowDetailPage({ params }: FlowDetailProps) {
         initialEdges={edges as unknown as Edge[]}
         initialTitle={flow.title}
         initialDescription={flow.description}
+        initialUpdatedAt={flow.updated_at}
         readOnly={access !== 'edit'}
       />
     </div>

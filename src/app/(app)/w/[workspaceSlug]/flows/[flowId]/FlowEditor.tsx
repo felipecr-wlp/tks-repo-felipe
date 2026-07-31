@@ -5,7 +5,7 @@
 // nodo lo define el usuario en tiempo de ejecucion. Tipar cada acceso aqui no
 // aporta seguridad real, asi que la regla se apaga en este archivo a proposito.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import {
   ReactFlow, Controls, Background, MiniMap, useNodesState, useEdgesState,
   addEdge, Connection, type Node, type Edge, BackgroundVariant,
@@ -13,13 +13,27 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Lock, Unlock, Settings, Share2, CheckCircle, Download, Upload } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Lock, Unlock, Settings, Share2, CheckCircle, Download, Upload, AlertTriangle, RefreshCw, Cloud, CloudOff } from 'lucide-react'
 import LinkNext from 'next/link'
 
 type ShapeType = 'rect' | 'circle' | 'line' | 'grid' | 'text'
-type ShapeData = { shape: ShapeType; width: number; height: number; fill: string; stroke: string; label?: string; rows?: number; cols?: number; onResizeEnd?: () => void }
+type ShapeData = { shape: ShapeType; width: number; height: number; fill: string; stroke: string; label?: string; rows?: number; cols?: number }
 type NodeContent = { contentType: 'text' | 'html' | 'url' | 'document'; content: string }
 type FlowNodeData = { label: string; content: NodeContent } | ShapeData
+
+/**
+ * Aviso de "algo cambio, hay que guardar" para los nodos.
+ *
+ * Antes esto viajaba DENTRO de data como `onResizeEnd`, y ahi estaba el fallo
+ * que impedia que un flujo se guardara nunca. Dos razones:
+ *   1. Una funcion no sobrevive a JSON.stringify. Al mandar el nodo al servidor
+ *      la propiedad desaparecia, asi que el nodo guardado nunca era igual al
+ *      que estaba en pantalla.
+ *   2. La funcion quedaba congelada con el estado del momento en que se creo la
+ *      figura. Al dispararla despues, guardaba una foto VIEJA encima de lo nuevo.
+ * Con un contexto la referencia es estable y siempre lee el estado actual.
+ */
+const FlowDirtyContext = createContext<() => void>(() => {})
 
 const icons: Record<string, React.ReactNode> = {
   text: <Type className="w-3 h-3" />, html: <Code className="w-3 h-3" />,
@@ -31,8 +45,11 @@ function CustomNode({ data, selected, id }: NodeProps) {
   // hooks en todos los renders y este nodo puede salir temprano si resulta
   // ser una figura, no un nodo de contenido.
   const rf = useReactFlow()
+  const markDirty = useContext(FlowDirtyContext)
   const containerRef = useRef<HTMLDivElement>(null)
-  useEffect(()=>{const el=containerRef.current;if(!el)return;const ro=new ResizeObserver(()=>{const w=el.offsetWidth;rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,nodeWidth:w}}:n))});ro.observe(el);return()=>ro.disconnect()},[id,rf])
+  // El primer disparo del observer es el del montaje, no un cambio del usuario:
+  // se ignora para no marcar como sucio un flujo que nadie toco.
+  useEffect(()=>{const el=containerRef.current;if(!el)return;let first=true;const ro=new ResizeObserver(()=>{const w=el.offsetWidth;if(w<=0)return;if(first){first=false;return}rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,nodeWidth:w}}:n));markDirty()});ro.observe(el);return()=>ro.disconnect()},[id,rf,markDirty])
   const fd = data as unknown as FlowNodeData
   if ('shape' in fd) return null
   const ct = fd.content?.contentType ?? 'text'; const locked = (data as any).locked
@@ -65,8 +82,12 @@ function ShapeNode({ data, selected, id }: NodeProps) {
   const opacity = locked ? {opacity:0.6} : {}
   const selRing = selected ? {outline:'2px solid #3b82f6',outlineOffset:'2px',borderRadius:s==='circle'?'50%':s==='grid'?'4px':'8px'} : {}
   const rf = useReactFlow()
+  const markDirty = useContext(FlowDirtyContext)
   const containerRef = useRef<HTMLDivElement>(null)
-  useEffect(()=>{const el=containerRef.current;if(!el)return;const ro=new ResizeObserver(()=>{const nw=el.offsetWidth;const nh=el.offsetHeight;if(nw>0&&nh>0)rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,width:nw,height:nh}}:n));if(d.onResizeEnd)d.onResizeEnd()});ro.observe(el);return()=>ro.disconnect()},[id,rf,d])
+  // Ojo con las dependencias: antes estaba `d` (el data del nodo) y eso volvia a
+  // crear el observer en cada cambio, lo que a su vez disparaba otro cambio. El
+  // id y la referencia estable del contexto bastan.
+  useEffect(()=>{const el=containerRef.current;if(!el)return;let first=true;const ro=new ResizeObserver(()=>{const nw=el.offsetWidth;const nh=el.offsetHeight;if(nw<=0||nh<=0)return;if(first){first=false;return}rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,width:nw,height:nh}}:n));markDirty()});ro.observe(el);return()=>ro.disconnect()},[id,rf,markDirty])
   const Label = label ? <text x={w/2} y={h/2} textAnchor="middle" dominantBaseline="central" fill="#334155" fontSize={13} fontWeight={500} fontFamily="system-ui, sans-serif" style={{pointerEvents:'none'}}>{label}</text> : null
 
   const D = <div ref={containerRef} style={{width:w,height:h,...opacity,...selRing,position:'relative',resize:'both',overflow:'auto'}}>
@@ -80,13 +101,16 @@ function ShapeNode({ data, selected, id }: NodeProps) {
   return D
 }
 
-interface Props { flowId:string;workspaceSlug:string;initialNodes:Node[];initialEdges:Edge[];initialTitle:string;initialDescription:string|null;workspaceId:string;readOnly?:boolean }
+interface Props { flowId:string;workspaceSlug:string;initialNodes:Node[];initialEdges:Edge[];initialTitle:string;initialDescription:string|null;initialUpdatedAt:string|null;workspaceId:string;readOnly?:boolean }
 
-export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdges,initialTitle,initialDescription,workspaceId,readOnly=false}:Props){
+type SaveState = 'guardado' | 'guardando' | 'pendiente' | 'error' | 'conflicto'
+
+export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdges,initialTitle,initialDescription,initialUpdatedAt,workspaceId,readOnly=false}:Props){
   const [nodes,setNodes,onNodesChange]=useNodesState(initialNodes as any)
   const [edges,setEdges,onEdgesChange]=useEdgesState(initialEdges as any)
   const [title,setTitle]=useState(initialTitle);const [description,setDescription]=useState(initialDescription??'')
-  const [saving,setSaving]=useState(false)
+  const [saveState,setSaveState]=useState<SaveState>('guardado')
+  const [lastSavedAt,setLastSavedAt]=useState<Date|null>(null)
   const [editingNodeId,setEditingNodeId]=useState<string|null>(null);const [nodeLabel,setNodeLabel]=useState('')
   const [nodeContent,setNodeContent]=useState('');const [nodeType,setNodeType]=useState<NodeContent['contentType']>('text')
   const [previewHtml,setPreviewHtml]=useState(false)
@@ -104,26 +128,134 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
   const [toolCollapsed,setToolCollapsed]=useState(false);const [toolPos,setToolPos]=useState({x:0,y:0})
   const reactFlowInstance = useRef<any>(null)
   const saveTimer=useRef<NodeJS.Timeout|null>(null)
+  const retryTimer=useRef<NodeJS.Timeout|null>(null)
+  // Espejo del estado actual. Lo lee el guardado en el momento de disparar, no
+  // en el momento de programarse: sin esto, un guardado con 800ms de retraso
+  // manda la foto de hace 800ms y se come lo que se hizo mientras tanto.
+  const latest=useRef({nodes:initialNodes as any[],edges:initialEdges as any[],title:initialTitle,description:initialDescription??''})
+  const dirty=useRef(false)
+  const inFlight=useRef(false)
+  const pendingWhileInFlight=useRef(false)
+  const retries=useRef(0)
+  const conflict=useRef(false)
+  const baseVersion=useRef<string|null>(initialUpdatedAt)
+  // Puente hacia la ultima version de save(), para que los reintentos y los
+  // avisos de salida no dependan de la version que existia cuando se montaron.
+  const saveRef=useRef<(opts?:{force?:boolean;keepalive?:boolean})=>Promise<boolean>>(async()=>false)
   const history=useRef<{nodes:any[],edges:any[]}[]>([])
   const historyIdx=useRef<number>(-1)
   const clipboard=useRef<any[]>([])
   const [altHeld, setAltHeld] = useState(false)
 
   const toggleFullscreen = useCallback(async ()=>{if(document.fullscreenElement){await document.exitFullscreen()}else{await document.documentElement.requestFullscreen()}},[])
-  // Solo lectura: el guardado se corta aqui, en el cliente, ademas de que el
-  // servidor ya responde 403. Asi nadie ve un "Guardando..." que en realidad fallo.
-  const save=useCallback(async(n?:Node[],e?:Edge[])=>{if(readOnly)return;setSaving(true);try{const r=await fetch(`/api/flows/${flowId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,description,nodes:n??nodes,edges:e??edges})});if(!r.ok)toast.error(r.status===403?'Solo tienes acceso de lectura':'Error al guardar')}catch{toast.error('Error al guardar')}finally{setSaving(false)}},[flowId,title,description,nodes,edges,readOnly])
-  const autoSave=useCallback((n?:Node[],e?:Edge[])=>{if(readOnly)return;if(saveTimer.current)clearTimeout(saveTimer.current);saveTimer.current=setTimeout(()=>save(n,e),800)},[save,readOnly])
+
+  // El espejo se refresca en cada render comprometido. A partir de aqui nadie
+  // vuelve a pasar nodos ni edges por parametro: el guardado los toma de aqui.
+  useEffect(()=>{latest.current={nodes:nodes as any[],edges:edges as any[],title,description}},[nodes,edges,title,description])
+
+  /**
+   * Guardado real contra el servidor.
+   *
+   * Solo lectura se corta aqui, en el cliente, ademas de que el servidor ya
+   * responde 403. Asi nadie ve un "Guardando..." que en realidad fallo.
+   *
+   * `force` salta el control de versiones y pisa lo que haya en la base. Solo
+   * lo usa el boton que aparece cuando hay conflicto, nunca el auto-guardado.
+   * `keepalive` es para la salida de la pagina: deja que la peticion termine
+   * aunque el componente ya no exista (limite del navegador, 64KB de cuerpo).
+   */
+  const save=useCallback(async(opts?:{force?:boolean;keepalive?:boolean}):Promise<boolean>=>{
+    if(readOnly)return false
+    if(inFlight.current){pendingWhileInFlight.current=true;return false}
+    if(retryTimer.current){clearTimeout(retryTimer.current);retryTimer.current=null}
+    inFlight.current=true
+    setSaveState('guardando')
+    const snap=latest.current
+    const body:Record<string,unknown>={title:snap.title,description:snap.description,nodes:snap.nodes,edges:snap.edges}
+    if(!opts?.force&&baseVersion.current)body.expected_updated_at=baseVersion.current
+    try{
+      const r=await fetch(`/api/flows/${flowId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),keepalive:opts?.keepalive})
+      if(r.status===409){
+        // Alguien mas guardo despues de que abrimos. No se pisa en silencio.
+        // El aviso sale una sola vez: seguir editando no debe llenar la pantalla
+        // de toasts identicos.
+        inFlight.current=false
+        const primeraVez=!conflict.current
+        conflict.current=true
+        setSaveState('conflicto')
+        if(primeraVez)toast.error('Otra persona edito este flujo. Elige que hacer en la barra de arriba.')
+        return false
+      }
+      if(r.status===403){
+        inFlight.current=false;setSaveState('error')
+        toast.error('Solo tienes acceso de lectura')
+        return false
+      }
+      if(!r.ok)throw new Error(String(r.status))
+      const data=await r.json().catch(()=>null)
+      if(data?.updated_at)baseVersion.current=data.updated_at
+      inFlight.current=false
+      retries.current=0
+      conflict.current=false
+      dirty.current=false
+      setSaveState('guardado');setLastSavedAt(new Date())
+      // Si algo cambio mientras la peticion viajaba, se vuelve a guardar.
+      if(pendingWhileInFlight.current){pendingWhileInFlight.current=false;dirty.current=true;setSaveState('pendiente');saveTimer.current=setTimeout(()=>{saveRef.current()},400)}
+      return true
+    }catch{
+      inFlight.current=false
+      setSaveState('error')
+      // Reintento con espera creciente. El cubo de rate limit de la API es
+      // compartido (60 peticiones por minuto por IP), asi que una oficina entera
+      // editando puede sacar un 429 pasajero: rendirse ahi seria perder trabajo.
+      if(retries.current<5){
+        const espera=[1000,2000,4000,8000,15000][retries.current]
+        retries.current++
+        retryTimer.current=setTimeout(()=>{saveRef.current()},espera)
+      }else{
+        toast.error('No se pudo guardar. Revisa tu conexion y usa el boton Guardar.')
+      }
+      return false
+    }
+  },[flowId,readOnly])
+  useEffect(()=>{saveRef.current=save},[save])
+
+  // Varios sitios llaman a autoSave DENTRO de un actualizador de estado, que en
+  // React corre en fase de render. Pintar ahi otro estado provoca el aviso de
+  // "no puedes actualizar un componente mientras renderizas otro", asi que el
+  // cambio visual se saca del render con queueMicrotask. El temporizador si se
+  // programa de inmediato: el guardado no debe esperar a nada.
+  // Con un conflicto abierto no se reintenta solo: seria estrellarse contra el
+  // mismo 409 en cada tecla. Se marca sucio y se espera a que la persona decida.
+  const autoSave=useCallback(()=>{if(readOnly)return;dirty.current=true;if(conflict.current)return;queueMicrotask(()=>setSaveState('pendiente'));if(saveTimer.current)clearTimeout(saveTimer.current);saveTimer.current=setTimeout(()=>{saveRef.current()},800)},[readOnly])
+
+  // Salida de la pagina. Tres puertas, porque ninguna cubre todos los casos:
+  // cambiar de pestaña (visibilitychange), cerrar el navegador (beforeunload) y
+  // navegar dentro de la app, que no dispara ninguna de las dos (desmontaje).
+  useEffect(()=>{
+    if(readOnly)return
+    const alSalir=(e:BeforeUnloadEvent)=>{if(!dirty.current)return;saveRef.current({keepalive:true});e.preventDefault();e.returnValue=''}
+    const alOcultar=()=>{if(document.visibilityState==='hidden'&&dirty.current)saveRef.current({keepalive:true})}
+    window.addEventListener('beforeunload',alSalir)
+    document.addEventListener('visibilitychange',alOcultar)
+    return()=>{window.removeEventListener('beforeunload',alSalir);document.removeEventListener('visibilitychange',alOcultar)}
+  },[readOnly])
+  useEffect(()=>()=>{
+    if(saveTimer.current)clearTimeout(saveTimer.current)
+    if(retryTimer.current)clearTimeout(retryTimer.current)
+    if(dirty.current)saveRef.current({keepalive:true})
+  },[])
   const pushHistory=useCallback((n:any[],e:any[])=>{const h=history.current;h.length=historyIdx.current+1;h.push({nodes:JSON.parse(JSON.stringify(n)),edges:JSON.parse(JSON.stringify(e))});if(h.length>50)h.shift();else historyIdx.current++},[])
-  const undo=useCallback(()=>{if(historyIdx.current<=0)return;historyIdx.current--;const s=history.current[historyIdx.current];setNodes(s.nodes);setEdges(s.edges);autoSave(s.nodes,s.edges)},[setNodes,setEdges,autoSave])
-  const redo=useCallback(()=>{if(historyIdx.current>=history.current.length-1)return;historyIdx.current++;const s=history.current[historyIdx.current];setNodes(s.nodes);setEdges(s.edges);autoSave(s.nodes,s.edges)},[setNodes,setEdges,autoSave])
+  const undo=useCallback(()=>{if(historyIdx.current<=0)return;historyIdx.current--;const s=history.current[historyIdx.current];setNodes(s.nodes);setEdges(s.edges);autoSave()},[setNodes,setEdges,autoSave])
+  const redo=useCallback(()=>{if(historyIdx.current>=history.current.length-1)return;historyIdx.current++;const s=history.current[historyIdx.current];setNodes(s.nodes);setEdges(s.edges);autoSave()},[setNodes,setEdges,autoSave])
   const copySelected=useCallback(()=>{const sel=nodes.filter((n:any)=>n.selected);clipboard.current=sel.map((n:any)=>({...n,id:`node-${Date.now()}`}));if(sel.length)toast.success(`${sel.length} copiado${sel.length!==1?'s':''}`)},[nodes])
-  const pasteSelected=useCallback(()=>{if(readOnly||!clipboard.current.length)return;const pasted=clipboard.current.map((n:any)=>({...n,id:`node-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,position:{x:n.position.x+40,y:n.position.y+40}}));setNodes((nds:any[])=>{const u=[...nds,...pasted];autoSave(u,edges);return u})},[setNodes,autoSave,edges,readOnly])
-  const onConnect=useCallback((conn:Connection)=>{if(readOnly)return;pushHistory(nodes,edges);setEdges(eds=>{const u=addEdge({...conn,style:{stroke:'#64748b',strokeWidth:2},markerEnd:{type:MarkerType.ArrowClosed,color:'#64748b'}},eds);autoSave(nodes,u);return u})},[setEdges,nodes,autoSave,pushHistory,edges,readOnly])
-  const addNode=useCallback((ct:NodeContent['contentType']='text')=>{if(readOnly)return;const id=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{id,type:'custom',position:{x:Math.random()*400+100,y:Math.random()*300+100},data:{label:'Nuevo nodo',content:{contentType:ct,content:''}}}];pushHistory(u,edges);autoSave(u,edges);return u})},[setNodes,edges,autoSave,pushHistory,readOnly])
-  const addShape=useCallback((shape:ShapeType)=>{if(readOnly)return;const id=`shape-${Date.now()}`;const dims=shape==='line'?{width:200,height:40}:shape==='grid'?{width:240,height:200}:shape==='text'?{width:160,height:50}:{width:160,height:120};setNodes((nds:any[])=>{const u=[...nds,{id,type:'shape',position:{x:Math.random()*400+50,y:Math.random()*250+50},data:{shape,...dims,label:shape==='text'?'Nuevo texto':'',fill:'#f1f5f9',stroke:'#64748b',rows:3,cols:3,onResizeEnd:autoSave}}];pushHistory(u,edges);autoSave(u,edges);return u})},[setNodes,edges,autoSave,pushHistory,readOnly])
-  const deleteSelected=useCallback(()=>{if(readOnly)return;pushHistory(nodes,edges);setTimeout(()=>setNodes((nds:any[])=>{const sel=nds.filter((n:any)=>n.selected);const rest=nds.filter((n:any)=>!n.selected);const ids=new Set(sel.map((n:any)=>n.id));setEdges(eds=>eds.filter(e=>!ids.has(e.source)&&!ids.has(e.target)));autoSave(rest);return rest}),0)},[pushHistory,nodes,edges,setNodes,setEdges,autoSave,readOnly])
-  const onKeyDown=useCallback((e:React.KeyboardEvent)=>{if(e.key==='Alt'){setAltHeld(true);e.preventDefault();return};if(e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement)return;if(readOnly){if(e.ctrlKey&&e.key==='c'){e.preventDefault();copySelected()}return};if(e.key==='Delete'||e.key==='Backspace'){deleteSelected()}else if(e.ctrlKey&&e.key==='z'){e.preventDefault();undo()}else if(e.ctrlKey&&e.key==='y'){e.preventDefault();redo()}else if(e.ctrlKey&&e.key==='c'){e.preventDefault();copySelected()}else if(e.ctrlKey&&e.key==='x'){e.preventDefault();copySelected();deleteSelected()}else if(e.ctrlKey&&e.key==='v'){e.preventDefault();pasteSelected()}},[deleteSelected,undo,redo,copySelected,pasteSelected,readOnly])
+  const pasteSelected=useCallback(()=>{if(readOnly||!clipboard.current.length)return;const pasted=clipboard.current.map((n:any)=>({...n,id:`node-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,position:{x:n.position.x+40,y:n.position.y+40}}));setNodes((nds:any[])=>{const u=[...nds,...pasted];autoSave();return u})},[setNodes,autoSave,readOnly])
+  const onConnect=useCallback((conn:Connection)=>{if(readOnly)return;pushHistory(nodes,edges);setEdges(eds=>{const u=addEdge({...conn,style:{stroke:'#64748b',strokeWidth:2},markerEnd:{type:MarkerType.ArrowClosed,color:'#64748b'}},eds);autoSave();return u})},[setEdges,nodes,autoSave,pushHistory,edges,readOnly])
+  const addNode=useCallback((ct:NodeContent['contentType']='text')=>{if(readOnly)return;const id=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{id,type:'custom',position:{x:Math.random()*400+100,y:Math.random()*300+100},data:{label:'Nuevo nodo',content:{contentType:ct,content:''}}}];pushHistory(u,edges);autoSave();return u})},[setNodes,edges,autoSave,pushHistory,readOnly])
+  // Nada de funciones dentro de data: ver la nota de FlowDirtyContext arriba.
+  const addShape=useCallback((shape:ShapeType)=>{if(readOnly)return;const id=`shape-${Date.now()}`;const dims=shape==='line'?{width:200,height:40}:shape==='grid'?{width:240,height:200}:shape==='text'?{width:160,height:50}:{width:160,height:120};setNodes((nds:any[])=>{const u=[...nds,{id,type:'shape',position:{x:Math.random()*400+50,y:Math.random()*250+50},data:{shape,...dims,label:shape==='text'?'Nuevo texto':'',fill:'#f1f5f9',stroke:'#64748b',rows:3,cols:3}}];pushHistory(u,edges);autoSave();return u})},[setNodes,edges,autoSave,pushHistory,readOnly])
+  const deleteSelected=useCallback(()=>{if(readOnly)return;pushHistory(nodes,edges);setTimeout(()=>setNodes((nds:any[])=>{const sel=nds.filter((n:any)=>n.selected);const rest=nds.filter((n:any)=>!n.selected);const ids=new Set(sel.map((n:any)=>n.id));setEdges(eds=>eds.filter(e=>!ids.has(e.source)&&!ids.has(e.target)));autoSave();return rest}),0)},[pushHistory,nodes,edges,setNodes,setEdges,autoSave,readOnly])
+  const onKeyDown=useCallback((e:React.KeyboardEvent)=>{if(e.key==='Alt'){setAltHeld(true);e.preventDefault();return};if(e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement)return;if(readOnly){if(e.ctrlKey&&e.key==='c'){e.preventDefault();copySelected()}return};if(e.ctrlKey&&e.key==='s'){e.preventDefault();save();return};if(e.key==='Delete'||e.key==='Backspace'){deleteSelected()}else if(e.ctrlKey&&e.key==='z'){e.preventDefault();undo()}else if(e.ctrlKey&&e.key==='y'){e.preventDefault();redo()}else if(e.ctrlKey&&e.key==='c'){e.preventDefault();copySelected()}else if(e.ctrlKey&&e.key==='x'){e.preventDefault();copySelected();deleteSelected()}else if(e.ctrlKey&&e.key==='v'){e.preventDefault();pasteSelected()}},[deleteSelected,undo,redo,copySelected,pasteSelected,save,readOnly])
   const onKeyUp = useCallback((e:React.KeyboardEvent)=>{if(e.key==='Alt')setAltHeld(false)},[])
   const onNodesDelete=useCallback((del:Node[])=>{if(readOnly)return;pushHistory(nodes,edges);const ids=new Set(del.map(n=>n.id));setEdges(eds=>eds.filter(e=>!ids.has(e.source)&&!ids.has(e.target)));autoSave()},[setEdges,pushHistory,nodes,edges,autoSave,readOnly])
   const handleNodeDoubleClick=useCallback((_e:React.MouseEvent,node:Node)=>{if(readOnly)return;const d=node.data as any;if('shape'in d&&d.shape){setEditingShapeId(node.id);setShapeW(d.width??160);setShapeH(d.height??120);setShapeLabel(d.label??'');setShapeFill(d.fill??'#f1f5f9');setShapeStroke(d.stroke??'#64748b');setShapeRows(d.rows??3);setShapeCols(d.cols??3);setShapeType(d.shape)}else{setEditingNodeId(node.id);setNodeLabel(d.label||'');setNodeContent(d.content?.content||'');setNodeType(d.content?.contentType||'text');setPreviewHtml(false)}},[readOnly])
@@ -135,24 +267,37 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
     const pos=rf.screenToFlowPosition({x:e.clientX,y:e.clientY})
     const type=e.dataTransfer.getData('application/reactflow')
     if(!type)return
-    if(type.startsWith('shape:')){const shape=type.replace('shape:','') as ShapeType;const id=`shape-${Date.now()}`;const dims=shape==='line'?{width:200,height:40}:shape==='grid'?{width:240,height:200}:shape==='text'?{width:160,height:50}:{width:160,height:120};setNodes((nds:any[])=>{const u=[...nds,{id,type:'shape',position:pos,data:{shape,...dims,label:shape==='text'?'Nuevo texto':'',fill:'#f1f5f9',stroke:'#64748b',rows:3,cols:3}}];autoSave(u,edges);return u})}
-    else if(type==='text'||type==='html'||type==='url'||type==='document'){const id=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{id,type:'custom',position:pos,data:{label:'Nuevo nodo',content:{contentType:type,content:''}}}];autoSave(u,edges);return u})}
-  },[reactFlowInstance,setNodes,edges,autoSave,readOnly])
+    if(type.startsWith('shape:')){const shape=type.replace('shape:','') as ShapeType;const id=`shape-${Date.now()}`;const dims=shape==='line'?{width:200,height:40}:shape==='grid'?{width:240,height:200}:shape==='text'?{width:160,height:50}:{width:160,height:120};setNodes((nds:any[])=>{const u=[...nds,{id,type:'shape',position:pos,data:{shape,...dims,label:shape==='text'?'Nuevo texto':'',fill:'#f1f5f9',stroke:'#64748b',rows:3,cols:3}}];autoSave();return u})}
+    else if(type==='text'||type==='html'||type==='url'||type==='document'){const id=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{id,type:'custom',position:pos,data:{label:'Nuevo nodo',content:{contentType:type,content:''}}}];autoSave();return u})}
+  },[reactFlowInstance,setNodes,autoSave,readOnly])
   const onNodeDragStop=useCallback(()=>{if(readOnly)return;autoSave();pushHistory(nodes,edges)},[autoSave,pushHistory,nodes,edges,readOnly])
   const onNodeDragStarter=useCallback(()=>{if(readOnly)return;pushHistory(nodes,edges)},[pushHistory,nodes,edges,readOnly])
   const onNodeContextMenu=useCallback((e:React.MouseEvent,node:Node)=>{e.preventDefault();if(readOnly)return;setCtxEdgeMenu(null);setCtxMenu({x:e.clientX,y:e.clientY,nodeId:node.id})},[readOnly])
   const onEdgeContextMenu=useCallback((e:React.MouseEvent,edge:Edge)=>{e.preventDefault();if(readOnly)return;setCtxMenu(null);setCtxEdgeMenu({x:e.clientX,y:e.clientY,edgeId:edge.id})},[readOnly])
   const onPaneClick=useCallback(()=>{setCtxMenu(null);setCtxEdgeMenu(null)},[])
-  const bringToFront=useCallback((nodeId:string)=>{setNodes(nds=>{const idx=nds.findIndex((n:any)=>n.id===nodeId);if(idx<0)return nds;const u=[...nds];u.push(u.splice(idx,1)[0]);autoSave(u,edges);return u});setCtxMenu(null)},[setNodes,autoSave,edges])
-  const sendToBack=useCallback((nodeId:string)=>{setNodes(nds=>{const idx=nds.findIndex((n:any)=>n.id===nodeId);if(idx<0)return nds;const u=[...nds];u.unshift(u.splice(idx,1)[0]);autoSave(u,edges);return u});setCtxMenu(null)},[setNodes,autoSave,edges])
-  const duplicateNode=useCallback((nodeId:string)=>{const node=nodes.find((n:any)=>n.id===nodeId);if(!node)return;const newId=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{...node,id:newId,position:{x:node.position.x+40,y:node.position.y+40},selected:false,data:{...node.data}}];autoSave(u,edges);return u});setCtxMenu(null)},[nodes,setNodes,autoSave,edges])
-  const deleteEdge=useCallback((edgeId:string)=>{setEdges(eds=>{const u=eds.filter(e=>e.id!==edgeId);autoSave(nodes,u);return u});setCtxEdgeMenu(null)},[setEdges,autoSave,nodes])
-  const toggleLock=useCallback((nodeId:string)=>{setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===nodeId?{...n,draggable:n.draggable===false?undefined:false,data:{...n.data,locked:n.data?.locked?false:true}}:n);autoSave(u,edges);return u});setCtxMenu(null)},[setNodes,autoSave,edges])
-  const saveContentNode=useCallback(()=>{if(!editingNodeId)return;setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===editingNodeId?{...n,data:{...n.data,label:nodeLabel,content:{contentType:nodeType,content:nodeContent}}}:n);autoSave(u,edges);return u});setEditingNodeId(null)},[editingNodeId,nodeLabel,nodeContent,nodeType,setNodes,autoSave,edges])
-  const saveShapeEdit=useCallback(()=>{if(!editingShapeId)return;setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===editingShapeId?{...n,data:{...n.data,shape:shapeType,width:shapeW,height:shapeH,label:shapeLabel,fill:shapeFill,stroke:shapeStroke,rows:shapeRows,cols:shapeCols}}:n);autoSave(u,edges);return u});setEditingShapeId(null)},[editingShapeId,shapeW,shapeH,shapeLabel,shapeFill,shapeStroke,shapeRows,shapeCols,shapeType,setNodes,autoSave,edges])
-  const saveEdgeEdit=useCallback(()=>{if(!editingEdgeId)return;setEdges((eds:any[])=>{const u=eds.map((e:any)=>e.id===editingEdgeId?{...e,label:edgeLabel||undefined,style:{...e.style,stroke:edgeColor,strokeWidth:edgeWidth},animated:edgeAnim,type:edgeType==='default'?undefined:edgeType,markerEnd:{type:MarkerType.ArrowClosed,color:edgeColor}}:e);autoSave(nodes,u);return u});setEditingEdgeId(null)},[editingEdgeId,edgeLabel,edgeColor,edgeWidth,edgeAnim,edgeType,setEdges,autoSave,nodes])
+  const bringToFront=useCallback((nodeId:string)=>{setNodes(nds=>{const idx=nds.findIndex((n:any)=>n.id===nodeId);if(idx<0)return nds;const u=[...nds];u.push(u.splice(idx,1)[0]);autoSave();return u});setCtxMenu(null)},[setNodes,autoSave])
+  const sendToBack=useCallback((nodeId:string)=>{setNodes(nds=>{const idx=nds.findIndex((n:any)=>n.id===nodeId);if(idx<0)return nds;const u=[...nds];u.unshift(u.splice(idx,1)[0]);autoSave();return u});setCtxMenu(null)},[setNodes,autoSave])
+  const duplicateNode=useCallback((nodeId:string)=>{const node=nodes.find((n:any)=>n.id===nodeId);if(!node)return;const newId=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{...node,id:newId,position:{x:node.position.x+40,y:node.position.y+40},selected:false,data:{...node.data}}];autoSave();return u});setCtxMenu(null)},[nodes,setNodes,autoSave])
+  const deleteEdge=useCallback((edgeId:string)=>{setEdges(eds=>{const u=eds.filter(e=>e.id!==edgeId);autoSave();return u});setCtxEdgeMenu(null)},[setEdges,autoSave])
+  const toggleLock=useCallback((nodeId:string)=>{setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===nodeId?{...n,draggable:n.draggable===false?undefined:false,data:{...n.data,locked:n.data?.locked?false:true}}:n);autoSave();return u});setCtxMenu(null)},[setNodes,autoSave])
+  const saveContentNode=useCallback(()=>{if(!editingNodeId)return;setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===editingNodeId?{...n,data:{...n.data,label:nodeLabel,content:{contentType:nodeType,content:nodeContent}}}:n);autoSave();return u});setEditingNodeId(null)},[editingNodeId,nodeLabel,nodeContent,nodeType,setNodes,autoSave])
+  const saveShapeEdit=useCallback(()=>{if(!editingShapeId)return;setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===editingShapeId?{...n,data:{...n.data,shape:shapeType,width:shapeW,height:shapeH,label:shapeLabel,fill:shapeFill,stroke:shapeStroke,rows:shapeRows,cols:shapeCols}}:n);autoSave();return u});setEditingShapeId(null)},[editingShapeId,shapeW,shapeH,shapeLabel,shapeFill,shapeStroke,shapeRows,shapeCols,shapeType,setNodes,autoSave])
+  const saveEdgeEdit=useCallback(()=>{if(!editingEdgeId)return;setEdges((eds:any[])=>{const u=eds.map((e:any)=>e.id===editingEdgeId?{...e,label:edgeLabel||undefined,style:{...e.style,stroke:edgeColor,strokeWidth:edgeWidth},animated:edgeAnim,type:edgeType==='default'?undefined:edgeType,markerEnd:{type:MarkerType.ArrowClosed,color:edgeColor}}:e);autoSave();return u});setEditingEdgeId(null)},[editingEdgeId,edgeLabel,edgeColor,edgeWidth,edgeAnim,edgeType,setEdges,autoSave])
   const handleExport=useCallback(()=>{const data={title,description,nodes:JSON.parse(JSON.stringify(nodes)),edges:JSON.parse(JSON.stringify(edges))};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`${title||'flujo'}.wlo.json`;a.click();URL.revokeObjectURL(url);toast.success('Flujo exportado')},[title,description,nodes,edges])
-  const handleImport=useCallback(()=>{if(readOnly)return;const el=document.createElement('input');el.type='file';el.accept='.json';el.onchange=async(e:any)=>{const file=e.target.files?.[0];if(!file)return;try{const text=await file.text();const data=JSON.parse(text);if(data.nodes){setNodes(data.nodes);setEdges(data.edges||[]);if(data.title)setTitle(data.title);if(data.description!==undefined)setDescription(data.description);autoSave(data.nodes,data.edges||[]);toast.success('Flujo importado')}}catch{toast.error('Archivo invalido')}};el.click()},[setNodes,setEdges,setTitle,setDescription,autoSave,readOnly])
+  const handleImport=useCallback(()=>{if(readOnly)return;const el=document.createElement('input');el.type='file';el.accept='.json';el.onchange=async(e:any)=>{const file=e.target.files?.[0];if(!file)return;try{const text=await file.text();const data=JSON.parse(text);if(data.nodes){setNodes(data.nodes);setEdges(data.edges||[]);if(data.title)setTitle(data.title);if(data.description!==undefined)setDescription(data.description);autoSave();toast.success('Flujo importado')}}catch{toast.error('Archivo invalido')}};el.click()},[setNodes,setEdges,setTitle,setDescription,autoSave,readOnly])
+
+  // Indicador honesto. El anterior decia "Auto-guardado" siempre, incluso cuando
+  // el guardado habia fallado, que es la peor mentira posible en un editor.
+  const horaGuardado = lastSavedAt ? lastSavedAt.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : null
+  const indicador = saveState==='guardando'
+    ? {texto:'Guardando...',icono:<RefreshCw className="w-3.5 h-3.5 animate-spin"/>,clase:'border-border bg-muted text-muted-foreground',titulo:'Enviando cambios al servidor'}
+    : saveState==='pendiente'
+    ? {texto:'Sin guardar',icono:<Cloud className="w-3.5 h-3.5"/>,clase:'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400',titulo:'Hay cambios que aun no llegan a la base de datos'}
+    : saveState==='error'
+    ? {texto:'Error, reintentando',icono:<CloudOff className="w-3.5 h-3.5"/>,clase:'border-destructive/40 bg-destructive/10 text-destructive',titulo:'No se pudo guardar. Se reintenta solo.'}
+    : saveState==='conflicto'
+    ? {texto:'Conflicto',icono:<AlertTriangle className="w-3.5 h-3.5"/>,clase:'border-destructive/40 bg-destructive/10 text-destructive',titulo:'Otra persona guardo cambios sobre este flujo'}
+    : {texto:horaGuardado?`Guardado ${horaGuardado}`:'Guardado',icono:<CheckCircle className="w-3.5 h-3.5"/>,clase:'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',titulo:'Todo esta en la base de datos'}
 
   const shapeTypes = ['rect','circle','line','grid','text'] as ShapeType[]
   const shapeIcons: Record<ShapeType,React.ReactNode> = {rect:<Square className="w-3 h-3"/>,circle:<Circle className="w-3 h-3"/>,line:<Minus className="w-3 h-3"/>,grid:<Grid3X3 className="w-3 h-3"/>,text:<Type className="w-3 h-3"/>}
@@ -166,21 +311,29 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
         <div className="flex-1" />
         {readOnly
           ? <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-1 text-xs font-medium" title="Te compartieron este flujo con permiso de solo ver"><Eye className="w-3.5 h-3.5"/>Solo lectura</span>
-          : <span className="text-xs text-muted-foreground">{saving?'Guardando...':'Auto-guardado'}</span>}
-        {!readOnly&&<button onClick={()=>save()} disabled={saving} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors disabled:opacity-50"><Save className="w-4 h-4" />Guardar</button>}
+          : <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${indicador.clase}`} title={indicador.titulo}>{indicador.icono}{indicador.texto}</span>}
+        {!readOnly&&<button onClick={()=>save()} disabled={saveState==='guardando'} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors disabled:opacity-50"><Save className="w-4 h-4" />Guardar</button>}
         <button onClick={handleExport} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Exportar"><Download className="w-4 h-4"/>Exportar</button>
         {!readOnly&&<button onClick={handleImport} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Importar"><Upload className="w-4 h-4"/>Importar</button>}
         {!readOnly&&<button onClick={async()=>{setShowShare(true);try{const[r1,r2]=await Promise.all([fetch(`/api/flows/${flowId}`).then(r=>r.json()),fetch(`/api/flows/${flowId}/members`).then(r=>r.json())]);setShares(r1.shares||[]);const ms=r2.profiles||[];if(ms.length)setMembers(ms);else loadMembers()}catch{}}} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Compartir"><Share2 className="w-4 h-4"/>Compartir</button>}
       </header>
+      {saveState==='conflicto'&&<div className="flex items-center gap-3 px-4 py-2 border-b bg-destructive/10 text-destructive text-xs shrink-0">
+        <AlertTriangle className="w-4 h-4 shrink-0"/>
+        <span className="flex-1">Otra persona guardo cambios en este flujo mientras lo editabas. Si guardas encima, pierdes lo que hizo. Recarga para ver su version, o guarda la tuya si estas seguro.</span>
+        <button onClick={()=>window.location.reload()} className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-background hover:bg-accent h-7 px-2.5 text-xs font-medium"><RefreshCw className="w-3 h-3"/>Recargar</button>
+        <button onClick={async()=>{const ok=await save({force:true});if(ok)toast.success('Guardado, se piso la version anterior')}} className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-background hover:bg-accent h-7 px-2.5 text-xs font-medium"><Save className="w-3 h-3"/>Guardar la mia</button>
+      </div>}
       <div className="flex-1 relative">
         {altHeld && <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 bg-amber-500 text-white text-xs px-3 py-1 rounded-full shadow-lg pointer-events-none">Alt: mover area</div>}
         <style>{`.rf-edges-on-top .react-flow__edges{z-index:50!important}.rf-edges-on-top .react-flow__nodes{z-index:1!important}.rf-edges-on-top .react-flow__edge{stroke-width:2.5}`}</style>
+        <FlowDirtyContext.Provider value={autoSave}>
         <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodesDelete={onNodesDelete} onNodeDragStop={onNodeDragStop} onNodeDragStart={onNodeDragStarter} onNodeDoubleClick={handleNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onEdgeContextMenu={onEdgeContextMenu} onPaneClick={onPaneClick} onDragOver={onDragOver} onDrop={onDrop} onInit={(rf:any)=>reactFlowInstance.current=rf} nodeTypes={{custom:CustomNode,shape:ShapeNode}} fitView nodesDraggable={!readOnly} nodesConnectable={!readOnly} edgesReconnectable={!readOnly} selectNodesOnDrag panOnDrag={altHeld} panActivationKeyCode="Alt" selectionKeyCode="Control" multiSelectionKeyCode="Control" deleteKeyCode={null} selectionMode={SelectionMode.Partial} className="bg-background rf-edges-on-top">
           <Controls /><Background variant={BackgroundVariant.Dots} gap={20} size={1} /><MiniMap nodeColor="#94a3b8" className="!bg-card border" />
           {nodes.filter((n:any)=>n.selected).length > 1 && <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 bg-primary text-primary-foreground text-xs px-3 py-1.5 rounded-full shadow-lg pointer-events-none">{nodes.filter((n:any)=>n.selected).length} seleccionados</div>}
         </ReactFlow>
+        </FlowDirtyContext.Provider>
 
-        {ctxMenu&&<div className="fixed z-[100] bg-card border rounded-lg shadow-xl p-1 min-w-[170px]" style={{left:ctxMenu.x,top:ctxMenu.y}} onClick={e=>e.stopPropagation()}><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>toggleLock(ctxMenu.nodeId)}>{nodes.find((n:any)=>n.id===ctxMenu.nodeId)?.data?.locked?<><Unlock className="w-3 h-3"/>Desbloquear</>:<><Lock className="w-3 h-3"/>Bloquear</>}</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>bringToFront(ctxMenu.nodeId)}><ArrowUp className="w-3 h-3"/>Traer al frente</button><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>sendToBack(ctxMenu.nodeId)}><ArrowDown className="w-3 h-3"/>Enviar al fondo</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>duplicateNode(ctxMenu.nodeId)}><Copy className="w-3 h-3"/>Duplicar</button><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>{const nds=nodes.filter((n:any)=>n.id!==ctxMenu.nodeId);setNodes(nds as any);autoSave(nds as any);setCtxMenu(null)}}><Trash2 className="w-3 h-3 text-destructive"/>Eliminar</button></div>}
+        {ctxMenu&&<div className="fixed z-[100] bg-card border rounded-lg shadow-xl p-1 min-w-[170px]" style={{left:ctxMenu.x,top:ctxMenu.y}} onClick={e=>e.stopPropagation()}><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>toggleLock(ctxMenu.nodeId)}>{nodes.find((n:any)=>n.id===ctxMenu.nodeId)?.data?.locked?<><Unlock className="w-3 h-3"/>Desbloquear</>:<><Lock className="w-3 h-3"/>Bloquear</>}</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>bringToFront(ctxMenu.nodeId)}><ArrowUp className="w-3 h-3"/>Traer al frente</button><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>sendToBack(ctxMenu.nodeId)}><ArrowDown className="w-3 h-3"/>Enviar al fondo</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>duplicateNode(ctxMenu.nodeId)}><Copy className="w-3 h-3"/>Duplicar</button><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>{const nds=nodes.filter((n:any)=>n.id!==ctxMenu.nodeId);setNodes(nds as any);autoSave();setCtxMenu(null)}}><Trash2 className="w-3 h-3 text-destructive"/>Eliminar</button></div>}
         {ctxEdgeMenu&&<div className="fixed z-[100] bg-card border rounded-lg shadow-xl p-1 min-w-[170px]" style={{left:ctxEdgeMenu.x,top:ctxEdgeMenu.y}} onClick={e=>e.stopPropagation()}><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>{const e=edges.find((ed:any)=>ed.id===ctxEdgeMenu.edgeId);if(e){setEditingEdgeId(e.id);setEdgeLabel(typeof e.label==='string'?e.label:'');setEdgeColor(String(e.style?.stroke??'#64748b'));setEdgeWidth(Number(e.style?.strokeWidth??2));setEdgeAnim(e.animated||false);setEdgeType(e.type||'default');setCtxEdgeMenu(null)}}}><Settings className="w-3 h-3"/>Propiedades</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors text-destructive" onClick={()=>deleteEdge(ctxEdgeMenu.edgeId)}><Trash2 className="w-3 h-3"/>Eliminar</button></div>}
 
         {!readOnly&&<div className="absolute bg-card border rounded-lg shadow-lg z-20 transition-all" style={{right:toolPos.x||12,top:toolPos.y||60,width:toolCollapsed?40:180}}>
