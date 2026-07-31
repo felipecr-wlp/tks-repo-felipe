@@ -23,7 +23,7 @@ export function NewFlowButton({ workspaceId, workspaceSlug }: Props) {
         body: JSON.stringify({
           workspace_id: workspaceId,
           title: 'Nuevo Flujo',
-          visibility: 'workspace',
+          visibility: 'private',
         }),
       })
 

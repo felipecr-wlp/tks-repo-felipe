@@ -7,7 +7,7 @@ import { logActivity, ActivityVerbs } from '@/lib/activity'
 const createSchema = z.object({
   workspace_id: z.string().uuid(),
   title:        z.string().max(200).trim().optional(),
-  visibility:   z.enum(['private', 'project', 'team', 'workspace']).default('workspace'),
+  visibility:   z.enum(['private', 'project', 'team', 'workspace']).default('private'),
   project_id:   z.string().uuid().nullable().optional(),
 })
 
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       author:profiles ( display_name, avatar_url )
     `)
     .eq('workspace_id', workspace_id)
-    .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
+    .or(`created_by.eq.${user.id},visibility.eq.workspace,visibility.eq.team,id.in.(select flow_id from flow_shares where profile_id.eq.${user.id})`)
     .order('updated_at', { ascending: false })
     .limit(100) as { data: FlowListRow[] | null; error: unknown }
 

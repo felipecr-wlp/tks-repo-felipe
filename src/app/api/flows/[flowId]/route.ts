@@ -58,7 +58,13 @@ async function loadWithAccess(
 
   if (!membership) return { flow: null, status: 403 }
   if (flow.visibility === 'private' && flow.created_by !== userId) {
-    return { flow: null, status: 403 }
+    const { data: share } = await admin
+      .from('flow_shares')
+      .select('id')
+      .eq('flow_id', id)
+      .eq('profile_id', userId)
+      .maybeSingle()
+    if (!share) return { flow: null, status: 403 }
   }
   return { flow, status: 200 }
 }
