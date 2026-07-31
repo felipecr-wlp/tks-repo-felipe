@@ -18,6 +18,7 @@ import { OnboardingGuide } from './OnboardingGuide'
 import { DashboardWidgets, type DashboardWidgetsData } from './DashboardWidgets'
 import { AcademyWidget } from './AcademyWidget'
 import { SampleCounterWidget, SampleClockWidget } from '@/lib/widgets/samples'
+import { WidgetSlot } from '@/lib/widgets/WidgetSlot'
 
 interface WorkspaceDashboardProps {
   params: { workspaceSlug: string }
@@ -283,6 +284,7 @@ export default async function WorkspaceDashboardPage({
         <SampleCounterWidget />
         <SampleClockWidget />
       </div>
+      <WidgetSlot workspaceId={workspace.id} workspaceSlug={params.workspaceSlug} slot="dashboard" />
 
       {/* ── Mis tareas + Actividad ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-10">

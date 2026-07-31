@@ -41,11 +41,9 @@ function WidgetIframe({ widget, workspaceSlug }: { widget: WidgetData; workspace
     return () => window.removeEventListener('message', handler)
   }, [])
 
-  // Built-in widgets: use local React components directly (no iframe needed)
-  if (widget.app_id === 'wlo-counter') return <SampleCounterWidget />
-  if (widget.app_id === 'wlo-clock') return <SampleClockWidget />
+  // Built-in widgets rendered directly in page - skip
+  if (widget.app_id === 'wlo-counter' || widget.app_id === 'wlo-clock') return null
 
-  // Standalone plugins: iframe
   if (!widget.base_url) {
     return (
       <div className="border rounded-xl p-4 h-full">
