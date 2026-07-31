@@ -69,10 +69,10 @@ export function PluginDetail({ pluginId, workspaceSlug, install, catalog, isAdmi
     if (!confirm(`Eliminar todos los datos de "${name}"? Esta accion no se puede deshacer.`)) return
     setResetting(true)
     try {
-      if (install.app_id === 'wlo-flows') {
-        await fetch(`/api/flows?workspace_id=&reset=true`, { method: 'DELETE' })
-      }
+      const r = await fetch(`/api/plugins/${pluginId}/reset`, { method: 'POST' })
+      if (!r.ok) throw new Error('Error')
       toast.success('Datos eliminados')
+      router.refresh()
     } catch { toast.error('Error al resetear') }
     finally { setResetting(false) }
   }
