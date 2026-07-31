@@ -117,6 +117,8 @@ interface SidebarProps {
   }
   /** Funciones apagadas para esta persona (claves del catalogo). */
   hiddenFeatures?: string[]
+  /** Complementos instalados en el workspace (connector_installs). */
+  plugins?: Array<{ id: string; app_id: string; manifest: Record<string, any>; enabled: boolean }>
 }
 
 type GroupKey = 'workspace' | 'complementos' | 'equipos'
@@ -133,6 +135,7 @@ export function Sidebar({
   isAdmin = false,
   userProfile,
   hiddenFeatures = [],
+  plugins = [],
 }: SidebarProps) {
   const pathname = usePathname()
   const { t } = useI18n()
@@ -531,22 +534,23 @@ export function Sidebar({
           )}
         </NavGroup>
 
-        {/* Complementos: Flows + Widgets */}
-        <NavGroup
-          label={t('nav.groupComplementos')}
-          collapsed={collapsed}
-          open={openGroups.complementos}
-          onToggle={() => toggleGroup('complementos')}
-          active={activeIn.complementos}
-        >
-          <NavItem
-            href={`${base}/flows`}
-            icon={<Workflow size={16} />}
-            label={t('nav.flows')}
+        {/* Complementos: plugins instalados */}
+        {plugins && plugins.filter(p => p.enabled).length > 0 && (
+          <NavGroup
+            label={t('nav.groupComplementos')}
             collapsed={collapsed}
-            active={isActive(`${base}/flows`)}
-          />
-        </NavGroup>
+            open={openGroups.complementos}
+            onToggle={() => toggleGroup('complementos')}
+            active={activeIn.complementos}
+          >
+            {plugins.filter(p => p.enabled).map(p => {
+              if (p.app_id === 'wlo-flows') return (
+                <NavItem key={p.id} href={`${base}/flows`} icon={<Workflow size={16} />} label={t('nav.flows')} collapsed={collapsed} active={isActive(`${base}/flows`)} />
+              )
+              return null
+            })}
+          </NavGroup>
+        )}
       </nav>
 
       {/* ── Footer: idioma + perfil de usuario ─────────────────── */}

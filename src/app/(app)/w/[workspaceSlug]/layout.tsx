@@ -217,6 +217,14 @@ export default async function WorkspaceLayout({
     })),
   }))
 
+  // Complementos instalados en este workspace
+  type PluginRow = { id: string; app_id: string; manifest: Record<string, any>; enabled: boolean }
+  const { data: plugins } = await admin
+    .from('connector_installs')
+    .select('id, app_id, manifest, enabled')
+    .eq('workspace_id', workspace.id)
+    .eq('plugin_type', 'widget') as { data: PluginRow[] | null; error: unknown }
+
   // Ya no se cargan "todos los workspaces del usuario": WLO opera con un solo
   // espacio y el encabezado dejo de ser un selector. Una consulta menos por
   // cada pantalla del app.
@@ -257,6 +265,7 @@ export default async function WorkspaceLayout({
           email: user.email ?? '',
         }}
         hiddenFeatures={hiddenFeatures}
+        plugins={plugins ?? []}
       />
 
       {/* Columna de contenido: barra superior movil + main.

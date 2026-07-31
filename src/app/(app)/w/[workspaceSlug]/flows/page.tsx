@@ -26,6 +26,17 @@ export default async function FlowsPage({ params }: FlowsPageProps) {
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
 
+  // Verificar que el plugin Flows este instalado
+  const { data: plugin } = await admin
+    .from('connector_installs')
+    .select('id')
+    .eq('workspace_id', workspace.id)
+    .eq('app_id', 'wlo-flows')
+    .eq('plugin_type', 'widget')
+    .eq('enabled', true)
+    .maybeSingle() as { data: { id: string } | null; error: unknown }
+  if (!plugin) redirect(`/w/${params.workspaceSlug}`)
+
   const { data: flows } = await admin
     .from('flows')
     .select('id, title, description, visibility, created_at, updated_at, created_by, author:profiles(display_name)')
