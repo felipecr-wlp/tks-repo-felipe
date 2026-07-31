@@ -24,16 +24,31 @@ export default async function PluginsPage({ params }: Props) {
   const wsId = row.workspaces.id
   const isAdmin = row.role === 'admin'
 
-  // Catalog from filesystem (plugins/ directory)
+  // Catalog from filesystem (plugins/ directory) + DB-only apps
   const fsPlugins = scanPlugins()
+  const fsIds = new Set(fsPlugins.map(p => p.id))
   const catalog = fsPlugins.map(p => ({ id: p.id, name: p.name, icon: p.icon }))
 
-  // Installed plugins for this workspace
+  // Include DB-only installed plugins
   const { data: installed } = await admin
     .from('connector_installs')
     .select('id, app_id, plugin_type, enabled')
     .eq('workspace_id', wsId)
     .eq('plugin_type', 'widget') as { data: Array<{ id: string; app_id: string; plugin_type: string; enabled: boolean }> | null; error: unknown }
+
+  // Add DB-only apps to catalog
+  const installedIds = new Set((installed ?? []).map(i => i.app_id))
+  const allCatalogIds = new Set(catalog.map(c => c.id))
+  for (const appId of installedIds) {
+    if (!allCatalogIds.has(appId)) {
+      const { data: app } = await admin
+        .from('connector_apps')
+        .select('id, name, icon')
+        .eq('id', appId)
+        .maybeSingle() as { data: { id: string; name: string; icon: string } | null; error: unknown }
+      if (app) catalog.push({ id: app.id, name: app.name, icon: app.icon })
+    }
+  }
 
   return (
     <div className="space-y-6">
