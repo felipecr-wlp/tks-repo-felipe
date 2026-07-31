@@ -29,7 +29,6 @@ export type FeatureKey =
   | 'reportes'
   | 'notes'
   | 'whiteboards'
-  | 'flows'
   | 'goals'
   | 'analytics'
   | 'tracking'
@@ -117,14 +116,6 @@ export const FEATURES: FeatureDef[] = [
     labelKey: 'nav.whiteboards',
     description: 'Pizarras para diagramar y planear en conjunto.',
     group: 'workspace',
-  },
-  {
-    key: 'flows',
-    segment: 'flows',
-    labelKey: 'nav.flows',
-    description: 'Diagramas de flujo (ahora como plugin en Complementos).',
-    group: 'workspace',
-    primary: false,
   },
   {
     key: 'guia',

@@ -91,7 +91,6 @@ const FEATURE_ICONS: Record<FeatureKey, LucideIcon> = {
   reportes: ClipboardList,
   notes: FileText,
   whiteboards: PenTool,
-  flows: Workflow,
   goals: Target,
   analytics: BarChart3,
   tracking: Timer,
