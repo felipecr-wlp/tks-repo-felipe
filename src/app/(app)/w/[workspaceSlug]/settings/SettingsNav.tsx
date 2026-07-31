@@ -7,7 +7,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Settings, Users, UsersRound, FolderKanban, Ticket, Gauge, Clock, BookOpen, Eye, Blocks } from 'lucide-react'
+import { Settings, Users, UsersRound, FolderKanban, Ticket, Gauge, Clock, BookOpen, Eye, Blocks, Puzzle } from 'lucide-react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 
 export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
@@ -28,6 +28,7 @@ export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
     { href: `${base}/performance`, label: t('settings.tabPerformance'), icon: Gauge },
     { href: `${base}/academia`, label: t('settings.tabAcademy'), icon: BookOpen },
     { href: `${base}/conectores`, label: 'Conectores', icon: Blocks },
+    { href: `${base}/plugins`, label: 'Plugins', icon: Puzzle },
   ]
 
   // Nueve pestañas no caben en una linea y el scroll lateral escondia las
