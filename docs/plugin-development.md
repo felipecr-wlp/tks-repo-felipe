@@ -377,6 +377,164 @@ module.exports = { default: QuickNotes }
 
 ---
 
+---
+
+## Comunicación Plugin ↔ WLO
+
+### A. Contexto que recibe el plugin
+
+Todo plugin recibe datos del workspace vía **URL query params** en el iframe:
+
+```
+?workspace_id=d7c9516d-...&workspace_slug=general&app_id=wlo-mi-plugin
+```
+
+| Parámetro | Descripción |
+|-----------|-------------|
+| `workspace_id` | UUID del workspace actual |
+| `workspace_slug` | Slug del workspace |
+| `app_id` | ID del plugin |
+
+```javascript
+// Leer contexto desde el plugin
+const params = new URLSearchParams(window.location.search)
+const wsId = params.get('workspace_id')
+const wsSlug = params.get('workspace_slug')
+```
+
+### B. Comunicación iframe → WLO (postMessage)
+
+Desde un widget o página cargada en iframe:
+
+```javascript
+// Ajustar altura del iframe automáticamente
+window.parent.postMessage({
+  type: 'wlo-resize',
+  height: document.body.scrollHeight + 20
+}, '*')
+
+// Enviar evento personalizado a WLO
+window.parent.postMessage({
+  type: 'wlo-event',
+  action: 'task-created',
+  data: { id: 'uuid', title: 'Nueva tarea' }
+}, '*')
+
+// Navegar en WLO desde el plugin
+window.parent.postMessage({
+  type: 'wlo-navigate',
+  path: '/w/general/projects'
+}, '*')
+```
+
+### C. API REST de WLO (PostgREST Supabase)
+
+Todos los plugins pueden usar la API REST directamente. Las credenciales vienen del contexto del workspace.
+
+```javascript
+// URL base de Supabase para REST API
+const SUPABASE_URL = 'https://TU_PROYECTO.supabase.co'
+const ANON_KEY = 'eyJ...'  // Disponible en el contexto
+
+// Ejemplo: listar tareas del workspace
+const res = await fetch(`${SUPABASE_URL}/rest/v1/tasks?workspace_id=eq.${wsId}&limit=10`, {
+  headers: {
+    'apikey': ANON_KEY,
+    'Authorization': `Bearer ${ANON_KEY}`,
+    'Content-Type': 'application/json'
+  }
+})
+const tasks = await res.json()
+```
+
+**Endpoints disponibles** (todos usan RLS automáticamente):
+
+| Recurso | Endpoint | Operaciones |
+|---------|----------|-------------|
+| Tareas | `/rest/v1/tasks` | GET, POST, PATCH, DELETE |
+| Proyectos | `/rest/v1/projects` | GET, POST, PATCH |
+| Notas | `/rest/v1/notes` | GET, POST, PATCH, DELETE |
+| Workspaces | `/rest/v1/workspaces` | GET (solo el propio) |
+| Miembros | `/rest/v1/workspace_members` | GET |
+| Actividad | `/rest/v1/activity_events` | GET |
+| Notificaciones | `/rest/v1/notifications` | GET |
+
+**Filtros comunes**:
+```javascript
+// Filtrar por workspace
+?workspace_id=eq.${wsId}
+
+// Filtrar por proyecto
+?project_id=eq.${projectId}
+
+// Ordenar
+?order=created_at.desc
+
+// Seleccionar columnas específicas
+?select=id,title,status,assignee:profiles(display_name)
+
+// Paginación
+?limit=20&offset=0
+```
+
+### D. API de Conectores (app-to-app avanzado)
+
+Para plugins que necesitan comunicación server-to-server con API keys:
+
+```bash
+# Crear API key desde el plugin
+POST /api/connectors/keys
+Body: { workspace_id, name: 'Mi Plugin', target_app: 'wlo', scopes: ['tasks:read'] }
+
+# Llamar acciones de WLO
+POST /api/connectors/call/tasks/create
+Headers: Authorization: Bearer pck_live_xxx
+Body: { title: 'Tarea desde plugin', project_id: '...' }
+```
+
+**Scopes disponibles**:
+
+| Scope | Descripción |
+|-------|-------------|
+| `tasks:read` | Leer tareas |
+| `tasks:write` | Crear/editar tareas |
+| `projects:read` | Leer proyectos |
+| `notes:read` | Leer notas |
+| `workspace:read` | Leer workspace |
+| `members:read` | Leer miembros |
+
+### E. Webhooks (eventos)
+
+Suscribirse a eventos de WLO para recibir notificaciones en tiempo real:
+
+```bash
+# Crear webhook
+POST /api/connectors/webhooks
+Body: {
+  workspace_id, source_app: 'wlo',
+  event: 'task.created',
+  target_url: 'https://mi-plugin.com/webhook',
+  secret: 'mi-secreto-hmac'
+}
+```
+
+**Eventos disponibles**:
+- `task.created`, `task.updated`, `task.deleted`
+- `project.created`, `project.updated`
+- `note.created`, `note.updated`
+- `member.joined`
+
+El webhook envía POST con HMAC-SHA256 en el header `X-WLO-Signature`.
+
+```javascript
+// Verificar firma en el plugin (Node.js)
+const crypto = require('crypto')
+const expected = crypto.createHmac('sha256', secret).update(JSON.stringify(body)).digest('hex')
+const isValid = req.headers['x-wlo-signature'] === expected
+```
+
+---
+
 ## Debugging
 
 ### Ver logs del servidor
