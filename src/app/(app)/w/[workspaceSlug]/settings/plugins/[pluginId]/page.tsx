@@ -56,6 +56,14 @@ export default async function PluginDetailPage({ params }: Props) {
     flowCount = count ?? 0
   }
 
+  // Check if this is a widget (in widget_catalog)
+  const { data: widget } = await admin
+    .from('widget_catalog')
+    .select('id')
+    .eq('id', install.app_id)
+    .maybeSingle() as { data: { id: string } | null; error: unknown }
+  const isWidget = !!widget
+
   return (
     <div className="space-y-6">
       <PluginDetail
@@ -64,6 +72,7 @@ export default async function PluginDetailPage({ params }: Props) {
         install={install}
         catalog={catalog}
         isAdmin={isAdmin}
+        isWidget={isWidget}
         stats={{ totalInstalls: totalInstalls ?? 0, flowCount }}
       />
     </div>

@@ -18,6 +18,7 @@ interface Props {
   install: { id: string; app_id: string; manifest: Record<string, any>; enabled: boolean; installed_at: string; updated_at: string }
   catalog: { id: string; name: string; icon: string } | null
   isAdmin: boolean
+  isWidget: boolean
   stats: { totalInstalls: number; flowCount: number }
 }
 
@@ -27,7 +28,7 @@ const SLOTS = [
   { key: 'sidebar-complementos', label: 'Complementos' },
 ]
 
-export function PluginDetail({ pluginId, workspaceSlug, install, catalog, isAdmin, stats }: Props) {
+export function PluginDetail({ pluginId, workspaceSlug, install, catalog, isAdmin, isWidget, stats }: Props) {
   const router = useRouter()
   const [enabled, setEnabled] = useState(install.enabled)
   const [slots, setSlots] = useState<string[]>(install.manifest?.slots ?? ['sidebar-complementos'])
@@ -125,7 +126,8 @@ export function PluginDetail({ pluginId, workspaceSlug, install, catalog, isAdmi
         </button>
       </div>
 
-      {/* Config */}
+      {/* Config - solo para complementos, no widgets */}
+      {!isWidget && (
       <div className="border rounded-xl p-5 bg-card space-y-4">
         <div className="flex items-center gap-2"><Settings className="w-4 h-4 text-muted-foreground" /><h3 className="font-medium text-sm">Donde aparece</h3></div>
         <div className="space-y-2">
@@ -148,6 +150,7 @@ export function PluginDetail({ pluginId, workspaceSlug, install, catalog, isAdmi
           <Save className="w-4 h-4" />{saving ? 'Guardando...' : 'Guardar configuracion'}
         </button>
       </div>
+      )}
 
       {/* Stats */}
       <div className="border rounded-xl p-5 bg-card space-y-3">
