@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
+import { resolveFlowAccess, type FlowAccess } from '@/lib/flows/access'
 
 interface RouteParams {
   params: { flowId: string }
@@ -36,7 +37,7 @@ async function loadWithAccess(
   admin: ReturnType<typeof createAdminClient>,
   id: string,
   userId: string,
-): Promise<{ flow: FlowFull | null; status: number }> {
+): Promise<{ flow: FlowFull | null; status: number; access: FlowAccess }> {
   const { data: flow } = await admin
     .from('flows')
     .select(`
@@ -47,20 +48,18 @@ async function loadWithAccess(
     .eq('id', id)
     .maybeSingle() as { data: FlowFull | null; error: unknown }
 
-  if (!flow) return { flow: null, status: 404 }
+  if (!flow) return { flow: null, status: 404, access: 'none' }
 
-  const { data: membership } = await admin
-    .from('workspace_members')
-    .select('role')
-    .eq('workspace_id', flow.workspace_id)
-    .eq('profile_id', userId)
-    .maybeSingle() as { data: { role: string } | null; error: unknown }
+  const access = await resolveFlowAccess(admin, {
+    flowId: flow.id,
+    workspaceId: flow.workspace_id,
+    createdBy: flow.created_by,
+    visibility: flow.visibility,
+    userId,
+  })
 
-  if (!membership) return { flow: null, status: 403 }
-  if (flow.visibility === 'private' && flow.created_by !== userId) {
-    return { flow: null, status: 403 }
-  }
-  return { flow, status: 200 }
+  if (access === 'none') return { flow: null, status: 403, access }
+  return { flow, status: 200, access }
 }
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
@@ -72,15 +71,20 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
   const admin = createAdminClient()
-  const { flow, status } = await loadWithAccess(admin, params.flowId, user.id)
+  const { flow, status, access } = await loadWithAccess(admin, params.flowId, user.id)
   if (!flow) return NextResponse.json({ error: 'No encontrado' }, { status })
 
-  const { data: shares } = await admin
-    .from('flow_shares')
-    .select('id, permission, profile:profiles(id, email, display_name, avatar_url)')
-    .eq('flow_id', params.flowId) as { data: any[] | null; error: unknown }
+  // La lista de con quien esta compartido es informacion del duenno. Quien solo
+  // tiene acceso de lectura no necesita saber a quien mas se lo compartieron.
+  const puedeVerShares = flow.created_by === user.id || access === 'edit'
+  const { data: shares } = puedeVerShares
+    ? ((await admin
+        .from('flow_shares')
+        .select('id, permission, profile:profiles(id, email, display_name, avatar_url)')
+        .eq('flow_id', params.flowId)) as { data: unknown[] | null; error: unknown })
+    : { data: [] }
 
-  return NextResponse.json({ ...flow, shares: shares ?? [] })
+  return NextResponse.json({ ...flow, shares: shares ?? [], access })
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
@@ -102,8 +106,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (!parsed.success) return NextResponse.json({ error: 'Datos inválidos' }, { status: 422 })
 
   const admin = createAdminClient()
-  const { flow, status } = await loadWithAccess(admin, params.flowId, user.id)
+  const { flow, status, access } = await loadWithAccess(admin, params.flowId, user.id)
   if (!flow) return NextResponse.json({ error: 'No encontrado' }, { status })
+
+  // Leer no es editar: un share de solo lectura llega hasta aqui y se detiene.
+  if (access !== 'edit') {
+    return NextResponse.json({ error: 'Solo tienes acceso de lectura' }, { status: 403 })
+  }
+
+  // Cambiar la visibilidad es del duenno, no de cualquiera que pueda editar.
+  if (parsed.data.visibility !== undefined && flow.created_by !== user.id) {
+    return NextResponse.json(
+      { error: 'Solo quien creó el flujo puede cambiar su visibilidad' },
+      { status: 403 },
+    )
+  }
 
   const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (parsed.data.title !== undefined) updateData.title = parsed.data.title
@@ -114,7 +131,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   const { data: updated, error } = await admin
     .from('flows')
-    .update(updateData)
+    .update(updateData as never)
     .eq('id', params.flowId)
     .select(`
       id, workspace_id, project_id, title, description, nodes, edges, visibility,

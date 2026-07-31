@@ -2,6 +2,8 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { isUuid } from '@/lib/validation'
 import FlowEditor from './FlowEditor'
+import { resolveFlowAccess } from '@/lib/flows/access'
+import type { Node, Edge } from '@xyflow/react'
 
 interface FlowDetailProps {
   params: { workspaceSlug: string; flowId: string }
@@ -44,9 +46,18 @@ export default async function FlowDetailPage({ params }: FlowDetailProps) {
     } | null; error: unknown }
 
   if (!flow) redirect(`/w/${params.workspaceSlug}/flows`)
-  if (flow.visibility === 'private' && flow.created_by !== user.id) {
-    redirect(`/w/${params.workspaceSlug}/flows`)
-  }
+
+  // Misma regla que usa la API, para que la pantalla y el servidor no se
+  // contradigan: un privado compartido si se abre, y un share de lectura entra
+  // en modo solo lectura en vez de dejar editar y fallar al guardar.
+  const access = await resolveFlowAccess(admin, {
+    flowId: flow.id,
+    workspaceId: workspace.id,
+    createdBy: flow.created_by,
+    visibility: flow.visibility,
+    userId: user.id,
+  })
+  if (access === 'none') redirect(`/w/${params.workspaceSlug}/flows`)
 
   const nodes = Array.isArray(flow.nodes) ? flow.nodes : []
   const edges = Array.isArray(flow.edges) ? flow.edges : []
@@ -57,10 +68,11 @@ export default async function FlowDetailPage({ params }: FlowDetailProps) {
         flowId={flow.id}
         workspaceSlug={params.workspaceSlug}
         workspaceId={workspace.id}
-        initialNodes={nodes as any}
-        initialEdges={edges as any}
+        initialNodes={nodes as unknown as Node[]}
+        initialEdges={edges as unknown as Edge[]}
         initialTitle={flow.title}
         initialDescription={flow.description}
+        readOnly={access !== 'edit'}
       />
     </div>
   )
