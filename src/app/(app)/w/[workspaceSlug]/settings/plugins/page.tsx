@@ -1,6 +1,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { PluginManager } from './PluginManager'
+import { scanPlugins } from '@/lib/plugin-registry'
 
 interface Props { params: { workspaceSlug: string } }
 
@@ -23,14 +24,11 @@ export default async function PluginsPage({ params }: Props) {
   const wsId = row.workspaces.id
   const isAdmin = row.role === 'admin'
 
-  // All available plugins from connector_apps
-  const { data: catalog } = await admin
-    .from('connector_apps')
-    .select('id, name, icon')
-    .in('id', ['wlo-counter', 'wlo-clock', 'wlo-flows'])
-    .order('name') as { data: Array<{ id: string; name: string; icon: string }> | null; error: unknown }
+  // Catalog from filesystem (plugins/ directory)
+  const fsPlugins = scanPlugins()
+  const catalog = fsPlugins.map(p => ({ id: p.id, name: p.name, icon: p.icon }))
 
-  // Installed plugins
+  // Installed plugins for this workspace
   const { data: installed } = await admin
     .from('connector_installs')
     .select('id, app_id, plugin_type, enabled')
