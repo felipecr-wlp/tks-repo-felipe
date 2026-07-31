@@ -37,7 +37,7 @@ export default async function PluginPage({ params }: Props) {
   if (params.pluginId === 'wlo-flows') {
     const subPath = params.path?.join('/') || ''
     if (subPath) return redirect(`/w/${params.workspaceSlug}/flows/${subPath}`)
-    const { FlowsList } = await import('../../flows/FlowsList')
+    const { FlowsList } = await import('../../../flows/FlowsList')
     return <FlowsList workspaceSlug={params.workspaceSlug} workspaceId={row.workspaces.id} />
   }
 

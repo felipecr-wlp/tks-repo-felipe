@@ -122,11 +122,9 @@ export const FEATURES: FeatureDef[] = [
     key: 'flows',
     segment: 'flows',
     labelKey: 'nav.flows',
-    description: 'Diagramas de flujo y automatizaciones del proceso de trabajo.',
+    description: 'Diagramas de flujo (ahora como plugin en Complementos).',
     group: 'workspace',
-    // Es un modulo nuevo: si arranca detras de "Ver mas" nadie lo encuentra.
-    // Cuando deje de ser novedad se puede bajar al bloque secundario.
-    primary: true,
+    primary: false,
   },
   {
     key: 'guia',
