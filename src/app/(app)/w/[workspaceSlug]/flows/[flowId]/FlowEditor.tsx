@@ -91,7 +91,7 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
   const [ctxEdgeMenu,setCtxEdgeMenu]=useState<{x:number;y:number;edgeId:string}|null>(null)
   const [editingEdgeId,setEditingEdgeId]=useState<string|null>(null)
   const [edgeLabel,setEdgeLabel]=useState('');const [edgeColor,setEdgeColor]=useState('#64748b');const [edgeWidth,setEdgeWidth]=useState(2);const [edgeAnim,setEdgeAnim]=useState(false);const [edgeType,setEdgeType]=useState('default')
-  const [showShare,setShowShare]=useState(false);const [shares,setShares]=useState<any[]>([]);const [members,setMembers]=useState<any[]>([]);const [sharePerm,setSharePerm]=useState<'view'|'edit'>('view');  const [showHelp,setShowHelp]=useState(false);  const [topBarCollapsed,setTopBarCollapsed]=useState(false);const [selectMode,setSelectMode]=useState(true)
+  const [showShare,setShowShare]=useState(false);const [shares,setShares]=useState<any[]>([]);const [members,setMembers]=useState<any[]>([]);const [sharePerm,setSharePerm]=useState<'view'|'edit'>('view');  const [showHelp,setShowHelp]=useState(false);  const [topBarCollapsed,setTopBarCollapsed]=useState(false);const [selectMode,setSelectMode]=useState(false)
   const loadMembers=useCallback(async()=>{try{const r=await fetch(`/api/profile?workspace_id=${workspaceId}`);if(r.ok)setMembers((await r.json()).profiles||[])}catch{}},[workspaceId])
   const [toolCollapsed,setToolCollapsed]=useState(false);const [toolPos,setToolPos]=useState({x:0,y:0})
   const reactFlowInstance = useRef<any>(null)
