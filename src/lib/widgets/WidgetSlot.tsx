@@ -49,7 +49,6 @@ function WidgetIframe({ widget, workspaceSlug }: { widget: WidgetData; workspace
       src={`${widget.base_url}?workspace_slug=${workspaceSlug}&app_id=${widget.app_id}`}
       className="w-full border-0 rounded-xl bg-card"
       style={{ height: `${height}px`, minHeight: '120px' }}
-      sandbox="allow-scripts allow-same-origin"
       title={widget.widget?.name || widget.app_id}
     />
   )
