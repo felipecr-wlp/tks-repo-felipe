@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { ArrowLeft, ToggleRight, ToggleLeft, Trash2, Save, Settings, BarChart3, Hash, Clock, Workflow, Power } from 'lucide-react'
+import { ArrowLeft, ToggleRight, ToggleLeft, Trash2, Save, Settings, BarChart3, Hash, Clock, Workflow, Power, Download } from 'lucide-react'
 
 const PLUGIN_ICONS: Record<string, React.ReactNode> = {
   hash: <Hash className="w-5 h-5" />,
@@ -86,6 +86,18 @@ export function PluginDetail({ pluginId, workspaceSlug, install, catalog, isAdmi
     } catch { toast.error('Error al desinstalar') }
   }
 
+  async function downloadZip() {
+    try {
+      const r = await fetch(`/api/plugins/${pluginId}/download`)
+      if (!r.ok) throw new Error('Error')
+      const blob = await r.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `${install.app_id}.wlo-plugin.zip`
+      a.click(); URL.revokeObjectURL(url)
+    } catch { toast.error('Error al descargar') }
+  }
+
   return (
     <div className="space-y-6 max-w-2xl">
       <Link href={`/w/${workspaceSlug}/settings/plugins`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
@@ -101,6 +113,9 @@ export function PluginDetail({ pluginId, workspaceSlug, install, catalog, isAdmi
           <p className="text-xs text-muted-foreground">{install.app_id}</p>
         </div>
         <div className="flex-1" />
+        <button onClick={downloadZip} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border hover:bg-accent transition-colors" title="Descargar plugin">
+          <Download className="w-3.5 h-3.5" /> Descargar
+        </button>
         <button
           onClick={toggleEnabled}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${enabled ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}
