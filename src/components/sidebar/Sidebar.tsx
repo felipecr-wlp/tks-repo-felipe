@@ -119,7 +119,7 @@ interface SidebarProps {
   hiddenFeatures?: string[]
 }
 
-type GroupKey = 'workspace' | 'equipos'
+type GroupKey = 'workspace' | 'complementos' | 'equipos'
 
 const STORAGE_KEY = 'wlo-sidebar-groups-v2'
 const COLLAPSED_KEY = 'wlo-sidebar-collapsed'
@@ -154,6 +154,7 @@ export function Sidebar({
   // Estado de grupos colapsables, persistido en localStorage.
   const [openGroups, setOpenGroups] = useState<Record<GroupKey, boolean>>({
     workspace: true,
+    complementos: true,
     equipos: true,
   })
 
@@ -265,6 +266,7 @@ export function Sidebar({
   // dentro de el.
   const activeIn: Record<GroupKey, boolean> = {
     workspace: [...primaryItems, ...moreItems].some((i) => isActive(i.href, i.exact)),
+    complementos: pathname.startsWith(`${base}/flows`) || pathname.startsWith(`${base}/widgets`),
     equipos: pathname.startsWith(`${base}/t/`),
   }
 
@@ -527,6 +529,23 @@ export function Sidebar({
               {t('nav.noTeams')}
             </p>
           )}
+        </NavGroup>
+
+        {/* Complementos: Flows + Widgets */}
+        <NavGroup
+          label={t('nav.groupComplementos')}
+          collapsed={collapsed}
+          open={openGroups.complementos}
+          onToggle={() => toggleGroup('complementos')}
+          active={activeIn.complementos}
+        >
+          <NavItem
+            href={`${base}/flows`}
+            icon={<Workflow size={16} />}
+            label={t('nav.flows')}
+            collapsed={collapsed}
+            active={isActive(`${base}/flows`)}
+          />
         </NavGroup>
       </nav>
 
