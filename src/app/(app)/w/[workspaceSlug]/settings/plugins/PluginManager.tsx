@@ -54,6 +54,26 @@ export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, 
     }
   }
 
+  async function uploadZip() {
+    setLoading('upload')
+    const el = document.createElement('input')
+    el.type = 'file'; el.accept = '.zip'
+    el.onchange = async (e: any) => {
+      const file = e.target.files?.[0]; if (!file) return
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('workspace_id', workspaceId)
+      try {
+        const r = await fetch('/api/plugins/upload', { method: 'POST', body: fd })
+        if (!r.ok) throw new Error((await r.json()).error || 'Error')
+        toast.success('Plugin instalado')
+        router.refresh()
+      } catch (e: any) { toast.error(e.message || 'Error al instalar') }
+      finally { setLoading(null) }
+    }
+    el.click()
+  }
+
   return (
     <div className="space-y-3">
       {isAdmin && (
