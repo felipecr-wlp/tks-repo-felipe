@@ -30,6 +30,7 @@ import {
 import { cn, getInitials, timeAgo, dateInputToISO, isoToDateInput } from '@/lib/utils'
 import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import { TASK_FILES_MAX_SIZE, TASK_FILES_MIME_ALLOWLIST } from '@/lib/task-files'
+import { compressImageForUpload } from '@/lib/image-compress'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { sanitizeRichText } from '@/lib/sanitize'
 import { RECURRENCE_RULES, RECURRENCE_LABELS } from '@/lib/recurrence'
@@ -905,8 +906,13 @@ function AttachmentsSection({ taskId, currentUserId }: { taskId: string; current
     setUploading(true)
     const supabase = createSupabaseClient()
 
-    for (const file of list) {
+    for (const elegido of list) {
       try {
+        // Las imagenes se comprimen ANTES de firmar: una captura o una foto de
+        // obra de 8MB queda en ~400KB, y con eso baja el almacenamiento, el
+        // egress de cada persona que abre la tarea, y el tiempo de subida en
+        // campo con datos moviles. Lo que no es imagen pasa intacto.
+        const file = await compressImageForUpload(elegido)
         if (file.size > TASK_FILES_MAX_SIZE) {
           throw new Error('El archivo supera el límite de 200MB')
         }

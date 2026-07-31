@@ -185,9 +185,12 @@ export async function POST(request: NextRequest) {
         date: day,
         isSupervisor,
       }),
-      // Suficiente para registrar varias actividades de un mismo mensaje y
-      // redactar la respuesta, o para leer el dia antes de cerrarlo.
-      maxSteps: 8,
+      // El cierre de dia es la cadena mas larga que existe: leer_mi_dia,
+      // revisar_duplicados, una o dos correcciones de los pares que salgan, y
+      // cerrar_dia. Con 8 se quedaba sin pasos a medio camino y el reporte
+      // terminaba cerrado sin haber revisado nada, que es justo lo contrario de
+      // lo que se buscaba.
+      maxSteps: 14,
     })
 
     return result.toDataStreamResponse()

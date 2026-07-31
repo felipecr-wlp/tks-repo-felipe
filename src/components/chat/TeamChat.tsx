@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { MessageSquare, Loader2, ListChecks, X, SmilePlus, Paperclip, Download, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { compressImageForUpload } from '@/lib/image-compress'
 import { TaskAttachPicker, type PickerTask } from './TaskAttachPicker'
 import { TaskCardChip, type ResolvedTaskCard } from './TaskCardChip'
 import { ReminderButton } from './ReminderButton'
@@ -304,11 +305,15 @@ export function TeamChat({ teamId, currentUserId, members, initialMessages, init
     const files = Array.from(fileList)
     setUploading(true)
     try {
-      for (const file of files) {
+      for (const elegido of files) {
         if (pendingCount + 1 > MAX_ATTACHMENTS) {
           toast.error(`Máximo ${MAX_ATTACHMENTS} adjuntos por mensaje`)
           break
         }
+        // Se comprime ANTES de revisar el tope: una foto de celular de 6MB pasa
+        // a ~300KB y entra sin problema. Revisar primero rechazaria adjuntos que
+        // en realidad si caben. Si no es imagen, devuelve el original intacto.
+        const file = await compressImageForUpload(elegido)
         if (file.size > 25 * 1024 * 1024) {
           toast.error(`"${file.name}" supera el límite de 25MB`)
           continue

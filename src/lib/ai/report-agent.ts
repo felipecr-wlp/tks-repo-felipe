@@ -31,6 +31,7 @@ import { z } from 'zod'
 import type { createAdminClient } from '@/lib/supabase/server'
 import { ensureDailyReport, touchDailyReport } from '@/lib/daily-report-store'
 import { notifyReportBlocker, notifyBlockerResolved, listOpenBlockers } from '@/lib/daily-report-blockers'
+import { buscarDuplicado, revisarDuplicados, type EntradaComparable } from '@/lib/daily-report-dedupe'
 import {
   REPORT_CATEGORIES,
   CATEGORY_HINT,
@@ -60,13 +61,20 @@ Cómo trabajas:
 - Escribe la actividad en primera persona y en pasado, concreta y corta: "Cerré la campaña de julio de Google Ads", no "El usuario reporta haber cerrado una campaña".
 - Si lo que cuenta es vago ("avancé en lo de siempre"), haz UNA pregunta para concretar antes de registrar. Una, no un interrogatorio.
 
+Nada se anota dos veces:
+- Si registrar_actividad te responde posible_duplicado, NO insistas ni lo registres a la fuerza. Enséñale la actividad que ya tiene ("Ya tienes anotado: <texto>") y pregunta si es lo mismo o trabajo distinto.
+- Si es lo mismo con más detalle, no crees otra: usa corregir_actividad sobre la que ya existe y déjala completa. Un reporte con una actividad buena vale más que con dos a medias.
+- Si de verdad es trabajo distinto, vuelve a llamar a registrar_actividad con confirmado_no_duplicado en true.
+- Antes de cerrar el día pasa siempre revisar_duplicados. Si encuentra pares, muéstralos y pregunta cuál se queda. Nunca borres nada sin que la persona lo diga.
+- Al fusionar, NO sumes minutos que no te dieron. Si cada parte traía tiempo y la persona no aclara, pregunta antes de escribir un total.
+
 Cuando adjunten una imagen:
 - Míralas y describe lo que de verdad muestran. Si es un panel con números, di las cifras que se leen. Si es un error, di qué error es.
 - Redacta la actividad a partir de la imagen y del texto que la acompaña, y pon en el campo caption una descripción breve de lo que se ve (sirve de texto alternativo y para buscar después).
 - Si la imagen no se entiende o no se relaciona con el trabajo, dilo en vez de inventar lo que crees que debería mostrar.
 
 Cerrar el día:
-- Cuando diga que terminó, primero lee el día con leer_mi_dia y luego ciérralo con cerrar_dia.
+- Cuando diga que terminó: primero leer_mi_dia, después revisar_duplicados, y solo entonces cerrar_dia.
 - El resumen se construye SOLO con lo registrado. Si no registró nada, dilo; no inventes una jornada de trabajo.
 - Un buen resumen son 2 a 4 líneas: qué avanzó, qué quedó bloqueado y qué sigue. Sin relleno.
 
@@ -140,10 +148,51 @@ export function buildReportAgentTools(scope: AgentScope) {
           .describe(
             'Si esta actividad habla de una tarea del tablero, su id tal como lo devolvió mi_trabajo_de_hoy. Nunca lo inventes.'
           ),
+        confirmado_no_duplicado: z
+          .boolean()
+          .optional()
+          .describe(
+            'Ponlo en true SOLO cuando ya avisaste de un posible duplicado y la persona confirmó que es trabajo distinto.'
+          ),
       }),
-      execute: async ({ content, category, minutes, caption, task_id }) => {
+      execute: async ({ content, category, minutes, caption, task_id, confirmado_no_duplicado }) => {
         const report = await ensureDailyReport(admin, workspaceId, userId, date)
         if (!report) return { error: 'No se pudo abrir el reporte del día.' }
+
+        // ── Freno de duplicados ────────────────────────────────────────────
+        // El reporte se llena por tres puertas (mano, agente, tablero) y ninguna
+        // sabia de las otras, asi que el mismo trabajo acababa anotado dos veces
+        // con distintas palabras. Aqui NO se bloquea el registro: se DEVUELVE el
+        // parecido para que el agente pregunte. Bloquear en silencio seria peor
+        // que el duplicado, porque la persona perderia lo que acaba de contar sin
+        // saber por que.
+        if (!confirmado_no_duplicado) {
+          const { data: previas } = (await admin
+            .from('daily_report_entries')
+            .select('id, content, category, task_id, minutes')
+            .eq('report_id', report.id)
+            .order('created_at', { ascending: true })
+            .limit(60)) as { data: EntradaComparable[] | null }
+
+          const choque = buscarDuplicado(content.trim(), previas ?? [], task_id ?? null)
+          if (choque) {
+            return {
+              posible_duplicado: true,
+              parecido: Number(choque.score.toFixed(2)),
+              motivo: choque.motivo,
+              ya_registrado: {
+                entry_id: choque.entry.id,
+                content: choque.entry.content,
+                category: choque.entry.category,
+              },
+              instruccion:
+                'NO lo registres todavia. Dile a la persona que eso se parece a lo que ya tiene anotado, ' +
+                'cita la actividad existente y pregunta si es lo mismo o trabajo distinto. ' +
+                'Si dice que es distinto, vuelve a llamar a registrar_actividad con confirmado_no_duplicado en true. ' +
+                'Si dice que es lo mismo pero con mas detalle, usa corregir_actividad sobre la que ya existe.',
+            }
+          }
+        }
 
         // El id de tarea que manda el modelo se verifica contra lo que ESTA
         // persona puede tocar en ESTE workspace. Un uuid alucinado (o inyectado
@@ -372,6 +421,116 @@ export function buildReportAgentTools(scope: AgentScope) {
             minutos: e.minutes,
             texto: e.content,
           })),
+        }
+      },
+    }),
+
+    corregir_actividad: tool({
+      description:
+        'Reescribe una actividad que YA está registrada, sin crear otra. ' +
+        'Úsalo cuando la persona amplíe o corrija algo que ya contó ("era de julio, no de junio", ' +
+        '"además le sumé el reporte"), y siempre que descubras que algo iba a quedar duplicado: ' +
+        'es mejor una actividad completa que dos a medias.',
+      parameters: z.object({
+        entry_id: z.string().uuid().describe('El id de la actividad, tal como lo devolvió leer_mi_dia.'),
+        content: z
+          .string()
+          .min(3)
+          .max(1000)
+          .describe('El texto ya FUSIONADO: lo que decía antes mas lo nuevo, en una sola frase limpia.'),
+        category: z.enum(REPORT_CATEGORIES).optional().describe(CATEGORY_HINT),
+        minutes: z
+          .number()
+          .int()
+          .min(0)
+          .max(1440)
+          .nullable()
+          .optional()
+          .describe('Minutos totales. Solo si la persona los dijo. Al fusionar, NO sumes tiempos que no te dieron.'),
+      }),
+      execute: async ({ entry_id, content, category, minutes }) => {
+        // Mismo candado que borrar: el UPDATE se acota al reporte de ESTE
+        // usuario en ESTE dia, asi que un id ajeno o alucinado no alcanza nada.
+        const { data: report } = (await admin
+          .from('daily_reports')
+          .select('id')
+          .eq('workspace_id', workspaceId)
+          .eq('profile_id', userId)
+          .eq('report_date', date)
+          .maybeSingle()) as { data: { id: string } | null }
+
+        if (!report) return { error: 'No hay reporte de este día.' }
+
+        const patch: Record<string, unknown> = { content: content.trim() }
+        if (category) patch.category = category
+        if (minutes !== undefined) patch.minutes = minutes
+
+        const { data: fila, error } = (await admin
+          .from('daily_report_entries')
+          .update(patch as never)
+          .eq('id', entry_id)
+          .eq('report_id', report.id)
+          .select('id, content, category')
+          .maybeSingle()) as {
+          data: { id: string; content: string; category: string } | null
+          error: unknown
+        }
+
+        if (error) {
+          console.error('[bitacora corregir_actividad] update error:', error)
+          return { error: 'No se pudo corregir la actividad.' }
+        }
+        if (!fila) return { error: 'Esa actividad no está en tu reporte de hoy.' }
+
+        await touchDailyReport(admin, report.id)
+        return { ok: true, entry_id: fila.id, content: fila.content, category: fila.category }
+      },
+    }),
+
+    revisar_duplicados: tool({
+      description:
+        'Revisa el reporte del día completo y devuelve los pares de actividades que dicen lo mismo. ' +
+        'Úsalo cuando la persona pregunte si algo se repitió, y SIEMPRE antes de cerrar el día: ' +
+        'un reporte con la misma cosa contada dos veces infla el trabajo de quien lo escribió.',
+      parameters: z.object({}),
+      execute: async () => {
+        const { data: report } = (await admin
+          .from('daily_reports')
+          .select('id')
+          .eq('workspace_id', workspaceId)
+          .eq('profile_id', userId)
+          .eq('report_date', date)
+          .maybeSingle()) as { data: { id: string } | null }
+
+        if (!report) return { date, duplicados: [], nota: 'No hay reporte de este día.' }
+
+        const { data: entries } = (await admin
+          .from('daily_report_entries')
+          .select('id, content, category, task_id, minutes')
+          .eq('report_id', report.id)
+          .order('created_at', { ascending: true })
+          .limit(200)) as { data: EntradaComparable[] | null }
+
+        const pares = revisarDuplicados(entries ?? [])
+          // Solo lo que de verdad vale interrumpir. Los "parecidos" flojos
+          // generan mas ruido que valor cuando se listan todos.
+          .filter(p => p.motivo !== 'texto_parecido')
+          .slice(0, 8)
+
+        return {
+          date,
+          total_actividades: entries?.length ?? 0,
+          duplicados: pares.map(p => ({
+            parecido: Number(p.score.toFixed(2)),
+            motivo: p.motivo,
+            a: { entry_id: p.a.id, texto: p.a.content },
+            b: { entry_id: p.b.id, texto: p.b.content },
+          })),
+          instruccion:
+            pares.length === 0
+              ? 'No hay repeticiones. Dilo en una linea y sigue.'
+              : 'Muestrale cada par y pregunta cual conservar. Para fusionarlos usa corregir_actividad ' +
+                'sobre uno y borrar_actividad sobre el otro. Nunca borres sin preguntar.',
         }
       },
     }),

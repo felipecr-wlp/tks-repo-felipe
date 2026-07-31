@@ -65,6 +65,16 @@ import { ReportImageStrip, type ReporteImagen } from './ReportImageStrip'
 import { ReportAgentPanel } from './ReportAgentPanel'
 
 /**
+ * El detalle de tarea pesa (TipTap, secciones, adjuntos) y la mayoria de las
+ * visitas al reporte no abren ninguna tarea. Se carga solo cuando alguien hace
+ * clic en el chip.
+ */
+const TaskQuickView = dynamic(
+  () => import('@/components/tasks/TaskQuickView').then(m => m.TaskQuickView),
+  { ssr: false }
+)
+
+/**
  * El editor de documentos se carga SOLO cuando alguien va a escribir el
  * resumen. Importarlo de frente metia ~140KB de TipTap en una pantalla que casi
  * siempre se usa para leer una linea de tiempo y cerrar el dia. El resumen ya
@@ -213,6 +223,11 @@ export function ReportesClient({
   const [guardando, setGuardando] = useState(false)
   const [resumen, setResumen] = useState(() => summaryToHtml(mio?.summary ?? null))
   const [editandoResumen, setEditandoResumen] = useState(false)
+
+  // Tarea abierta encima del reporte. Es un id y no el objeto entero porque el
+  // panel recarga la tarea de todos modos: guardar una copia aqui solo daria
+  // una version vieja de la que desconfiar.
+  const [tareaAbierta, setTareaAbierta] = useState<string | null>(null)
 
   // Adjunto del alta manual: ya comprimido en el navegador, esperando a que se
   // cree la actividad para colgarse de ella.
@@ -497,18 +512,25 @@ export function ReportesClient({
                 </option>
               ))}
             </select>
-            <input
+            {/*
+              Textarea y no input: una actividad con detalle (que se hizo, con
+              quien, que quedo pendiente) no cabe en una linea, y con un input
+              el Shift+Enter no tenia donde escribir el salto.
+              Convencion unica de la app: Enter agrega, Shift+Enter salto de
+              linea. `isComposing` protege el dictado y los IME.
+            */}
+            <textarea
               value={texto}
               onChange={e => setTexto(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  void agregar()
-                }
+                if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return
+                e.preventDefault()
+                void agregar()
               }}
-              placeholder="¿Qué hiciste? Ej. cerré la campaña de Google Ads de julio"
+              rows={1}
+              placeholder="¿Qué hiciste? Ej. cerré la campaña de Google Ads de julio  (Shift+Enter salto de línea)"
               maxLength={1000}
-              className="flex-1 px-3 py-2 text-sm border border-input rounded-lg bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="flex-1 resize-none max-h-32 px-3 py-2 text-sm border border-input rounded-lg bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
             <input
               ref={fileRef}
@@ -611,17 +633,22 @@ export function ReportesClient({
                           </>
                         )}
                       </p>
-                      {/* El puente al tablero. Va como enlace y no como texto
-                          porque el valor de amarrar la actividad a la tarea es
-                          poder saltar de "que hice" a "donde esta". */}
+                      {/* El puente al tablero. Abre la tarea ENCIMA del reporte,
+                          no navegando a otra pantalla: el motivo de abrirla
+                          desde aqui casi siempre es pegar el enlace de lo
+                          entregado o subir la evidencia, y despues seguir
+                          contando el dia. Mandar a la persona al tablero para
+                          eso la saca justo de lo que estaba haciendo. */}
                       {e.task && (
-                        <Link
-                          href={`/w/${workspaceSlug}/task/${e.task.id}`}
+                        <button
+                          type="button"
+                          onClick={() => setTareaAbierta(e.task!.id)}
+                          title="Abrir la tarea para agregar enlaces o evidencia"
                           className="mt-1 inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                         >
                           <CheckSquare size={10} className="flex-shrink-0" />
                           <span className="truncate">{e.task.title}</span>
-                        </Link>
+                        </button>
                       )}
                       <ReportImageStrip images={e.images} canDelete onDeleted={refrescar} />
                     </div>
@@ -792,6 +819,19 @@ export function ReportesClient({
                         )}
                         {/* Sin `canDelete`: un mando lee el dia ajeno, no lo corrige. */}
                         <ReportImageStrip images={e.images} />
+                        {/* La tarea SI se abre desde el dia ajeno: leer "avance
+                            el brief" sin poder ver de que brief habla es leer
+                            la mitad. El panel valida permisos por su cuenta. */}
+                        {e.task && (
+                          <button
+                            type="button"
+                            onClick={() => setTareaAbierta(e.task!.id)}
+                            className="mt-1 inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                          >
+                            <CheckSquare size={10} className="flex-shrink-0" />
+                            <span className="truncate">{e.task.title}</span>
+                          </button>
+                        )}
                       </div>
                       <span className="ml-auto text-[11px] text-muted-foreground flex-shrink-0">
                         {formatReportTime(e.created_at)}
@@ -824,6 +864,18 @@ export function ReportesClient({
           </div>
         )}
       </section>
+      )}
+
+      {/* La tarea, encima del dia. Al cerrarla se refresca el reporte solo si
+          algo cambio: el titulo o el estado que se ven en el chip pudieron
+          moverse, y ademas la evidencia recien subida tiene que aparecer. */}
+      {tareaAbierta && (
+        <TaskQuickView
+          taskId={tareaAbierta}
+          currentUserId={currentUserId}
+          onClose={() => setTareaAbierta(null)}
+          onChanged={refrescar}
+        />
       )}
     </div>
   )

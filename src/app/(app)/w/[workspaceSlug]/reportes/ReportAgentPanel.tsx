@@ -87,6 +87,8 @@ export function ReportAgentPanel({ workspaceId, date, onChanged }: Props) {
   // entry_id al que colgarse. Va en ref y no en estado: cambia a mitad del
   // ciclo de streaming y no debe provocar re-render.
   const enVuelo = useRef<PreparedImage | null>(null)
+  /** Cuantos turnos lleva la imagen esperando una actividad a la que colgarse. */
+  const turnosEnVuelo = useRef(0)
   const [subiendo, setSubiendo] = useState(false)
 
   const subirAdjunto = useCallback(
@@ -130,8 +132,27 @@ export function ReportAgentPanel({ workspaceId, date, onChanged }: Props) {
       }
 
       const img = enVuelo.current
-      enVuelo.current = null
-      if (img && entryId) await subirAdjunto(entryId, img)
+      if (img && entryId) {
+        enVuelo.current = null
+        turnosEnVuelo.current = 0
+        await subirAdjunto(entryId, img)
+      } else if (img) {
+        // El turno NO creo ninguna actividad. Pasa cuando el agente pregunta algo
+        // antes de registrar: si es vago pide concretar, y desde el detector de
+        // duplicados tambien pregunta si es lo mismo que ya esta anotado. Soltar
+        // la imagen aqui la perderia justo cuando la persona esta a UNA respuesta
+        // de que se registre.
+        //
+        // Se conserva dos turnos como mucho: lo suficiente para responder una
+        // pregunta, y no tanto como para que una captura vieja acabe colgada de
+        // una actividad que no tiene nada que ver.
+        turnosEnVuelo.current += 1
+        if (turnosEnVuelo.current > 2) {
+          enVuelo.current = null
+          turnosEnVuelo.current = 0
+          setAvisoImagen('La imagen no se llegó a adjuntar a ninguna actividad. Vuelve a subirla si la necesitas.')
+        }
+      }
 
       // Cualquier herramienta que escriba deja la pantalla desactualizada.
       if (invs.some(i => i.toolName !== 'leer_mi_dia' && i.toolName !== 'resumen_del_equipo')) {
@@ -222,6 +243,7 @@ export function ReportAgentPanel({ workspaceId, date, onChanged }: Props) {
           mime: pendiente.ext === 'webp' ? 'image/webp' : 'image/jpeg',
         }
         enVuelo.current = pendiente
+        turnosEnVuelo.current = 0
         quitarPendiente()
       }
 
@@ -230,6 +252,21 @@ export function ReportAgentPanel({ workspaceId, date, onChanged }: Props) {
       })
     },
     [date, handleSubmit, input, pendiente, quitarPendiente, workspaceId]
+  )
+
+  /**
+   * Convencion unica de la app: Enter envia, Shift+Enter salto de linea.
+   * Se comprueba `isComposing` porque los teclados de dictado y los IME
+   * disparan un Enter para CONFIRMAR la palabra; sin esto, hablarle al reporte
+   * enviaria el mensaje a media frase.
+   */
+  const alTeclear = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return
+      e.preventDefault()
+      void enviar(e)
+    },
+    [enviar]
   )
 
   return (
@@ -393,12 +430,20 @@ export function ReportAgentPanel({ workspaceId, date, onChanged }: Props) {
           >
             <ClipIcon className="h-4 w-4" />
           </button>
-          <input
+          {/*
+            Es textarea, no input: un reporte de actividades casi nunca es una
+            linea sola, y con un input de una linea no existe forma de escribir
+            un salto. Crece hasta 8rem y de ahi hace scroll, para no comerse el
+            historial de la conversacion.
+          */}
+          <textarea
             value={input}
             onChange={handleInputChange}
             onPaste={alPegar}
-            placeholder="Cuéntale qué hiciste..."
-            className="flex-1 rounded-xl bg-muted/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
+            onKeyDown={alTeclear}
+            rows={1}
+            placeholder="Cuéntale qué hiciste...  (Enter para enviar, Shift+Enter salto de línea)"
+            className="flex-1 resize-none max-h-32 rounded-xl bg-muted/60 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
           />
           <button
             type="submit"

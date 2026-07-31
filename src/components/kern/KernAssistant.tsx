@@ -39,7 +39,7 @@ const TOOL_LABELS: Record<string, { running: string; done: string }> = {
 export function KernAssistant() {
   const [open, setOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const {
     messages,
@@ -224,12 +224,27 @@ export function KernAssistant() {
           onSubmit={handleSubmit}
           className="border-t border-border p-2.5 flex items-end gap-2 bg-card"
         >
-          <input
+          {/*
+            Textarea y no input: preguntarle algo a KERN pegando un bloque de
+            texto (un error, una lista) necesita saltos de linea. Crece hasta
+            8rem y de ahi hace scroll.
+            Convencion unica de la app: Enter envia, Shift+Enter salto de linea.
+            `isComposing` protege el dictado y los IME, que mandan un Enter para
+            confirmar palabra y enviarian el mensaje a media frase.
+          */}
+          <textarea
             ref={inputRef}
             value={input}
             onChange={handleInputChange}
-            placeholder="Escribe a KERN..."
-            className="flex-1 resize-none bg-muted/60 rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
+            onKeyDown={e => {
+              if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return
+              e.preventDefault()
+              if (!input.trim() || isLoading) return
+              handleSubmit(e)
+            }}
+            rows={1}
+            placeholder="Escribe a KERN...  (Enter para enviar, Shift+Enter salto de línea)"
+            className="flex-1 resize-none max-h-32 bg-muted/60 rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
           />
           <button
             type="submit"
