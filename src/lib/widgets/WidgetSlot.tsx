@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState, Component, type ReactNode } from 'react'
-import { WIDGET_COMPONENTS } from './samples'
+import { useEffect, useState, useMemo, Component, type ReactNode, createElement } from 'react'
 import type { WidgetInstall } from './registry'
 
 class WidgetErrorBoundary extends Component<{ children: ReactNode; name: string }, { hasError: boolean }> {
@@ -20,6 +19,42 @@ class WidgetErrorBoundary extends Component<{ children: ReactNode; name: string 
     }
     return this.props.children
   }
+}
+
+const loadedComponents = new Map<string, React.ComponentType<any>>()
+
+function DynamicWidget({ appId }: { appId: string }) {
+  const [Comp, setComp] = useState<React.ComponentType<any> | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (loadedComponents.has(appId)) {
+      setComp(loadedComponents.get(appId)!); return
+    }
+    fetch(`/api/widgets/component/${appId}`)
+      .then(r => { if (!r.ok) throw new Error('Not found'); return r.text() })
+      .then(code => {
+        try {
+          const fn = new Function('exports', 'require', code)
+          const mod = { exports: {} as any }
+          fn(mod.exports, (name: string) => require(name))
+          const C = mod.exports.default || mod.exports
+          if (typeof C === 'function') {
+            loadedComponents.set(appId, C)
+            setComp(() => C)
+          } else {
+            setErr(`No default export found for ${appId}`)
+          }
+        } catch (e: any) {
+          setErr(`${appId}: ${e.message}`)
+        }
+      })
+      .catch(e => setErr(e.message))
+  }, [appId])
+
+  if (err) return <div className="border rounded-xl p-4 text-xs text-muted-foreground">{err}</div>
+  if (!Comp) return <div className="border rounded-xl p-4 animate-pulse"><div className="h-4 bg-muted rounded w-24" /></div>
+  return <Comp />
 }
 
 interface Props {
@@ -53,15 +88,11 @@ export function WidgetSlot({ workspaceId, slot }: Props) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-      {widgets.filter(w => w.enabled && w.widget).map(w => {
-        const Component = WIDGET_COMPONENTS[w.widget!.component]
-        if (!Component) return null
-        return (
-          <WidgetErrorBoundary key={w.id} name={w.widget!.name}>
-            <Component />
-          </WidgetErrorBoundary>
-        )
-      })}
+      {widgets.filter(w => w.enabled).map(w => (
+        <WidgetErrorBoundary key={w.id} name={w.widget?.name || w.app_id}>
+          <DynamicWidget appId={w.app_id} />
+        </WidgetErrorBoundary>
+      ))}
     </div>
   )
 }
