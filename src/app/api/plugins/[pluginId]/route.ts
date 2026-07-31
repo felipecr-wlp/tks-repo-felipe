@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import * as fs from 'fs'
+import * as path from 'path'
 
 interface RouteParams { params: { pluginId: string } }
 
@@ -12,9 +14,9 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
   const { data: install } = await admin
     .from('connector_installs')
-    .select('id, workspace_id')
+    .select('id, app_id, workspace_id')
     .eq('id', params.pluginId)
-    .maybeSingle() as { data: { id: string; workspace_id: string } | null; error: unknown }
+    .maybeSingle() as { data: { id: string; app_id: string; workspace_id: string } | null; error: unknown }
   if (!install) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
 
   const { data: membership } = await admin
@@ -27,8 +29,20 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Solo admins pueden desinstalar' }, { status: 403 })
   }
 
+  // Delete from DB
   const { error } = await admin.from('connector_installs').delete().eq('id', params.pluginId)
   if (error) return NextResponse.json({ error: 'Error al desinstalar' }, { status: 500 })
+
+  // Delete plugin directory
+  const pluginDir = path.join(process.cwd(), 'plugins', install.app_id)
+  if (fs.existsSync(pluginDir)) {
+    try {
+      fs.rmSync(pluginDir, { recursive: true, force: true })
+      console.log(`[plugins] Deleted directory: ${pluginDir}`)
+    } catch (e) {
+      console.error(`[plugins] Failed to delete directory: ${pluginDir}`, e)
+    }
+  }
 
   return NextResponse.json({ ok: true })
 }
