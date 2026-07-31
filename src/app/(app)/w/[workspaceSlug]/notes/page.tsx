@@ -7,8 +7,10 @@ import { redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { timeAgo } from '@/lib/utils'
 import { NoteIcon } from '@/lib/note-icons'
+import { coverTint } from '@/lib/note-cover'
 import { getServerT } from '@/lib/i18n/server'
 import { NotesActionsBar } from './NotesActionsBar'
+import { loadNoteViewerContext, canViewNote, noteVisibilityPrefilter } from '@/lib/note-visibility'
 
 interface NotesPageProps {
   params: { workspaceSlug: string }
@@ -20,6 +22,7 @@ interface RecentNote {
   id: string
   title: string
   icon: string | null
+  cover: string | null
   updated_at: string
   author: { display_name: string | null } | null
 }
@@ -43,28 +46,38 @@ export default async function NotesPage({ params }: NotesPageProps) {
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
 
-  // Recientes (top 6, sin privadas de otros). El filtro de privadas va en la
-  // consulta (antes del limit), no en JS despues: si se filtrara despues, una
-  // nota privada ajena entre las mas recientes gastaria un slot y podria
-  // esconder una nota visible mas nueva del propio usuario.
+  // Recientes (top 6). Las privadas ajenas se descartan ya en la consulta y el
+  // resto del modelo (departamento, proyecto, empresa) se remata en JS, asi que
+  // se pide de mas: si se pidieran justo 6, las que se ocultan dejarian huecos.
   const { data: recent } = await admin
     .from('notes')
     .select(`
-      id, title, icon, updated_at, visibility, created_by,
+      id, title, icon, cover, updated_at, visibility, created_by, space_id, project_id,
       author:profiles ( display_name )
     `)
     .eq('workspace_id', workspace.id)
-    .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
+    .or(noteVisibilityPrefilter(user.id))
     .order('updated_at', { ascending: false })
-    .limit(6) as { data: (RecentNote & { visibility: string; created_by: string | null })[] | null; error: unknown }
+    .limit(60) as {
+      data:
+        | (RecentNote & {
+            visibility: string
+            created_by: string | null
+            space_id: string | null
+            project_id: string | null
+          })[]
+        | null
+      error: unknown
+    }
 
-  const visibleRecent = recent ?? []
+  const noteCtx = await loadNoteViewerContext(admin, workspace.id, user.id)
+  const visibleRecent = (recent ?? []).filter(n => canViewNote(noteCtx, n)).slice(0, 6)
 
   const hasNotes = visibleRecent.length > 0
   const t = getServerT()
 
   return (
-    <div className="px-8 py-10 max-w-3xl mx-auto">
+    <div className="px-6 sm:px-10 lg:px-12 py-10 max-w-[980px] mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-foreground tracking-tight">
           {t('notesHome.wikiOf')} {workspace.name}
@@ -95,7 +108,15 @@ export default async function NotesPage({ params }: NotesPageProps) {
                 href={`/w/${params.workspaceSlug}/notes/${n.id}`}
                 className="group flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
               >
-                <NoteIcon icon={n.icon} size={16} className="flex-shrink-0 text-muted-foreground" />
+                {/* Mismo color que la portada del documento (derivado del id),
+                    para que la lista y el detalle se lean como la misma nota.
+                    Ver src/lib/note-cover.ts. */}
+                <span
+                  className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-neutral-700"
+                  style={{ background: coverTint(n.id, n.cover) }}
+                >
+                  <NoteIcon icon={n.icon} size={16} />
+                </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
                     {n.title || t('search.untitled')}

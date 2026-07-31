@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// React Flow trabaja con nodos y edges de forma dinamica: el contenido de cada
+// nodo lo define el usuario en tiempo de ejecucion. Tipar cada acceso aqui no
+// aporta seguridad real, asi que la regla se apaga en este archivo a proposito.
 import { NextRequest, NextResponse } from 'next/server'
 import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'

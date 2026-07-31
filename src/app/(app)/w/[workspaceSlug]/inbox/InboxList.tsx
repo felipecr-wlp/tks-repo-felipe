@@ -266,6 +266,13 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
       router.push(`/w/${workspaceSlug}/task/${notif.object_id}`)
       return
     }
+    if (notif.object_type === 'daily_report') {
+      // El dia viaja en el titulo (object_id es uuid y aqui no hay fila propia
+      // que apuntar: el reporte todavia no existe, ese es justo el aviso).
+      const dia = notif.object_title
+      router.push(`/w/${workspaceSlug}/reportes${dia ? `?d=${dia}` : ''}`)
+      return
+    }
   }
 
   // Error de carga: la consulta del servidor fallo. Reintentar recarga la ruta.

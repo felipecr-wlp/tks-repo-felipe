@@ -16,7 +16,8 @@ import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/EmptyState'
 
 type TriggerKind = 'status_changed' | 'assigned' | 'task_created' | 'due'
-type ActionKind = 'assign' | 'move_status' | 'move_sprint' | 'notify' | 'chat_post'
+type ActionKind =
+  | 'assign' | 'move_status' | 'move_sprint' | 'notify' | 'chat_post' | 'emailer_enroll'
 
 interface Action {
   type: ActionKind
@@ -25,7 +26,11 @@ interface Action {
   sprint_id?: string | null
   recipient_id?: string
   body?: string
+  sequence_id?: string | null
+  email?: string
 }
+
+interface Secuencia { id: string; name: string }
 
 interface Rule {
   id: string
@@ -44,6 +49,8 @@ interface Sprint { id: string; name: string; status: string }
 
 interface Props {
   projectId: string
+  /** Necesario para pedirle a WLI las secuencias del Emailer de ESTE espacio. */
+  workspaceId: string
   statuses: Status[]
   members: Member[]
   sprints: Sprint[]
@@ -63,9 +70,10 @@ const ACTION_LABELS: Record<ActionKind, string> = {
   move_sprint: 'Mover a sprint',
   notify:      'Avisar a',
   chat_post:   'Publicar en el chat',
+  emailer_enroll: 'Enrolar en secuencia (WLI)',
 }
 
-export function AutomationsPanel({ projectId, statuses, members, sprints, initialRules }: Props) {
+export function AutomationsPanel({ projectId, workspaceId, statuses, members, sprints, initialRules }: Props) {
   const [rules, setRules] = useState<Rule[]>(initialRules)
   const [creating, setCreating] = useState(false)
 
@@ -80,6 +88,7 @@ export function AutomationsPanel({ projectId, statuses, members, sprints, initia
       case 'move_sprint': return `mover al sprint "${sprintName(a.sprint_id)}"`
       case 'notify':      return `avisar a ${a.recipient_id === 'assignee' ? 'el asignado' : memberName(a.recipient_id)}`
       case 'chat_post':   return `publicar en el chat`
+      case 'emailer_enroll': return `enrolar ${a.email === '{email_tarea}' ? 'el correo de la tarea' : a.email} en una secuencia del Emailer`
       default:            return a.type
     }
   }
@@ -146,6 +155,7 @@ export function AutomationsPanel({ projectId, statuses, members, sprints, initia
       {creating && (
         <RuleBuilder
           projectId={projectId}
+          workspaceId={workspaceId}
           statuses={statuses}
           members={members}
           sprints={sprints}
@@ -216,9 +226,10 @@ export function AutomationsPanel({ projectId, statuses, members, sprints, initia
 
 // ── Constructor de una regla nueva ──────────────────────────────────────────
 function RuleBuilder({
-  projectId, statuses, members, sprints, onCancel, onCreated,
+  projectId, workspaceId, statuses, members, sprints, onCancel, onCreated,
 }: {
   projectId: string
+  workspaceId: string
   statuses: Status[]
   members: Member[]
   sprints: Sprint[]
@@ -232,6 +243,27 @@ function RuleBuilder({
   const [actions, setActions] = useState<Action[]>([{ type: 'assign', assignee_id: '' }])
   const [saving, setSaving] = useState(false)
 
+  // Secuencias del Emailer de WLI. Se piden la PRIMERA vez que alguien elige la
+  // accion de correo, no al abrir el panel: la mayoria de las reglas no tocan
+  // WLI y no tiene sentido cobrarle a todas una llamada a otra app.
+  const [secuencias, setSecuencias] = useState<Secuencia[] | null>(null)
+  const [errorSecuencias, setErrorSecuencias] = useState<string | null>(null)
+
+  async function cargarSecuencias() {
+    if (secuencias !== null || errorSecuencias) return
+    try {
+      const res = await fetch(`/api/connectors/wli/sequences?workspace_id=${workspaceId}`)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setErrorSecuencias(data.error ?? 'No se pudieron leer las secuencias de WLI')
+        return
+      }
+      setSecuencias(data.sequences ?? [])
+    } catch {
+      setErrorSecuencias('No se pudo contactar a WLI')
+    }
+  }
+
   const selectCls = 'w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-ring'
 
   function updateAction(i: number, patch: Partial<Action>) {
@@ -240,6 +272,13 @@ function RuleBuilder({
   function setActionType(i: number, type: ActionKind) {
     const base: Action = { type }
     if (type === 'notify') base.recipient_id = 'assignee'
+    if (type === 'emailer_enroll') {
+      // Por omision, el correo sale de la tarea. Es el caso util (tareas de
+      // seguimiento a un prospecto) y evita que alguien deje el campo vacio
+      // pensando que el sistema ya sabe a quien escribirle.
+      base.email = '{email_tarea}'
+      void cargarSecuencias()
+    }
     setActions(as => as.map((a, idx) => idx === i ? base : a))
   }
 
@@ -251,6 +290,12 @@ function RuleBuilder({
       case 'move_sprint': return a.sprint_id ? { type: 'move_sprint', sprint_id: a.sprint_id } : null
       case 'notify':      return a.recipient_id ? { type: 'notify', recipient_id: a.recipient_id } : null
       case 'chat_post':   return a.body && a.body.trim() ? { type: 'chat_post', body: a.body.trim() } : null
+      // Las dos partes son obligatorias: sin secuencia no hay a donde enrolar, y
+      // sin destinatario no hay a quien. Ninguna se rellena sola.
+      case 'emailer_enroll':
+        return a.sequence_id && a.email && a.email.trim()
+          ? { type: 'emailer_enroll', sequence_id: a.sequence_id, email: a.email.trim() }
+          : null
       default:            return null
     }
   }
@@ -365,6 +410,34 @@ function RuleBuilder({
                     className={selectCls}
                   />
                 )}
+                {a.type === 'emailer_enroll' && (
+                  errorSecuencias ? (
+                    <p className="text-[11px] text-amber-600 self-center">{errorSecuencias}</p>
+                  ) : secuencias === null ? (
+                    <p className="text-[11px] text-muted-foreground self-center">Leyendo secuencias de WLI…</p>
+                  ) : secuencias.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground self-center">
+                      No hay secuencias activas en el Emailer.
+                    </p>
+                  ) : (
+                    <>
+                      <select
+                        value={a.sequence_id ?? ''}
+                        onChange={e => updateAction(i, { sequence_id: e.target.value })}
+                        className={selectCls}
+                      >
+                        <option value="">Elige secuencia…</option>
+                        {secuencias.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                      <input
+                        value={a.email ?? ''}
+                        onChange={e => updateAction(i, { email: e.target.value })}
+                        placeholder='{email_tarea} o un correo fijo'
+                        className={cn(selectCls, 'sm:col-span-2')}
+                      />
+                    </>
+                  )
+                )}
               </div>
               {actions.length > 1 && (
                 <button
@@ -378,6 +451,13 @@ function RuleBuilder({
             </div>
           ))}
         </div>
+        {actions.some(a => a.type === 'emailer_enroll') && (
+          <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+            <span className="font-medium text-foreground">{'{email_tarea}'}</span> toma la primera dirección
+            que aparezca en el título o la descripción de la tarea. Si no encuentra ninguna, no enrola a nadie.
+            Quien se dio de baja del Emailer nunca se vuelve a enrolar, aunque la regla lo pida.
+          </p>
+        )}
         {actions.length < 5 && (
           <button
             onClick={() => setActions(as => [...as, { type: 'notify', recipient_id: 'assignee' }])}

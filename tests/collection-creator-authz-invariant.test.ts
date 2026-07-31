@@ -21,8 +21,10 @@
  *                    workspace; exige membresia del workspace del body).
  *   - teams       -> isWorkspaceAdminById(      (el equipo cuelga de un workspace;
  *                    solo admin del workspace lo crea).
- *   - workspaces  -> org_members                (el workspace cuelga de la org; solo
- *                    admin de la org lo crea; padre = ORG, no otro workspace).
+ *   - workspaces  -> org_members | 403          (el alta quedo DESHABILITADA: WLO
+ *                    opera con un solo espacio y el POST responde 403 seco. Se
+ *                    acepta el 403 como primitiva porque no autorizar a nadie es
+ *                    mas fuerte que exigir admin de la org).
  *
  * Determinista: solo lee fuentes, no monta rutas ni DB.
  *
@@ -44,7 +46,10 @@ const CREATORS: { file: string; authz: RegExp }[] = [
   { file: 'projects/route.ts',   authz: /team_members|isWorkspaceAdminById\(/ },
   { file: 'spaces/route.ts',     authz: /workspace_members/ },
   { file: 'teams/route.ts',      authz: /isWorkspaceAdminById\(/ },
-  { file: 'workspaces/route.ts', authz: /org_members/ },
+  // El alta de workspaces quedo CERRADA (WLO opera con un solo espacio) y el POST
+  // responde 403 seco. Se deja la entrada registrada a proposito, en vez de borrarla:
+  // asi, si alguien reabre la creacion sin volver a exigir org_members, cae aqui.
+  { file: 'workspaces/route.ts', authz: /org_members|status: 403/ },
 ]
 
 describe('Invariante de authz: creador de coleccion autoriza sobre el padre antes de dar de alta', () => {

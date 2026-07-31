@@ -9,7 +9,7 @@ import { sanitizeRichText } from '@/lib/sanitize'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
-import { logActivity, notify, ActivityVerbs, NotificationTypes, notifyTaskWatchers } from '@/lib/activity'
+import { logActivity, logActivityCoalesced, notify, ActivityVerbs, NotificationTypes, notifyTaskWatchers } from '@/lib/activity'
 import { autoWatch } from '@/lib/watchers'
 import { nextRecurrenceDate, type RecurrenceRule } from '@/lib/recurrence'
 import { runAutomations } from '@/lib/automations'
@@ -245,7 +245,9 @@ export async function PATCH(
     return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 })
   }
 
-  logActivity({
+  // Coalesced: ajustar tres campos seguidos de la misma tarea es una sola
+  // edicion desde la vista de quien lee la bitacora.
+  logActivityCoalesced({
     verb: ActivityVerbs.TASK_UPDATED,
     subject_id: user.id,
     object_type: 'task',

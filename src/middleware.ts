@@ -5,6 +5,13 @@
  * 1. Refresh de sesión Supabase, mantiene tokens frescos
  * 2. Verificación de autenticación, redirige a /login si no hay sesión
  * 3. Domain restriction, solo @ALLOWED_EMAIL_DOMAIN puede acceder
+ * 4. Publica la ruta pedida en el header `x-pathname`
+ *
+ * Sobre el punto 4: un layout de servidor no conoce su propia URL, y el layout
+ * del workspace la necesita para bloquear de verdad las pantallas que un admin
+ * le apagó a una persona. Esconder el botón en la barra no basta, la URL se
+ * pega a mano. El header viaja en el REQUEST (no en la respuesta), que es lo
+ * único que `headers()` sabe leer.
  *
  * NOTA: Rate limiting NO se hace aquí (Edge Runtime no soporta @upstash/redis node.js).
  * El rate limiting se aplica en los Route Handlers de API via src/lib/rate-limit.ts
@@ -53,7 +60,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/unauthorized', request.url))
   }
 
-  return supabaseResponse
+  // ── Ruta pedida, visible para los Server Components ───────
+  // Se rehace la respuesta para inyectar el header en el request. Las cookies
+  // que Supabase acaba de refrescar se copian tal cual: perderlas aquí seria
+  // cerrar la sesión en cada navegación.
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-pathname', pathname)
+  const response = NextResponse.next({ request: { headers: requestHeaders } })
+  for (const cookie of supabaseResponse.cookies.getAll()) {
+    response.cookies.set(cookie)
+  }
+  return response
 }
 
 export const config = {

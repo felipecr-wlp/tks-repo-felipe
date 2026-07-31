@@ -121,11 +121,21 @@ function verbPhrase(verb: string, lang: string): string {
   return verb.replace(/[._]/g, ' ')
 }
 
+/**
+ * Cuantos guardados absorbio esta sesion de edicion. Lo escribe
+ * logActivityCoalesced en metadata.edits; solo se muestra si son 2 o mas.
+ */
+function editCount(metadata: Record<string, unknown> | null | undefined): number | null {
+  const n = metadata?.edits
+  return typeof n === 'number' && n > 1 ? n : null
+}
+
 // ── Fila de un evento ────────────────────────────────────────────────────────
 function EventRow({ event }: { event: WorkspaceActivityEvent }) {
   const { t, lang } = useI18n()
   const name = event.subject?.display_name ?? t('act.user')
   const avatar = event.subject?.avatar_url ?? null
+  const edits = editCount(event.metadata)
 
   return (
     <div className="flex items-start gap-3 py-3 border-b border-border/50 last:border-0">
@@ -161,6 +171,11 @@ function EventRow({ event }: { event: WorkspaceActivityEvent }) {
         </p>
         <p className="text-[11px] text-muted-foreground mt-0.5">
           {timeAgo(event.created_at)}
+          {edits ? (
+            <span className="ml-1.5 text-muted-foreground/80">
+              · {edits} {lang === 'en' ? 'edits' : 'ediciones'}
+            </span>
+          ) : null}
         </p>
       </div>
     </div>

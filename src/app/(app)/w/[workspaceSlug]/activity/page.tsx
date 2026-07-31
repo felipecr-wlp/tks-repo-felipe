@@ -14,6 +14,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { filterVisibleActivity } from '@/lib/activity-visibility'
 import { ActivityFeed } from './ActivityFeed'
 import type { WorkspaceActivityEvent } from '@/app/api/workspaces/[workspaceId]/activity/route'
 
@@ -53,17 +54,25 @@ export default async function WorkspaceActivityPage({
       object_id,
       object_title,
       created_at,
+      metadata,
       subject:profiles ( id, display_name, avatar_url ),
       project:projects ( name, slug )
     `)
     .eq('workspace_id', workspace.id)
+    // Los eventos absorbidos por una sesion de edicion posterior se conservan
+    // para auditoria pero NO se muestran (ver migracion 20260728030000).
+    .eq('is_superseded', false)
     .order('created_at', { ascending: false })
     .range(0, PAGE_SIZE) as { data: WorkspaceActivityEvent[] | null; error: unknown }
 
   const rows = data ?? []
   const hasMore = rows.length > PAGE_SIZE
-  const events = hasMore ? rows.slice(0, PAGE_SIZE) : rows
+  const page = hasMore ? rows.slice(0, PAGE_SIZE) : rows
   const nextOffset = hasMore ? PAGE_SIZE : null
+
+  // El titulo de una nota o pizarra privada NO se publica en la bitacora. El
+  // recorte va despues de paginar, para que el offset siga cuadrando con la base.
+  const events = await filterVisibleActivity(admin, workspace.id, user.id, page)
 
   return (
     <div className="px-4 sm:px-8 py-6 sm:py-8 max-w-3xl mx-auto">

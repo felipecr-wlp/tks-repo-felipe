@@ -2,7 +2,9 @@
  * GET  /api/notes?workspace_id=xxx, lista de notas del workspace visibles para el user
  * POST /api/notes, crea nueva nota
  *
- * Visibility: private | project | team | workspace
+ * Visibility: private (default) | space | team | project | workspace.
+ * El modelo vive en `src/lib/note-visibility.ts`: la nota nace privada y
+ * compartirla la abre al DEPARTAMENTO, no a la empresa entera.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -10,12 +12,20 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { sanitizeRichText } from '@/lib/sanitize'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
+import { canPostWorkspaceMessage } from '@/lib/workspace-admin'
+import {
+  NOTE_VISIBILITY_VALUES,
+  NOTE_VISIBILITY_DEFAULT,
+  loadNoteViewerContext,
+  canViewNote,
+  noteVisibilityPrefilter,
+} from '@/lib/note-visibility'
 
 const createSchema = z.object({
   workspace_id:   z.string().uuid(),
   title:          z.string().max(200).trim().optional(),
   content:        z.string().max(1_000_000).nullable().optional(),
-  visibility:     z.enum(['private', 'project', 'team', 'workspace']).default('workspace'),
+  visibility:     z.enum(NOTE_VISIBILITY_VALUES).default(NOTE_VISIBILITY_DEFAULT),
   project_id:     z.string().uuid().nullable().optional(),
   parent_note_id: z.string().uuid().nullable().optional(),
   space_id:       z.string().uuid().nullable().optional(),
@@ -35,6 +45,7 @@ interface NoteListRow {
   parent_note_id: string | null
   space_id: string | null
   icon: string | null
+  cover: string | null
   author: { display_name: string; avatar_url: string | null } | null
 }
 
@@ -65,55 +76,26 @@ export async function GET(request: NextRequest) {
 
   if (!membership) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
-  // Lista de notas del workspace
-  // Visibility: workspace y team → todas; project → solo si user en project_members; private → solo creador
+  // Lista de notas del workspace. La regla completa vive en note-visibility.ts:
+  // privada = solo autor, space/team = su departamento, project = su proyecto,
+  // workspace = toda la empresa.
   const { data: notes } = await admin
     .from('notes')
     .select(`
       id, title, visibility, created_at, updated_at, created_by, project_id,
-      parent_note_id, space_id, icon,
+      parent_note_id, space_id, icon, cover,
       author:profiles ( display_name, avatar_url )
     `)
     .eq('workspace_id', workspace_id)
     // Privadas ajenas fuera en la consulta (antes del limit), para no gastar
     // slots del tope con notas que igual se ocultarian. El gating de espacios
     // restringidos queda en JS: depende de las membresias que se calculan abajo.
-    .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
+    .or(noteVisibilityPrefilter(user.id))
     .order('updated_at', { ascending: false })
     .limit(200) as { data: NoteListRow[] | null; error: unknown }
 
-  // F3: notas en espacios restringidos solo para admin de org o miembros del
-  // espacio. Se calculan los espacios restringidos "bloqueados" para este user.
-  const { data: prof } = await admin
-    .from('profiles')
-    .select('org_role')
-    .eq('id', user.id)
-    .maybeSingle() as { data: { org_role: string | null } | null; error: unknown }
-  const isOrgAdmin = prof?.org_role === 'owner' || prof?.org_role === 'admin'
-
-  const { data: myMemberships } = await admin
-    .from('space_members')
-    .select('space_id')
-    .eq('profile_id', user.id) as { data: { space_id: string }[] | null; error: unknown }
-  const mySpaceIds = new Set((myMemberships ?? []).map(m => m.space_id))
-
-  const { data: restrictedSpaces } = await admin
-    .from('spaces')
-    .select('id')
-    .eq('workspace_id', workspace_id)
-    .eq('is_restricted', true) as { data: { id: string }[] | null; error: unknown }
-  const blockedSpaceIds = new Set(
-    (restrictedSpaces ?? [])
-      .filter(s => !isOrgAdmin && !mySpaceIds.has(s.id))
-      .map(s => s.id)
-  )
-
-  // Las privadas ajenas ya se filtraron en la consulta; aqui solo queda el
-  // gating de espacios restringidos (necesita las membresias de arriba).
-  const visible = (notes ?? []).filter(n => {
-    if (n.space_id && blockedSpaceIds.has(n.space_id)) return false
-    return true
-  })
+  const ctx = await loadNoteViewerContext(admin, workspace_id, user.id)
+  const visible = (notes ?? []).filter(n => canViewNote(ctx, n))
 
   return NextResponse.json({ notes: visible })
 }
@@ -149,6 +131,24 @@ export async function POST(request: NextRequest) {
     .maybeSingle() as { data: { role: string } | null; error: unknown }
 
   if (!membership) return NextResponse.json({ error: 'Sin acceso al workspace' }, { status: 403 })
+
+  // Publicar a TODA la empresa es acto de mando (mismos roles que el comunicado
+  // en General). Compartir al departamento no pide permiso: es del autor.
+  if (visibility === 'workspace' && !(await canPostWorkspaceMessage(admin, workspace_id, user.id))) {
+    return NextResponse.json(
+      { error: 'Solo los responsables publican un documento para toda la empresa. Compártelo con tu departamento.' },
+      { status: 403 },
+    )
+  }
+
+  // Compartir al departamento sin departamento no comparte con nadie: se avisa
+  // en vez de dejar la nota en un limbo que el autor cree publicado.
+  if ((visibility === 'space' || visibility === 'team') && !space_id) {
+    return NextResponse.json(
+      { error: 'Elige el departamento con el que se comparte la nota.' },
+      { status: 422 },
+    )
+  }
 
   type NoteResult = {
     id: string

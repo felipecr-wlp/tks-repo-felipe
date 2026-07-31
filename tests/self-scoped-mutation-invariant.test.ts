@@ -24,10 +24,17 @@
  *                             0 filas, sin efecto).
  *   - invites/[code]/join  -> profile_id: user.id          (se une EL MISMO; el rol
  *                             sale del invite, no del body: sin escalada).
+ *   - daily-reports        -> ensureReport(..., user.id, ...)  (el reporte del dia se
+ *                             resuelve por la identidad del token; el body NUNCA trae
+ *                             profile_id, asi que no hay forma de firmar el dia de
+ *                             otra persona, ni siquiera siendo admin).
+ *   - daily-reports/entries/[entryId] -> profile_id !== user.id (se sube por report_id
+ *                             hasta el dueño: el id de una entrada es adivinable, la
+ *                             pertenencia no).
  *
  * Determinista: solo lee fuentes, no monta rutas ni DB.
  *
- * Hoy los 6 handlers mutantes auto-alcance atan la escritura a user.id; 0 gaps.
+ * Hoy los 9 handlers mutantes auto-alcance atan la escritura a user.id; 0 gaps.
  * Una ruta self-scoped nueva debe atar su mutacion a la identidad del token, o
  * justificar aqui. Nunca un silencio.
  */
@@ -43,6 +50,8 @@ const SELF_SCOPED: { file: string; identity: RegExp }[] = [
   { file: 'notifications/mark-all-read/route.ts', identity: /recipient_id', user\.id/ },
   { file: 'notifications/[id]/route.ts',          identity: /recipient_id', user\.id/ },
   { file: 'invites/[code]/join/route.ts',         identity: /profile_id: user\.id/ },
+  { file: 'daily-reports/route.ts',               identity: /ensureReport\(admin, workspace_id, user\.id/ },
+  { file: 'daily-reports/entries/[entryId]/route.ts', identity: /profile_id !== user\.id/ },
 ]
 
 type Gap = { file: string; verb: string }
@@ -73,7 +82,7 @@ describe('Invariante de authz: mutacion auto-alcance ata la escritura a la ident
   }
 
   it('encuentra los handlers mutantes auto-alcance (el scan no esta vacio)', () => {
-    expect(totalMutating).toBeGreaterThanOrEqual(6)
+    expect(totalMutating).toBeGreaterThanOrEqual(9)
   })
 
   it('ningun handler auto-alcance muta sin atar la escritura a user.id', () => {

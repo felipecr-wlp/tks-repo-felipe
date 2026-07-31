@@ -7,6 +7,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { SopsLens, type SopRow } from './SopsLens'
+import { loadNoteViewerContext, canViewNote, noteVisibilityPrefilter } from '@/lib/note-visibility'
 
 interface SopsPageProps {
   params: { workspaceSlug: string }
@@ -26,6 +27,7 @@ type RawSop = {
   visibility: string
   created_by: string | null
   space_id: string | null
+  project_id: string | null
   author: { display_name: string | null } | null
 }
 
@@ -55,7 +57,7 @@ export default async function SopsPage({ params }: SopsPageProps) {
     .from('notes')
     .select(`
       id, title, icon, doc_kind, sop_status, sop_version, review_due,
-      updated_at, visibility, created_by, space_id,
+      updated_at, visibility, created_by, space_id, project_id,
       author:profiles ( display_name )
     `)
     .eq('workspace_id', workspace.id)
@@ -64,43 +66,24 @@ export default async function SopsPage({ params }: SopsPageProps) {
     // slots del tope con documentos que igual se ocultarian. El gating de
     // departamentos restringidos si queda en JS: depende de las membresias que
     // se calculan mas abajo.
-    .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
+    .or(noteVisibilityPrefilter(user.id))
     .order('updated_at', { ascending: false })
     .limit(500) as { data: RawSop[] | null; error: unknown }
-
-  // Departamentos + gating de restringidos (reflejo app-layer del RLS F3).
-  const { data: myProfile } = await admin
-    .from('profiles')
-    .select('org_role')
-    .eq('id', user.id)
-    .maybeSingle() as { data: { org_role: string | null } | null; error: unknown }
-  const isOrgAdmin = myProfile?.org_role === 'owner' || myProfile?.org_role === 'admin'
 
   const { data: rawSpaces } = await admin
     .from('spaces')
     .select('id, name, color, is_restricted')
     .eq('workspace_id', workspace.id) as { data: SpaceRow[] | null; error: unknown }
 
-  const { data: myMemberships } = await admin
-    .from('space_members')
-    .select('space_id')
-    .eq('profile_id', user.id) as { data: { space_id: string }[] | null; error: unknown }
-  const mySpaceIds = new Set((myMemberships ?? []).map(m => m.space_id))
-
   const spaceById = new Map((rawSpaces ?? []).map(s => [s.id, s]))
-  const blockedSpaceIds = new Set(
-    (rawSpaces ?? [])
-      .filter(s => s.is_restricted && !isOrgAdmin && !mySpaceIds.has(s.id))
-      .map(s => s.id)
-  )
+
+  // Modelo de visibilidad completo (privada = solo autor, space/team = su
+  // departamento, project = su proyecto, workspace = la empresa) mas el
+  // aislamiento de departamentos restringidos.
+  const noteCtx = await loadNoteViewerContext(admin, workspace.id, user.id)
 
   const sops: SopRow[] = (rawSops ?? [])
-    .filter(n => {
-      // La visibilidad privada ya se filtro en la consulta; aqui solo queda el
-      // gating de departamentos restringidos (necesita las membresias de arriba).
-      if (n.space_id && blockedSpaceIds.has(n.space_id)) return false
-      return true
-    })
+    .filter(n => canViewNote(noteCtx, n))
     .map(n => {
       const sp = n.space_id ? spaceById.get(n.space_id) : null
       return {

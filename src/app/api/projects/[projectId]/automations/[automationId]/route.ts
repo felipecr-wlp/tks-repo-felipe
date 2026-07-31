@@ -25,6 +25,8 @@ const actionSchema = z.object({
   sprint_id:   z.string().uuid().nullable().optional(),
   recipient_id: z.string().max(60).optional(),
   body:        z.string().max(4000).optional(),
+  sequence_id: z.string().uuid().nullable().optional(), // emailer_enroll
+  email:       z.string().max(320).optional(),
 })
 const triggerConfigSchema = z.object({
   to_status_id:   z.string().uuid().optional(),

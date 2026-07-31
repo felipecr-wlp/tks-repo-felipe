@@ -76,6 +76,83 @@ export async function logActivity(params: LogActivityParams): Promise<void> {
 }
 
 /**
+ * Ventana de una SESION de edicion, en minutos. Dentro de esta ventana, la misma
+ * persona editando el mismo objeto cuenta como UNA sola accion.
+ */
+const EDIT_SESSION_MINUTES = 30
+
+/**
+ * logActivityCoalesced, para verbos de EDICION CONTINUA (pizarra, nota, tarea).
+ *
+ * El problema que resuelve: la pizarra autoguarda cada pocos segundos y cada
+ * guardado llamaba a logActivity. Medido en produccion el 2026-07-28: 2,410 de
+ * 2,922 eventos totales eran 'whiteboard.updated', el 82% de la bitacora, unos
+ * 345 renglones por pizarra. La actividad de verdad quedaba sepultada.
+ *
+ * La regla: si la MISMA persona sigue editando el MISMO objeto dentro de la
+ * ventana, no se inserta otro renglon. Se actualiza el que ya existe (se recorre
+ * su `created_at` al momento actual y se sube el contador `metadata.edits`), de
+ * forma que el feed muestre "actualizo la pizarra X · 27 ediciones" en vez de 27
+ * renglones. Fuera de la ventana nace un renglon nuevo: es una sesion distinta.
+ *
+ * El historial que ya estaba escrito se marco con `is_superseded` en la
+ * migracion 20260728030000. Los lectores del feed filtran por esa columna.
+ *
+ * Nunca lanza: si el log falla, la mutacion del usuario ya ocurrio y no se
+ * revierte por un renglon de bitacora.
+ */
+export async function logActivityCoalesced(params: LogActivityParams): Promise<void> {
+  try {
+    const supabase = getLogClient()
+    const desde = new Date(Date.now() - EDIT_SESSION_MINUTES * 60_000).toISOString()
+
+    const { data: previo } = await supabase
+      .from('activity_events')
+      .select('id, metadata')
+      .eq('workspace_id', params.workspace_id)
+      .eq('subject_id',   params.subject_id)
+      .eq('verb',         params.verb)
+      .eq('object_type',  params.object_type)
+      .eq('object_id',    params.object_id)
+      .eq('is_superseded', false)
+      .gte('created_at',  desde)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (previo?.id) {
+      const metaPrevio = (previo.metadata ?? {}) as Record<string, unknown>
+      const ediciones = typeof metaPrevio.edits === 'number' ? metaPrevio.edits : 1
+
+      await supabase
+        .from('activity_events')
+        .update({
+          // Se recorre la marca de tiempo: la sesion sigue viva y el feed debe
+          // ordenarla por la ultima edicion, no por la primera.
+          created_at:   new Date().toISOString(),
+          object_title: params.object_title ?? null,
+          metadata:     { ...metaPrevio, ...(params.metadata ?? {}), edits: ediciones + 1 },
+        })
+        .eq('id', previo.id)
+      return
+    }
+
+    await supabase.from('activity_events').insert({
+      workspace_id: params.workspace_id,
+      project_id:   params.project_id ?? null,
+      subject_id:   params.subject_id,
+      verb:         params.verb,
+      object_type:  params.object_type,
+      object_id:    params.object_id,
+      object_title: params.object_title ?? null,
+      metadata:     params.metadata ?? null,
+    })
+  } catch (error) {
+    console.error('[logActivityCoalesced] Error:', error)
+  }
+}
+
+/**
  * Tipos de notificacion que MERECEN correo (eventos de alto valor accionados por
  * una persona). Se excluyen los ruidosos / de sistema (task_updated, overdue,
  * due_soon, recurrence, review_requested). Cada uno mapea a la frase del asunto
@@ -93,6 +170,14 @@ const EMAIL_NOTIFY: Record<string, { phrase: string; objectLabel: string }> = {
   project_approved:      { phrase: 'aprobo tu proyecto',       objectLabel: 'un proyecto' },
   project_rejected:      { phrase: 'reviso tu proyecto',       objectLabel: 'un proyecto' },
   project_pending_approval: { phrase: 'propuso un proyecto por aprobar', objectLabel: 'un proyecto' },
+  // Un bloqueo es, por definicion, algo que la persona NO puede desatorar sola.
+  // Es el unico evento del reporte diario que amerita salir de la app: si el
+  // aviso espera a que el mando abra la bandeja, el equipo pierde el dia.
+  daily_report_blocker:  { phrase: 'reporto un bloqueo en',     objectLabel: 'su reporte del dia' },
+  // OJO: `daily_report_unblocked` NO esta aqui a proposito. Que algo se haya
+  // resuelto es buena noticia, y las buenas noticias no justifican un correo:
+  // basta con que la bandeja deje de mostrarlo como pendiente. Mandar correo por
+  // cada cierre convertiria la alerta de bloqueo en algo que se filtra.
 }
 
 /**
@@ -312,6 +397,9 @@ export const NotificationTypes = {
   SOP_REVIEW_OVERDUE:    'sop_review_overdue',    // al owner del SOP: la fecha de revision ya paso (recordatorio diario, sistema)
   SOP_REVIEW_DUE_SOON:   'sop_review_due_soon',   // al owner del SOP: la revision vence dentro de 7 dias (recordatorio diario, sistema)
   SOP_ASSIGNED:          'sop_assigned',          // al lector requerido: debes leer y confirmar este documento
+  DAILY_REPORT_MISSING:  'daily_report_missing',  // a la persona: termina el dia sin actividades registradas (recordatorio, sistema)
+  DAILY_REPORT_BLOCKER:  'daily_report_blocker',  // a los mandos: alguien del equipo esta atorado y necesita que lo desatoren
+  DAILY_REPORT_UNBLOCKED: 'daily_report_unblocked', // a los mandos: ese bloqueo ya se resolvio (cierra el ciclo, sin correo)
   REMINDER:              'reminder',              // recordatorio programado desde el chat (Circuito 1.C)
   AUTOMATION:            'automation',            // aviso disparado por una regla de automatizacion (Circuito 3)
 } as const

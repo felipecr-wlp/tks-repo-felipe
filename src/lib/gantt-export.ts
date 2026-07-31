@@ -85,7 +85,7 @@ const T = {
 const BRAND = {
   company: 'We Love Paving Inc.',
   phone: '(888) 530-7283',
-  email: 'main@welovepaving.net',
+  email: 'main@welovepaving.com',
   cslb: 'CSLB #1049649',
   tagline: 'Home of the Paving Panda™ & The Pothole-Free Guarantee™',
 }

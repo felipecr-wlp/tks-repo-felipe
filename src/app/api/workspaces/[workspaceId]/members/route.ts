@@ -7,6 +7,7 @@ import { isUuid } from '@/lib/validation'
 import { createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { isWorkspaceAdminById } from '@/lib/workspace-admin'
+import { normalizeHidden } from '@/lib/features'
 
 export async function GET(
   request: NextRequest,
@@ -28,12 +29,13 @@ export async function GET(
     profile_id: string
     role: string
     created_at: string
+    hidden_features: string[] | null
     profiles: { id: string; display_name: string | null; email: string | null; avatar_url: string | null } | null
   }
 
   const { data } = (await admin
     .from('workspace_members')
-    .select('profile_id, role, created_at, profiles ( id, display_name, email, avatar_url )')
+    .select('profile_id, role, created_at, hidden_features, profiles ( id, display_name, email, avatar_url )')
     .eq('workspace_id', params.workspaceId)
     .order('created_at', { ascending: true })) as { data: MemberRow[] | null; error: unknown }
 
@@ -41,6 +43,7 @@ export async function GET(
     profile_id: m.profile_id,
     role: m.role,
     created_at: m.created_at,
+    hidden_features: normalizeHidden(m.hidden_features),
     display_name: m.profiles?.display_name ?? 'Usuario',
     email: m.profiles?.email ?? '',
     avatar_url: m.profiles?.avatar_url ?? null,

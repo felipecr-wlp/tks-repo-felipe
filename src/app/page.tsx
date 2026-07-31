@@ -18,11 +18,17 @@ export default async function RootPage() {
   // Admin client bypass RLS, lookup seguro del propio usuario
   const admin = createAdminClient()
 
+  // Ordenado por antiguedad de la membresia, no al azar. Con `limit(1)` y sin
+  // `order` Postgres puede devolver cualquiera de las filas, asi que a quien
+  // pertenecia a mas de un espacio la app lo dejaba caer en uno distinto en
+  // cada visita. WLO opera con un solo espacio (General) y este orden lo hace
+  // determinista: siempre la membresia mas antigua, que es la de General.
   type MembershipWithWorkspace = { workspace_id: string; workspaces: { slug: string } | null }
   const { data: membership } = await admin
     .from('workspace_members')
-    .select('workspace_id, workspaces ( slug )')
+    .select('workspace_id, created_at, workspaces ( slug )')
     .eq('profile_id', user.id)
+    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle() as { data: MembershipWithWorkspace | null; error: unknown }
 

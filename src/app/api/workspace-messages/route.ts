@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { canAccessWorkspaceById } from '@/lib/team-access'
+import { canPostWorkspaceMessage } from '@/lib/workspace-admin'
 import { applyRateLimit } from '@/lib/rate-limit'
 
 // Adjunto de archivo del bucket chat-files (el canal General no adjunta tareas,
@@ -169,6 +170,15 @@ export async function POST(request: NextRequest) {
 
   if (!(await canAccessWorkspaceById(admin, workspace_id, user.id))) {
     return NextResponse.json({ error: 'Sin acceso al workspace' }, { status: 403 })
+  }
+
+  // El General es canal de COMUNICADOS: lo lee todo el workspace, lo escriben
+  // solo los mandos. Ver canPostWorkspaceMessage para la definicion.
+  if (!(await canPostWorkspaceMessage(admin, workspace_id, user.id))) {
+    return NextResponse.json(
+      { error: 'Solo los responsables publican comunicados en General. Usa el chat de tu departamento.' },
+      { status: 403 },
+    )
   }
 
   const safeAttachments = attachments?.length

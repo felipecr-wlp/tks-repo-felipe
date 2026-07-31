@@ -110,3 +110,61 @@ export const isWorkspaceAdminById = cache(async (
 
   return { userId: user.id, isAdmin, isOwner, role }
 })
+
+/**
+ * ¿Puede este usuario PUBLICAR en el chat General del workspace?
+ *
+ * El canal General es de COMUNICADOS, no de conversacion: lo lee todo el
+ * workspace pero solo escriben los mandos. La conversacion del dia a dia vive
+ * en el chat por departamento/equipo, que ademas respeta el aislamiento de
+ * departamentos restringidos.
+ *
+ * Cuenta como mando:
+ *   a) admin/owner de la organizacion  (profiles.org_role)
+ *   b) admin/owner del workspace       (workspace_members.role)
+ *   c) lead de cualquier equipo del workspace (team_members.role = 'admin')
+ *
+ * (c) esta a proposito: el lead de Paid Media debe poder mandar un comunicado
+ * sin ser admin de todo el sistema.
+ *
+ * Espeja `can_post_workspace_message()` de la migracion
+ * 20260728000000_media_uploads_and_general_chat_roles.sql. Las rutas leen con el
+ * admin client (bypassa RLS), asi que el candado tiene que existir en los dos
+ * lados: aqui manda, la policy es la red de abajo.
+ */
+export async function canPostWorkspaceMessage(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  userId: string,
+): Promise<boolean> {
+  const { data: profile } = (await admin
+    .from('profiles')
+    .select('org_role')
+    .eq('id', userId)
+    .maybeSingle()) as { data: { org_role: string | null } | null; error: unknown }
+
+  const orgRole = profile?.org_role ?? 'member'
+  if (orgRole === 'owner' || orgRole === 'admin') return true
+
+  const { data: membership } = (await admin
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('profile_id', userId)
+    .maybeSingle()) as { data: { role: string } | null; error: unknown }
+
+  if (membership?.role === 'owner' || membership?.role === 'admin') return true
+
+  // Lead de algun equipo de ESTE workspace. El !inner acota a los equipos del
+  // workspace: sin el, un lead de otro workspace pasaria el check.
+  const { data: lead } = (await admin
+    .from('team_members')
+    .select('team_id, teams!inner ( workspace_id )')
+    .eq('profile_id', userId)
+    .eq('role', 'admin')
+    .eq('teams.workspace_id', workspaceId)
+    .limit(1)
+    .maybeSingle()) as { data: { team_id: string } | null; error: unknown }
+
+  return !!lead
+}

@@ -53,6 +53,7 @@ const RAW_SERVICE_ROLE = /SUPABASE_SERVICE_ROLE_KEY/
 
 // Rutas que legitimamente levantan service role crudo: son los cron (sin sesion).
 const RAW_SERVICE_REGISTRY = [
+  '/app/api/cron/daily-reports/route.ts',
   '/app/api/cron/due-reminders/route.ts',
   '/app/api/cron/sop-reviews/route.ts',
 ]

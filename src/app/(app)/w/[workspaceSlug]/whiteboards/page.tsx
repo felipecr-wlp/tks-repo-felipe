@@ -7,6 +7,8 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { timeAgo } from '@/lib/utils'
 import { NewWhiteboardButton } from './NewWhiteboardButton'
 import { getServerT } from '@/lib/i18n/server'
+import { loadNoteViewerContext } from '@/lib/note-visibility'
+import { whiteboardVisibilityPrefilter, filterVisibleWhiteboards } from '@/lib/whiteboard-visibility'
 
 interface PageProps {
   params: { workspaceSlug: string }
@@ -20,6 +22,9 @@ interface BoardRow {
   visibility: string
   updated_at: string
   created_by: string | null
+  space_id: string | null
+  project_id: string | null
+  note_id: string | null
   author: { display_name: string | null } | null
 }
 
@@ -42,21 +47,23 @@ export default async function WhiteboardsPage({ params }: PageProps) {
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
 
-  // El filtro de privadas se hace en la consulta (antes del limit) para que el
-  // tope de 100 aplique sobre filas ya visibles: una privada ajena nunca ocupa
-  // un lugar. Se conservan las privadas propias y las de visibilidad nula.
+  // Las privadas ajenas se descartan en la consulta para no gastar slots del
+  // limite. El resto del modelo (departamento, proyecto, herencia de nota) se
+  // remata en memoria, por eso se pide de mas y se recorta despues.
   const { data: rawBoards } = await admin
     .from('whiteboards')
     .select(`
       id, title, visibility, updated_at, created_by,
+      space_id, project_id, note_id,
       author:profiles ( display_name )
     `)
     .eq('workspace_id', workspace.id)
-    .or(`visibility.neq.private,visibility.is.null,created_by.eq.${user.id}`)
+    .or(whiteboardVisibilityPrefilter(user.id))
     .order('updated_at', { ascending: false })
-    .limit(100) as { data: BoardRow[] | null; error: unknown }
+    .limit(200) as { data: BoardRow[] | null; error: unknown }
 
-  const boards = rawBoards ?? []
+  const viewerCtx = await loadNoteViewerContext(admin, workspace.id, user.id)
+  const boards = (await filterVisibleWhiteboards(admin, viewerCtx, rawBoards ?? [])).slice(0, 100)
   const t = getServerT()
 
   return (
