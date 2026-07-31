@@ -4,24 +4,13 @@
   "version": "1.0.0",
   "type": "page",
   "icon": "workflow",
-  "description": "Diagramas de flujo interactivos con nodos y contenido embebido. Editor visual con React Flow, soporte para formas, texto, HTML, URLs y documentos.",
+  "description": "Diagramas de flujo interactivos con nodos y contenido embebido.",
   "author": "WLO Team",
   "wlo_version": ">=1.0.0",
-  "slots": ["sidebar-complementos", "dashboard"],
-  "permissions": ["read:workspace", "write:flows", "read:profiles"],
+  "slots": ["sidebar-complementos"],
+  "permissions": ["read:workspace", "write:flows"],
   "routes": [
-    { "path": "/w/:slug/flows", "label": "Flows", "labelKey": "nav.flows" },
-    { "path": "/w/:slug/flows/:id", "label": "Editor de Flujo" }
-  ],
-  "api": [
-    { "path": "/api/flows", "methods": ["GET", "POST"] },
-    { "path": "/api/flows/:id", "methods": ["GET", "PATCH", "DELETE"] },
-    { "path": "/api/flows/:id/shares", "methods": ["POST", "DELETE"] },
-    { "path": "/api/flows/:id/members", "methods": ["GET"] }
-  ],
-  "migrations": [
-    "20260729000000_flows.sql",
-    "20260730000000_flow_shares.sql"
+    { "path": "/w/:slug/flows", "label": "Flows", "labelKey": "nav.flows" }
   ],
   "tables": ["flows", "flow_shares"]
 }

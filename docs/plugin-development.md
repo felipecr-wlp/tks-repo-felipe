@@ -1,5 +1,19 @@
 # WLO Plugin System — Documentación de Desarrollo
 
+> **Acceso**: Este archivo está en `docs/plugin-development.md` del repositorio.
+> Abre `http://localhost:3000/w/general/settings/plugins` para administrar plugins.
+
+## Tipos de Plugin (campo `type` en manifest.json)
+
+| `type` | Descripción | Dónde aparece | Ejemplo |
+|--------|-------------|---------------|---------|
+| `"widget"` | Componente visual pequeño | **Dashboard** (slot `dashboard`) | Contador, Reloj |
+| `"page"` | Aplicación completa con rutas | **Sidebar → Complementos** | Flows |
+
+> ⚠️ **Importante**: El `type` en manifest.json determina TODO el comportamiento:
+> - `"widget"` → solo dashboard, no aparece en sidebar, no tiene selector de slots
+> - `"page"` → aparece en sidebar Complementos, tiene selector de slots (dashboard, workspace, complementos)
+
 ## Arquitectura General
 
 ```
@@ -82,7 +96,7 @@ plugins/wlo-mi-widget/
 | `name` | Sí | Nombre visible |
 | `id` | Sí | Identificador único (prefijo `wlo-`) |
 | `version` | Sí | Versión semántica |
-| `type` | Sí | `"widget"` o `"page"` |
+| `type` | Sí | `"widget"` o `"page"` — define dónde aparece el plugin |
 | `icon` | Sí | Nombre de icono Lucide |
 | `slots` | Sí | Dónde aparece el widget |
 | `component` | No | Nombre del componente (widget) |
