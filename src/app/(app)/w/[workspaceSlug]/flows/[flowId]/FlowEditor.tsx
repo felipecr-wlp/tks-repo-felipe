@@ -8,7 +8,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, ChevronDown, Maximize, Lock, Unlock, Settings, Share2, CheckCircle, Download, Upload, HelpCircle, Undo2, Redo2, Hand, MousePointer2 } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, ChevronDown, Maximize, Lock, Unlock, Settings, Share2, CheckCircle, Download, Upload, HelpCircle, Undo2, Redo2, Hand } from 'lucide-react'
 import LinkNext from 'next/link'
 
 type ShapeType = 'rect' | 'circle' | 'line' | 'grid' | 'text'
@@ -173,7 +173,6 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
         <button onClick={()=>{nodes.filter((n:any)=>n.selected).forEach((n:any)=>sendToBack(n.id))}} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Enviar al fondo"><ArrowDown className="w-3.5 h-3.5"/></button>
         <div className="flex-1"/>
         <button onClick={()=>setAltHeld(!altHeld)} className={`p-1.5 rounded transition-colors ${altHeld?'bg-primary/20 text-primary':'text-muted-foreground hover:text-foreground hover:bg-accent'}`} title="Mover area (Alt+M)"><Hand className="w-3.5 h-3.5"/></button>
-        <button onClick={()=>setSelectMode(!selectMode)} className={`p-1.5 rounded transition-colors ${selectMode?'bg-primary/20 text-primary':'text-muted-foreground hover:text-foreground hover:bg-accent'}`} title="Seleccion multiple (Ctrl+Shift+D)"><MousePointer2 className="w-3.5 h-3.5"/></button>
         <button onClick={()=>setShowHelp(true)} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Ayuda"><HelpCircle className="w-3.5 h-3.5"/></button></>}
       </div>
       <div className="flex-1 relative">
