@@ -35,15 +35,21 @@ function DynamicWidget({ appId }: { appId: string }) {
       .then(r => { if (!r.ok) throw new Error('Not found'); return r.text() })
       .then(code => {
         try {
-          const fn = new Function('exports', 'require', code)
+          // Provide React as a require-able module
+          const modules: Record<string, any> = { react: require('react'), 'react-dom': require('react-dom') }
+          const req = (name: string) => {
+            if (modules[name]) return modules[name]
+            throw new Error(`Module not found: ${name}`)
+          }
+          const fn = new Function('module', 'exports', 'require', code)
           const mod = { exports: {} as any }
-          fn(mod.exports, (name: string) => require(name))
+          fn(mod, mod.exports, req)
           const C = mod.exports.default || mod.exports
           if (typeof C === 'function') {
             loadedComponents.set(appId, C)
             setComp(() => C)
           } else {
-            setErr(`No default export found for ${appId}`)
+            setErr(`No default export for ${appId}: got ${typeof C}`)
           }
         } catch (e: any) {
           setErr(`${appId}: ${e.message}`)
