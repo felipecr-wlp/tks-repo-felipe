@@ -5,9 +5,15 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { resolveTeamForViewer } from '@/lib/team-access'
-import { LayoutDashboard, FolderKanban, Plus, ListChecks, MessageSquare, Maximize2, GanttChartSquare } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Plus, ListChecks, MessageSquare, Maximize2, GanttChartSquare, BookOpen, ShieldCheck, FileText, ArrowRight } from 'lucide-react'
 import { ProjectIcon } from '@/lib/project-icons'
+import { NoteIcon } from '@/lib/note-icons'
+import { coverTint } from '@/lib/note-cover'
+import { timeAgo } from '@/lib/utils'
 import { TeamChat } from '@/components/chat/TeamChat'
+import { NotesActionsBar } from '../../notes/NotesActionsBar'
+import { AddExistingDocs } from './AddExistingDocs'
+import { loadTeamDocs, isProcessDoc, DOC_KIND_LABEL } from '@/lib/team-docs'
 
 interface TeamPageProps {
   params: { workspaceSlug: string; teamSlug: string }
@@ -27,7 +33,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
   const res = await resolveTeamForViewer(params.workspaceSlug, params.teamSlug)
   if (!res.ok && res.reason === 'no-auth') redirect('/auth/login')
   if (!res.ok) notFound()
-  const { userId, workspace, team } = res.ctx
+  const { userId, workspace, team, isAdmin } = res.ctx
 
   const admin = createAdminClient()
 
@@ -75,6 +81,12 @@ export default async function TeamPage({ params }: TeamPageProps) {
     .limit(50) as { data: MsgRow[] | null; error: unknown }
 
   const messages = (msgRows ?? []).slice().reverse()
+
+  // ── Documentos del equipo (reglas, SOPs y notas del departamento) ─────────
+  // Se muestran los 6 mas recientes; la carpeta completa vive en /docs.
+  const teamDocs = await loadTeamDocs(admin, workspace.id, team.space_id, userId, 60)
+  const recentDocs = teamDocs.slice(0, 6)
+  const processCount = teamDocs.filter(isProcessDoc).length
 
   const statusLabel: Record<string, string> = {
     active: 'Activo',
@@ -185,6 +197,97 @@ export default async function TeamPage({ params }: TeamPageProps) {
               ))}
             </div>
           )}
+
+          {/* Documentos del equipo: reglas, SOPs y notas del departamento.
+              No es un permiso nuevo, es la carpeta del departamento del equipo
+              (ver src/lib/team-docs.ts). */}
+          <div className="pt-4">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5" />
+                Documentos del equipo
+                {processCount > 0 && (
+                  <span className="normal-case tracking-normal font-normal text-muted-foreground/70">
+                    ({processCount} {processCount === 1 ? 'regla o proceso' : 'reglas y procesos'})
+                  </span>
+                )}
+              </h2>
+              <div className="flex items-center gap-2">
+                {team.space_id && (
+                  <>
+                    {/* Traer un documento que ya existe, sin duplicarlo. */}
+                    <AddExistingDocs
+                      workspaceId={workspace.id}
+                      spaceId={team.space_id}
+                      spaceName={null}
+                      currentUserId={userId}
+                      isAdmin={isAdmin}
+                    />
+                    <NotesActionsBar
+                      workspaceId={workspace.id}
+                      workspaceSlug={params.workspaceSlug}
+                      spaceId={team.space_id}
+                      variant="subtle"
+                      label="Nuevo"
+                    />
+                  </>
+                )}
+                <Link
+                  href={`/w/${params.workspaceSlug}/t/${params.teamSlug}/docs`}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                >
+                  Ver todos
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+            </div>
+
+            {!team.space_id ? (
+              <p className="text-sm text-muted-foreground border border-dashed border-border rounded-xl px-4 py-6 text-center">
+                Asigna un departamento a este equipo para que pueda tener reglas y
+                documentos compartidos.
+              </p>
+            ) : recentDocs.length === 0 ? (
+              <div className="border border-dashed border-border rounded-xl px-4 py-8 text-center">
+                <ShieldCheck className="w-7 h-7 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground mb-1">
+                  Las reglas del equipo van aquí
+                </p>
+                <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                  Escribe una vez lo que se repite cada semana y deja de explicarlo
+                  en el chat. Lo que publiques lo ve el departamento del equipo.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
+                {recentDocs.map(d => (
+                  <Link
+                    key={d.id}
+                    href={`/w/${params.workspaceSlug}/notes/${d.id}`}
+                    className="group flex items-center gap-3 px-4 py-2.5 hover:bg-accent/40 transition-colors"
+                  >
+                    <span
+                      className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-neutral-700"
+                      style={{ background: coverTint(d.id, d.cover) }}
+                    >
+                      <NoteIcon icon={d.icon} size={15} />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                        {d.title || 'Sin título'}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                        {isProcessDoc(d)
+                          ? <ShieldCheck className="w-3 h-3 flex-shrink-0" />
+                          : <FileText className="w-3 h-3 flex-shrink-0" />}
+                        {DOC_KIND_LABEL[d.doc_kind] ?? 'Documento'} · {timeAgo(d.updated_at)}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Chat general del equipo (embebido en el panel) */}

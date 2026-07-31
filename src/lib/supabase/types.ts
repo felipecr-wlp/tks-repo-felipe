@@ -3986,8 +3986,6 @@ export type Database = {
 }
 
 
-
-
 // Tipos derivados utiles
 export type Tables<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Row']

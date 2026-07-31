@@ -10,51 +10,32 @@
  *  - Bucket privado task-files: se sirve solo con signed URL temporal.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { isUuid } from '@/lib/validation'
 import { randomUUID } from 'crypto'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 
-const BUCKET = 'task-files'
-const MAX_SIZE = 25 * 1024 * 1024 // 25MB
+/** Registro de un archivo ya subido por signed upload URL. */
+const registerSchema = z.object({
+  path: z.string().min(1).max(400),
+  name: z.string().min(1).max(200),
+})
+
+import {
+  TASK_FILES_BUCKET as BUCKET,
+  TASK_FILES_DIRECT_MAX_SIZE,
+  TASK_FILES_MIME_ALLOWLIST as MIME_ALLOWLIST,
+  loadTaskWithAccess,
+  safeFileName,
+  taskFilePrefix,
+} from '@/lib/task-files'
+
 const SIGNED_TTL = 60 * 60 // 1 hora
 
-const MIME_ALLOWLIST = new Set([
-  'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml',
-  'application/pdf',
-  'text/plain', 'text/csv', 'text/markdown',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-powerpoint',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'application/zip',
-])
-
-type TaskRow = { project_id: string; workspace_id: string }
 type AttachmentRow = {
   id: string; name: string; url: string; mime_type: string | null
   size: number | null; uploaded_by: string; created_at: string
-}
-
-// Verifica que el user sea miembro del proyecto de la tarea.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function loadTaskWithAccess(admin: any, taskId: string, userId: string): Promise<{ task: TaskRow | null; isMember: boolean }> {
-  const { data: task } = await admin
-    .from('tasks')
-    .select('project_id, workspace_id')
-    .eq('id', taskId)
-    .maybeSingle() as { data: TaskRow | null }
-  if (!task) return { task: null, isMember: false }
-
-  const { data: membership } = await admin
-    .from('project_members')
-    .select('role')
-    .eq('project_id', task.project_id)
-    .eq('profile_id', userId)
-    .maybeSingle() as { data: { role: string } | null }
-  return { task, isMember: !!membership }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -111,42 +92,97 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-  let form: FormData
-  try { form = await request.formData() }
-  catch { return NextResponse.json({ error: 'Formulario inválido' }, { status: 400 }) }
-
-  const file = form.get('file')
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: 'Falta el archivo' }, { status: 422 })
-  }
-  if (file.size === 0) {
-    return NextResponse.json({ error: 'El archivo esta vacio' }, { status: 422 })
-  }
-  if (file.size > MAX_SIZE) {
-    return NextResponse.json({ error: 'El archivo supera el limite de 25MB' }, { status: 422 })
-  }
-  const mime = file.type || 'application/octet-stream'
-  if (!MIME_ALLOWLIST.has(mime)) {
-    return NextResponse.json({ error: 'Tipo de archivo no permitido' }, { status: 422 })
-  }
-
   const admin = createAdminClient()
   const { task, isMember } = await loadTaskWithAccess(admin, params.taskId, user.id)
   if (!task) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
   if (!isMember) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
-  // Nombre saneado + path scoped por task (evita traversal y colisiones).
-  const safeName = (file.name || 'archivo').replace(/[^\w.\-]+/g, '_').slice(0, 120)
-  const path = `task/${params.taskId}/${randomUUID()}-${safeName}`
+  // Dos caminos de entrada:
+  //  (a) JSON  -> el archivo YA esta en storage, subido con signed upload URL
+  //               directo desde el navegador. Unico camino viable para video.
+  //  (b) multipart -> camino legacy, el binario pasa por la function. Sigue vivo
+  //               por compatibilidad, acotado por debajo del techo de Vercel.
+  const isJson = (request.headers.get('content-type') ?? '').includes('application/json')
 
-  const buffer = Buffer.from(await file.arrayBuffer())
-  const { error: upErr } = await admin.storage.from(BUCKET).upload(path, buffer, {
-    contentType: mime,
-    upsert: false,
-  })
-  if (upErr) {
-    console.error('[attachments POST] upload error:', upErr)
-    return NextResponse.json({ error: 'Error al subir el archivo' }, { status: 500 })
+  let path: string
+  let safeName: string
+  let mime: string
+  let size: number
+
+  if (isJson) {
+    let raw: unknown
+    try { raw = await request.json() }
+    catch { return NextResponse.json({ error: 'JSON inválido' }, { status: 400 }) }
+
+    const parsed = registerSchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 422 })
+    }
+
+    // El path DEBE caer bajo el prefijo de ESTA tarea. Sin este check, un
+    // cliente podria registrar como propio un objeto de otra tarea pasando su
+    // path y leerlo despues por la signed URL del GET.
+    if (!parsed.data.path.startsWith(taskFilePrefix(params.taskId))) {
+      return NextResponse.json({ error: 'Ruta de archivo inválida' }, { status: 422 })
+    }
+
+    // El objeto tiene que existir de verdad. Ademas se toman mime y tamaño de
+    // STORAGE, no de lo que declare el cliente.
+    const dir = parsed.data.path.slice(0, parsed.data.path.lastIndexOf('/'))
+    const base = parsed.data.path.slice(parsed.data.path.lastIndexOf('/') + 1)
+    const { data: found } = await admin.storage.from(BUCKET).list(dir, { search: base, limit: 1 })
+    const object = (found ?? []).find(o => o.name === base)
+    if (!object) {
+      return NextResponse.json({ error: 'El archivo no se subió' }, { status: 422 })
+    }
+
+    const meta = object.metadata as { size?: number; mimetype?: string } | null
+    mime = meta?.mimetype || 'application/octet-stream'
+    size = meta?.size ?? 0
+
+    if (!MIME_ALLOWLIST.has(mime)) {
+      await admin.storage.from(BUCKET).remove([parsed.data.path])
+      return NextResponse.json({ error: 'Tipo de archivo no permitido' }, { status: 422 })
+    }
+
+    path = parsed.data.path
+    safeName = safeFileName(parsed.data.name)
+  } else {
+    let form: FormData
+    try { form = await request.formData() }
+    catch { return NextResponse.json({ error: 'Formulario inválido' }, { status: 400 }) }
+
+    const file = form.get('file')
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: 'Falta el archivo' }, { status: 422 })
+    }
+    if (file.size === 0) {
+      return NextResponse.json({ error: 'El archivo esta vacio' }, { status: 422 })
+    }
+    if (file.size > TASK_FILES_DIRECT_MAX_SIZE) {
+      return NextResponse.json(
+        { error: 'Archivo demasiado grande para esta vía. Usá la subida directa.' },
+        { status: 422 },
+      )
+    }
+    mime = file.type || 'application/octet-stream'
+    if (!MIME_ALLOWLIST.has(mime)) {
+      return NextResponse.json({ error: 'Tipo de archivo no permitido' }, { status: 422 })
+    }
+
+    safeName = safeFileName(file.name)
+    path = `${taskFilePrefix(params.taskId)}${randomUUID()}-${safeName}`
+    size = file.size
+
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const { error: upErr } = await admin.storage.from(BUCKET).upload(path, buffer, {
+      contentType: mime,
+      upsert: false,
+    })
+    if (upErr) {
+      console.error('[attachments POST] upload error:', upErr)
+      return NextResponse.json({ error: 'Error al subir el archivo' }, { status: 500 })
+    }
   }
 
   const { data: row, error: insErr } = await admin
@@ -158,7 +194,7 @@ export async function POST(
       name:         safeName,
       url:          path,
       mime_type:    mime,
-      size:         file.size,
+      size,
       uploaded_by:  user.id,
     })
     .select('id, name, url, mime_type, size, uploaded_by, created_at')

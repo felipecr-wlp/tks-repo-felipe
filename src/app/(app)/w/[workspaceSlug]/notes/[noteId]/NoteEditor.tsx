@@ -10,10 +10,11 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ConfirmDialog'
-import { Globe, Users, Folder, Lock, ChevronDown, Check, AlertTriangle, RotateCw, Loader2, FileDown } from 'lucide-react'
+import { Globe, Users, Folder, Lock, ChevronDown, Check, AlertTriangle, RotateCw, Loader2, FileDown, Palette, Sparkles } from 'lucide-react'
 import { cn, timeAgo } from '@/lib/utils'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { NoteIcon, NOTE_ICONS, normalizeNoteIconKey } from '@/lib/note-icons'
+import { coverBackground, COVER_PRESETS } from '@/lib/note-cover'
 import { NotesActionsBar } from '../NotesActionsBar'
 import { NoteComments } from './NoteComments'
 import { NoteBacklinks } from './NoteBacklinks'
@@ -44,6 +45,9 @@ interface NoteData {
   title: string
   content: string | null
   visibility: string
+  space_id: string | null
+  /** Clave de la paleta de portadas. Null = automatica por id (note-cover.ts). */
+  cover: string | null
   doc_kind: DocKind
   sop_status: SopStatus | null
   sop_version: string | null
@@ -66,25 +70,35 @@ interface NoteEditorProps {
   canManage: boolean
   breadcrumbs: Breadcrumb[]
   childNotes: ChildNote[]
+  /** Departamentos con los que ESTE usuario puede compartir la nota. */
+  spaces: { id: string; name: string }[]
+  /** ¿Puede abrir la nota a toda la empresa? Solo los responsables. */
+  canPublishWorkspace: boolean
 }
 
-const VISIBILITY_OPTIONS = [
-  { value: 'workspace', labelKey: 'note.edVisWorkspace', Icon: Globe,  descKey: 'note.edVisWorkspaceDesc' },
-  { value: 'team',      labelKey: 'note.edVisTeam',      Icon: Users,  descKey: 'note.edVisTeamDesc' },
-  { value: 'project',   labelKey: 'note.edVisProject',   Icon: Folder, descKey: 'note.edVisProjectDesc' },
-  { value: 'private',   labelKey: 'note.edVisPrivate',   Icon: Lock,   descKey: 'note.edVisPrivateDesc' },
-] as const
+/**
+ * Alcance de la nota. La nota nace PRIVADA y compartirla la abre a un
+ * DEPARTAMENTO, no a la empresa entera. El alcance de empresa existe (los SOPs
+ * lo necesitan) pero solo lo asignan los responsables. Modelo completo en
+ * src/lib/note-visibility.ts; la API valida lo mismo del lado servidor.
+ */
+type ScopeChoice =
+  | { kind: 'private' }
+  | { kind: 'space'; spaceId: string }
+  | { kind: 'workspace' }
 
 
 export function NoteEditor({
   initial, currentUserId, currentUserName, currentUserAvatar,
   workspaceSlug, workspaceId, canManage, breadcrumbs, childNotes,
+  spaces, canPublishWorkspace,
 }: NoteEditorProps) {
   const router = useRouter()
   const tr = useT()
   const [title, setTitle] = useState(initial.title)
   const [icon, setIcon] = useState(normalizeNoteIconKey(initial.icon))
   const [visibility, setVisibility] = useState(initial.visibility)
+  const [spaceId, setSpaceId] = useState(initial.space_id)
   const [updatedAt, setUpdatedAt] = useState(initial.updated_at)
   // Máquina de estado del guardado, para que el usuario SIEMPRE sepa si su
   // trabajo está a salvo: 'saved' (persistido), 'dirty' (cambios sin guardar),
@@ -92,6 +106,8 @@ export function NoteEditor({
   const [status, setStatus] = useState<'saved' | 'dirty' | 'saving' | 'error'>('saved')
   const [showVisMenu, setShowVisMenu] = useState(false)
   const [showIconPicker, setShowIconPicker] = useState(false)
+  const [cover, setCover] = useState<string | null>(initial.cover)
+  const [showCoverPicker, setShowCoverPicker] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -151,16 +167,32 @@ export function NoteEditor({
     }
   }, [title, initial.title, patch, tr])
 
+  /**
+   * Cambiar portada. `null` devuelve la nota al color automatico derivado de su
+   * id, que es el default y nunca deja el documento en blanco.
+   */
+  function handleCoverChange(key: string | null) {
+    setCover(key)
+    setShowCoverPicker(false)
+    patch({ cover: key })
+  }
+
   function handleIconChange(newIcon: string) {
     setIcon(newIcon)
     setShowIconPicker(false)
     patch({ icon: newIcon })
   }
 
-  function handleVisibilityChange(v: string) {
-    setVisibility(v)
+  function handleScopeChange(choice: ScopeChoice) {
     setShowVisMenu(false)
-    patch({ visibility: v })
+    if (choice.kind === 'space') {
+      setVisibility('space')
+      setSpaceId(choice.spaceId)
+      patch({ visibility: 'space', space_id: choice.spaceId })
+      return
+    }
+    setVisibility(choice.kind)
+    patch({ visibility: choice.kind })
   }
 
   async function handleDelete() {
@@ -183,9 +215,10 @@ export function NoteEditor({
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-8 py-8">
-      {/* Toolbar superior */}
-      <div className="flex items-center justify-between mb-6 gap-4">
+    <div className="pb-28">
+      {/* Barra superior: migas, estado de guardado y acciones */}
+      <div className="mx-auto w-full max-w-[980px] px-6 sm:px-10 lg:px-12 pt-6">
+      <div className="flex items-center justify-between mb-5 gap-4">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1 text-xs text-muted-foreground min-w-0 flex-1">
           <Link
@@ -245,40 +278,90 @@ export function NoteEditor({
             </span>
           )}
 
-          {/* Visibility */}
+          {/* Alcance: privada -> departamento -> empresa */}
           <div className="relative">
             <button
               onClick={() => setShowVisMenu(!showVisMenu)}
               className="flex items-center gap-1.5 text-xs px-2 py-1 bg-muted/50 hover:bg-muted text-foreground rounded-md transition-colors"
             >
-              {(() => {
-                const cur = VISIBILITY_OPTIONS.find(v => v.value === visibility)
-                if (!cur) return <span>{visibility}</span>
-                const Icon = cur.Icon
-                return <span className="flex items-center gap-1.5"><Icon className="w-3.5 h-3.5" />{tr(cur.labelKey)}</span>
-              })()}
+              {visibility === 'workspace' ? (
+                <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" />Toda la empresa</span>
+              ) : visibility === 'private' ? (
+                <span className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" />Privada</span>
+              ) : visibility === 'project' ? (
+                <span className="flex items-center gap-1.5"><Folder className="w-3.5 h-3.5" />Proyecto</span>
+              ) : (
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" />
+                  {spaces.find(s => s.id === spaceId)?.name ?? 'Departamento'}
+                </span>
+              )}
               <ChevronDown className="w-2.5 h-2.5" />
             </button>
             {showVisMenu && (
               <div
-                className="absolute top-7 right-0 z-50 w-56 bg-popover border border-border rounded-lg shadow-raised py-1"
+                className="absolute top-7 right-0 z-50 w-64 bg-popover border border-border rounded-lg shadow-raised py-1"
                 onMouseLeave={() => setShowVisMenu(false)}
               >
-                {VISIBILITY_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => handleVisibilityChange(opt.value)}
-                    className={cn(
-                      'w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-accent transition-colors',
-                      opt.value === visibility && 'bg-accent/50'
-                    )}
-                  >
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                      <opt.Icon className="w-3.5 h-3.5" />{tr(opt.labelKey)}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">{tr(opt.descKey)}</span>
-                  </button>
-                ))}
+                <button
+                  onClick={() => handleScopeChange({ kind: 'private' })}
+                  className={cn(
+                    'w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-accent transition-colors',
+                    visibility === 'private' && 'bg-accent/50'
+                  )}
+                >
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                    <Lock className="w-3.5 h-3.5" />Privada
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">Solo tú la puedes ver</span>
+                </button>
+
+                <div className="px-3 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Compartir con un departamento
+                </div>
+                {spaces.length === 0 ? (
+                  <p className="px-3 pb-2 text-[10px] text-muted-foreground">
+                    No perteneces a ningún departamento todavía.
+                  </p>
+                ) : (
+                  spaces.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => handleScopeChange({ kind: 'space', spaceId: s.id })}
+                      className={cn(
+                        'w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-accent transition-colors',
+                        visibility !== 'private' && visibility !== 'workspace' && spaceId === s.id && 'bg-accent/50'
+                      )}
+                    >
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                        <Users className="w-3.5 h-3.5" />{s.name}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        Visible solo para {s.name}
+                      </span>
+                    </button>
+                  ))
+                )}
+
+                {canPublishWorkspace && (
+                  <>
+                    <div className="my-1 border-t border-border" />
+                    <button
+                      onClick={() => handleScopeChange({ kind: 'workspace' })}
+                      className={cn(
+                        'w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-accent transition-colors',
+                        visibility === 'workspace' && 'bg-accent/50'
+                      )}
+                    >
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                        <Globe className="w-3.5 h-3.5" />Toda la empresa
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        Cualquier miembro del workspace la puede leer
+                      </span>
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -327,13 +410,79 @@ export function NoteEditor({
           )}
         </div>
       </div>
+      </div>
+
+      {/* Portada. Nunca hay que subir nada: el color sale del id de la nota, así
+          que ningún documento nace en blanco. Elegir otra es opcional y aparece
+          al pasar el cursor, para no meter un control más en la primera vista. */}
+      <div
+        className="group/cover relative h-24 sm:h-32 w-full"
+        style={{ background: coverBackground(initial.id, cover) }}
+      >
+        <div className="absolute bottom-2 right-3 sm:right-6">
+          <button
+            type="button"
+            onClick={() => setShowCoverPicker(v => !v)}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-md bg-black/25 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-opacity hover:bg-black/40',
+              showCoverPicker ? 'opacity-100' : 'opacity-0 group-hover/cover:opacity-100 focus-visible:opacity-100'
+            )}
+          >
+            <Palette className="w-3.5 h-3.5" />
+            {tr('note.edChangeCover')}
+          </button>
+
+          {showCoverPicker && (
+            <div
+              className="absolute bottom-full right-0 mb-2 z-50 w-64 rounded-xl border border-border bg-popover p-2.5 shadow-raised"
+              onMouseLeave={() => setShowCoverPicker(false)}
+            >
+              <p className="px-0.5 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {tr('note.edCoverPalette')}
+              </p>
+              <div className="grid grid-cols-6 gap-1.5">
+                {/* Automática: el color derivado del id. Siempre primera, porque
+                    es el default y hay que poder regresar a él. */}
+                <button
+                  type="button"
+                  onClick={() => handleCoverChange(null)}
+                  title={tr('note.edCoverAuto')}
+                  className={cn(
+                    'relative h-7 w-full rounded-md ring-offset-1 ring-offset-popover transition-all hover:scale-105',
+                    cover === null ? 'ring-2 ring-primary' : 'ring-1 ring-border'
+                  )}
+                  style={{ background: coverBackground(initial.id, null) }}
+                >
+                  <Sparkles className="absolute inset-0 m-auto h-3.5 w-3.5 text-white drop-shadow" />
+                </button>
+                {COVER_PRESETS.map(preset => (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    onClick={() => handleCoverChange(preset.key)}
+                    title={preset.label}
+                    className={cn(
+                      'h-7 w-full rounded-md ring-offset-1 ring-offset-popover transition-all hover:scale-105',
+                      cover === preset.key ? 'ring-2 ring-primary' : 'ring-1 ring-border'
+                    )}
+                    style={{ background: preset.css }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Columna del documento */}
+      <div className="mx-auto w-full max-w-[980px] px-6 sm:px-10 lg:px-12">
 
       {/* Icon + Title */}
-      <div className="flex items-start gap-3 mb-2">
-        <div className="relative">
+      <div className="mb-2 -mt-9 relative">
+        <div className="relative inline-block mb-2">
           <button
             onClick={() => setShowIconPicker(!showIconPicker)}
-            className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-lg p-2 transition-colors"
+            className="bg-background border border-border shadow-raised text-foreground hover:bg-accent rounded-xl p-2.5 transition-colors"
             title={tr('note.edChangeIcon')}
           >
             <NoteIcon icon={icon} size={40} />
@@ -365,7 +514,7 @@ export function NoteEditor({
           onChange={e => setTitle(e.target.value)}
           placeholder={tr('search.untitled')}
           rows={1}
-          className="flex-1 text-3xl font-bold text-foreground placeholder:text-muted-foreground/40 bg-transparent border-0 outline-none resize-none leading-tight pt-2"
+          className="w-full text-4xl sm:text-[2.75rem] font-bold tracking-tight text-foreground placeholder:text-muted-foreground/30 bg-transparent border-0 outline-none resize-none leading-[1.15]"
           onInput={e => {
             const target = e.target as HTMLTextAreaElement
             target.style.height = 'auto'
@@ -399,8 +548,9 @@ export function NoteEditor({
         onDirty={() => setStatus(s => (s === 'saving' ? s : 'dirty'))}
         autosaveMs={1200}
         blocks="full"
+        density="page"
         workspaceId={workspaceId}
-        className="!border-0 [&_.ProseMirror]:px-0 [&_.ProseMirror]:py-2 [&_.ProseMirror]:min-h-[300px]"
+        noteId={initial.id}
       />
 
       {/* Sub-páginas */}
@@ -437,6 +587,7 @@ export function NoteEditor({
 
       {/* Comentarios (hilo lateral) */}
       <NoteComments noteId={initial.id} currentUserId={currentUserId} />
+      </div>
     </div>
   )
 }

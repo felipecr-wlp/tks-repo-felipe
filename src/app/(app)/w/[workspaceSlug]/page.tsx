@@ -129,6 +129,7 @@ export default async function WorkspaceDashboardPage({
         project:projects ( name, slug )
       `)
       .eq('workspace_id', workspace.id)
+      .eq('is_superseded', false)
       .order('created_at', { ascending: false })
       .limit(8) as unknown as Promise<{ data: ActivityEvent[] | null }>,
     admin

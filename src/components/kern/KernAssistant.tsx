@@ -10,6 +10,7 @@
 import { useChat } from 'ai/react'
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { Markdown } from './Markdown'
 
 const SUGGESTIONS = [
   '¿Qué tengo pendiente hoy?',
@@ -19,6 +20,8 @@ const SUGGESTIONS = [
 
 // Etiquetas amables en español para las herramientas que KERN puede ejecutar.
 // El nombre tecnico de la tool (snake_case) nunca se muestra crudo al usuario.
+// Si se agrega una tool nueva en kern-tools.ts hay que darla de alta aqui; si
+// no, cae al texto generico y el usuario no sabe que estuvo haciendo.
 const TOOL_LABELS: Record<string, { running: string; done: string }> = {
   list_projects: { running: 'Consultando proyectos', done: 'Proyectos consultados' },
   list_my_tasks: { running: 'Revisando tus tareas', done: 'Tareas revisadas' },
@@ -26,6 +29,11 @@ const TOOL_LABELS: Record<string, { running: string; done: string }> = {
   create_task: { running: 'Creando tarea', done: 'Tarea creada' },
   update_task: { running: 'Actualizando tarea', done: 'Tarea actualizada' },
   list_task_statuses: { running: 'Consultando columnas', done: 'Columnas consultadas' },
+  list_spaces: { running: 'Consultando departamentos', done: 'Departamentos consultados' },
+  search_notes: { running: 'Buscando en documentos', done: 'Documentos encontrados' },
+  read_note: { running: 'Leyendo documento', done: 'Documento leído' },
+  create_note: { running: 'Creando documento', done: 'Documento creado' },
+  append_to_note: { running: 'Escribiendo en el documento', done: 'Documento actualizado' },
 }
 
 export function KernAssistant() {
@@ -154,7 +162,7 @@ export function KernAssistant() {
                   className={cn('flex flex-col gap-1.5', m.role === 'user' ? 'items-end' : 'items-start')}
                 >
                   {invs.length > 0 && (
-                    <div className="flex flex-col gap-1 w-full">
+                    <div className="flex flex-wrap gap-1">
                       {invs.map((inv, i) => {
                         const label = TOOL_LABELS[inv.toolName]
                         const done = inv.state === 'result'
@@ -162,29 +170,35 @@ export function KernAssistant() {
                           ? label?.done ?? 'Acción completada'
                           : label?.running ?? 'Trabajando...'
                         return (
-                          <div
+                          <span
                             key={inv.toolCallId ?? i}
-                            className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
+                            className={cn(
+                              'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px]',
+                              done
+                                ? 'border-border bg-muted/60 text-muted-foreground'
+                                : 'border-[#FED500]/40 bg-[#FED500]/10 text-[#8a7400]'
+                            )}
                           >
-                            <ToolIcon className={cn('h-3 w-3', !done && 'animate-pulse text-[#caa800]')} />
+                            <ToolIcon className={cn('h-3 w-3 flex-shrink-0', !done && 'animate-pulse')} />
                             <span>{text}</span>
-                          </div>
+                          </span>
                         )
                       })}
                     </div>
                   )}
-                  {m.content && (
-                    <div
-                      className={cn(
-                        'max-w-[85%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap break-words',
-                        m.role === 'user'
-                          ? 'bg-primary text-primary-foreground rounded-br-sm'
-                          : 'bg-muted text-foreground rounded-bl-sm'
-                      )}
-                    >
-                      {m.content}
-                    </div>
-                  )}
+                  {m.content &&
+                    // El usuario escribe texto plano: se pinta tal cual. KERN
+                    // contesta en markdown y hay que interpretarlo, o salen los
+                    // asteriscos a la vista.
+                    (m.role === 'user' ? (
+                      <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3.5 py-2 text-sm text-primary-foreground whitespace-pre-wrap break-words">
+                        {m.content}
+                      </div>
+                    ) : (
+                      <div className="max-w-[92%] rounded-2xl rounded-bl-sm border border-border/70 bg-muted/70 px-3.5 py-2.5 text-[13px] text-foreground break-words">
+                        <Markdown text={m.content} />
+                      </div>
+                    ))}
                 </div>
               )
             })

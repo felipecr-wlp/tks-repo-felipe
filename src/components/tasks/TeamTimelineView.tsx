@@ -35,6 +35,7 @@ import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { ProjectIcon } from '@/lib/project-icons'
 import { useI18n } from '@/lib/i18n/LanguageProvider'
 import { exportGanttToPdf, type GanttExportGroup } from '@/lib/gantt-export'
+import { avanceDe, avanceIsHollow, AVANCE_COLOR, AVANCE_LABEL_KEY, AVANCE_ORDER } from '@/lib/task-progress'
 
 interface TeamTask {
   id: string
@@ -112,7 +113,7 @@ export function TeamTimelineView({ teamId, projectIds, workspaceSlug, teamSlug, 
   const { t: tr, lang } = useI18n()
   const locale = lang === 'en' ? 'en-US' : 'es-MX'
   const [zoom, setZoom] = useState<Zoom>('mes')
-  const [colorBy, setColorBy] = useState<'priority' | 'status'>('priority')
+  const [colorBy, setColorBy] = useState<'priority' | 'status' | 'avance'>('priority')
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()))
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [showUndated, setShowUndated] = useState(false)
@@ -442,6 +443,19 @@ export function TeamTimelineView({ teamId, projectIds, workspaceSlug, teamSlug, 
       .sort((a, b) => a.label.localeCompare(b.label, 'es'))
   }, [dated, groupMode, sortItems, tr])
 
+  // Conteo por cubo de avance, para la leyenda. Sobre TODAS las tareas con
+  // fecha del filtro activo, no solo las visibles en el scroll: "5 no
+  // arrancaron" deja de significar algo si depende de donde este la vista.
+  const avanceCount = useMemo(() => {
+    const acc: Partial<Record<ReturnType<typeof avanceDe>, number>> = {}
+    for (const d of dated) {
+      const a = avanceDe(d.task.status?.category, d.start, today)
+      acc[a] = (acc[a] ?? 0) + 1
+    }
+    return acc
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dated])
+
   // ── Export PDF branded WLP (solo lectura; respeta filtros y orden activos) ──
   function handleExportPdf() {
     if (groups.length === 0 && undated.length === 0) {
@@ -519,7 +533,7 @@ export function TeamTimelineView({ teamId, projectIds, workspaceSlug, teamSlug, 
         <div className="flex items-center gap-2">
           {/* Colorear por: prioridad o estado */}
           <div className="inline-flex items-center rounded-md border border-border overflow-hidden" title={tr('gantt.colorByTitle')}>
-            {(['priority', 'status'] as const).map(mode => (
+            {(['priority', 'status', 'avance'] as const).map(mode => (
               <button
                 key={mode}
                 onClick={() => setColorBy(mode)}
@@ -530,7 +544,11 @@ export function TeamTimelineView({ teamId, projectIds, workspaceSlug, teamSlug, 
                 }`}
                 aria-pressed={colorBy === mode}
               >
-                {mode === 'priority' ? tr('gantt.colorByPriority') : tr('gantt.colorByStatus')}
+                {mode === 'priority'
+                  ? tr('gantt.colorByPriority')
+                  : mode === 'status'
+                    ? tr('gantt.colorByStatus')
+                    : tr('gantt.colorByAvance')}
               </button>
             ))}
           </div>
@@ -714,6 +732,30 @@ export function TeamTimelineView({ teamId, projectIds, workspaceSlug, teamSlug, 
         )}
       </div>
 
+      {/* Leyenda del semaforo de avance. Solo en ese modo: una leyenda de
+          colores que no se estan usando es ruido. */}
+      {colorBy === 'avance' && (
+        <div className="flex items-center gap-3 flex-wrap mb-3 px-1">
+          {AVANCE_ORDER.map(a => {
+            const n = avanceCount[a] ?? 0
+            if (n === 0) return null
+            return (
+              <span key={a} className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span
+                  className="w-3 h-3 rounded-sm flex-shrink-0"
+                  style={{
+                    backgroundColor: avanceIsHollow(a) ? 'transparent' : `${AVANCE_COLOR[a]}44`,
+                    border: `1px ${avanceIsHollow(a) ? 'dashed' : 'solid'} ${AVANCE_COLOR[a]}`,
+                  }}
+                />
+                {tr(AVANCE_LABEL_KEY[a])}
+                <span className="tabular-nums font-medium text-foreground">{n}</span>
+              </span>
+            )
+          })}
+        </div>
+      )}
+
       {tasks.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-dashed border-border p-10 text-center">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted text-muted-foreground mb-3">
@@ -827,9 +869,13 @@ export function TeamTimelineView({ teamId, projectIds, workspaceSlug, teamSlug, 
                         const done = t.status?.category === 'done' || t.status?.category === 'cancelled'
                         const bucket = dueBucket(t.due_date, done)
                         const priorityColor = PRIORITY_COLOR[t.priority] ?? PRIORITY_COLOR.none
-                        const baseColor = colorBy === 'status'
-                          ? (t.status?.color ?? priorityColor)
-                          : priorityColor
+                        const avance = avanceDe(t.status?.category, d.start, today)
+                        const baseColor = colorBy === 'avance'
+                          ? AVANCE_COLOR[avance]
+                          : colorBy === 'status'
+                            ? (t.status?.color ?? priorityColor)
+                            : priorityColor
+                        const hollow = colorBy === 'avance' && avanceIsHollow(avance)
                         const geom = barGeometry(effStart, effEnd)
                         const initials = t.assignee?.display_name
                           ? t.assignee.display_name.trim().slice(0, 2).toUpperCase()
@@ -892,13 +938,18 @@ export function TeamTimelineView({ teamId, projectIds, workspaceSlug, teamSlug, 
                                       bucket === 'overdue' ? 'ring-1 ring-destructive/70' : ''
                                     } ${isDragging ? 'ring-1 ring-foreground/40 shadow-md' : ''}`}
                                     style={{
-                                      backgroundColor: done ? 'transparent' : `${baseColor}22`,
+                                      backgroundColor: done || hollow ? 'transparent' : `${baseColor}22`,
                                       color: done ? undefined : baseColor,
                                       borderLeft: geom.clipStart ? undefined : `2px solid ${baseColor}`,
                                       borderRight: geom.clipEnd ? `2px solid ${baseColor}` : undefined,
+                                      // Hueca y rayada: lo que no arranco no debe
+                                      // parecer trabajo en curso ni de lejos.
+                                      border: hollow ? `1px dashed ${baseColor}` : undefined,
                                       backgroundImage: done
                                         ? 'repeating-linear-gradient(45deg, var(--muted, #64748b22) 0, var(--muted, #64748b22) 4px, transparent 4px, transparent 8px)'
-                                        : undefined,
+                                        : hollow
+                                          ? `repeating-linear-gradient(45deg, ${baseColor}1f 0, ${baseColor}1f 3px, transparent 3px, transparent 7px)`
+                                          : undefined,
                                     }}
                                   >
                                     {bucket === 'overdue' && <AlertTriangle className="w-3 h-3 flex-shrink-0" />}

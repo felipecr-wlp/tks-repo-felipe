@@ -9,9 +9,11 @@ import { sanitizeRichText } from '@/lib/sanitize'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
-import { logActivity, ActivityVerbs } from '@/lib/activity'
+import { logActivityCoalesced, ActivityVerbs } from '@/lib/activity'
 import { recomputeNoteLinks } from '@/lib/note-links'
 import { snapshotNoteVersion } from '@/lib/note-versions'
+import { canPostWorkspaceMessage } from '@/lib/workspace-admin'
+import { NOTE_VISIBILITY_VALUES, loadNoteViewerContext, canViewNote } from '@/lib/note-visibility'
 
 interface RouteParams {
   params: { noteId: string }
@@ -20,8 +22,10 @@ interface RouteParams {
 const patchSchema = z.object({
   title:          z.string().max(200).trim().optional(),
   content:        z.string().max(1_000_000).nullable().optional(),
-  visibility:     z.enum(['private', 'project', 'team', 'workspace']).optional(),
+  visibility:     z.enum(NOTE_VISIBILITY_VALUES).optional(),
   icon:           z.string().max(64).nullable().optional(),
+  // Clave de la paleta cerrada de portadas. Null = portada automatica por id.
+  cover:          z.string().max(32).nullable().optional(),
   parent_note_id: z.string().uuid().nullable().optional(),
   space_id:       z.string().uuid().nullable().optional(),
   // SOP como objeto de primera clase (nullable = limpiar el campo).
@@ -38,6 +42,7 @@ interface NoteFull {
   parent_note_id: string | null
   space_id: string | null
   icon: string | null
+  cover: string | null
   title: string
   content: string | null
   visibility: string
@@ -60,7 +65,7 @@ async function loadNoteWithAccess(
   const { data: note } = await admin
     .from('notes')
     .select(`
-      id, workspace_id, project_id, parent_note_id, space_id, icon,
+      id, workspace_id, project_id, parent_note_id, space_id, icon, cover,
       title, content, visibility,
       doc_kind, sop_status, sop_version, review_due,
       created_by, created_at, updated_at,
@@ -80,39 +85,13 @@ async function loadNoteWithAccess(
     .maybeSingle() as { data: { role: string } | null; error: unknown }
 
   if (!membership) return { note: null, status: 403 }
-  if (note.visibility === 'private' && note.created_by !== userId) {
-    return { note: null, status: 403 }
-  }
 
-  // F3: nota dentro de un espacio restringido -> solo admin de org o miembro del
-  // espacio. Cierra el acceso directo por URL (esta ruta usa admin client, que
-  // bypassa el RLS "notes_restrict_space").
-  if (note.space_id) {
-    const { data: space } = await admin
-      .from('spaces')
-      .select('is_restricted')
-      .eq('id', note.space_id)
-      .maybeSingle() as { data: { is_restricted: boolean } | null; error: unknown }
-
-    if (space?.is_restricted) {
-      const { data: prof } = await admin
-        .from('profiles')
-        .select('org_role')
-        .eq('id', userId)
-        .maybeSingle() as { data: { org_role: string | null } | null; error: unknown }
-      const isOrgAdmin = prof?.org_role === 'owner' || prof?.org_role === 'admin'
-
-      if (!isOrgAdmin) {
-        const { data: spaceMember } = await admin
-          .from('space_members')
-          .select('profile_id')
-          .eq('space_id', note.space_id)
-          .eq('profile_id', userId)
-          .maybeSingle() as { data: { profile_id: string } | null; error: unknown }
-        if (!spaceMember) return { note: null, status: 403 }
-      }
-    }
-  }
+  // Modelo completo de visibilidad (privada = solo autor, space/team = su
+  // departamento, project = su proyecto, workspace = la empresa) MAS el
+  // aislamiento de departamentos restringidos. Cierra el acceso directo por
+  // URL: esta ruta usa admin client, que bypassa el RLS de notes.
+  const ctx = await loadNoteViewerContext(admin, note.workspace_id, userId)
+  if (!canViewNote(ctx, note)) return { note: null, status: 403 }
 
   return { note, status: 200 }
 }
@@ -229,6 +208,33 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'Nota padre inválida' }, { status: 422 })
       }
     }
+
+    // Alcance de empresa: acto de mando (mismos roles que el comunicado en
+    // General). Compartir al departamento no pide permiso, es del autor.
+    const nextVisibility = parsed.data.visibility
+    if (
+      nextVisibility === 'workspace' &&
+      !(await canPostWorkspaceMessage(admin, note.workspace_id, user.id))
+    ) {
+      return NextResponse.json(
+        { error: 'Solo los responsables publican un documento para toda la empresa. Compártelo con tu departamento.' },
+        { status: 403 },
+      )
+    }
+
+    // Compartir al departamento exige departamento: el que traiga el PATCH o el
+    // que ya tenga la nota. Sin el, "compartida" no le llegaria a nadie.
+    if (nextVisibility === 'space' || nextVisibility === 'team') {
+      const effectiveSpace = Object.prototype.hasOwnProperty.call(parsed.data, 'space_id')
+        ? parsed.data.space_id
+        : note.space_id
+      if (!effectiveSpace) {
+        return NextResponse.json(
+          { error: 'Elige el departamento con el que se comparte la nota.' },
+          { status: 422 },
+        )
+      }
+    }
   }
 
   const { data: updated, error } = await admin
@@ -236,7 +242,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.noteId)
     .select(`
-      id, workspace_id, project_id, parent_note_id, space_id, icon,
+      id, workspace_id, project_id, parent_note_id, space_id, icon, cover,
       title, content, visibility,
       doc_kind, sop_status, sop_version, review_due,
       created_by, created_at, updated_at,
@@ -249,7 +255,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       error: 'Error al actualizar',    }, { status: 500 })
   }
 
-  logActivity({
+  // Coalesced: el editor guarda solo mientras se escribe. Una sesion de
+  // escritura es UNA accion, no un renglon por autoguardado.
+  logActivityCoalesced({
     verb: ActivityVerbs.NOTE_UPDATED,
     subject_id: user.id,
     object_type: 'note',

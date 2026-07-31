@@ -5,6 +5,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NotesTreeSidebar } from '@/components/notes/NotesTreeSidebar'
+import { loadNoteViewerContext, canViewNote } from '@/lib/note-visibility'
 
 interface NotesLayoutProps {
   children: React.ReactNode
@@ -17,6 +18,7 @@ interface NoteTreeRow {
   icon: string | null
   parent_note_id: string | null
   space_id: string | null
+  project_id: string | null
   visibility: string
   updated_at: string
   created_by: string | null
@@ -54,7 +56,7 @@ export default async function NotesLayout({ children, params }: NotesLayoutProps
   // Cargar todas las notas del workspace (visibilidad básica filtrada)
   const { data: rawNotes } = await admin
     .from('notes')
-    .select('id, title, icon, parent_note_id, space_id, visibility, updated_at, created_by')
+    .select('id, title, icon, parent_note_id, space_id, project_id, visibility, updated_at, created_by')
     .eq('workspace_id', workspace.id)
     .order('updated_at', { ascending: false })
     .limit(500) as { data: NoteTreeRow[] | null; error: unknown }
@@ -91,19 +93,11 @@ export default async function NotesLayout({ children, params }: NotesLayoutProps
 
   const spaces = (rawSpaces ?? []).filter(s => canAccessSpace(s.id, s.is_restricted))
 
-  // Ids de espacios restringidos a los que el usuario NO puede entrar: sus notas
-  // se ocultan del arbol aunque su visibility sea 'workspace'.
-  const blockedSpaceIds = new Set(
-    (rawSpaces ?? [])
-      .filter(s => s.is_restricted && !canAccessSpace(s.id, true))
-      .map(s => s.id)
-  )
-
-  const notes = (rawNotes ?? []).filter(n => {
-    if (n.visibility === 'private' && n.created_by !== user.id) return false
-    if (n.space_id && blockedSpaceIds.has(n.space_id)) return false
-    return true
-  })
+  // Modelo de visibilidad completo (privada = solo autor, space/team = su
+  // departamento, project = su proyecto, workspace = la empresa). El arbol lee
+  // con admin client, asi que este filtro ES la puerta real.
+  const noteCtx = await loadNoteViewerContext(admin, workspace.id, user.id)
+  const notes = (rawNotes ?? []).filter(n => canViewNote(noteCtx, n))
 
   return (
     <div className="flex h-full overflow-hidden">

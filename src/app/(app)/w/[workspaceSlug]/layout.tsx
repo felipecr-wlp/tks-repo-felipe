@@ -3,7 +3,9 @@
  * Carga data del workspace en el servidor para evitar flicker.
  */
 import { redirect, notFound } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { canAccessPath, normalizeHidden } from '@/lib/features'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { MobileTopBar } from '@/components/sidebar/MobileTopBar'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
@@ -40,12 +42,6 @@ type TeamWithProjects = {
   }>
 }
 
-type WorkspaceForSwitcher = {
-  id: string
-  name: string
-  slug: string
-}
-
 type UserProfile = {
   id: string
   display_name: string
@@ -73,6 +69,7 @@ export default async function WorkspaceLayout({
   // loop entre /w/<slug> y / cuando los datos del profile están inconsistentes.
   type MembershipWithWs = {
     role: string
+    hidden_features: string[] | null
     workspaces: {
       id: string
       name: string
@@ -86,6 +83,7 @@ export default async function WorkspaceLayout({
     .from('workspace_members')
     .select(`
       role,
+      hidden_features,
       workspaces!inner (
         id, name, slug, org_id,
         organizations!workspaces_org_id_fkey ( id, name )
@@ -118,6 +116,18 @@ export default async function WorkspaceLayout({
     profile?.org_role === 'admin' ||
     row.role === 'owner' ||
     row.role === 'admin'
+
+  // ── Funciones apagadas para esta persona ───────────────────────────────────
+  // Guarda REAL, no cosmética: si la pantalla está apagada, la URL tampoco
+  // abre. `x-pathname` lo pone el middleware, porque un layout no conoce su
+  // propia ruta. Si el header faltara (arranque raro), no se bloquea nada: es
+  // preferible mostrar de más que dejar a alguien fuera de su trabajo.
+  const hiddenFeatures = normalizeHidden(row.hidden_features)
+  const currentPath = headers().get('x-pathname')
+  const wsBase = `/w/${workspace.slug}`
+  if (currentPath && !canAccessPath(currentPath, wsBase, hiddenFeatures)) {
+    redirect(wsBase)
+  }
 
   // ── Cargar equipos del workspace (con proyectos) ───────────────────────────
   // Egress optimizado: solo columnas necesarias para el sidebar
@@ -207,20 +217,9 @@ export default async function WorkspaceLayout({
     })),
   }))
 
-  // ── Cargar todos los workspaces del usuario (para el switcher) ─────────────
-  type WsMemberRow = {
-    workspaces: { id: string; name: string; slug: string } | null
-  }
-
-  const { data: wsMemberships } = await supabase
-    .from('workspace_members')
-    .select('workspaces ( id, name, slug )')
-    .eq('profile_id', user.id)
-    .order('created_at', { ascending: true }) as { data: WsMemberRow[] | null; error: unknown }
-
-  const allWorkspaces: WorkspaceForSwitcher[] = (wsMemberships ?? [])
-    .filter(m => m.workspaces != null)
-    .map(m => m.workspaces!)
+  // Ya no se cargan "todos los workspaces del usuario": WLO opera con un solo
+  // espacio y el encabezado dejo de ser un selector. Una consulta menos por
+  // cada pantalla del app.
 
   return (
     // flex-1 + min-w-0 + w-full: el layout raíz de (app) es un contenedor flex
@@ -231,7 +230,12 @@ export default async function WorkspaceLayout({
     // superior (~135px) y el canvas salía diminuto. flex-1 lo fuerza a viewport.
     <div className="flex h-screen overflow-hidden flex-1 min-w-0 w-full">
       {/* Command palette global (Cmd+K) */}
-      <CommandPalette workspaceSlug={workspace.slug} workspaceId={workspace.id} isAdmin={isWorkspaceAdmin} />
+      <CommandPalette
+        workspaceSlug={workspace.slug}
+        workspaceId={workspace.id}
+        isAdmin={isWorkspaceAdmin}
+        hiddenFeatures={hiddenFeatures}
+      />
 
       {/* Modal global "Nueva tarea" (atajo C) */}
       <GlobalNewTaskModal teams={teams} />
@@ -252,7 +256,7 @@ export default async function WorkspaceLayout({
           avatar_url: profile?.avatar_url ?? null,
           email: user.email ?? '',
         }}
-        allWorkspaces={allWorkspaces}
+        hiddenFeatures={hiddenFeatures}
       />
 
       {/* Columna de contenido: barra superior movil + main.
