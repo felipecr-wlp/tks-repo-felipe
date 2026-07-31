@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     ...i,
     widget: widgetMap[i.app_id] || null,
     base_url: urlMap[i.app_id] || '',
-  })).filter((w: any) => slot ? !w.widget || w.widget.slot === slot : true)
+  })).filter((w: any) => w.widget && (slot ? w.widget.slot === slot : true))
 
   return NextResponse.json({ widgets })
 }
