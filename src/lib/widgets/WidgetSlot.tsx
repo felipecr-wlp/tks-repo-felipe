@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState, Component, type ReactNode } from 'react'
-import type { WidgetInstall } from './registry'
+import { useEffect, useState, useRef, Component, type ReactNode } from 'react'
 
 class WidgetErrorBoundary extends Component<{ children: ReactNode; name: string }, { hasError: boolean }> {
   constructor(props: { children: ReactNode; name: string }) {
@@ -21,55 +20,57 @@ class WidgetErrorBoundary extends Component<{ children: ReactNode; name: string 
   }
 }
 
-const loadedComponents = new Map<string, React.ComponentType<any>>()
+interface WidgetData {
+  id: string
+  app_id: string
+  enabled: boolean
+  base_url: string
+  widget: { id: string; name: string; component: string; slot: string } | null
+}
 
-function DynamicWidget({ appId }: { appId: string }) {
-  const [Comp, setComp] = useState<React.ComponentType<any> | null>(null)
-  const [err, setErr] = useState<string | null>(null)
+function WidgetIframe({ widget, workspaceSlug }: { widget: WidgetData; workspaceSlug: string }) {
+  const ref = useRef<HTMLIFrameElement>(null)
+  const [height, setHeight] = useState(200)
 
   useEffect(() => {
-    if (loadedComponents.has(appId)) {
-      setComp(loadedComponents.get(appId)!); return
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type === 'wlo-resize' && e.data?.height) {
+        setHeight(e.data.height)
+      }
     }
-    fetch(`/api/widgets/component/${appId}`)
-      .then(r => { if (!r.ok) throw new Error('Not found'); return r.text() })
-      .then(code => {
-        try {
-          // Provide React as a require-able module
-          const modules: Record<string, any> = { react: require('react'), 'react-dom': require('react-dom') }
-          const req = (name: string) => {
-            if (modules[name]) return modules[name]
-            throw new Error(`Module not found: ${name}`)
-          }
-          const fn = new Function('module', 'exports', 'require', code)
-          const mod = { exports: {} as any }
-          fn(mod, mod.exports, req)
-          const C = mod.exports.default || mod.exports
-          if (typeof C === 'function') {
-            loadedComponents.set(appId, C)
-            setComp(() => C)
-          } else {
-            setErr(`No default export for ${appId}: got ${typeof C}`)
-          }
-        } catch (e: any) {
-          setErr(`${appId}: ${e.message}`)
-        }
-      })
-      .catch(e => setErr(e.message))
-  }, [appId])
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
 
-  if (err) return <div className="border rounded-xl p-4 text-xs text-muted-foreground">{err}</div>
-  if (!Comp) return <div className="border rounded-xl p-4 animate-pulse"><div className="h-4 bg-muted rounded w-24" /></div>
-  return <Comp />
+  if (!widget.base_url) {
+    return (
+      <div className="border rounded-xl p-4 h-full">
+        <h4 className="text-xs font-semibold text-muted-foreground mb-3">{widget.widget?.name || widget.app_id}</h4>
+        <p className="text-xs text-muted-foreground">Sin URL de despliegue</p>
+      </div>
+    )
+  }
+
+  return (
+    <iframe
+      ref={ref}
+      src={`${widget.base_url}?workspace_slug=${workspaceSlug}&app_id=${widget.app_id}`}
+      className="w-full border-0 rounded-xl bg-card"
+      style={{ height: `${height}px`, minHeight: '120px' }}
+      sandbox="allow-scripts allow-same-origin"
+      title={widget.widget?.name || widget.app_id}
+    />
+  )
 }
 
 interface Props {
   workspaceId: string
+  workspaceSlug: string
   slot: 'dashboard' | 'sidebar' | 'header'
 }
 
-export function WidgetSlot({ workspaceId, slot }: Props) {
-  const [widgets, setWidgets] = useState<WidgetInstall[]>([])
+export function WidgetSlot({ workspaceId, workspaceSlug, slot }: Props) {
+  const [widgets, setWidgets] = useState<WidgetData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -96,7 +97,7 @@ export function WidgetSlot({ workspaceId, slot }: Props) {
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-6">
       {widgets.filter(w => w.enabled).map(w => (
         <WidgetErrorBoundary key={w.id} name={w.widget?.name || w.app_id}>
-          <DynamicWidget appId={w.app_id} />
+          <WidgetIframe widget={w} workspaceSlug={workspaceSlug} />
         </WidgetErrorBoundary>
       ))}
     </div>

@@ -33,22 +33,43 @@ export default async function PluginPage({ params }: Props) {
 
   const manifest = getPlugin(params.pluginId)
 
-  // Flows: render native list
+  // wlo-flows: redirect to native route (special case)
   if (params.pluginId === 'wlo-flows') {
     const subPath = params.path?.join('/') || ''
-    if (subPath) {
-      return redirect(`/w/${params.workspaceSlug}/flows/${subPath}`)
-    }
+    if (subPath) return redirect(`/w/${params.workspaceSlug}/flows/${subPath}`)
     const { FlowsList } = await import('../../flows/FlowsList')
     return <FlowsList workspaceSlug={params.workspaceSlug} workspaceId={row.workspaces.id} />
   }
 
-  // Generic: show plugin info
+  // Generic plugin: load via iframe from connector_apps.base_url
+  const { data: app } = await admin
+    .from('connector_apps')
+    .select('base_url, name')
+    .eq('id', params.pluginId)
+    .maybeSingle() as { data: { base_url: string; name: string } | null; error: unknown }
+
+  if (app?.base_url) {
+    const subPath = params.path?.join('/') || ''
+    const pluginUrl = `${app.base_url}?workspace_id=${row.workspaces.id}&workspace_slug=${params.workspaceSlug}&path=${encodeURIComponent(subPath)}`
+    return (
+      <div className="h-full w-full">
+        <iframe
+          src={pluginUrl}
+          className="w-full h-full border-0"
+          sandbox="allow-scripts allow-same-origin allow-forms"
+          title={app.name || params.pluginId}
+        />
+      </div>
+    )
+  }
+
+  // Fallback: show plugin info
   return (
     <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2 p-8">
       <p className="text-lg font-semibold">{manifest?.name || params.pluginId}</p>
       <p className="text-sm">{manifest?.description || 'Plugin instalado'}</p>
-      {manifest && <p className="text-xs">v{manifest.version} — {manifest.author}</p>}
+      <p className="text-xs text-muted-foreground mt-4">Este plugin no tiene URL de despliegue configurada.</p>
+      <p className="text-xs text-muted-foreground">Configura base_url en connector_apps para cargarlo via iframe.</p>
     </div>
   )
 }

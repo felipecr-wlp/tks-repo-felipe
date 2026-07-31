@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plugin Standalone</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; background: transparent; color: #1e293b; padding: 16px; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; }
+  .title { font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 12px; }
+  .counter { font-size: 32px; font-weight: 700; text-align: center; margin: 8px 0; }
+  .btns { display: flex; gap: 6px; justify-content: center; }
+  .btn { padding: 6px 16px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; cursor: pointer; font-size: 14px; }
+  .btn:hover { background: #f1f5f9; }
+  .info { font-size: 11px; color: #94a3b8; text-align: center; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="title">Plugin Standalone 🌐</div>
+  <div class="counter" id="count">0</div>
+  <div class="btns">
+    <button class="btn" onclick="update(-1)">-</button>
+    <button class="btn" onclick="update(0)">0</button>
+    <button class="btn" onclick="update(1)">+</button>
+  </div>
+  <div class="info" id="info">Cargando contexto...</div>
+</div>
+
+<script>
+  let count = 0;
+  const params = new URLSearchParams(window.location.search);
+  const wsSlug = params.get('workspace_slug') || '?';
+  const appId = params.get('app_id') || '?';
+  document.getElementById('info').textContent = 'ws: ' + wsSlug + ' | plugin: ' + appId;
+
+  function update(delta) {
+    if (delta === 0) count = 0; else count += delta;
+    document.getElementById('count').textContent = count;
+    window.parent.postMessage({ type: 'wlo-resize', height: document.body.scrollHeight + 20 }, '*');
+  }
+
+  // Notify parent of initial height
+  window.addEventListener('load', () => {
+    window.parent.postMessage({ type: 'wlo-resize', height: document.body.scrollHeight + 20 }, '*');
+  });
+</script>
+</body>
+</html>

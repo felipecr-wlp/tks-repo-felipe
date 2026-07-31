@@ -24,22 +24,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Error al cargar widgets' }, { status: 500 })
   }
 
-  // Get widget catalog entries for installed widgets
+  // Get base_urls from connector_apps
   const installedAppIds = [...new Set((installs ?? []).map((i: any) => i.app_id))]
-  let widgetMap: Record<string, any> = {}
+  let urlMap: Record<string, string> = {}
   if (installedAppIds.length > 0) {
-    const { data: catalog } = await admin
-      .from('widget_catalog')
-      .select('id, name, description, icon, slot, component')
+    const { data: apps } = await admin
+      .from('connector_apps')
+      .select('id, base_url')
       .in('id', installedAppIds) as { data: any[] | null; error: unknown }
-    if (catalog) {
-      for (const w of catalog) widgetMap[w.id] = w
-    }
+    if (apps) for (const a of apps) urlMap[a.id] = a.base_url
   }
+
+  // Get widget catalog entries
+  const { data: catalog } = await admin
+    .from('widget_catalog')
+    .select('id, name, description, icon, slot, component')
+    .in('id', installedAppIds) as { data: any[] | null; error: unknown }
+  let widgetMap: Record<string, any> = {}
+  if (catalog) for (const w of catalog) widgetMap[w.id] = w
 
   const widgets = (installs ?? []).map((i: any) => ({
     ...i,
     widget: widgetMap[i.app_id] || null,
+    base_url: urlMap[i.app_id] || '',
   })).filter((w: any) => slot ? !w.widget || w.widget.slot === slot : true)
 
   return NextResponse.json({ widgets })
