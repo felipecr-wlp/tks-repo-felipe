@@ -33,11 +33,10 @@ export default async function PluginPage({ params }: Props) {
 
   const manifest = getPlugin(params.pluginId)
 
-  // wlo-flows: redirect to native route
+  // wlo-flows: load native flow list
   if (params.pluginId === 'wlo-flows') {
-    const subPath = params.path?.join('/') || ''
-    const target = subPath ? `/w/${params.workspaceSlug}/flows/${subPath}` : `/w/${params.workspaceSlug}/flows`
-    return redirect(target)
+    const { FlowsList } = await import('@/app/(app)/w/[workspaceSlug]/flows/FlowsList')
+    return <FlowsList workspaceSlug={params.workspaceSlug} workspaceId={row.workspaces.id} />
   }
 
   // Generic plugin: load via iframe from connector_apps.base_url
