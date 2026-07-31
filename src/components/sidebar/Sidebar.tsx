@@ -283,7 +283,7 @@ export function Sidebar({
   // dentro de el.
   const activeIn: Record<GroupKey, boolean> = {
     workspace: [...primaryItems, ...moreItems].some((i) => isActive(i.href, i.exact)),
-    complementos: pathname.startsWith(`${base}/p/`),
+    complementos: pathname.startsWith(`${base}/flows`) || pathname.startsWith(`${base}/p/`),
     equipos: pathname.startsWith(`${base}/t/`),
   }
 
@@ -559,9 +559,9 @@ export function Sidebar({
           >
             {plugins.filter(p => p.enabled).map(p => {
               const PluginIcon = PLUGIN_ICONS_MAP[p.app_id] || Puzzle
-              const href = p.app_id === 'wlo-flows' ? `${base}/p/wlo-flows` : `${base}/p/${p.app_id}`
+              const href = p.app_id === 'wlo-flows' ? `${base}/flows` : `${base}/p/${p.app_id}`
               const label = PLUGIN_LABELS[p.app_id] || p.app_id
-              const active = isActive(`${base}/p/${p.app_id}`)
+              const active = p.app_id === 'wlo-flows' ? isActive(`${base}/flows`) : isActive(`${base}/p/${p.app_id}`)
               return (
                 <NavItem key={p.id} href={href} icon={<PluginIcon size={16} />} label={label} collapsed={collapsed} active={active} />
               )

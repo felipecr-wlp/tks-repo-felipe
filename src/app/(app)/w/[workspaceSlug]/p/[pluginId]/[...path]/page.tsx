@@ -1,6 +1,7 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { getPlugin } from '@/lib/plugin-registry'
+import { Workflow } from 'lucide-react'
 
 interface Props {
   params: { workspaceSlug: string; pluginId: string; path: string[] }
@@ -33,12 +34,6 @@ export default async function PluginPage({ params }: Props) {
 
   const manifest = getPlugin(params.pluginId)
 
-  // wlo-flows: load native flow list
-  if (params.pluginId === 'wlo-flows') {
-    const { FlowsList } = await import('@/app/(app)/w/[workspaceSlug]/flows/FlowsList')
-    return <FlowsList workspaceSlug={params.workspaceSlug} workspaceId={row.workspaces.id} />
-  }
-
   // Generic plugin: load via iframe from connector_apps.base_url
   const { data: app } = await admin
     .from('connector_apps')
@@ -48,26 +43,24 @@ export default async function PluginPage({ params }: Props) {
 
   if (app?.base_url) {
     const subPath = params.path?.join('/') || ''
-    const pluginUrl = `${app.base_url}?workspace_id=${row.workspaces.id}&workspace_slug=${params.workspaceSlug}&path=${encodeURIComponent(subPath)}`
     return (
       <div className="h-full w-full">
-        <iframe
-          src={pluginUrl}
-          className="w-full h-full border-0"
-          sandbox="allow-scripts allow-same-origin allow-forms"
-          title={app.name || params.pluginId}
-        />
+        <iframe src={`${app.base_url}?workspace_id=${row.workspaces.id}&workspace_slug=${params.workspaceSlug}&path=${encodeURIComponent(subPath)}`}
+          className="w-full h-full border-0" sandbox="allow-scripts allow-same-origin allow-forms" title={app.name || params.pluginId} />
       </div>
     )
   }
 
   // Fallback: show plugin info
   return (
-    <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2 p-8">
+    <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 p-8">
+      <Workflow className="w-12 h-12 opacity-20" />
       <p className="text-lg font-semibold">{manifest?.name || params.pluginId}</p>
-      <p className="text-sm">{manifest?.description || 'Plugin instalado'}</p>
-      <p className="text-xs text-muted-foreground mt-4">Este plugin no tiene URL de despliegue configurada.</p>
-      <p className="text-xs text-muted-foreground">Configura base_url en connector_apps para cargarlo via iframe.</p>
+      <p className="text-sm text-center max-w-md">{manifest?.description || 'Plugin instalado en este workspace.'}</p>
+      {manifest && <p className="text-xs">v{manifest.version} — {manifest.author}</p>}
+      <div className="flex gap-3 mt-4">
+        <a href={`/w/${params.workspaceSlug}/settings/plugins`} className="text-xs text-primary hover:underline">Configurar plugins</a>
+      </div>
     </div>
   )
 }
