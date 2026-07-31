@@ -105,6 +105,7 @@ function createZip(files: { name: string; content: Buffer }[]) {
     offset += 30 + nameBytes.length + content.length
   }
 
+  const cdOffset = offset
   const cdBuffer = Buffer.concat(centralDir)
   const eocd = Buffer.alloc(22)
   eocd.writeUInt32LE(0x06054b50, 0)
