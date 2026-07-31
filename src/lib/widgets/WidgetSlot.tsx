@@ -32,7 +32,6 @@ interface WidgetData {
 function WidgetIframe({ widget, workspaceSlug }: { widget: WidgetData; workspaceSlug: string }) {
   const ref = useRef<HTMLIFrameElement>(null)
   const [height, setHeight] = useState(200)
-  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
@@ -42,28 +41,39 @@ function WidgetIframe({ widget, workspaceSlug }: { widget: WidgetData; workspace
     return () => window.removeEventListener('message', handler)
   }, [])
 
-  // No URL or load error: fall back to local component
-  if (!widget.base_url || loadError) return <LocalWidgetFallback appId={widget.app_id} name={widget.widget?.name || widget.app_id} />
+  // Built-in widgets: use local React components directly (no iframe needed)
+  if (widget.app_id === 'wlo-counter') return <SampleCounterWidget />
+  if (widget.app_id === 'wlo-clock') return <SampleClockWidget />
+
+  // Standalone plugins: iframe
+  if (!widget.base_url) {
+    return (
+      <div className="border rounded-xl p-4 h-full">
+        <h4 className="text-xs font-semibold text-muted-foreground mb-3">{widget.widget?.name || widget.app_id}</h4>
+        <p className="text-xs text-muted-foreground">Sin URL de despliegue</p>
+      </div>
+    )
+  }
 
   return (
     <iframe
       ref={ref}
       src={`${widget.base_url}?workspace_slug=${workspaceSlug}&app_id=${widget.app_id}`}
       className="w-full border-0 rounded-xl bg-card"
-      style={{ height: `${height}px`, minHeight: '140px' }}
-      onError={() => setLoadError(true)}
+      style={{ height: `${height}px`, minHeight: '160px' }}
       title={widget.widget?.name || widget.app_id}
     />
   )
 }
 
 function LocalWidgetFallback({ appId, name }: { appId: string; name: string }) {
+  // This is kept for backward compatibility but not used in normal flow
   if (appId === 'wlo-clock') return <SampleClockWidget />
   if (appId === 'wlo-counter') return <SampleCounterWidget />
   return (
     <div className="border rounded-xl p-4 h-full">
       <h4 className="text-xs font-semibold text-muted-foreground mb-3">{name}</h4>
-      <p className="text-xs text-muted-foreground">Plugin sin URL</p>
+      <p className="text-xs text-muted-foreground">Plugin sin soporte local</p>
     </div>
   )
 }
