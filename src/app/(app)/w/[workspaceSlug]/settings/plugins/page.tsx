@@ -26,7 +26,6 @@ export default async function PluginsPage({ params }: Props) {
 
   // Catalog from filesystem (plugins/ directory) + DB-only apps
   const fsPlugins = scanPlugins()
-  const fsIds = new Set(fsPlugins.map(p => p.id))
   const catalog = fsPlugins.map(p => ({ id: p.id, name: p.name, icon: p.icon }))
 
   // Include DB-only installed plugins
@@ -36,17 +35,15 @@ export default async function PluginsPage({ params }: Props) {
     .eq('workspace_id', wsId)
     .eq('plugin_type', 'widget') as { data: Array<{ id: string; app_id: string; plugin_type: string; enabled: boolean }> | null; error: unknown }
 
-  // Add DB-only apps to catalog
-  const installedIds = new Set((installed ?? []).map(i => i.app_id))
-  const allCatalogIds = new Set(catalog.map(c => c.id))
-  for (const appId of installedIds) {
-    if (!allCatalogIds.has(appId)) {
-      const { data: app } = await admin
-        .from('connector_apps')
-        .select('id, name, icon')
-        .eq('id', appId)
-        .maybeSingle() as { data: { id: string; name: string; icon: string } | null; error: unknown }
-      if (app) catalog.push({ id: app.id, name: app.name, icon: app.icon })
+  // Add ALL WLO plugins from global catalog to the marketplace
+  const catalogIds = new Set(catalog.map(c => c.id))
+  const { data: allApps } = await admin
+    .from('connector_apps')
+    .select('id, name, icon')
+    .like('id', 'wlo-%') as { data: Array<{ id: string; name: string; icon: string }> | null; error: unknown }
+  if (allApps) {
+    for (const app of allApps) {
+      if (!catalogIds.has(app.id)) catalog.push(app)
     }
   }
 
