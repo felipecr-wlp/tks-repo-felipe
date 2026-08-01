@@ -47,6 +47,14 @@ export default async function PluginsPage({ params }: Props) {
     }
   }
 
+  // User plugin preferences
+  const { data: userPrefs } = await admin
+    .from('user_plugin_settings')
+    .select('install_id, enabled')
+    .eq('user_id', user.id) as { data: Array<{ install_id: string; enabled: boolean }> | null; error: unknown }
+  const userEnabled: Record<string, boolean> = {}
+  if (userPrefs) for (const p of userPrefs) userEnabled[p.install_id] = p.enabled
+
   return (
     <div className="space-y-6">
       <div>
@@ -61,6 +69,7 @@ export default async function PluginsPage({ params }: Props) {
         catalog={catalog ?? []}
         installed={installed ?? []}
         isAdmin={isAdmin}
+        userEnabled={userEnabled}
       />
     </div>
   )

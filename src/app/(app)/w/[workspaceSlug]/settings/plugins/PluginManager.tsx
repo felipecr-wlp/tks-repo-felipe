@@ -25,7 +25,7 @@ interface Props {
   isAdmin: boolean; userEnabled: Record<string, boolean>
 }
 
-export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, isAdmin, userEnabled }: Props) {
+export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, isAdmin, userEnabled = {} }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState<string | null>(null)
   const [tab, setTab] = useState<'installed' | 'marketplace'>('installed')
@@ -114,7 +114,7 @@ export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, 
         ) : (
           (tab === 'installed' ? installedList : marketplaceList).map(app => {
             const inst = installMap.get(app.id)
-            const ue = inst ? (localEnabled[inst.id] ?? true) : false
+            const ue = inst ? ((localEnabled[inst.id] ?? true)) : false
 
             const cardInner = (
               <div className="flex items-center gap-4 flex-1 min-w-0">
