@@ -32,9 +32,13 @@
  *   applications  -> misc-endpoint-authz-invariant
  *   messages      -> misc-endpoint-authz-invariant
  *   marketplace   -> misc-endpoint-authz-invariant
- *   kern          -> misc-endpoint-authz-invariant (allowlist justificado: IA authN-only)
+ *   kern          -> misc-endpoint-authz-invariant (+ authz de sus tools agenticas)
+ *   ai            -> misc-endpoint-authz-invariant (allowlist authN-only VERIFICADO: no toca la base)
  *   flows         -> flows-authz-invariant (gate por ruta + tabla de verdad de resolveFlowAccess)
  *   content       -> content-authz-invariant (planificador de contenido)
+ *   connectors    -> connectors-authz-invariant (admin del ws por sesion, o token hasheado app a app)
+ *   workspace     -> workspace-chat-authz-invariant (SINGULAR: adjuntos y reacciones del chat)
+ *   workspace-messages -> workspace-chat-authz-invariant
  *
  * El interruptor del marketplace NO es familia propia: vive en
  * workspaces/[workspaceId]/tools, asi que ya lo vigila el tripwire de subrecursos
@@ -43,7 +47,7 @@
  *
  * Determinista: solo lee fuentes, no monta rutas ni DB.
  *
- * Hoy 19 familias, 111 handlers mutantes, todas con guardian. Una familia mutante
+ * Hoy 26 familias, 150 handlers mutantes, todas con guardian. Una familia mutante
  * nueva debe registrarse aqui apuntando a su tripwire. Nunca un silencio.
  */
 import { describe, it, expect } from 'vitest'
@@ -69,8 +73,8 @@ const COVERED = new Set<string>([
   'tasks', 'notes', 'projects', 'teams', 'spaces', 'workspaces',
   'goals', 'sprints', 'whiteboards', 'time-entries',
   'profile', 'onboarding', 'notifications', 'invites', 'daily-reports',
-  'academy', 'applications', 'messages', 'marketplace', 'kern',
-  'flows', 'content',
+  'academy', 'applications', 'messages', 'marketplace', 'kern', 'ai',
+  'flows', 'content', 'connectors', 'workspace', 'workspace-messages',
 ])
 
 describe('Capstone de authz: ninguna familia mutante de src/app/api escapa a su tripwire', () => {
@@ -90,7 +94,7 @@ describe('Capstone de authz: ninguna familia mutante de src/app/api escapa a su 
   }
 
   it('la superficie mutante no esta vacia (el scan corre)', () => {
-    expect(totalMutating).toBeGreaterThanOrEqual(100)
+    expect(totalMutating).toBeGreaterThanOrEqual(140)
   })
 
   it('toda familia mutante tiene un tripwire de authz registrado', () => {
