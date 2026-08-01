@@ -4,6 +4,11 @@
  * NOTA: Este módulo usa @upstash/redis que NO es compatible con Edge Runtime.
  * Úsalo SOLO en Route Handlers (src/app/api/**), nunca en middleware.ts.
  *
+ * CREDENCIALES: se aceptan dos convenciones de nombre, ver readRedisConfig().
+ * En producción manda `KV_REST_API_URL` / `KV_REST_API_TOKEN`, que es lo que
+ * inyecta la integración de Upstash del Marketplace de Vercel. Nunca uses
+ * `KV_REST_API_READ_ONLY_TOKEN`: el limiter escribe contadores.
+ *
  * Límites por defecto:
  * - General API: 60 req / 60s por IP
  * - AI endpoints: 10 req / 60s por IP (Gemini free tier: 15 RPM)
@@ -19,6 +24,26 @@ let redis: Redis | null = null
 
 // Warn-once en no-producción para no inundar los logs de desarrollo.
 let warnedUnconfigured = false
+
+// Warn-once para la cuota agotada: si no, cada request del mes escribiría una
+// línea de error idéntica y el log dejaría de servir para nada.
+let warnedQuota = false
+
+/**
+ * ¿El error de Upstash es "se acabó la cuota del plan" y no "Redis se cayó"?
+ *
+ * Upstash contesta a la API REST con 429 y un mensaje del tipo
+ * "ERR max daily request limit exceeded" / "max requests limit exceeded" cuando
+ * se agota el cupo del plan. Es un estado PERMANENTE hasta que se sube el plan
+ * o corta el ciclo, a diferencia de un timeout, que se resuelve solo.
+ *
+ * Se inspecciona el texto porque @upstash/redis lanza un Error plano, sin
+ * código estructurado que consultar.
+ */
+function isQuotaExhausted(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err)
+  return /limit exceeded|exceeded your .*(quota|limit)|quota exceeded|max requests/i.test(msg)
+}
 
 /**
  * Respuesta 429 "bloqueado" que los callers esperan (mismo shape que cuando se
@@ -38,12 +63,40 @@ function blockedResponse(): NextResponse {
   )
 }
 
+/**
+ * Resuelve las credenciales de Redis aceptando DOS convenciones de nombre:
+ *
+ *  - `KV_REST_API_URL` / `KV_REST_API_TOKEN`: los que inyecta SOLO la
+ *    integracion de Upstash del Marketplace de Vercel. Es la fuente real en
+ *    produccion, asi que va primero.
+ *  - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`: los nombres nativos
+ *    de Upstash, utiles para `.env.local` y para cualquier deploy que no pase
+ *    por el Marketplace.
+ *
+ * OJO con el token: la integracion tambien inyecta `KV_REST_API_READ_ONLY_TOKEN`
+ * y ese NO sirve aqui. El rate limiter ESCRIBE (incrementa contadores), asi que
+ * con el token de solo lectura cada request lanzaria y en produccion caeriamos
+ * al fail-closed: 429 para toda la app. Nunca leerlo desde este modulo.
+ *
+ * Devuelve null si falta cualquiera de las dos piezas.
+ */
+function readRedisConfig(): { url: string; token: string } | null {
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
+  if (!url || !token) return null
+  return { url, token }
+}
+
 function getRedis(): Redis {
   if (!redis) {
-    redis = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL!,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-    })
+    const config = readRedisConfig()
+    if (!config) {
+      // No deberia pasar: applyRateLimit ya corta antes si falta config. Se
+      // lanza en vez de construir un cliente invalido para que el error se vea
+      // en el catch de applyRateLimit y no como un 401 silencioso de Upstash.
+      throw new Error('[rate-limit] Redis no configurado (URL/TOKEN ausentes)')
+    }
+    redis = new Redis({ url: config.url, token: config.token })
   }
   return redis
 }
@@ -114,11 +167,11 @@ export async function applyRateLimit(
   // Google OAuth + allowlist de dominios, asi que la superficie de abuso se
   // limita a miembros ya autenticados de la org. El fallo en TIEMPO DE EJECUCION
   // (Redis configurado pero caido) SI se sigue tratando como fail-closed abajo.
-  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+  if (!readRedisConfig()) {
     if (process.env.NODE_ENV === 'production' && !warnedUnconfigured) {
       warnedUnconfigured = true
       console.error(
-        '[rate-limit] UPSTASH_REDIS_REST_URL/TOKEN no configurado en producción. ' +
+        '[rate-limit] KV_REST_API_URL/TOKEN (o UPSTASH_REDIS_REST_*) no configurado en producción. ' +
           'Rate limiting DESHABILITADO (fail-open) para no bloquear auth/invitaciones. ' +
           'Provisiona Upstash Redis y setea las vars para restaurar la protección.'
       )
@@ -159,9 +212,29 @@ export async function applyRateLimit(
 
     return null
   } catch (err) {
-    // Redis lanzó (timeout, red, credenciales inválidas). En producción se falla
-    // CERRADO (429): sin Redis no hay garantía anti-abuso, mejor rechazar que
-    // dejar la puerta abierta. En desarrollo se deja pasar para no bloquear.
+    // Se acabó la CUOTA del plan de Upstash (no es que Redis se haya caído).
+    // Distinguirlo importa muchísimo: el plan free son 500K comandos al mes y al
+    // agotarse Upstash rechaza TODO. Si eso cayera en el fail-closed de abajo,
+    // WLO entero devolvería 429 a todo el mundo por quedarnos sin cuota, que es
+    // justo el peor momento para tumbar la app. Aquí se deja PASAR y se grita en
+    // los logs: quedarse sin rate limit es peor que quedarse sin app.
+    if (isQuotaExhausted(err)) {
+      if (!warnedQuota) {
+        warnedQuota = true
+        console.error(
+          '[rate-limit] CUOTA DE UPSTASH AGOTADA. Rate limiting deshabilitado (fail-open) ' +
+            'para no tumbar la app. Sube el plan o espera al corte del ciclo:',
+          err
+        )
+      }
+      return null
+    }
+
+    // Redis lanzó por otra razón (timeout, red, credenciales inválidas). En
+    // producción se falla CERRADO (429): sin Redis no hay garantía anti-abuso,
+    // mejor rechazar que dejar la puerta abierta. Esto es un incidente acotado
+    // en el tiempo, no un estado permanente como la cuota. En desarrollo se deja
+    // pasar para no bloquear.
     if (process.env.NODE_ENV === 'production') {
       console.error('[rate-limit] Redis error en producción, fallando CERRADO (429):', err)
       return blockedResponse()

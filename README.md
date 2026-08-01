@@ -215,7 +215,7 @@ Variables de entorno (todas viven en `.env.local`, que **nunca** se commitea):
 | `GEMINI_API_KEY` | KERN y la IA del editor | opcional |
 | `GEMINI_MODEL` | modelo a usar, si se quiere otro | opcional |
 | `RESEND_API_KEY` / `EMAIL_FROM` | envío de correo | opcional |
-| `UPSTASH_REDIS_REST_URL` / `_TOKEN` | rate limiting distribuido | opcional |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | rate limiting distribuido. Los inyecta sola la integración de Upstash del Marketplace de Vercel, no se ponen a mano. En local se acepta el alias `UPSTASH_REDIS_REST_URL` / `_TOKEN`. Nunca uses el `KV_REST_API_READ_ONLY_TOKEN`: el limiter escribe contadores | opcional |
 | `CRON_SECRET` | protege los endpoints de cron | en producción, sí |
 
 Sin `GEMINI_API_KEY` la app funciona completa; solo las funciones de IA responden 503 con un mensaje claro.
