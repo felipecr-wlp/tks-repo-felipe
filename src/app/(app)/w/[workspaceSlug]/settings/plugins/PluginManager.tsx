@@ -35,6 +35,17 @@ export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, 
   const [tab, setTab] = useState<'installed' | 'marketplace'>('installed')
 
   const installMap = new Map(installed.map(i => [i.app_id, i]))
+  const [userEnabled, setUserEnabled] = useState<Record<string, boolean>>({})
+
+  async function toggleUser(installId: string) {
+    const next = !(userEnabled[installId] ?? true)
+    setUserEnabled(prev => ({ ...prev, [installId]: next }))
+    await fetch('/api/user-plugins', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ install_id: installId, enabled: next }),
+    })
+  }
 
   async function doInstall(appId: string) {
     setLoading(appId)
@@ -144,12 +155,21 @@ export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, 
 
             // Installed tab: clickable card linking to detail
             if (tab === 'installed' && inst) {
+              const ue = userEnabled[inst.id] ?? true
               return (
-                <Link key={app.id} href={`/w/${workspaceSlug}/settings/plugins/${inst.id}`}
-                  className="flex items-center gap-4 p-4 border rounded-xl bg-card hover:bg-accent/30 transition-colors cursor-pointer">
-                  {cardInner}
-                  <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                </Link>
+                <div key={app.id} className="flex items-center gap-4 p-4 border rounded-xl bg-card hover:bg-accent/30 transition-colors">
+                  <Link href={`/w/${workspaceSlug}/settings/plugins/${inst.id}`} className="flex items-center gap-4 flex-1 min-w-0">
+                    {cardInner}
+                  </Link>
+                  <button onClick={(e) => { e.preventDefault(); toggleUser(inst.id) }}
+                    className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${ue ? 'text-green-600 hover:bg-green-50' : 'text-muted-foreground hover:bg-accent'}`}
+                    title={ue ? 'Desactivar para mi' : 'Activar para mi'}>
+                    {ue ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                  </button>
+                  <Link href={`/w/${workspaceSlug}/settings/plugins/${inst.id}`}>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  </Link>
+                </div>
               )
             }
 
