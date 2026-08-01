@@ -40,7 +40,7 @@ let warnedQuota = false
  * Se inspecciona el texto porque @upstash/redis lanza un Error plano, sin
  * código estructurado que consultar.
  */
-function isQuotaExhausted(err: unknown): boolean {
+export function isQuotaExhausted(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err)
   return /limit exceeded|exceeded your .*(quota|limit)|quota exceeded|max requests/i.test(msg)
 }
