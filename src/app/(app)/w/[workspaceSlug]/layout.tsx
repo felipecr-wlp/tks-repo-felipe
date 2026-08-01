@@ -5,7 +5,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { headers } from 'next/headers'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { canAccessPath, normalizeHidden } from '@/lib/features'
+import { canAccessPath, effectiveHidden } from '@/lib/features'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { MobileTopBar } from '@/components/sidebar/MobileTopBar'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
@@ -75,6 +75,7 @@ export default async function WorkspaceLayout({
       name: string
       slug: string
       org_id: string
+      installed_features: string[] | null
       organizations: { id: string; name: string } | null
     } | null
   }
@@ -85,7 +86,7 @@ export default async function WorkspaceLayout({
       role,
       hidden_features,
       workspaces!inner (
-        id, name, slug, org_id,
+        id, name, slug, org_id, installed_features,
         organizations!workspaces_org_id_fkey ( id, name )
       )
     `)
@@ -122,7 +123,15 @@ export default async function WorkspaceLayout({
   // abre. `x-pathname` lo pone el middleware, porque un layout no conoce su
   // propia ruta. Si el header faltara (arranque raro), no se bloquea nada: es
   // preferible mostrar de más que dejar a alguien fuera de su trabajo.
-  const hiddenFeatures = normalizeHidden(row.hidden_features)
+  //
+  // Son DOS reglas que aquí se funden en una sola lista de ocultas: lo que el
+  // admin le escondió a esta persona, más las herramientas del marketplace que
+  // este workspace no ha instalado. Todo lo de abajo (barra, paleta, bloqueo de
+  // ruta) sigue recibiendo lo mismo de siempre.
+  const hiddenFeatures = effectiveHidden(
+    row.hidden_features ?? [],
+    row.workspaces.installed_features ?? []
+  )
   const currentPath = headers().get('x-pathname')
   const wsBase = `/w/${workspace.slug}`
   if (currentPath && !canAccessPath(currentPath, wsBase, hiddenFeatures)) {

@@ -45,24 +45,13 @@ import { InboxBadge } from './InboxBadge'
 import { useCommandPalette } from '@/stores/command-palette'
 import { useNewTask } from '@/stores/new-task'
 import { useMobileNav } from '@/stores/mobile-nav'
-import { FEATURES, type FeatureKey } from '@/lib/features'
+import { FEATURES } from '@/lib/features'
+// El mapa de iconos del catalogo se mudo a `@/components/feature-icons`: el
+// marketplace de herramientas pinta ese mismo catalogo y tiene que verse igual.
+// Dos mapas separados se desincronizan en el primer modulo nuevo, y el sintoma
+// (un icono distinto en cada pantalla) es de los que nadie reporta.
+import { FEATURE_ICONS } from '@/components/feature-icons'
 import {
-  Home,
-  CheckSquare,
-  Inbox,
-  CalendarDays,
-  Timer,
-  Target,
-  BarChart3,
-  FileText,
-  PenTool,
-  MessagesSquare,
-  Compass,
-  IdCard,
-  GraduationCap,
-  BookOpen,
-  ClipboardList,
-  Workflow,
   Search,
   ChevronLeft,
   ChevronDown,
@@ -71,30 +60,7 @@ import {
   Lock,
   Building2,
   MoreHorizontal,
-  type LucideIcon,
 } from 'lucide-react'
-
-// Icono de cada funcion del catalogo. Vive aqui y no en `features.ts` porque
-// ese modulo tambien lo importa el servidor, y arrastrar componentes de React
-// a la capa de datos no aporta nada.
-const FEATURE_ICONS: Record<FeatureKey, LucideIcon> = {
-  inbox: Inbox,
-  'my-tasks': CheckSquare,
-  home: Home,
-  general: MessagesSquare,
-  guia: GraduationCap,
-  academia: BookOpen,
-  calendar: CalendarDays,
-  reportes: ClipboardList,
-  notes: FileText,
-  whiteboards: PenTool,
-  flows: Workflow,
-  goals: Target,
-  analytics: BarChart3,
-  tracking: Timer,
-  projects: Compass,
-  cv: IdCard,
-}
 
 interface SidebarProps {
   workspaceSlug: string

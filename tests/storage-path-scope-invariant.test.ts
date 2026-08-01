@@ -19,14 +19,29 @@
  * Registro archivo -> [gate de acceso, acotamiento de path]:
  *   - teams/[teamId]/chat-files/sign   -> canAccessTeamById + startsWith(prefix)
  *   - teams/[teamId]/chat-files        -> canAccessTeamById + path `team/${teamId}/`
- *   - tasks/[taskId]/attachments       -> loadTaskWithAccess + path `task/${taskId}/`
+ *   - workspace/[workspaceId]/chat-files      -> canAccessWorkspaceById + path `workspace/${workspaceId}/`
+ *   - workspace/[workspaceId]/chat-files/sign -> canAccessWorkspaceById + startsWith(prefix)
+ *   - tasks/[taskId]/attachments       -> loadTaskWithAccess + taskFilePrefix(taskId)
+ *   - tasks/[taskId]/attachments/upload-url   -> loadTaskWithAccess + taskFilePrefix(taskId)
  *   - tasks/[taskId]/attachments/[attachmentId] -> att.task_id === taskId + membresia
+ *   - daily-reports/entries/[entryId]/images  -> loadEntryOwnership + reportImagePrefix(report_id)
+ *   - daily-reports/images/[imageId]          -> loadEntryOwnership + path de la fila (image.path)
+ *   - content/items/[itemId]/assets    -> loadItemAccess + contentAssetPrefix(itemId)
+ *   - content/items/[itemId]           -> loadItemAccess + rutas de filas con item_id = itemId
+ *   - content/assets/[assetId]         -> loadItemAccess(asset.item_id) + path de la fila
+ *
+ * ── Por que la deteccion admite salto de linea ──────────────────────────────
+ * La version anterior buscaba `.storage.from(` en una sola linea. Tres handlers
+ * que el formateador partio en dos (`admin.storage` y `.from(BUCKET)` en lineas
+ * distintas) llevaban tiempo invisibles para este tripwire: los tres si gatean,
+ * pero eso fue suerte, no vigilancia. Un tripwire que se apaga con un salto de
+ * linea no es un tripwire.
  *
  * Determinista: solo lee fuentes, no monta rutas ni DB.
  *
- * Hoy 4 handlers tocan storage; los 4 gatean y acotan el path; 0 IDOR de storage.
- * Un handler de storage nuevo debe gatear, acotar y registrarse aqui. Nunca un
- * silencio.
+ * Hoy 12 handlers tocan storage; los 12 gatean y acotan el path; 0 IDOR de
+ * storage. Un handler de storage nuevo debe gatear, acotar y registrarse aqui.
+ * Nunca un silencio.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -43,14 +58,26 @@ function walkRoutes(dir: string, out: string[] = []): string[] {
   return out
 }
 
-const TOUCHES_STORAGE = /\.storage\.from\(/
+// `\s*` entre `.storage` y `.from(`: el encadenado se parte en varias lineas en
+// cuanto el formateador lo decide, y esa ruptura no debe apagar la deteccion.
+const TOUCHES_STORAGE = /\.storage\s*\.from\(/
 
 // Registro: archivo -> primitivas requeridas (todas deben aparecer).
 const REGISTRY: Record<string, RegExp[]> = {
   'teams/[teamId]/chat-files/sign/route.ts': [/canAccessTeamById\(/, /startsWith\(prefix\)/],
   'teams/[teamId]/chat-files/route.ts':      [/canAccessTeamById\(/, /team\/\$\{params\.teamId\}\//],
-  'tasks/[taskId]/attachments/route.ts':     [/loadTaskWithAccess\(/, /task\/\$\{params\.taskId\}\//],
+  'workspace/[workspaceId]/chat-files/route.ts':      [/canAccessWorkspaceById\(/, /workspace\/\$\{params\.workspaceId\}\//],
+  'workspace/[workspaceId]/chat-files/sign/route.ts': [/canAccessWorkspaceById\(/, /startsWith\(prefix\)/],
+  'tasks/[taskId]/attachments/route.ts':     [/loadTaskWithAccess\(/, /taskFilePrefix\(params\.taskId\)/],
+  'tasks/[taskId]/attachments/upload-url/route.ts': [/loadTaskWithAccess\(/, /taskFilePrefix\(params\.taskId\)/],
   'tasks/[taskId]/attachments/[attachmentId]/route.ts': [/att\.task_id !== params\.taskId/, /project_members/],
+  'daily-reports/entries/[entryId]/images/route.ts': [/loadEntryOwnership\(/, /reportImagePrefix\(owner\.report_id\)/],
+  // El path no se construye: sale de la fila, y la fila se ata al dueño de su
+  // entrada antes de firmar o borrar.
+  'daily-reports/images/[imageId]/route.ts': [/loadEntryOwnership\(admin, image\.entry_id\)/, /image\.path/],
+  'content/items/[itemId]/assets/route.ts':  [/loadItemAccess\(/, /contentAssetPrefix\(params\.itemId\)/],
+  'content/items/[itemId]/route.ts':         [/loadItemAccess\(/, /\.eq\('item_id', params\.itemId\)/],
+  'content/assets/[assetId]/route.ts':       [/loadItemAccess\(admin, asset\.item_id/, /asset\.path/],
 }
 
 describe('Invariante: toda operacion de storage con admin client acota el path al tenant', () => {

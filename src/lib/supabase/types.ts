@@ -630,6 +630,187 @@ export type Database = {
           },
         ]
       }
+      content_assets: {
+        Row: {
+          bytes: number
+          created_at: string
+          height: number | null
+          id: string
+          item_id: string
+          path: string
+          position: number
+          thumb_bytes: number
+          thumb_path: string
+          width: number | null
+        }
+        Insert: {
+          bytes: number
+          created_at?: string
+          height?: number | null
+          id?: string
+          item_id: string
+          path: string
+          position?: number
+          thumb_bytes: number
+          thumb_path: string
+          width?: number | null
+        }
+        Update: {
+          bytes?: number
+          created_at?: string
+          height?: number | null
+          id?: string
+          item_id?: string
+          path?: string
+          position?: number
+          thumb_bytes?: number
+          thumb_path?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_assets_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_items: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          caption: string | null
+          created_at: string
+          created_by: string | null
+          format: string | null
+          id: string
+          network: string
+          published_at: string | null
+          published_url: string | null
+          rating: number | null
+          scheduled_for: string | null
+          status: string
+          title: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          caption?: string | null
+          created_at?: string
+          created_by?: string | null
+          format?: string | null
+          id?: string
+          network: string
+          published_at?: string | null
+          published_url?: string | null
+          rating?: number | null
+          scheduled_for?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          caption?: string | null
+          created_at?: string
+          created_by?: string | null
+          format?: string | null
+          id?: string
+          network?: string
+          published_at?: string | null
+          published_url?: string | null
+          rating?: number | null
+          scheduled_for?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_items_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_items_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_notes: {
+        Row: {
+          author_id: string | null
+          body: string
+          created_at: string
+          id: string
+          item_id: string
+          kind: string
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          author_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          item_id: string
+          kind?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          author_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          item_id?: string
+          kind?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_notes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_notes_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_field_definitions: {
         Row: {
           created_at: string
@@ -3846,6 +4027,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          installed_features: string[]
           name: string
           org_id: string
           slug: string
@@ -3855,6 +4037,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          installed_features?: string[]
           name: string
           org_id: string
           slug: string
@@ -3864,6 +4047,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          installed_features?: string[]
           name?: string
           org_id?: string
           slug?: string

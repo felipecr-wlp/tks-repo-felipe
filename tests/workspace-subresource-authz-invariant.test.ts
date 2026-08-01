@@ -30,7 +30,10 @@
  *     construccion (una fila que el user no puede tocar devuelve 0 filas -> 403).
  *     No hay bypass de RLS que autorizar en codigo, por eso no lleva primitiva.
  *
- * Hoy 6 archivos con handler mutante (7 handlers) autorizan. Un subrecurso nuevo
+ * Hoy 7 archivos con handler mutante (8 handlers) autorizan, incluido el
+ * interruptor del marketplace (tools/route.ts, que instala y desinstala
+ * herramientas para todo el equipo y por eso exige isWorkspaceAdminById).
+ * Un subrecurso nuevo
  * debe apoyarse en una de estas primitivas, o (si muta solo via client de sesion
  * bajo RLS) justificarse aqui como el revoke de invites. Nunca un silencio.
  */
@@ -73,7 +76,7 @@ describe('Invariante de authz: subrecurso mutante de workspace autoriza al usuar
   }
 
   it('encuentra archivos con handler mutante (el scan no esta vacio)', () => {
-    expect(totalMutating).toBeGreaterThanOrEqual(7)
+    expect(totalMutating).toBeGreaterThanOrEqual(8)
   })
 
   it('ningun archivo con subrecurso mutante carece de primitiva de autorizacion', () => {
