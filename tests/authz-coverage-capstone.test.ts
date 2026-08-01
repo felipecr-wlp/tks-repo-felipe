@@ -33,6 +33,7 @@
  *   messages      -> misc-endpoint-authz-invariant
  *   marketplace   -> misc-endpoint-authz-invariant
  *   kern          -> misc-endpoint-authz-invariant (allowlist justificado: IA authN-only)
+ *   flows         -> flows-authz-invariant (gate por ruta + tabla de verdad de resolveFlowAccess)
  *
  * Determinista: solo lee fuentes, no monta rutas ni DB.
  *
@@ -63,6 +64,7 @@ const COVERED = new Set<string>([
   'goals', 'sprints', 'whiteboards', 'time-entries',
   'profile', 'onboarding', 'notifications', 'invites', 'daily-reports',
   'academy', 'applications', 'messages', 'marketplace', 'kern',
+  'flows',
 ])
 
 describe('Capstone de authz: ninguna familia mutante de src/app/api escapa a su tripwire', () => {

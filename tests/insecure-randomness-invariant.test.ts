@@ -47,16 +47,26 @@ function walkSrc(dir: string, out: string[] = []): string[] {
 const USES_MATH_RANDOM = /Math\.random\(/
 
 // Registro: sitios BENIGNOS que pueden usar Math.random (no acuñan secretos).
-// Rutas relativas a src/, con separador "/". Todos son rompe-colisiones de slug
-// o el serial cosmetico de un certificado (no autentican nada).
+// Rutas relativas a src/, con separador "/". Son rompe-colisiones de slug, el
+// serial cosmetico de un certificado y la dispersion visual del editor de flujos
+// (ninguno autentica nada).
 const BENIGN: string[] = [
   '/app/api/academy/certificate/route.ts',        // serial visible del certificado
   '/app/api/marketplace/propose/route.ts',        // desambiguador de slug
   '/app/api/onboarding/route.ts',                 // desambiguador de slug (org + ws)
   '/app/api/projects/route.ts',                   // desambiguador de slug
   '/app/api/teams/route.ts',                      // desambiguador de slug
-  '/app/api/workspaces/route.ts',                 // desambiguador de slug
+  // Nota: /app/api/workspaces/route.ts salio del registro. En 8797c02 se cerro la
+  // creacion de workspaces (el POST responde 403) y con ella se fue el codigo de
+  // slug que usaba Math.random. El registro es un conjunto EXACTO, asi que un
+  // sitio benigno que desaparece tambien hay que darlo de baja.
   '/components/tasks/ManageCustomFieldsModal.tsx',// slug de opcion de campo
+  // Editor de flujos: dispersa la posicion inicial de un nodo nuevo en el lienzo
+  // (para que no se apilen todos en el mismo punto) y agrega 4 caracteres al id de
+  // un nodo duplicado, que ya lleva Date.now() delante. Ninguno autentica ni
+  // autoriza: si dos ids chocaran, el peor caso es un nodo repetido en un
+  // diagrama, no un acceso.
+  '/app/(app)/w/[workspaceSlug]/flows/[flowId]/FlowEditor.tsx',
 ]
 
 describe('Invariante: ningun secreto se acuña con un PRNG no criptografico', () => {

@@ -51,8 +51,33 @@ function walkRoutes(dir: string, out: string[] = []): string[] {
 // Primitiva de acceso: membresia, rol, helper de acceso reconocido o atado de
 // identidad. NO incluye "user.id" a secas: eso solo prueba el 401 de authN, no que
 // la lectura este acotada a la membresia del que llama.
-const ACCESS_PRIMITIVE =
-  /project_members|workspace_members|team_members|space_members|org_members|org_role|isAdmin\(|isOrgAdmin\(|isWorkspaceAdmin|checkTaskAccess|canAccessCourse|canAccessTeamById|recipient_id|applicant_id/
+//
+// Helpers y gates de rol: nombrarlos YA es el gate, porque su unico proposito es
+// resolver el acceso. `loadItemAccess` (content) y `resolveFlowAccess` (flows)
+// devuelven el nivel de acceso del que llama, del mismo tipo que canAccessTeamById.
+const ACCESS_HELPER =
+  /org_role|isAdmin\(|isOrgAdmin\(|isWorkspaceAdmin|checkTaskAccess|canAccessCourse|canAccessTeamById|loadItemAccess\(|resolveFlowAccess\(|recipient_id|applicant_id/
+
+// Tablas de membresia. Nombrarlas NO basta, y esa fue la leccion cara: la ruta
+// /api/flows/[flowId]/members leia `workspace_members` como CARGA UTIL ("dame el
+// equipo entero de este workspace"), no como filtro, y el tripwire la daba por
+// buena. Debajo de ese falso negativo habia un IDOR real: cualquier persona
+// autenticada con un uuid de flujo se llevaba el directorio con correos de otro
+// inquilino. Una tabla de membresia solo cuenta como gate si la consulta esta
+// ACOTADA A QUIEN LLAMA.
+const MEMBERSHIP_TABLE = /project_members|workspace_members|team_members|space_members|org_members/
+// Atado a quien llama: la identidad de la sesion entra como ULTIMO ARGUMENTO de
+// una llamada, que es la forma que toman los dos gates reales del repo:
+//   .eq('profile_id', user.id)              filtro directo
+//   assertMember(admin, projectId, user.id) helper de modulo o importado
+// Lo que NO cuenta es que `user` solo aparezca en el `if (!user)` del 401: ese era
+// exactamente el estado de la ruta de miembros de flujos. Sesion sin autorizacion.
+const CALLER_BOUND = /,\s*user\.id\s*\)/
+
+function tieneprimitivaDeAcceso(src: string): boolean {
+  if (ACCESS_HELPER.test(src)) return true
+  return MEMBERSHIP_TABLE.test(src) && CALLER_BOUND.test(src)
+}
 
 // Rutas justificadas como preview publico por capacidad no adivinable (ver cabecera).
 const ALLOWLIST = new Set<string>([
@@ -71,7 +96,7 @@ describe('Invariante de authz (lectura): ningun GET+admin sobre id dinamico lee 
     if (!/export async function GET\b/.test(src)) continue // solo con handler de lectura
     total++
     if (ALLOWLIST.has(rel)) continue // preview publico justificado
-    if (!ACCESS_PRIMITIVE.test(src)) gaps.push('/src/app/api/' + rel)
+    if (!tieneprimitivaDeAcceso(src)) gaps.push('/src/app/api/' + rel)
   }
 
   it('encuentra las rutas GET+admin sobre id dinamico (el scan no esta vacio)', () => {

@@ -13,13 +13,19 @@ interface RouteParams {
 const patchSchema = z.object({
   title:      z.string().max(200).trim().optional(),
   description: z.string().max(2000).nullable().optional(),
-  nodes:      z.array(z.unknown()).optional(),
-  edges:      z.array(z.unknown()).optional(),
+  // Techos generosos, no restrictivos: un diagrama humano no pasa de unas decenas
+  // de nodos. Sin `.max`, el body de un Route Handler del App Router no tiene
+  // limite y un arreglo arbitrario se bufferiza entero antes de validarse, se
+  // guarda en la columna jsonb y se relee en cada apertura del flujo.
+  nodes:      z.array(z.unknown()).max(2000).optional(),
+  edges:      z.array(z.unknown()).max(4000).optional(),
   visibility: z.enum(['private', 'project', 'team', 'workspace']).optional(),
   // Version del flujo sobre la que se hicieron los cambios. Si en la base ya hay
   // otra mas nueva, alguien mas guardo primero y se responde 409 en vez de
   // pisarlo. El editor decide entonces si recarga o si insiste sin este campo.
-  expected_updated_at: z.string().optional(),
+  // Es un instante ISO: 40 caracteres sobran y cualquier cosa mas larga no es
+  // una fecha, es un intento de gastar memoria.
+  expected_updated_at: z.string().max(40).optional(),
 }).strict()
 
 interface FlowFull {

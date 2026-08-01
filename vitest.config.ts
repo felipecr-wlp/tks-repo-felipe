@@ -10,6 +10,11 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // `server-only` es un centinela de Next que no resuelve fuera de su bundler.
+      // Se sustituye por un modulo vacio para poder PROBAR los helpers de servidor
+      // que lo importan (ver tests/stubs/server-only.ts). La proteccion real la
+      // sigue aplicando el build de Next, no el test.
+      'server-only': fileURLToPath(new URL('./tests/stubs/server-only.ts', import.meta.url)),
     },
   },
   test: {
