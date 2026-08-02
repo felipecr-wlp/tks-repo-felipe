@@ -32,10 +32,24 @@
  * instancia). Hoy `src/` no importa `node:fs` en ningun lado y asi se queda: las
  * herramientas son codigo del repo encendido por una bandera, no paquetes.
  *
+ * ── E) Volverse instalable ESCONDE la pantalla, y eso pide relleno previo ────
+ * Corolario de C que cuesta caro descubrir solo. Agregar `installable: true` a
+ * una pantalla QUE YA SE USA no la ofrece: la HACE DESAPARECER de todos los
+ * workspaces existentes, porque ninguno la tiene en `installed_features` y el
+ * default de una instalable es "no instalada". Nadie la desinstalo; cambio la
+ * regla bajo sus pies. El sintoma es un equipo que abre el lunes y le faltan
+ * pantallas, sin nada en los logs, porque desde el codigo todo funciono bien.
+ *
+ * Por eso el conjunto instalable esta escrito a mano aqui. No es duplicar el
+ * catalogo por gusto: es que este cambio no puede ser tacito. Quien agregue una
+ * instalable va a ver este test en rojo y va a leer el porque antes de que se lo
+ * cuente el equipo. La migracion de relleno va PRIMERO, la bandera despues.
+ *
  * Determinista: solo lee fuentes y ejercita funciones puras, no monta rutas ni DB.
  *
- * Hoy 1 herramienta instalable en el catalogo y 0 archivos de src/ tocan el disco.
- * Un marketplace que empiece a escribir en disco cae aqui. Nunca un silencio.
+ * Hoy 9 herramientas instalables en el catalogo y 0 archivos de src/ tocan el
+ * disco. Un marketplace que empiece a escribir en disco cae aqui. Nunca un
+ * silencio.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -109,6 +123,46 @@ describe('Invariante del marketplace: instalar enciende una pantalla del repo, n
     expect(normalizeInstalled([42, {}, 'no-existe', 'home'])).toEqual([])
     const key = INSTALLABLE_FEATURES[0].key
     expect(normalizeInstalled([key, key])).toEqual([key])
+  })
+
+  // ── E) el conjunto instalable esta escrito a mano ──────────────────────────
+  it('el conjunto instalable es exactamente este (cambiarlo pide migracion de relleno)', () => {
+    // SI ESTE TEST ESTA EN ROJO Y VOS AGREGASTE `installable: true`:
+    //
+    // No basta con actualizar esta lista. Una pantalla que ya se usa DESAPARECE
+    // de todos los workspaces existentes en cuanto se vuelve instalable, porque
+    // ninguno la tiene en `installed_features` y el default de una instalable es
+    // "no instalada". Sin error, sin log: el equipo abre el lunes y le falta una
+    // pantalla.
+    //
+    // El orden es: (1) migracion que agrega la clave a `installed_features` de
+    // todos los workspaces, (2) recien ahi la bandera en `src/lib/features.ts`,
+    // (3) esta lista. Ver `supabase/migrations/20260807000000_marketplace_backfill.sql`
+    // como molde: aditiva, idempotente y segura de correr antes del deploy.
+    //
+    // Si en cambio la QUITASTE del catalogo, no hay nada que hacer:
+    // `normalizeInstalled()` descarta el residuo solo.
+    const ESPERADAS = [
+      'academia',
+      'analytics',
+      'contenidos',
+      'cv',
+      'flows',
+      'goals',
+      'projects',
+      'tracking',
+      'whiteboards',
+    ]
+    expect(INSTALLABLE_FEATURES.map((f) => f.key).sort()).toEqual(ESPERADAS)
+  })
+
+  it('las funciones de fabrica NO son instalables (son el piso de un workspace nuevo)', () => {
+    // Un workspace recien creado tiene que poder trabajar sin pasar por el
+    // marketplace. Si la bandeja de entrada o la guia de uso hubiera que
+    // instalarlas, el primer dia de alguien nuevo seria una busqueda del tesoro.
+    for (const key of ['home', 'inbox', 'my-tasks', 'general', 'reportes', 'notes', 'calendar', 'guia']) {
+      expect(isInstallable(key)).toBe(false)
+    }
   })
 
   // ── C) la regla de plegado ─────────────────────────────────────────────────

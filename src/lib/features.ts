@@ -139,6 +139,7 @@ export const FEATURES: FeatureDef[] = [
     labelKey: 'nav.whiteboards',
     description: 'Pizarras para diagramar y planear en conjunto.',
     group: 'workspace',
+    installable: true,
   },
   {
     key: 'flows',
@@ -149,6 +150,7 @@ export const FEATURES: FeatureDef[] = [
     // Es un modulo nuevo: si arranca detras de "Ver mas" nadie lo encuentra.
     // Cuando deje de ser novedad se puede bajar al bloque secundario.
     primary: true,
+    installable: true,
   },
   {
     key: 'guia',
@@ -163,6 +165,7 @@ export const FEATURES: FeatureDef[] = [
     labelKey: 'nav.academy',
     description: 'Capacitaciones y material de formacion interno.',
     group: 'workspace',
+    installable: true,
   },
   {
     key: 'goals',
@@ -170,6 +173,7 @@ export const FEATURES: FeatureDef[] = [
     labelKey: 'nav.goals',
     description: 'Metas y objetivos con su avance.',
     group: 'workspace',
+    installable: true,
   },
   {
     key: 'analytics',
@@ -177,6 +181,7 @@ export const FEATURES: FeatureDef[] = [
     labelKey: 'nav.analytics',
     description: 'Reportes de productividad y carga de trabajo.',
     group: 'workspace',
+    installable: true,
   },
   {
     key: 'tracking',
@@ -184,6 +189,7 @@ export const FEATURES: FeatureDef[] = [
     labelKey: 'nav.tracking',
     description: 'Registro de tiempo dedicado a cada tarea.',
     group: 'workspace',
+    installable: true,
   },
   {
     key: 'projects',
@@ -191,6 +197,7 @@ export const FEATURES: FeatureDef[] = [
     labelKey: 'nav.opportunities',
     description: 'Bolsa interna de oportunidades y proyectos abiertos.',
     group: 'workspace',
+    installable: true,
   },
   {
     key: 'cv',
@@ -198,6 +205,7 @@ export const FEATURES: FeatureDef[] = [
     labelKey: 'nav.myCv',
     description: 'Perfil profesional interno de cada persona.',
     group: 'workspace',
+    installable: true,
   },
   {
     key: 'contenidos',
