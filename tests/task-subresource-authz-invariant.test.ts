@@ -32,8 +32,10 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { handlersMutantes, gateDeMembresiaVerificado } from './helpers/routeSource'
 
-const SUBRES = join(process.cwd(), 'src', 'app', 'api', 'tasks', '[taskId]')
+const RAIZ = process.cwd()
+const SUBRES = join(RAIZ, 'src', 'app', 'api', 'tasks', '[taskId]')
 
 /** Recorre un dir y devuelve rutas absolutas de archivos route.ts. */
 function walkRoutes(dir: string, out: string[] = []): string[] {
@@ -55,23 +57,24 @@ const files = walkRoutes(SUBRES)
 
 describe('Invariante de authz: subrecurso mutante de tarea autoriza al usuario sobre la tarea', () => {
   const gaps: Gap[] = []
+  const verificados: Gap[] = []
   for (const file of files) {
-    const rel = file.replace(process.cwd(), '').replace(/\\/g, '/')
+    const rel = file.replace(RAIZ, '').replace(/\\/g, '/')
     if (ALLOWLIST.has(rel)) continue
     const src = readFileSync(file, 'utf8')
 
-    const marks: { verb: string; start: number }[] = []
-    for (const m of src.matchAll(/export async function ([A-Z]+)\b/g)) {
-      marks.push({ verb: m[1], start: m.index ?? 0 })
+    // Alcance = el bloque del handler MAS los helpers locales que llama. Un gate
+    // factorizado en un helper del mismo archivo sigue siendo un gate; exigirlo
+    // literal dentro del bloque solo produce ruido sobre codigo correcto.
+    for (const h of handlersMutantes(src)) {
+      const porNombre = AUTHZ.test(h.alcance)
+      // Y si el gate vive en un modulo (canAccessProject y compania), se abre ese
+      // modulo y se COMPRUEBA que consulte la membresia acotada a quien llama, en
+      // vez de aprobarlo por como se llama la funcion.
+      const porModulo = gateDeMembresiaVerificado(src, RAIZ, h.alcance).length > 0
+      if (porNombre || porModulo) verificados.push({ file: rel, verb: h.verb })
+      else gaps.push({ file: rel, verb: h.verb })
     }
-    marks.forEach((mark, i) => {
-      if (!/^(POST|PATCH|PUT|DELETE)$/.test(mark.verb)) return
-      const end = marks[i + 1]?.start ?? src.length
-      const body = src.slice(mark.start, end)
-      if (!AUTHZ.test(body)) {
-        gaps.push({ file: rel, verb: mark.verb })
-      }
-    })
   }
 
   it('encuentra handlers mutantes de subrecurso (el scan no esta vacio)', () => {
@@ -84,5 +87,11 @@ describe('Invariante de authz: subrecurso mutante de tarea autoriza al usuario s
 
   it('ningun subrecurso mutante muta sin autorizar sobre la tarea', () => {
     expect(gaps.map(g => `${g.file} :: ${g.verb}`)).toEqual([])
+  })
+
+  it('la autorizacion se comprobo de verdad en cada handler (no aprueba por vacio)', () => {
+    // Sin este piso, romper el analisis dejaria el tripwire verde sin haber
+    // mirado un solo handler. Verde por no encontrar nada no es verde.
+    expect(verificados.length).toBeGreaterThanOrEqual(20)
   })
 })

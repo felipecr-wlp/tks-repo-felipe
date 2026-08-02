@@ -20,6 +20,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { topLevelDecls, expandirConHelpers } from './helpers/routeSource'
 
 const SRC = join(process.cwd(), 'src')
 
@@ -39,15 +40,57 @@ describe('XSS invariante 1: todo sink de render sanea', () => {
   // Solo el USO real (atributo JSX), nunca menciones en comentarios/prosa.
   const SINK = /dangerouslySetInnerHTML\s*=\s*\{\{/
 
-  const sinks: { file: string; line: number; window: string }[] = []
+  /**
+   * ¿El HTML sale de un normalizador LOCAL que sanea en TODAS sus salidas?
+   *
+   * El patron real que motivo esto:
+   *
+   *   function summaryToHtml(raw: string | null): string {
+   *     if (!raw || !raw.trim()) return ''
+   *     const html = raw.trimStart().startsWith('<') ? raw : markdownToRichText(raw)
+   *     return sanitizeRichText(html)          // <- la barrera, fuera del sink
+   *   }
+   *   <div dangerouslySetInnerHTML={{ __html: summaryToHtml(r.summary) }} />
+   *
+   * Exigir la palabra `sanitizeRichText` pegada al sink obliga a repetir el
+   * saneado en cada punto de pintado, que es justo lo contrario de lo que uno
+   * quiere: una sola funcion que lo haga bien. Pero tampoco vale creerle a la
+   * funcion por su nombre. Se exige que CADA return del normalizador sea o una
+   * constante o algo saneado; si alguien mete un camino que devuelve el HTML
+   * crudo, el sink vuelve a estar descubierto y esto lo caza.
+   */
+  function saneaPorNormalizadorLocal(src: string, ventana: string): boolean {
+    const m = ventana.match(/__html:\s*([A-Za-z_$][\w$]*)\s*\(/)
+    if (!m) return false
+    const decls = topLevelDecls(src)
+    const objetivo = decls.find((d) => d.name === m[1])
+    if (!objetivo) return false
+
+    const texto = expandirConHelpers(objetivo, decls)
+    if (!/sanitizeRichText\(/.test(texto)) return false
+
+    const returns = [...objetivo.body.matchAll(/\breturn\s+([^\n]*)/g)].map((r) => r[1].trim())
+    if (returns.length === 0) return false
+    return returns.every(
+      (r) => /sanitizeRichText\(/.test(r) || /^(''|""|`\s*`|null|undefined)/.test(r)
+    )
+  }
+
+  const sinks: { file: string; line: number; window: string; sanea: boolean }[] = []
   for (const file of files) {
-    const lines = readFileSync(file, 'utf8').split('\n')
+    const src = readFileSync(file, 'utf8')
+    const lines = src.split('\n')
     lines.forEach((line, i) => {
       if (SINK.test(line)) {
         // El __html suele ir en la misma linea; se abre una ventana de 2 lineas
         // por robustez ante formateo.
         const window = `${line}\n${lines[i + 1] ?? ''}`
-        sinks.push({ file: file.replace(SRC, 'src'), line: i + 1, window })
+        sinks.push({
+          file: file.replace(SRC, 'src'),
+          line: i + 1,
+          window,
+          sanea: /sanitizeRichText/.test(window) || saneaPorNormalizadorLocal(src, window),
+        })
       }
     })
   }
@@ -57,7 +100,7 @@ describe('XSS invariante 1: todo sink de render sanea', () => {
   })
 
   it('cada sink pasa por sanitizeRichText', () => {
-    const unsanitized = sinks.filter(s => !/sanitizeRichText/.test(s.window))
+    const unsanitized = sinks.filter(s => !s.sanea)
     expect(unsanitized.map(s => `${s.file}:${s.line}`)).toEqual([])
   })
 })

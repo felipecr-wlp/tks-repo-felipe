@@ -37,8 +37,10 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { primitivaAlcanzable } from './helpers/routeSource'
 
-const API = join(process.cwd(), 'src', 'app', 'api')
+const RAIZ = process.cwd()
+const API = join(RAIZ, 'src', 'app', 'api')
 
 function walkRoutes(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -73,6 +75,33 @@ function isSessionDerived(value: string): boolean {
     /^row\.\w+$/.test(value)
 }
 
+const SESION = /getUser\(|getCachedUser\(/
+
+/**
+ * El gate ya resolvio la sesion y de ahi salio el id: `created_by: gate.userId`,
+ * donde `gate` viene de `isWorkspaceAdminById(...)`, que empieza por
+ * `getCachedUser()` y devuelve `{ userId, isAdmin }`.
+ *
+ * Esto NO es una excepcion, es la misma regla comprobada un paso mas atras. La
+ * lista de formas aceptadas de arriba (`user.id`, `auth.userId`, `session.user.id`)
+ * es una enumeracion de como se llamaban las variables el dia que se escribio, y
+ * cada nombre nuevo la deja corta: entonces canta impersonacion sobre una firma
+ * que si sale del token. Aqui se va a ver de donde salio la variable de verdad.
+ */
+function vieneDeUnGateDeSesion(src: string, value: string): boolean {
+  const m = value.match(/^(\w+)(?:\?)?\.(?:userId|user\.id)\b/)
+  if (!m) return false
+  const base = m[1]
+  // De donde sale esa variable: `const gate = await isWorkspaceAdminById(...)` o
+  // `const { gate } = await loadAndGate(...)`.
+  const asignacion = new RegExp(
+    `(?:const|let)\\s+(?:\\{[^}]*\\b${base}\\b[^}]*\\}|${base})\\s*=\\s*(?:await\\s+)?(\\w+)\\s*\\(`
+  )
+  const asig = src.match(asignacion)
+  if (!asig) return false
+  return primitivaAlcanzable(src, RAIZ, `${asig[1]}(`, SESION)
+}
+
 describe('Invariante: la identidad del actor en un insert siempre sale de user.id', () => {
   const files = walkRoutes(API)
   const violations: string[] = []
@@ -80,14 +109,15 @@ describe('Invariante: la identidad del actor en un insert siempre sale de user.i
 
   for (const file of files) {
     const rel = file.replace(API, '').replace(/\\/g, '/').replace(/^\//, '')
-    const lines = readFileSync(file, 'utf8').split('\n')
+    const src = readFileSync(file, 'utf8')
+    const lines = src.split('\n')
     lines.forEach((line, i) => {
       const m = line.match(ACTOR_FIELD)
       if (!m) return
       const field = m[1]
       const value = m[2].trim()
       if (isTypeAnnotation(value)) return // definicion de tipo, no una escritura.
-      if (isSessionDerived(value)) {
+      if (isSessionDerived(value) || vieneDeUnGateDeSesion(src, value)) {
         goodAssignments++
         return
       }

@@ -30,6 +30,28 @@ vi.mock('@/lib/rate-limit', () => ({
   applyRateLimit: async () => null,
 }))
 
+/**
+ * `cache` de React solo existe bajo la condicion de resolucion "react-server";
+ * en el runtime de vitest el entry normal de react no lo exporta y sale
+ * `TypeError: cache is not a function`. La ruta no lo usa directamente: le llega
+ * por `@/lib/team-access` -> `@/lib/auth`, que envuelve `getCachedUser` en el.
+ *
+ * Este archivo dejo de coleccionar el dia que la ruta gano ese import, y ahi
+ * esta lo peligroso: un suite que no ARRANCA no reporta cero fallos, no reporta
+ * NADA. Los tres casos de abajo llevaban tiempo sin vigilar nada y el rojo se
+ * leia como "otro test roto mas".
+ *
+ * Se sustituye SOLO la memoizacion, no la autorizacion: `cache(fn)` pasa a ser
+ * `fn`, que es lo que hace de todos modos la primera vez que se llama.
+ * `@/lib/team-access` y `@/lib/auth` siguen siendo los de verdad, que es justo
+ * lo que estos tests tienen que ejercitar. Mockear `@/lib/auth` entero habria
+ * sido mas corto y habria apagado la cadena que se quiere probar.
+ */
+vi.mock('react', async (original) => {
+  const react = await original<typeof import('react')>()
+  return { ...react, cache: (fn: unknown) => fn }
+})
+
 // Import dinamico DESPUES de registrar los mocks.
 const { GET } = await import('@/app/api/tasks/[taskId]/route')
 

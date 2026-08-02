@@ -36,8 +36,10 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { gateDeMembresiaVerificado } from './helpers/routeSource'
 
-const API = join(process.cwd(), 'src', 'app', 'api')
+const RAIZ = process.cwd()
+const API = join(RAIZ, 'src', 'app', 'api')
 
 function walkRoutes(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -76,7 +78,14 @@ const CALLER_BOUND = /,\s*user\.id\s*\)/
 
 function tieneprimitivaDeAcceso(src: string): boolean {
   if (ACCESS_HELPER.test(src)) return true
-  return MEMBERSHIP_TABLE.test(src) && CALLER_BOUND.test(src)
+  if (MEMBERSHIP_TABLE.test(src) && CALLER_BOUND.test(src)) return true
+  // Tercera via: el gate vive en un modulo (src/lib/*-access.ts y compania). No
+  // se aprueba por el nombre del helper, se ABRE el modulo y se comprueba que
+  // consulte la membresia acotada a la identidad que la ruta le pasa. La lista
+  // ACCESS_HELPER de arriba es lo contrario, una lista de nombres bonitos que se
+  // queda vieja en cuanto nace un helper nuevo, y entonces canta hueco sobre
+  // codigo correcto. Ese ruido es el que hace que un rojo real no se distinga.
+  return gateDeMembresiaVerificado(src, RAIZ).length > 0
 }
 
 // Rutas justificadas como preview publico por capacidad no adivinable (ver cabecera).
@@ -86,6 +95,7 @@ const ALLOWLIST = new Set<string>([
 
 describe('Invariante de authz (lectura): ningun GET+admin sobre id dinamico lee sin primitiva de acceso', () => {
   const gaps: string[] = []
+  const conPrimitiva: string[] = []
   let total = 0
 
   for (const file of walkRoutes(API)) {
@@ -96,11 +106,19 @@ describe('Invariante de authz (lectura): ningun GET+admin sobre id dinamico lee 
     if (!/export async function GET\b/.test(src)) continue // solo con handler de lectura
     total++
     if (ALLOWLIST.has(rel)) continue // preview publico justificado
-    if (!tieneprimitivaDeAcceso(src)) gaps.push('/src/app/api/' + rel)
+    if (tieneprimitivaDeAcceso(src)) conPrimitiva.push('/src/app/api/' + rel)
+    else gaps.push('/src/app/api/' + rel)
   }
 
   it('encuentra las rutas GET+admin sobre id dinamico (el scan no esta vacio)', () => {
     expect(total).toBeGreaterThanOrEqual(40)
+  })
+
+  it('el scan comprueba primitiva de verdad en casi todas (no aprueba por vacio)', () => {
+    // Sin este piso, romper el analisis (un regex que deja de casar, un walk que
+    // devuelve nada) pondria el tripwire en verde sin haber mirado ninguna ruta.
+    // Verde por no encontrar nada no es verde.
+    expect(conPrimitiva.length).toBeGreaterThanOrEqual(40)
   })
 
   it('ningun GET+admin sobre id dinamico lee sin primitiva de acceso (salvo allowlist)', () => {

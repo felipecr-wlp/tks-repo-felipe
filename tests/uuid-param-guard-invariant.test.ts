@@ -34,6 +34,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { parametroPasaPor } from './helpers/routeSource'
 
 const API = join(process.cwd(), 'src', 'app', 'api')
 
@@ -61,9 +62,23 @@ function paramsOf(relPath: string): string[] {
   return out
 }
 
-// Una guarda de formato para el parametro <name>: isUuid(params.<name>).
+/**
+ * Una guarda de formato para el parametro <name>.
+ *
+ * Cuenta la forma directa `isUuid(params.<name>)` y tambien la indirecta: el
+ * handler entrega `params.<name>` a un helper del mismo archivo y ES ESE helper
+ * quien valida. La segunda no es una concesion, es el patron correcto cuando dos
+ * handlers comparten la resolucion del recurso:
+ *
+ *   async function resolve(request, imageId) { if (!isUuid(imageId)) return 422 ... }
+ *   export async function DELETE(_r, { params }) { await resolve(r, params.imageId) }
+ *
+ * La correspondencia es POSICIONAL (ver tests/helpers/routeSource.ts): se valida
+ * el parametro del helper que ocupa el mismo lugar. Un helper que valide otra
+ * cosa NO da el visto bueno.
+ */
 function hasUuidGuard(src: string, name: string): boolean {
-  return new RegExp(`isUuid\\(\\s*params\\.${name}\\b`).test(src)
+  return parametroPasaPor(src, name, 'isUuid')
 }
 
 describe('Invariante: todo parametro de ruta uuid se valida con isUuid antes de tocar la DB (anti 500 22P02)', () => {
@@ -74,17 +89,27 @@ describe('Invariante: todo parametro de ruta uuid se valida con isUuid antes de 
     expect(paramFiles.length).toBeGreaterThanOrEqual(20)
   })
 
-  // Arista dura: cada parametro uuid de la ruta tiene su isUuid(params.<name>).
-  it('ningun parametro de ruta uuid llega a la DB sin validar su formato', () => {
-    const offenders: string[] = []
-    for (const file of paramFiles) {
-      const r = rel(file)
-      const src = readFileSync(file, 'utf8')
-      for (const name of paramsOf(r)) {
-        if (NON_UUID_PARAMS.has(name)) continue
-        if (!hasUuidGuard(src, name)) offenders.push(`${r} (params.${name})`)
-      }
+  const offenders: string[] = []
+  const verificados: string[] = []
+  for (const file of paramFiles) {
+    const r = rel(file)
+    const src = readFileSync(file, 'utf8')
+    for (const name of paramsOf(r)) {
+      if (NON_UUID_PARAMS.has(name)) continue
+      if (hasUuidGuard(src, name)) verificados.push(`${r} (params.${name})`)
+      else offenders.push(`${r} (params.${name})`)
     }
+  }
+
+  // Arista dura: cada parametro uuid de la ruta tiene su guarda de formato.
+  it('ningun parametro de ruta uuid llega a la DB sin validar su formato', () => {
     expect(offenders.sort()).toEqual([])
+  })
+
+  it('la comprobacion no pasa en vacio (hay parametros efectivamente verificados)', () => {
+    // Sin esto, el dia que `paramsOf` o la deteccion de guarda dejaran de
+    // encontrar nada, `offenders` quedaria vacio y el tripwire se volveria verde
+    // justo cuando deja de vigilar.
+    expect(verificados.length).toBeGreaterThanOrEqual(60)
   })
 })

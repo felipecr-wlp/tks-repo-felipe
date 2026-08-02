@@ -59,17 +59,26 @@ const OWNER_BARRIER = /role\s*===\s*['"]owner['"]/
 // Un campo role: en un schema de zod que NO sea z.enum( (texto libre = peligro).
 const ROLE_NOT_ENUM = /role:\s*z\.(?!enum\b)\w+/
 
-// Registro auditado de route.ts que escriben workspace_members. onboarding y
-// workspaces/create insertan role:'admin' LITERAL (el creador se vuelve admin);
-// invites/[code]/join inserta invite.role (enum sin owner); lobby y members/[memberId]
-// escriben un rol controlado por el usuario y capaz de owner: esos dos llevan barrera.
+// Registro auditado de route.ts que escriben workspace_members. onboarding inserta
+// role:'admin' LITERAL (el creador se vuelve admin); invites/[code]/join inserta
+// invite.role (enum sin owner); lobby y members/[memberId] escriben un rol controlado
+// por el usuario y capaz de owner: esos dos llevan barrera.
+//
+// `workspaces/route.ts` ESTUVO aqui y ya no: su POST creaba el workspace e insertaba
+// al creador como admin, pero la creacion de workspaces se retiro por decision de
+// producto y hoy la ruta es un 403 duro sin tocar la base. Sacarlo del registro a
+// secas seria cambiar un rojo por un silencio: el dia que alguien reabra la creacion,
+// el writer vuelve y nadie se entera de que su `role` necesita revision. Por eso la
+// baja no se borra, se CONVIERTE en el hecho que la justifica, comprobado abajo: la
+// ruta sigue cerrada. Si se reabre, ese test cae y obliga a re-auditar el writer.
 const REGISTRY = [
   '/app/api/invites/[code]/join/route.ts',
   '/app/api/onboarding/route.ts',
-  '/app/api/workspaces/route.ts',
   '/app/api/workspaces/[workspaceId]/lobby/route.ts',
   '/app/api/workspaces/[workspaceId]/members/[memberId]/route.ts',
 ]
+
+const WORKSPACES = join(API, 'workspaces', 'route.ts')
 
 const LOBBY = join(API, 'workspaces', '[workspaceId]', 'lobby', 'route.ts')
 const MEMBERS = join(API, 'workspaces', '[workspaceId]', 'members', '[memberId]', 'route.ts')
@@ -114,6 +123,15 @@ describe('Invariante: solo un owner puede otorgar el rol owner (anti escalada de
     const src = readFileSync(INVITES, 'utf8')
     expect(src).toMatch(/role:\s*z\.enum\(/)
     expect(src).not.toMatch(/role:\s*z\.enum\(\[[^\]]*owner/)
+  })
+
+  // La contraparte de haber sacado workspaces/route.ts del registro: sigue siendo una
+  // ruta cerrada que no escribe la tabla. Si vuelve a crear workspaces, esto se pone
+  // rojo ANTES que la arista D y dice exactamente que hay que volver a auditar.
+  it('workspaces/route.ts sigue cerrada (no volvio a escribir membresias sin auditar)', () => {
+    const src = readFileSync(WORKSPACES, 'utf8')
+    expect(src).toMatch(/status:\s*403/)
+    expect(WRITES_WS_MEMBERS.test(src)).toBe(false)
   })
 
   // Arista D: anti-regresion. El conjunto de writers de workspace_members es el registro.

@@ -34,8 +34,10 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { handlersTodos, primitivaAlcanzable } from './helpers/routeSource'
 
-const API = join(process.cwd(), 'src', 'app', 'api')
+const RAIZ = process.cwd()
+const API = join(RAIZ, 'src', 'app', 'api')
 
 function walkRoutes(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -64,20 +66,18 @@ describe('Invariante: todo handler que sube un archivo valida tamano, mime y nom
     const src = readFileSync(file, 'utf8')
     const rel = file.replace(API, '').replace(/\\/g, '/').replace(/^\//, '')
 
-    const marks: { verb: string; start: number }[] = []
-    for (const m of src.matchAll(/export async function ([A-Z]+)\b/g)) {
-      marks.push({ verb: m[1], start: m.index ?? 0 })
-    }
-    marks.forEach((mark, i) => {
-      const end = marks[i + 1]?.start ?? src.length
-      const body = src.slice(mark.start, end)
-      if (!UPLOADS.test(body)) return // handler que no sube: fuera de alcance.
-      const id = `/src/app/api/${rel}:${mark.verb}`
+    // Alcance = el bloque del handler MAS los helpers que llama, y para cada
+    // barrera se acepta tambien la version factorizada en un modulo del repo
+    // (`safeFileName`, `MAX_FILE_SIZE`...). Se sigue exigiendo la barrera; lo que
+    // se deja de exigir es que este copiada a mano dentro del bloque.
+    for (const h of handlersTodos(src)) {
+      if (!UPLOADS.test(h.alcance)) continue // handler que no sube: fuera de alcance.
+      const id = `/src/app/api/${rel}:${h.verb}`
       uploadHandlers.push(id)
-      if (!SIZE_CAP.test(body)) missingSize.push(id)
-      if (!MIME_ALLOWLIST.test(body)) missingMime.push(id)
-      if (!SANITIZE.test(body)) missingSanitize.push(id)
-    })
+      if (!primitivaAlcanzable(src, RAIZ, h.alcance, SIZE_CAP)) missingSize.push(id)
+      if (!primitivaAlcanzable(src, RAIZ, h.alcance, MIME_ALLOWLIST)) missingMime.push(id)
+      if (!primitivaAlcanzable(src, RAIZ, h.alcance, SANITIZE)) missingSanitize.push(id)
+    }
   }
 
   it('el scan encuentra los handlers que suben archivos (no esta vacio)', () => {

@@ -25,6 +25,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { EXENCIONES_AUTH, EXENCIONES_REL_API } from './helpers/authExempt'
 
 const API = join(process.cwd(), 'src', 'app', 'api')
 
@@ -59,6 +60,7 @@ describe('Invariante: todo handler de mutacion gatea la identidad antes de escri
     if (!MUTATING.test(src)) continue
     const rel = file.replace(API, '').replace(/\\/g, '/').replace(/^\//, '')
     mutating.push(rel)
+    if (EXENCIONES_REL_API.has(rel)) continue // exencion condicional, se verifica abajo
     if (!AUTH_GATES.some((re) => re.test(src))) gaps.push('/src/app/api/' + rel)
   }
 
@@ -68,5 +70,25 @@ describe('Invariante: todo handler de mutacion gatea la identidad antes de escri
 
   it('todo handler de mutacion referencia una primitiva de gate de identidad', () => {
     expect(gaps.sort()).toEqual([])
+  })
+
+  it('el allowlist de rutas sin sesion sigue siendo el mismo, y minimo', () => {
+    // Si crece, es una decision consciente que hay que escribir aqui. Nunca un
+    // archivo que se cuela porque alguien lo agrego "temporalmente".
+    expect([...EXENCIONES_REL_API].sort()).toEqual([
+      'connectors/call/[...action]/route.ts',
+      'workspaces/route.ts',
+    ])
+  })
+
+  it('cada exencion sigue cumpliendo la condicion que la justifica', () => {
+    // Lo mismo que verifica auth-invariant, desde este lado: la lista es una sola
+    // (tests/helpers/authExempt.ts) para que las dos lecturas no se separen.
+    for (const e of EXENCIONES_AUTH) {
+      const src = readFileSync(join(process.cwd(), e.rel.replace(/^\//, '')), 'utf8')
+      for (const { pieza, re } of e.condiciones) {
+        expect(`${e.rel} ${pieza}: ${re.test(src)}`).toBe(`${e.rel} ${pieza}: true`)
+      }
+    }
   })
 })

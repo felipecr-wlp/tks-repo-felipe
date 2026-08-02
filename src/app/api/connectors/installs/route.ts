@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/server'
 import { isWorkspaceAdminById } from '@/lib/workspace-admin'
+import { applyRateLimit } from '@/lib/rate-limit'
 
 const createSchema = z.object({
   workspace_id: z.string().uuid(),
@@ -34,6 +35,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = await applyRateLimit(request, 'api')
+  if (limited) return limited
+
   let body: unknown
   try { body = await request.json() }
   catch { return NextResponse.json({ error: 'JSON invalido' }, { status: 400 }) }

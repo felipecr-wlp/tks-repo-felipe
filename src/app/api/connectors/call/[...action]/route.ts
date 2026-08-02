@@ -10,12 +10,18 @@
  *   3. Valida el payload con el esquema de la accion y despacha al handler.
  *   4. Actualiza last_used_at y registra la llamada en connector_call_log.
  *
+ * Rate limit ANTES del token, a proposito: aqui la credencial es un secreto que
+ * se adivina probando, y sin freno un atacante puede lanzar miles de tokens por
+ * segundo contra este endpoint. El tope va primero para que un intento fallido
+ * cueste igual que uno bueno y no se pueda martillar la busqueda de la key.
+ *
  * El registro de acciones vive en src/lib/connectors/actions.ts.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { hashToken } from '@/lib/connectors/keys'
 import { getAction } from '@/lib/connectors/actions'
+import { applyRateLimit } from '@/lib/rate-limit'
 
 const TARGET_APP = 'wlo'
 
@@ -30,6 +36,13 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { action: string[] } },
 ) {
+  // Cubo 'api' (60/min por IP) y no 'auth' (20/min) a proposito: esto es un
+  // canal de integracion, no un login humano. Una sincronizacion legitima de WLI
+  // pasa de 20 llamadas por minuto sin ser un abuso, y estrangularla seria
+  // cambiar un riesgo por una caida. 60/min sigue cerrando el martilleo.
+  const limited = await applyRateLimit(request, 'api')
+  if (limited) return limited
+
   const admin = createAdminClient()
   const actionPath = (params.action ?? []).join('/')
 

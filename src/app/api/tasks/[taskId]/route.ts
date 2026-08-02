@@ -69,7 +69,13 @@ export async function GET(
   if (!task) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
 
   // Verificar acceso al proyecto (miembro del proyecto O admin del workspace/org)
-  const { ok: canAccess } = await canAccessProject(admin, task.project_id, user.id)
+  const { ok: canAccess, failed: accessFailed } = await canAccessProject(admin, task.project_id, user.id)
+  // Si la verificacion no se pudo COMPLETAR, decirlo. Un 403 aqui seria mentir
+  // con cara de normalidad: el usuario entiende "me quitaron el permiso" y abre
+  // un ticket de permisos mientras lo que pasa es que la base no responde.
+  if (accessFailed) {
+    return NextResponse.json({ error: 'Error al verificar acceso' }, { status: 500 })
+  }
   if (!canAccess) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
   // Resolver el padre (id + titulo) con una consulta separada solo si aplica,

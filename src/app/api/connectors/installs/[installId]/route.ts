@@ -8,6 +8,8 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/types'
 import { isWorkspaceAdminById } from '@/lib/workspace-admin'
+import { isUuid } from '@/lib/validation'
+import { applyRateLimit } from '@/lib/rate-limit'
 
 const patchSchema = z.object({
   enabled: z.boolean().optional(),
@@ -30,6 +32,15 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { installId: string } },
 ) {
+  const limited = await applyRateLimit(request, 'api')
+  if (limited) return limited
+
+  // El id va crudo a una columna uuid: sin esto, un id malformado no da 404 sino
+  // que Postgres lanza 22P02 y sale un 500 opaco que cualquiera puede provocar.
+  if (!isUuid(params.installId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
+
   let body: unknown
   try { body = await request.json() }
   catch { return NextResponse.json({ error: 'JSON invalido' }, { status: 400 }) }
@@ -53,9 +64,16 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { installId: string } },
 ) {
+  const limited = await applyRateLimit(request, 'api')
+  if (limited) return limited
+
+  if (!isUuid(params.installId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
+
   const { admin, row, gate } = await loadAndGate(params.installId)
   if (!row) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
   if (!gate) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })

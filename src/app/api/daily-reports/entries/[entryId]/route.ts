@@ -9,10 +9,20 @@
  * del cliente: el id de una entrada es adivinable, la pertenencia no.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { isUuid } from '@/lib/validation'
 import { notifyBlockerResolved } from '@/lib/daily-report-blockers'
+
+/**
+ * El cuerpo del PATCH es un solo booleano, y antes se comprobaba a mano con un
+ * `typeof`. Hace lo mismo, pero el resto de la API declara sus cuerpos con zod y
+ * una excepcion en el patron cuesta mas de lo que ahorra: obliga a cada lector
+ * (y a cada tripwire) a distinguir entre "aqui se valida distinto" y "aqui no se
+ * valida". `strict()` ademas rechaza campos de mas en vez de ignorarlos.
+ */
+const patchSchema = z.object({ resolved: z.boolean() }).strict()
 
 export async function DELETE(request: NextRequest, { params }: { params: { entryId: string } }) {
   const limited = await applyRateLimit(request)
@@ -77,10 +87,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { entryI
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-  const body = (await request.json().catch(() => null)) as { resolved?: boolean } | null
-  if (typeof body?.resolved !== 'boolean') {
+  const body = await request.json().catch(() => null)
+  const parsed = patchSchema.safeParse(body)
+  if (!parsed.success) {
     return NextResponse.json({ error: 'Falta el campo resolved' }, { status: 422 })
   }
+  const { resolved } = parsed.data
 
   const admin = createAdminClient()
 
@@ -112,7 +124,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { entryI
   const yaEstaba = !!entry.resolved_at
   const { error } = await admin
     .from('daily_report_entries')
-    .update({ resolved_at: body.resolved ? new Date().toISOString() : null })
+    .update({ resolved_at: resolved ? new Date().toISOString() : null })
     .eq('id', params.entryId)
 
   if (error) {
@@ -122,7 +134,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { entryI
 
   // Solo se avisa en la TRANSICION a resuelto. Sin esta guarda, dos clics
   // seguidos en el mismo boton mandarian dos veces la misma buena noticia.
-  if (body.resolved && !yaEstaba) {
+  if (resolved && !yaEstaba) {
     await notifyBlockerResolved({
       admin,
       workspaceId: entry.report.workspace_id,
@@ -132,5 +144,5 @@ export async function PATCH(request: NextRequest, { params }: { params: { entryI
     })
   }
 
-  return NextResponse.json({ ok: true, resolved: body.resolved })
+  return NextResponse.json({ ok: true, resolved: resolved })
 }

@@ -17,6 +17,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { EXENCIONES_RATE_LIMIT, EXENTAS_REPO } from './helpers/rateLimitExempt'
 
 const API = join(process.cwd(), 'src', 'app', 'api')
 
@@ -30,11 +31,11 @@ function walkRoutes(dir: string, out: string[] = []): string[] {
   return out
 }
 
-// Rutas que NO usan applyRateLimit por diseño (secreto propio / callback OAuth).
-// Vacia por ahora: los cron endpoints viven en src/app/api/cron y gatean con
-// CRON_SECRET; si alguno tuviera un handler mutante sin rate limit, se listaria
-// aqui con su justificacion. Mantener minima y explicita.
-const ALLOWLIST = new Set<string>([])
+// Rutas que NO usan applyRateLimit por diseño. La lista y la CONDICION que
+// sostiene cada exencion viven en tests/helpers/rateLimitExempt.ts, compartidas
+// con el tripwire hermano (rate-limit-coverage) para que las dos lecturas no se
+// separen. Una exencion sin condicion comprobable no entra.
+const ALLOWLIST = EXENTAS_REPO
 
 const MUTATING = /export async function (POST|PATCH|PUT|DELETE)\b/g
 
@@ -75,5 +76,21 @@ describe('Invariante rate limit: todo handler mutante llama applyRateLimit', () 
 
   it('ningun handler mutante carece de applyRateLimit', () => {
     expect(gaps.map(g => `${g.file} :: ${g.verb}`)).toEqual([])
+  })
+
+  it('el allowlist sigue siendo el mismo, y minimo', () => {
+    expect([...EXENTAS_REPO].sort()).toEqual(['/src/app/api/workspaces/route.ts'])
+  })
+
+  it('cada exencion sigue cumpliendo la condicion que la justifica', () => {
+    // Si la puerta cerrada de workspaces empezara a leer el cuerpo o a tocar la
+    // base, deja de ser una respuesta constante y su exencion deja de ser cierta:
+    // esto cae exigiendo un freno de verdad, en vez de callar.
+    for (const e of EXENCIONES_RATE_LIMIT) {
+      const src = readFileSync(join(process.cwd(), e.rel.replace(/^\//, '')), 'utf8')
+      for (const { pieza, re } of e.condiciones) {
+        expect(`${e.rel} ${pieza}: ${re.test(src)}`).toBe(`${e.rel} ${pieza}: true`)
+      }
+    }
   })
 })

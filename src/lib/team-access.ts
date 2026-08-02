@@ -211,19 +211,35 @@ export async function canManageProject(
  * los endpoints de tarea para que los administradores del workspace puedan abrir
  * y reprogramar tareas de proyectos donde no estan inscritos como miembros.
  * Devuelve tambien el workspace_id del proyecto para reusarlo sin otra consulta.
+ *
+ * EL TERCER CAMPO, `failed`: "no tienes acceso" y "no pude averiguarlo" NO son lo
+ * mismo. Antes las dos cosas salian por la misma puerta (`ok: false`) y el error
+ * se quedaba solo en un console.error, asi que una base caida se le presentaba al
+ * usuario como un 403 "Sin acceso": el reporte que llega es "me quitaron permisos"
+ * y la causa real (la base) no aparece por ningun lado. Es la misma forma de fallo
+ * que dejo vivo seis semanas el bug de rate limit: un error tragado que se disfraza
+ * de respuesta plausible.
+ *
+ * `failed` es ADITIVO a proposito: `ok` no cambia de significado y los 15 call
+ * sites que desestructuran `{ ok }` siguen funcionando igual, fail-closed. Quien
+ * quiera distinguir, lee `failed` y responde 500 en vez de 403.
  */
 export async function canAccessProject(
   admin: ReturnType<typeof createAdminClient>,
   projectId: string,
   userId: string
-): Promise<{ ok: boolean; workspaceId: string | null }> {
+): Promise<{ ok: boolean; workspaceId: string | null; failed: boolean }> {
   const { data: project, error: projectErr } = (await admin
     .from('projects')
     .select('workspace_id')
     .eq('id', projectId)
     .maybeSingle()) as { data: { workspace_id: string } | null; error: unknown }
   if (projectErr) console.error('[canAccessProject] projects read error:', projectErr)
-  if (!project?.workspace_id) return { ok: false, workspaceId: null }
+  // Un proyecto que no existe es un NO legitimo; un proyecto que no se pudo leer
+  // es un no se sabe. Se distinguen aqui, que es donde se conoce la diferencia.
+  if (!project?.workspace_id) {
+    return { ok: false, workspaceId: null, failed: !!projectErr }
+  }
 
   const { data: pm, error: pmErr } = (await admin
     .from('project_members')
@@ -232,26 +248,29 @@ export async function canAccessProject(
     .eq('profile_id', userId)
     .maybeSingle()) as { data: { role: string } | null; error: unknown }
   if (pmErr) console.error('[canAccessProject] project_members read error:', pmErr)
-  if (pm) return { ok: true, workspaceId: project.workspace_id }
+  if (pm) return { ok: true, workspaceId: project.workspace_id, failed: false }
 
-  const { data: profile } = (await admin
+  const { data: profile, error: profileErr } = (await admin
     .from('profiles')
     .select('org_role')
     .eq('id', userId)
     .maybeSingle()) as { data: { org_role: string | null } | null; error: unknown }
+  if (profileErr) console.error('[canAccessProject] profiles read error:', profileErr)
   const orgRole = profile?.org_role ?? 'member'
   if (orgRole === 'owner' || orgRole === 'admin') {
-    return { ok: true, workspaceId: project.workspace_id }
+    return { ok: true, workspaceId: project.workspace_id, failed: false }
   }
 
-  const { data: wsMember } = (await admin
+  const { data: wsMember, error: wsErr } = (await admin
     .from('workspace_members')
     .select('role')
     .eq('workspace_id', project.workspace_id)
     .eq('profile_id', userId)
     .maybeSingle()) as { data: { role: string } | null; error: unknown }
+  if (wsErr) console.error('[canAccessProject] workspace_members read error:', wsErr)
   const ok = wsMember?.role === 'owner' || wsMember?.role === 'admin'
-  return { ok, workspaceId: project.workspace_id }
+  // Un `false` que sale de una lectura que fallo no es una negativa, es una duda.
+  return { ok, workspaceId: project.workspace_id, failed: !ok && !!(pmErr || profileErr || wsErr) }
 }
 
 /**

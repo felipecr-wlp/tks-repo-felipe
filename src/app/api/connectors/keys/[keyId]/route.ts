@@ -6,11 +6,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { isWorkspaceAdminById } from '@/lib/workspace-admin'
+import { isUuid } from '@/lib/validation'
+import { applyRateLimit } from '@/lib/rate-limit'
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { keyId: string } },
 ) {
+  const limited = await applyRateLimit(request, 'api')
+  if (limited) return limited
+
+  // El id va crudo a una columna uuid: sin esto, un id malformado no da 404 sino
+  // que Postgres lanza 22P02 y sale un 500 opaco que cualquiera puede provocar.
+  if (!isUuid(params.keyId)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 422 })
+  }
+
   const admin = createAdminClient()
 
   const { data: key } = (await admin

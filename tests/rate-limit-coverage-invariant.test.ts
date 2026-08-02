@@ -31,6 +31,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { EXENCIONES_RATE_LIMIT, EXENTAS_API } from './helpers/rateLimitExempt'
 
 const API = join(process.cwd(), 'src', 'app', 'api')
 
@@ -54,6 +55,10 @@ describe('Invariante: todo handler que muta estado aplica rate limit', () => {
   for (const file of files) {
     const src = readFileSync(file, 'utf8')
     const rel = file.replace(API, '').replace(/\\/g, '/').replace(/^\//, '')
+    // La lista de exentas y la CONDICION que sostiene cada una viven en
+    // tests/helpers/rateLimitExempt.ts, compartidas con el tripwire hermano
+    // (rate-limit-invariant) para que las dos lecturas no se separen.
+    if (EXENTAS_API.has(rel)) continue
 
     const marks: { verb: string; start: number }[] = []
     for (const m of src.matchAll(/export async function ([A-Z]+)\b/g)) {
@@ -75,5 +80,21 @@ describe('Invariante: todo handler que muta estado aplica rate limit', () => {
 
   it('ningun handler de mutacion queda sin rate limit', () => {
     expect(missing.sort()).toEqual([])
+  })
+
+  it('el allowlist sigue siendo el mismo, y minimo', () => {
+    expect([...EXENTAS_API].sort()).toEqual(['workspaces/route.ts'])
+  })
+
+  it('cada exencion sigue cumpliendo la condicion que la justifica', () => {
+    // Una exencion vale mientras su razon siga siendo cierta. Si la puerta
+    // cerrada de workspaces empezara a leer el cuerpo o a tocar la base, deja de
+    // ser una respuesta constante: esto cae exigiendo un freno de verdad.
+    for (const e of EXENCIONES_RATE_LIMIT) {
+      const src = readFileSync(join(process.cwd(), e.rel.replace(/^\//, '')), 'utf8')
+      for (const { pieza, re } of e.condiciones) {
+        expect(`${e.rel} ${pieza}: ${re.test(src)}`).toBe(`${e.rel} ${pieza}: true`)
+      }
+    }
   })
 })

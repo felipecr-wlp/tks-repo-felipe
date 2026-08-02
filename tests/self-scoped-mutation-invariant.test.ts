@@ -50,7 +50,13 @@ const SELF_SCOPED: { file: string; identity: RegExp }[] = [
   { file: 'notifications/mark-all-read/route.ts', identity: /recipient_id', user\.id/ },
   { file: 'notifications/[id]/route.ts',          identity: /recipient_id', user\.id/ },
   { file: 'invites/[code]/join/route.ts',         identity: /profile_id: user\.id/ },
-  { file: 'daily-reports/route.ts',               identity: /ensureReport\(admin, workspace_id, user\.id/ },
+  // El nombre del helper se escribe como FAMILIA (`ensure...Report`) a proposito.
+  // Antes decia `ensureReport(` literal; el dia que la funcion se renombro a
+  // `ensureDailyReport` el tripwire se puso rojo sin que nada se hubiera roto, y un
+  // rojo que no significa nada es exactamente lo que hace que un rojo de verdad
+  // pase desapercibido. Lo que importa no es como se llama la funcion, es que la
+  // identidad que resuelve la fila sea la del token y ocupe ESA posicion.
+  { file: 'daily-reports/route.ts',               identity: /ensure\w*Report\(\s*admin,\s*\w+,\s*user\.id\b/ },
   { file: 'daily-reports/entries/[entryId]/route.ts', identity: /profile_id !== user\.id/ },
 ]
 
@@ -60,9 +66,11 @@ describe('Invariante de authz: mutacion auto-alcance ata la escritura a la ident
   const gaps: Gap[] = []
   let totalMutating = 0
 
+  const desaparecidas: string[] = []
+
   for (const entry of SELF_SCOPED) {
     const full = join(API, ...entry.file.split('/'))
-    if (!existsSync(full)) continue
+    if (!existsSync(full)) { desaparecidas.push(entry.file); continue }
     const rel = '/src/app/api/' + entry.file
     const src = readFileSync(full, 'utf8')
 
@@ -83,6 +91,13 @@ describe('Invariante de authz: mutacion auto-alcance ata la escritura a la ident
 
   it('encuentra los handlers mutantes auto-alcance (el scan no esta vacio)', () => {
     expect(totalMutating).toBeGreaterThanOrEqual(9)
+  })
+
+  it('ninguna ruta vigilada desaparecio del registro sin avisar', () => {
+    // El `continue` de arriba saltaba en silencio las rutas que ya no existen: una
+    // ruta movida de sitio dejaba de estar vigilada y el tripwire seguia verde.
+    // Si se movio, se actualiza el registro; si se borro, se saca de la lista.
+    expect(desaparecidas).toEqual([])
   })
 
   it('ningun handler auto-alcance muta sin atar la escritura a user.id', () => {
