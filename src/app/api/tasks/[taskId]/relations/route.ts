@@ -52,7 +52,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const admin = createAdminClient()
   const access = await checkTaskAccess(admin, params.taskId, user.id)
   if (!access.ok) {
-    return NextResponse.json({ error: access.status === 404 ? 'Tarea no encontrada' : 'Sin acceso' }, { status: access.status })
+    return NextResponse.json({ error: access.error }, { status: access.status })
   }
 
   // filas donde esta tarea es el source
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const admin = createAdminClient()
   const access = await checkTaskAccess(admin, params.taskId, user.id)
   if (!access.ok) {
-    return NextResponse.json({ error: access.status === 404 ? 'Tarea no encontrada' : 'Sin acceso' }, { status: access.status })
+    return NextResponse.json({ error: access.error }, { status: access.status })
   }
 
   // la tarea objetivo debe existir y pertenecer al mismo proyecto
@@ -191,7 +191,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const admin = createAdminClient()
   const access = await checkTaskAccess(admin, params.taskId, user.id)
   if (!access.ok) {
-    return NextResponse.json({ error: access.status === 404 ? 'Tarea no encontrada' : 'Sin acceso' }, { status: access.status })
+    return NextResponse.json({ error: access.error }, { status: access.status })
   }
 
   // la relacion debe tocar esta tarea y su proyecto (anti-IDOR)

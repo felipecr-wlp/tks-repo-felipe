@@ -14,12 +14,22 @@
  * la tarea (200) pero recibía 403 al tocar sus subtareas/checklist/asignados.
  */
 import type { createAdminClient } from '@/lib/supabase/server'
-import { canAccessProject } from '@/lib/team-access'
+import { canAccessProject, ERROR_ACCESO_INDETERMINADO } from '@/lib/team-access'
 
 interface TaskAccess {
   ok: boolean
   status: number
   projectId: string | null
+  /**
+   * El mensaje que le corresponde al `status`. Vive AQUI y no en cada ruta porque
+   * las 10 rutas de subrecursos repetian el mismo ternario
+   * (`status === 404 ? 'Tarea no encontrada' : 'Sin acceso'`), 21 veces. Ese
+   * ternario solo conocia dos mundos, asi que al aparecer un tercer status (500)
+   * lo habria etiquetado "Sin acceso": el codigo correcto con el texto mentiroso,
+   * que es justo la confusion que este cambio viene a quitar. Quien decide el
+   * status decide el mensaje.
+   */
+  error: string
 }
 
 export async function checkTaskAccess(
@@ -38,12 +48,21 @@ export async function checkTaskAccess(
 
   if (taskErr) {
     console.error('[checkTaskAccess] task read error:', taskErr)
-    return { ok: false, status: 500, projectId: null }
+    return { ok: false, status: 500, projectId: null, error: ERROR_ACCESO_INDETERMINADO }
   }
-  if (!task) return { ok: false, status: 404, projectId: null }
+  if (!task) return { ok: false, status: 404, projectId: null, error: 'Tarea no encontrada' }
 
-  const { ok } = await canAccessProject(admin, task.project_id, userId)
-  if (!ok) return { ok: false, status: 403, projectId: task.project_id }
+  // La misma distincion que arriba, pero para el acceso: `canAccessProject`
+  // devuelve `failed` cuando NO pudo determinar el acceso (una lectura fallo),
+  // que no es lo mismo que determinar que no lo tiene. Este helper ya sabia
+  // separar 500 de 404 para la tarea y perdia esa separacion justo despues, en
+  // el paso que mas importa. Un 403 aqui manda al usuario a pedir permisos que
+  // ya tiene mientras la causa real (la base) no aparece por ningun lado.
+  const { ok, failed } = await canAccessProject(admin, task.project_id, userId)
+  if (failed) {
+    return { ok: false, status: 500, projectId: task.project_id, error: ERROR_ACCESO_INDETERMINADO }
+  }
+  if (!ok) return { ok: false, status: 403, projectId: task.project_id, error: 'Sin acceso' }
 
-  return { ok: true, status: 200, projectId: task.project_id }
+  return { ok: true, status: 200, projectId: task.project_id, error: '' }
 }

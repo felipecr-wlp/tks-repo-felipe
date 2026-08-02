@@ -264,7 +264,12 @@ export function buildKernTools(admin: Admin, userId: string) {
         assignee_id: z.string().uuid().optional().describe('Responsable; debe ser miembro del proyecto. Omitir para dejar sin asignar.'),
       }),
       execute: async ({ project_id, title, priority, due_date, assignee_id }) => {
-        const { ok, workspaceId } = await canAccessProject(admin, project_id, userId)
+        const { ok, workspaceId, failed } = await canAccessProject(admin, project_id, userId)
+        // Aqui la distincion pesa MAS que en una ruta: lo que se devuelve no lo lee
+        // un cliente, lo lee el modelo, y el modelo lo repite con toda seguridad. Un
+        // "Sin acceso" falso se convierte en la IA afirmandole al dueño del proyecto
+        // que no tiene permisos. Decirle que fue un error deja que diga la verdad.
+        if (failed) return { error: 'No se pudo verificar el acceso al proyecto, intentelo de nuevo.' }
         if (!ok || !workspaceId) return { error: 'Sin acceso a ese proyecto.' }
 
         if (assignee_id && !(await isAssignableToProject(admin, project_id, assignee_id))) {
@@ -357,7 +362,8 @@ export function buildKernTools(admin: Admin, userId: string) {
           .maybeSingle()) as { data: { id: string; project_id: string } | null; error: unknown }
         if (!existing) return { error: 'Tarea no encontrada.' }
 
-        const { ok, workspaceId } = await canAccessProject(admin, existing.project_id, userId)
+        const { ok, workspaceId, failed } = await canAccessProject(admin, existing.project_id, userId)
+        if (failed) return { error: 'No se pudo verificar el acceso a la tarea, intentelo de nuevo.' }
         if (!ok || !workspaceId) return { error: 'Sin acceso a esa tarea.' }
 
         const patch: Database['public']['Tables']['tasks']['Update'] = { updated_at: new Date().toISOString() }
@@ -422,7 +428,8 @@ export function buildKernTools(admin: Admin, userId: string) {
         'Lista las columnas/estados de un proyecto (id, nombre, categoria). Uselo para obtener el status_id destino antes de mover una tarea con update_task.',
       parameters: z.object({ project_id: z.string().uuid() }),
       execute: async ({ project_id }) => {
-        const { ok } = await canAccessProject(admin, project_id, userId)
+        const { ok, failed } = await canAccessProject(admin, project_id, userId)
+        if (failed) return { error: 'No se pudo verificar el acceso al proyecto, intentelo de nuevo.', statuses: [] }
         if (!ok) return { error: 'Sin acceso a ese proyecto.', statuses: [] }
         const { data } = (await admin
           .from('task_statuses')

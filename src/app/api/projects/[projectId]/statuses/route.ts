@@ -13,7 +13,7 @@ import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
-import { canManageProject, canAccessProject } from '@/lib/team-access'
+import { canManageProject, canAccessProject, ERROR_ACCESO_INDETERMINADO } from '@/lib/team-access'
 
 const HEX = /^#[0-9a-fA-F]{6}$/
 const CATEGORIES = ['todo', 'in_progress', 'done', 'cancelled'] as const
@@ -40,7 +40,9 @@ export async function GET(
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
   const admin = createAdminClient()
-  const { ok } = await canAccessProject(admin, params.projectId, user.id)
+  const { ok, failed } = await canAccessProject(admin, params.projectId, user.id)
+  // `failed` = la verificacion no se pudo completar (no es una negativa).
+  if (failed) return NextResponse.json({ error: ERROR_ACCESO_INDETERMINADO }, { status: 500 })
   if (!ok) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
   const { data: statuses, error } = await admin

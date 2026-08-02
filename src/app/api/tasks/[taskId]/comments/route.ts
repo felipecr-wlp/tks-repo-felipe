@@ -9,7 +9,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { autoWatch } from '@/lib/watchers'
 import { logActivity, ActivityVerbs, NotificationTypes, notifyTaskWatchers } from '@/lib/activity'
-import { canAccessProject } from '@/lib/team-access'
+import { canAccessProject, ERROR_ACCESO_INDETERMINADO } from '@/lib/team-access'
 
 export async function GET(
   request: NextRequest,
@@ -33,7 +33,9 @@ export async function GET(
     .maybeSingle() as { data: TaskCheck | null; error: unknown }
   if (!task) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
 
-  const { ok: canAccess } = await canAccessProject(admin, task.project_id, user.id)
+  const { ok: canAccess, failed: accessFailed } = await canAccessProject(admin, task.project_id, user.id)
+  // `failed` = la verificacion no se pudo completar (no es una negativa).
+  if (accessFailed) return NextResponse.json({ error: ERROR_ACCESO_INDETERMINADO }, { status: 500 })
   if (!canAccess) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
   type CommentRow = {
@@ -114,7 +116,9 @@ export async function POST(
     .maybeSingle() as { data: TaskCheck | null; error: unknown }
   if (!task) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
 
-  const { ok: canAccess } = await canAccessProject(admin, task.project_id, user.id)
+  const { ok: canAccess, failed: accessFailed } = await canAccessProject(admin, task.project_id, user.id)
+  // `failed` = la verificacion no se pudo completar (no es una negativa).
+  if (accessFailed) return NextResponse.json({ error: ERROR_ACCESO_INDETERMINADO }, { status: 500 })
   if (!canAccess) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
   type RawCommentResult = {

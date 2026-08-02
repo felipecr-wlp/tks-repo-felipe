@@ -8,6 +8,7 @@
  */
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/server'
+import { isOrgAdmin } from '@/lib/team-access'
 import { COURSES, COURSE_BY_ID } from './courses'
 import type {
   AcademyAccess,
@@ -17,16 +18,18 @@ import type {
   Course,
 } from './types'
 
-/** True si el usuario es admin/owner de la organizacion (gobierna la academia). */
-export async function isOrgAdmin(userId: string): Promise<boolean> {
-  const admin = createAdminClient()
-  const { data } = (await admin
-    .from('profiles')
-    .select('org_role')
-    .eq('id', userId)
-    .maybeSingle()) as { data: { org_role: string | null } | null }
-  return data?.org_role === 'owner' || data?.org_role === 'admin'
-}
+/**
+ * True si el usuario es admin/owner de la organizacion (gobierna la academia).
+ *
+ * Aqui habia una SEGUNDA implementacion, copiada de `@/lib/team-access` y con la
+ * misma logica. Un duplicado de una barrera de autorizacion no es un duplicado
+ * cualquiera: el dia que la regla cambie (que `admin` deje de bastar, que se
+ * agregue un rol) se corrige una y la otra se queda vieja, gobernando la
+ * academia con el criterio de ayer y sin que nada lo delate. Se reexporta la
+ * unica de verdad para que los tres importadores de este modulo sigan
+ * funcionando sin tocarlos.
+ */
+export { isOrgAdmin }
 
 export interface CourseState {
   course: Course

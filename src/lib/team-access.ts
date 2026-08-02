@@ -224,6 +224,15 @@ export async function canManageProject(
  * sites que desestructuran `{ ok }` siguen funcionando igual, fail-closed. Quien
  * quiera distinguir, lee `failed` y responde 500 en vez de 403.
  */
+/**
+ * El mensaje unico para "no pude determinar el acceso" (el 500 que acompaña a
+ * `failed`). Vive aqui, junto a la funcion que produce `failed`, y se exporta
+ * para que las rutas no lo reescriban cada una a su manera: el dia que haya que
+ * cambiarlo, se cambia una vez. No dice "Sin acceso", que seria falso y manda al
+ * usuario a pedir permisos que ya tiene.
+ */
+export const ERROR_ACCESO_INDETERMINADO = 'Error al verificar acceso'
+
 export async function canAccessProject(
   admin: ReturnType<typeof createAdminClient>,
   projectId: string,

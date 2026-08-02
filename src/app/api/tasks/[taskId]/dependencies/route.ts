@@ -49,7 +49,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const access = await checkTaskAccess(admin, params.taskId, user.id)
   if (!access.ok) {
     return NextResponse.json(
-      { error: access.status === 404 ? 'Tarea no encontrada' : 'Sin acceso' },
+      { error: access.error },
       { status: access.status },
     )
   }
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const access = await checkTaskAccess(admin, params.taskId, user.id)
   if (!access.ok) {
     return NextResponse.json(
-      { error: access.status === 404 ? 'Tarea no encontrada' : 'Sin acceso' },
+      { error: access.error },
       { status: access.status },
     )
   }
@@ -172,7 +172,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const access = await checkTaskAccess(admin, params.taskId, user.id)
   if (!access.ok) {
     return NextResponse.json(
-      { error: access.status === 404 ? 'Tarea no encontrada' : 'Sin acceso' },
+      { error: access.error },
       { status: access.status },
     )
   }

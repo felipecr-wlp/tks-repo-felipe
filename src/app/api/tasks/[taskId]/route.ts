@@ -13,7 +13,7 @@ import { logActivity, logActivityCoalesced, notify, ActivityVerbs, NotificationT
 import { autoWatch } from '@/lib/watchers'
 import { nextRecurrenceDate, type RecurrenceRule } from '@/lib/recurrence'
 import { runAutomations } from '@/lib/automations'
-import { canAccessProject, isAssignableToProject } from '@/lib/team-access'
+import { canAccessProject, isAssignableToProject, ERROR_ACCESO_INDETERMINADO } from '@/lib/team-access'
 
 // ── GET: detalle completo ─────────────────────────────────────────────────────
 export async function GET(
@@ -74,7 +74,7 @@ export async function GET(
   // con cara de normalidad: el usuario entiende "me quitaron el permiso" y abre
   // un ticket de permisos mientras lo que pasa es que la base no responde.
   if (accessFailed) {
-    return NextResponse.json({ error: 'Error al verificar acceso' }, { status: 500 })
+    return NextResponse.json({ error: ERROR_ACCESO_INDETERMINADO }, { status: 500 })
   }
   if (!canAccess) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
@@ -163,7 +163,9 @@ export async function PATCH(
 
   if (!existing) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
 
-  const { ok: canAccess } = await canAccessProject(admin, existing.project_id, user.id)
+  const { ok: canAccess, failed: accessFailed } = await canAccessProject(admin, existing.project_id, user.id)
+  // `failed` = la verificacion no se pudo completar (no es una negativa).
+  if (accessFailed) return NextResponse.json({ error: ERROR_ACCESO_INDETERMINADO }, { status: 500 })
   if (!canAccess) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
   // Validar el nuevo responsable: si este PATCH reasigna a una persona (no null),
@@ -456,7 +458,9 @@ export async function DELETE(
 
   if (!existing) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
 
-  const { ok: canAccess } = await canAccessProject(admin, existing.project_id, user.id)
+  const { ok: canAccess, failed: accessFailed } = await canAccessProject(admin, existing.project_id, user.id)
+  // `failed` = la verificacion no se pudo completar (no es una negativa).
+  if (accessFailed) return NextResponse.json({ error: ERROR_ACCESO_INDETERMINADO }, { status: 500 })
   if (!canAccess) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
   // Soft delete (archivar)

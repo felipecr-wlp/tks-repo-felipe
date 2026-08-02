@@ -21,7 +21,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
-import { canAccessProject } from '@/lib/team-access'
+import { canAccessProject, ERROR_ACCESO_INDETERMINADO } from '@/lib/team-access'
 
 export async function GET(
   request: NextRequest,
@@ -49,7 +49,10 @@ export async function GET(
 
   if (!task) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
 
-  const { ok } = await canAccessProject(admin, task.project_id, user.id)
+  const { ok, failed } = await canAccessProject(admin, task.project_id, user.id)
+  // `failed` = la verificacion no se pudo completar. Un 403 aqui seria decirle al
+  // usuario "no tienes permiso" cuando la verdad es "no pude averiguarlo".
+  if (failed) return NextResponse.json({ error: ERROR_ACCESO_INDETERMINADO }, { status: 500 })
   if (!ok) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
   // Las dos consultas son independientes: en serie se notarian al abrir el modal.

@@ -12,33 +12,48 @@ import { isUuid } from '@/lib/validation'
 import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
+import { ERROR_ACCESO_INDETERMINADO } from '@/lib/team-access'
 
 const querySchema = z.object({ q: z.string().min(1).max(80).trim() })
 
+/**
+ * ¿Pertenece el user al proyecto o a su workspace? NO es la regla de
+ * `canAccessProject` (@/lib/team-access), que exige owner/admin del workspace:
+ * esta acepta a cualquier miembro del workspace. La diferencia es deliberada,
+ * pero el nombre compartido no lo era: se llamaba igual que la barrera auditada,
+ * asi que leerla (o buscarla) daba la impresion de estar viendo aquella.
+ *
+ * `failed` separa "no pertenece" de "no pude averiguarlo": antes las tres
+ * lecturas descartaban su `error` y una base caida terminaba en 403.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function canAccessProject(admin: any, projectId: string, userId: string): Promise<boolean> {
-  const { data: project } = await admin
+async function isProjectOrWorkspaceMember(admin: any, projectId: string, userId: string): Promise<{ ok: boolean; failed: boolean }> {
+  const { data: project, error: projectErr } = await admin
     .from('projects')
     .select('id, workspace_id')
     .eq('id', projectId)
-    .maybeSingle() as { data: { id: string; workspace_id: string } | null }
-  if (!project) return false
+    .maybeSingle() as { data: { id: string; workspace_id: string } | null; error: unknown }
+  if (projectErr) console.error('[tasks search] projects read error:', projectErr)
+  if (!project) return { ok: false, failed: !!projectErr }
 
-  const { data: pmem } = await admin
+  const { data: pmem, error: pmemErr } = await admin
     .from('project_members')
     .select('profile_id')
     .eq('project_id', projectId)
     .eq('profile_id', userId)
-    .maybeSingle() as { data: { profile_id: string } | null }
-  if (pmem) return true
+    .maybeSingle() as { data: { profile_id: string } | null; error: unknown }
+  if (pmemErr) console.error('[tasks search] project_members read error:', pmemErr)
+  if (pmem) return { ok: true, failed: false }
 
-  const { data: wmem } = await admin
+  const { data: wmem, error: wmemErr } = await admin
     .from('workspace_members')
     .select('profile_id')
     .eq('workspace_id', project.workspace_id)
     .eq('profile_id', userId)
-    .maybeSingle() as { data: { profile_id: string } | null }
-  return !!wmem
+    .maybeSingle() as { data: { profile_id: string } | null; error: unknown }
+  if (wmemErr) console.error('[tasks search] workspace_members read error:', wmemErr)
+  const ok = !!wmem
+  return { ok, failed: !ok && !!(pmemErr || wmemErr) }
 }
 
 export async function GET(
@@ -59,7 +74,8 @@ export async function GET(
   if (!parsed.success) return NextResponse.json({ tasks: [] })
 
   const admin = createAdminClient()
-  const ok = await canAccessProject(admin, params.projectId, user.id)
+  const { ok, failed } = await isProjectOrWorkspaceMember(admin, params.projectId, user.id)
+  if (failed) return NextResponse.json({ error: ERROR_ACCESO_INDETERMINADO }, { status: 500 })
   if (!ok) return NextResponse.json({ error: 'Sin acceso al proyecto' }, { status: 403 })
 
   const escaped = parsed.data.q.replace(/[%_]/g, m => `\\${m}`)
