@@ -32,6 +32,12 @@
  * instancia). Hoy `src/` no importa `node:fs` en ningun lado y asi se queda: las
  * herramientas son codigo del repo encendido por una bandera, no paquetes.
  *
+ * Antes de eso se verifica algo mas basico: que TODO el codigo de la app viva en
+ * `src/`. El escaneo mira ahi y solo ahi, asi que una carpeta hermana (el clasico
+ * `plugins/`) pasaria entera sin ser leida y las dos aristas de arriba darian
+ * verde sin haber revisado nada. Un escaneo con un punto ciego es peor que no
+ * tenerlo: da la calma sin el control.
+ *
  * ── E) Volverse instalable ESCONDE la pantalla, y eso pide relleno previo ────
  * Corolario de C que cuesta caro descubrir solo. Agregar `installable: true` a
  * una pantalla QUE YA SE USA no la ofrece: la HACE DESAPARECER de todos los
@@ -62,8 +68,27 @@ import {
   normalizeInstalled,
 } from '@/lib/features'
 
-const SRC = join(process.cwd(), 'src')
+const ROOT = process.cwd()
+const SRC = join(ROOT, 'src')
 const TOOLS_ROUTE = join(SRC, 'app', 'api', 'workspaces', '[workspaceId]', 'tools', 'route.ts')
+
+// Carpetas de la raiz que NO son codigo de la app y por eso el escaneo las salta.
+const NO_ES_CODIGO = new Set([
+  'node_modules',
+  '.next',
+  '.git',
+  '.vercel',
+  '.github',
+  'public',
+  'docs',
+  'supabase',
+  'coverage',
+  'playwright-report',
+  'test-results',
+])
+// Carpetas donde SI puede vivir codigo. `src` es la app. `tests` son los
+// tripwires, que leen disco a proposito: esa ES su tarea.
+const CARPETAS_CON_CODIGO = new Set(['src', 'tests'])
 
 function walkSrc(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -185,6 +210,28 @@ describe('Invariante del marketplace: instalar enciende una pantalla del repo, n
   })
 
   // ── D) nada de disco ───────────────────────────────────────────────────────
+  it('no hay codigo de aplicacion fuera de src/', () => {
+    // Este test es la CONDICION que vuelve completos a los dos de abajo. Ellos
+    // recorren `src/` y nada mas; si manana aparece un `plugins/` en la raiz con
+    // handlers adentro, ese arbol queda fuera del escaneo y las dos aristas
+    // siguientes pasan en verde sin haber mirado el codigo que importa. El
+    // agujero no seria el codigo nuevo: seria que nadie lo revisa.
+    //
+    // Y no es hipotetico: asi se ve un marketplace "de verdad" cuando se lo
+    // intenta hacer con paquetes en disco. La carpeta se llama `plugins/`, entra
+    // sola, y el dia que alguien la lee ya tiene rutas propias.
+    //
+    // SI ESTE TEST ESTA EN ROJO: agregaste una carpeta con .ts/.tsx en la raiz.
+    // Si es codigo de la app, va adentro de `src/` y listo. Si de verdad tiene
+    // que vivir aparte, sumala a `CARPETAS_CON_CODIGO` Y sumala tambien al
+    // escaneo de disco de los dos tests que siguen. Las dos cosas, no una.
+    const inesperadas = readdirSync(ROOT)
+      .filter((e) => !NO_ES_CODIGO.has(e) && !CARPETAS_CON_CODIGO.has(e))
+      .filter((e) => statSync(join(ROOT, e)).isDirectory())
+      .filter((d) => walkSrc(join(ROOT, d)).length > 0)
+    expect(inesperadas.sort()).toEqual([])
+  })
+
   it('ningun modulo de src/ toca el sistema de archivos', () => {
     // Un marketplace que sube paquetes necesita escribir en disco. En Vercel el
     // disco es de solo lectura (salvo /tmp, efimero) y ademas descomprimir un
