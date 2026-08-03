@@ -19,7 +19,7 @@ const securityHeaders = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' blob: data: https://lh3.googleusercontent.com https://drive.google.com",
+      "img-src 'self' blob: data: https:",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com",
       "frame-src https://docs.google.com https://sheets.google.com https://drive.google.com",
       "font-src 'self'",
