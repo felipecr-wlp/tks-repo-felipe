@@ -51,6 +51,7 @@ export type FeatureKey =
   | 'projects'
   | 'cv'
   | 'contenidos'
+  | 'marketplace'
 
 export type FeatureGroup = 'principal' | 'workspace'
 
@@ -219,6 +220,26 @@ export const FEATURES: FeatureDef[] = [
     // proposito y queda escondida detras de "Ver mas" no la encuentra nadie.
     primary: true,
     installable: true,
+  },
+  {
+    key: 'marketplace',
+    segment: 'marketplace',
+    labelKey: 'nav.marketplace',
+    description:
+      'Catalogo de herramientas del workspace: que pantallas estan instaladas y cuales se pueden agregar.',
+    group: 'workspace',
+    // NO instalable, a proposito, y la razon vale la pena: una herramienta
+    // instalable arranca apagada. Si el marketplace fuera instalable, un
+    // workspace nuevo no tendria por donde instalar nada. La puerta no puede
+    // estar del lado de adentro.
+    //
+    // Tampoco `primary`: vive en "Ver mas". No es una pantalla de trabajo
+    // diario, se entra cuando falta algo.
+    //
+    // Es la MISMA vista que Configuracion > Herramientas, servida sin el gate de
+    // admin. Instalar y desinstalar siguen exigiendo admin en la ruta; lo que
+    // esto abre es el catalogo, para que el equipo pueda ver que existe y pedirlo
+    // en vez de no enterarse.
   },
 ]
 

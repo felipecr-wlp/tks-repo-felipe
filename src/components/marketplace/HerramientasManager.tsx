@@ -12,9 +12,10 @@
  *   se llama `router.refresh()` para que el layout vuelva a calcular
  *   `effectiveHidden()` y la pantalla nueva aparezca sin recargar a mano.
  * - Si `isAdmin` viene en false los botones se apagan y sale la etiqueta que lo
- *   explica. Hoy el layout de Configuracion ya no deja entrar a nadie mas, pero
- *   la vista no se apoya en eso: dejar los botones vivos para quien no puede
- *   usarlos seria mentirle, la ruta le responderia 403.
+ *   explica. Esto NO es un caso de borde: la vista tambien se sirve en
+ *   `/w/{slug}/marketplace`, abierta a cualquier miembro, asi que "puede ver pero
+ *   no puede tocar" es el caso NORMAL. Dejarle los botones vivos a quien no puede
+ *   usarlos seria mentirle: la ruta le responde 403.
  * - Desinstalar avisa que NO se borran datos. Es la duda que frena a cualquiera
  *   antes de apretar, y contestarla en el mismo boton evita el ticket.
  */

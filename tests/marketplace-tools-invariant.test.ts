@@ -190,6 +190,18 @@ describe('Invariante del marketplace: instalar enciende una pantalla del repo, n
     }
   })
 
+  it('el marketplace NO es instalable (la puerta no puede estar del lado de adentro)', () => {
+    // Parece una mas de la lista de arriba y no lo es. Una herramienta instalable
+    // arranca APAGADA. Si el marketplace fuera instalable, un workspace nuevo lo
+    // tendria desinstalado y no habria pantalla desde donde instalarlo: quedaria
+    // encerrado, sin ningun error que lo delate. El unico rescate seria editar la
+    // columna a mano en la base.
+    const def = FEATURES.find((f) => f.key === 'marketplace')
+    expect(def).toBeDefined()
+    expect(def!.installable).toBeFalsy()
+    expect(isInstallable('marketplace')).toBe(false)
+  })
+
   // ── C) la regla de plegado ─────────────────────────────────────────────────
   it('una herramienta instalable esta ESCONDIDA mientras el workspace no la instale', () => {
     for (const f of INSTALLABLE_FEATURES) {

@@ -31,6 +31,7 @@ import {
   Compass,
   IdCard,
   Images,
+  Store,
   type LucideIcon,
 } from 'lucide-react'
 import type { FeatureKey } from '@/lib/features'
@@ -53,4 +54,5 @@ export const FEATURE_ICONS: Record<FeatureKey, LucideIcon> = {
   projects: Compass,
   cv: IdCard,
   contenidos: Images,
+  marketplace: Store,
 }
