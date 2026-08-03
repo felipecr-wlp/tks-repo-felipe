@@ -46,7 +46,30 @@ const REGISTRO: Record<string, RegExp[]> = {
   // Listar y crear: membresia explicita del workspace, autoria desde la sesion.
   'route.ts': [/workspace_members/, /created_by: user\.id/, /applyRateLimit/],
   // Leer, editar y borrar un flujo: nivel de acceso resuelto, y editar exige 'edit'.
-  '[flowId]/route.ts': [/resolveFlowAccess\(/, /access !== 'edit'/, /applyRateLimit/],
+  //
+  // Las tres ultimas se agregaron despues, y no por simetria: son garantias que
+  // el modulo YA daba y que ningun tripwire miraba. Se descubrio revisando una
+  // rama que reescribia este archivo y borraba las tres de una sentada, sin
+  // tocar `resolveFlowAccess` ni `access !== 'edit'`, asi que las dos lineas de
+  // arriba habrian seguido en verde mientras el modulo perdia:
+  //   - que la lista de con quien esta compartido sea del duenno (si no, quien
+  //     tiene "solo ver" se entera de a quien mas se lo compartieron),
+  //   - que cambiar la visibilidad sea del duenno y no de cualquiera que edite
+  //     (si no, un colaborador puede volver privado un flujo del equipo, o al
+  //     reves, publicar uno privado),
+  //   - que exista el candado optimista con 409 (si no, dos personas editando
+  //     a la vez se pisan y la ultima en guardar gana en silencio).
+  // Un tripwire que cubre la puerta principal y deja tres ventanas abiertas da
+  // la calma sin el control, que es el mismo fallo que el escaneo ciego.
+  '[flowId]/route.ts': [
+    /resolveFlowAccess\(/,
+    /access !== 'edit'/,
+    /applyRateLimit/,
+    /flow\.created_by === user\.id \|\| access === 'edit'/,
+    /parsed\.data\.visibility !== undefined && flow\.created_by !== user\.id/,
+    /expected_updated_at/,
+    /status: 409/,
+  ],
   // Directorio del equipo: mismo gate que leer el flujo. Devuelve correos.
   '[flowId]/members/route.ts': [/resolveFlowAccess\(/, /applyRateLimit/],
   // Repartir accesos: solo el creador, y solo hacia dentro del workspace.
@@ -63,9 +86,14 @@ describe('Flows: registro estructural de gates por ruta', () => {
       const src = leer(...ruta.split('/'))
       // El archivo tiene que tener contenido antes de afirmar nada sobre el.
       expect(src.length).toBeGreaterThan(200)
-      for (const patron of patrones) {
-        expect(patron.test(src), `${ruta} perdio el gate ${patron}`).toBe(true)
-      }
+      // Se juntan TODOS los que faltan y se falla una sola vez con la lista
+      // completa. Antes esto era un `expect` por patron dentro del bucle, que
+      // corta en el primero: si una reescritura del archivo se lleva cuatro
+      // gates por delante, el error solo nombra uno, se repone ese, se vuelve a
+      // correr y aparece el siguiente. Cuatro vueltas para enterarse de algo que
+      // se sabia desde la primera. El rojo tiene que decir todo lo que esta mal.
+      const faltantes = patrones.filter((p) => !p.test(src)).map(String)
+      expect(faltantes, `${ruta} perdio gates`).toEqual([])
     })
   }
 
