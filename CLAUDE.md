@@ -272,8 +272,8 @@ Lo que hay hoy:
 | | |
 |---|---|
 | Producción | `wlo.vercel.app` (autodespliega con push a `master`) |
-| Migraciones | 68 en `supabase/migrations/` |
-| Tripwires | 79 archivos en `tests/`, 362 tests (al 2026-08-03). Corren solos en cada push |
+| Migraciones | 69 en `supabase/migrations/` |
+| Tripwires | 80 archivos en `tests/`, 368 tests (al 2026-08-03). Corren solos en cada push |
 | Fases | F0 a F9 completas + Nivel 1 (SOPs) desplegado |
 
 Construido y en uso: autenticación Google + restricción por dominio, RLS en todas
