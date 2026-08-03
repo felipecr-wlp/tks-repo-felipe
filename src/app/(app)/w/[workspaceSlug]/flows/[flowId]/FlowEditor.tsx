@@ -40,13 +40,6 @@ function CustomNode({ data, selected, id }: NodeProps) {
         <button className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground" title="Editar"><Pencil className="w-3 h-3" /></button>
         {locked && <Lock className="w-3 h-3 text-amber-500 ml-0.5 flex-shrink-0" />}
       </div>
-      {fd.content?.content && (
-        <div className="text-xs text-muted-foreground mt-1 overflow-hidden" style={{maxHeight:'60px'}}>
-          {ct==='url'?<span className="underline text-blue-500 truncate block">{fd.content.content}</span>
-          :ct==='html'?<div className="html-preview text-[10px] leading-tight" dangerouslySetInnerHTML={{__html:fd.content.content.slice(0,500)}} />
-          :<span className="line-clamp-2 break-all">{fd.content.content.slice(0,100)}</span>}
-        </div>
-      )}
       <Handle type="source" position={Position.Bottom} className="!bg-muted-foreground" />
     </div>
   )
