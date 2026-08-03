@@ -5,7 +5,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { COURSE_BY_ID } from '@/lib/academy/courses'
+import { resolverCurso } from '@/lib/academy/catalog'
 import { canAccessCourse, getCourseProgress } from '@/lib/academy/data'
 import { AcademyIcon } from '@/lib/academy/icons'
 import { ArrowLeft } from 'lucide-react'
@@ -18,7 +18,7 @@ interface PageProps {
 }
 
 export default async function ModulePage({ params }: PageProps) {
-  const course = COURSE_BY_ID[params.courseId]
+  const course = await resolverCurso(params.courseId)
   if (!course) notFound()
   const mod = course.modules.find((m) => m.id === params.moduleId)
   if (!mod) notFound()

@@ -5,7 +5,7 @@
  */
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
-import { COURSE_BY_ID } from '@/lib/academy/courses'
+import { resolverCurso } from '@/lib/academy/catalog'
 import { canAccessCourse, getCourseProgress, getCertificate } from '@/lib/academy/data'
 import { CertView } from './CertView'
 import { getServerT } from '@/lib/i18n/server'
@@ -15,7 +15,7 @@ interface PageProps {
 }
 
 export default async function CertPage({ params }: PageProps) {
-  const course = COURSE_BY_ID[params.courseId]
+  const course = await resolverCurso(params.courseId)
   if (!course) notFound()
 
   const supabase = createClient()

@@ -9,7 +9,7 @@
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/server'
 import { isOrgAdmin } from '@/lib/team-access'
-import { COURSES, COURSE_BY_ID } from './courses'
+import { listarCursosVisibles, resolverCurso } from './catalog'
 import type {
   AcademyAccess,
   AcademyAccessRequest,
@@ -49,6 +49,9 @@ export interface CourseState {
 export const getUserAcademy = cache(async (userId: string): Promise<CourseState[]> => {
   const admin = createAdminClient()
   const orgAdmin = await isOrgAdmin(userId)
+  // Oficiales + los del equipo ya aprobados. Para el usuario son lo mismo: un
+  // curso con acceso, progreso y certificado.
+  const catalogo = await listarCursosVisibles()
 
   const [{ data: access }, { data: requests }, { data: progress }, { data: certs }] =
     await Promise.all([
@@ -81,7 +84,7 @@ export const getUserAcademy = cache(async (userId: string): Promise<CourseState[
     doneByCourse.set(p.course_id, s)
   }
 
-  return COURSES.map((course) => {
+  return catalogo.map((course) => {
     const hasAccess = orgAdmin || accessSet.has(course.id)
     const totalModules = course.modules.length
     const completedModules = doneByCourse.get(course.id)?.size ?? 0
@@ -102,7 +105,9 @@ export const getUserAcademy = cache(async (userId: string): Promise<CourseState[
 
 /** True si el usuario puede entrar a un curso (acceso concedido o admin). */
 export async function canAccessCourse(userId: string, courseId: string): Promise<boolean> {
-  if (!COURSE_BY_ID[courseId]) return false
+  // Un curso del equipo sin publicar no existe para nadie salvo su autor y los
+  // mandos, y eso se resuelve en la ruta del editor, no aqui.
+  if (!(await resolverCurso(courseId))) return false
   if (await isOrgAdmin(userId)) return true
   const admin = createAdminClient()
   const { data } = await admin

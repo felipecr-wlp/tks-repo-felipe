@@ -138,6 +138,87 @@ export type Database = {
           },
         ]
       }
+      academy_custom_courses: {
+        Row: {
+          accent: string
+          author_id: string | null
+          cert_name: string
+          course_id: string
+          created_at: string
+          icon: string
+          id: string
+          lang: string
+          modules: Json
+          published_at: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string | null
+          subtitle: string
+          title: string
+          track: string
+          updated_at: string
+        }
+        Insert: {
+          accent?: string
+          author_id?: string | null
+          cert_name?: string
+          course_id: string
+          created_at?: string
+          icon?: string
+          id?: string
+          lang?: string
+          modules?: Json
+          published_at?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string | null
+          subtitle?: string
+          title: string
+          track?: string
+          updated_at?: string
+        }
+        Update: {
+          accent?: string
+          author_id?: string | null
+          cert_name?: string
+          course_id?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          lang?: string
+          modules?: Json
+          published_at?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string | null
+          subtitle?: string
+          title?: string
+          track?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_custom_courses_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_custom_courses_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academy_progress: {
         Row: {
           completed: boolean

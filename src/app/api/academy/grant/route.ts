@@ -11,7 +11,7 @@ import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { isOrgAdmin } from '@/lib/academy/data'
-import { COURSE_BY_ID } from '@/lib/academy/courses'
+import { resolverCurso } from '@/lib/academy/catalog'
 
 const schema = z
   .object({
@@ -42,7 +42,10 @@ export async function POST(request: NextRequest) {
   const { profileId, action } = parsed.data
   // Normaliza a lista, deduplica y valida que cada curso exista.
   const ids = Array.from(new Set(parsed.data.courseIds ?? [parsed.data.courseId!]))
-  const unknown = ids.filter((id) => !COURSE_BY_ID[id])
+  const resueltos = await Promise.all(
+    ids.map(async (id) => [id, await resolverCurso(id)] as const),
+  )
+  const unknown = resueltos.filter(([, curso]) => !curso).map(([id]) => id)
   if (unknown.length > 0) {
     return NextResponse.json({ error: `Curso no encontrado: ${unknown.join(', ')}` }, { status: 404 })
   }

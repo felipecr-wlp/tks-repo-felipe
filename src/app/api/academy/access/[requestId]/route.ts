@@ -12,7 +12,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { createNotification } from '@/lib/activity'
 import { isOrgAdmin } from '@/lib/academy/data'
-import { COURSE_BY_ID } from '@/lib/academy/courses'
+import { resolverCurso } from '@/lib/academy/catalog'
 
 interface RouteParams {
   params: { requestId: string }
@@ -93,7 +93,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const wsId = parsed.data.workspaceId
   if (wsId) {
     try {
-      const course = COURSE_BY_ID[req.course_id]
+      const course = await resolverCurso(req.course_id)
       await createNotification({
         recipient_id: req.profile_id,
         subject_id: user.id,

@@ -9,7 +9,7 @@ import { z } from 'zod'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { canAccessCourse } from '@/lib/academy/data'
-import { COURSE_BY_ID } from '@/lib/academy/courses'
+import { resolverCurso } from '@/lib/academy/catalog'
 
 const PASS_SCORE = 70
 
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: 'Datos inválidos' }, { status: 422 })
 
-  const course = COURSE_BY_ID[parsed.data.courseId]
+  const course = await resolverCurso(parsed.data.courseId)
   if (!course) return NextResponse.json({ error: 'Curso no encontrado' }, { status: 404 })
   if (!course.modules.some((m) => m.id === parsed.data.moduleId)) {
     return NextResponse.json({ error: 'Módulo no encontrado' }, { status: 404 })

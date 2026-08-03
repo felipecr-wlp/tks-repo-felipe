@@ -8,7 +8,8 @@ import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getWorkspaceAdminContext } from '@/lib/workspace-admin'
 import { listPendingRequests, listAccessMatrix } from '@/lib/academy/data'
-import { COURSES, PROFILES } from '@/lib/academy/courses'
+import { PROFILES } from '@/lib/academy/courses'
+import { listarCursosVisibles } from '@/lib/academy/catalog'
 import { AcademyAdminPanel } from './AcademyAdminPanel'
 
 export default async function AcademiaSettingsPage({
@@ -26,9 +27,12 @@ export default async function AcademiaSettingsPage({
     profile_id: string
     profiles: { id: string; display_name: string | null; email: string | null; avatar_url: string | null } | null
   }
-  const [pending, matrix, { data: wsMembers }] = await Promise.all([
+  const [pending, matrix, catalogo, { data: wsMembers }] = await Promise.all([
     listPendingRequests(),
     listAccessMatrix(),
+    // Oficiales + los del equipo ya publicados: un curso aprobado se concede
+    // igual que cualquier otro, si no, nadie podria entrar a lo que se aprobo.
+    listarCursosVisibles(),
     // El join profiles infiere una forma (arreglo) distinta a WsMemberRow.
     admin
       .from('workspace_members')
@@ -45,8 +49,8 @@ export default async function AcademiaSettingsPage({
     }))
     .sort((a, b) => a.display_name.localeCompare(b.display_name))
 
-  const courses = COURSES.map((c) => ({ id: c.id, title: c.title, track: c.track }))
-  const allCourseIds = COURSES.map((c) => c.id)
+  const courses = catalogo.map((c) => ({ id: c.id, title: c.title, track: c.track }))
+  const allCourseIds = catalogo.map((c) => c.id)
 
   // Presets por rol: resuelve los bundles de PROFILES ("*" = todos los cursos)
   // y descarta cursos que ya no existan, para que el panel asigne por rol de un clic.

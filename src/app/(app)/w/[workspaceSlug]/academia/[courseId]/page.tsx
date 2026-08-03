@@ -7,7 +7,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { COURSE_BY_ID } from '@/lib/academy/courses'
+import { resolverCurso } from '@/lib/academy/catalog'
 import { canAccessCourse, getCourseProgress, getCertificate } from '@/lib/academy/data'
 import { AcademyIcon } from '@/lib/academy/icons'
 import { CheckCircle2, Circle, Clock, ArrowLeft, Award } from 'lucide-react'
@@ -18,7 +18,7 @@ interface PageProps {
 }
 
 export default async function CoursePage({ params }: PageProps) {
-  const course = COURSE_BY_ID[params.courseId]
+  const course = await resolverCurso(params.courseId)
   if (!course) notFound()
 
   const supabase = createClient()
