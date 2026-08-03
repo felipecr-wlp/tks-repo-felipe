@@ -1,46 +1,30 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { PenTool } from 'lucide-react'
-import { NewFlowButton } from './NewFlowButton'
-import { FlowCard } from './FlowCard'
 
-interface Props { params: { workspaceSlug: string } }
+interface Props { params: { workspaceSlug: string; workspaceId: string } }
 
-export default async function FlowsPage({ params }: Props) {
+export async function FlowsList({ workspaceSlug, workspaceId }: { workspaceSlug: string; workspaceId: string }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
   const admin = createAdminClient()
-  type Ws = { workspaces: { id: string } | null }
-  const { data: row } = await admin
-    .from('workspace_members')
-    .select('workspaces!inner(id)')
-    .eq('profile_id', user.id)
-    .eq('workspaces.slug', params.workspaceSlug)
-    .maybeSingle() as { data: Ws | null; error: unknown }
-
-  if (!row?.workspaces) redirect('/')
-
-  const { data: plugin } = await admin
-    .from('connector_installs')
-    .select('id')
-    .eq('workspace_id', row.workspaces.id)
-    .eq('app_id', 'wlo-flows')
-    .eq('enabled', true)
-    .maybeSingle() as { data: { id: string } | null; error: unknown }
-  if (!plugin) redirect(`/w/${params.workspaceSlug}`)
 
   const { data: flows } = await admin
     .from('flows')
     .select('id, title, description, visibility, created_at, updated_at, created_by, author:profiles(display_name)')
-    .eq('workspace_id', row.workspaces.id)
+    .eq('workspace_id', workspaceId)
     .eq('created_by', user.id)
     .order('updated_at', { ascending: false })
     .limit(100) as { data: Array<{
       id: string; title: string; description: string|null; visibility: string; updated_at: string;
       author: { display_name: string } | null
     }> | null; error: unknown }
+
+  const { FlowCard } = await import('./FlowCard')
+  const { NewFlowButton } = await import('./NewFlowButton')
 
   return (
     <div className="flex flex-col h-full max-w-5xl mx-auto p-6">
@@ -49,7 +33,7 @@ export default async function FlowsPage({ params }: Props) {
           <h1 className="text-2xl font-bold tracking-tight">Flows</h1>
           <p className="text-muted-foreground text-sm mt-1">Diagramas de flujo interactivos con nodos y contenido embebido</p>
         </div>
-        <NewFlowButton workspaceId={row.workspaces.id} workspaceSlug={params.workspaceSlug} />
+        <NewFlowButton workspaceId={workspaceId} workspaceSlug={workspaceSlug} />
       </div>
       {(!flows || flows.length === 0) ? (
         <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground gap-2">
@@ -61,7 +45,7 @@ export default async function FlowsPage({ params }: Props) {
           {flows.map((flow) => (
             <FlowCard key={flow.id} flowId={flow.id} title={flow.title} description={flow.description}
               visibility={flow.visibility} updatedAt={flow.updated_at}
-              author={flow.author?.display_name ?? 'Desconocido'} workspaceSlug={params.workspaceSlug} />
+              author={flow.author?.display_name ?? 'Desconocido'} workspaceSlug={workspaceSlug} />
           ))}
         </div>
       )}

@@ -1,0 +1,12 @@
+{
+  "name": "Reloj",
+  "id": "wlo-clock",
+  "version": "1.0.0",
+  "type": "widget",
+  "icon": "clock",
+  "description": "Widget de ejemplo: reloj digital con hora en tiempo real.",
+  "author": "WLO Team",
+  "wlo_version": ">=1.0.0",
+  "slots": ["dashboard"],
+  "component": "sample-clock"
+}

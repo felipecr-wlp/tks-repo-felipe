@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
@@ -32,13 +31,7 @@ export async function GET(request: NextRequest) {
 
   const url = new URL(request.url)
   const workspace_id = url.searchParams.get('workspace_id')
-  // Forma antes de base: un workspace_id que no es uuid llega a Postgres, revienta
-  // con 22P02 y la ruta contestaria 500 por un dato del cliente. Ademas, este mismo
-  // valor se interpola despues en el `.or(...)` de PostgREST; acotarlo a uuid cierra
-  // esa puerta de una vez.
-  if (!workspace_id || !isUuid(workspace_id)) {
-    return NextResponse.json({ error: 'workspace_id inválido' }, { status: 422 })
-  }
+  if (!workspace_id) return NextResponse.json({ error: 'workspace_id requerido' }, { status: 422 })
 
   const admin = createAdminClient()
 

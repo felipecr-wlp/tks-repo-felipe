@@ -4,29 +4,35 @@ import { PenTool } from 'lucide-react'
 import { NewFlowButton } from './NewFlowButton'
 import { FlowCard } from './FlowCard'
 
-interface Props { params: { workspaceSlug: string } }
+interface FlowsPageProps {
+  params: { workspaceSlug: string }
+}
 
-export default async function FlowsPage({ params }: Props) {
+export default async function FlowsPage({ params }: FlowsPageProps) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
   const admin = createAdminClient()
-  type Ws = { workspaces: { id: string } | null }
+  type WsFromMember = { workspaces: { id: string; name: string } | null }
   const { data: row } = await admin
     .from('workspace_members')
-    .select('workspaces!inner(id)')
+    .select('workspaces!inner ( id, name )')
     .eq('profile_id', user.id)
     .eq('workspaces.slug', params.workspaceSlug)
-    .maybeSingle() as { data: Ws | null; error: unknown }
+    .limit(1)
+    .maybeSingle() as { data: WsFromMember | null; error: unknown }
 
-  if (!row?.workspaces) redirect('/')
+  const workspace = row?.workspaces
+  if (!workspace) redirect('/')
 
+  // Verificar que el plugin Flows este instalado
   const { data: plugin } = await admin
     .from('connector_installs')
     .select('id')
-    .eq('workspace_id', row.workspaces.id)
+    .eq('workspace_id', workspace.id)
     .eq('app_id', 'wlo-flows')
+    .eq('plugin_type', 'widget')
     .eq('enabled', true)
     .maybeSingle() as { data: { id: string } | null; error: unknown }
   if (!plugin) redirect(`/w/${params.workspaceSlug}`)
@@ -34,7 +40,7 @@ export default async function FlowsPage({ params }: Props) {
   const { data: flows } = await admin
     .from('flows')
     .select('id, title, description, visibility, created_at, updated_at, created_by, author:profiles(display_name)')
-    .eq('workspace_id', row.workspaces.id)
+    .eq('workspace_id', workspace.id)
     .eq('created_by', user.id)
     .order('updated_at', { ascending: false })
     .limit(100) as { data: Array<{
@@ -49,7 +55,7 @@ export default async function FlowsPage({ params }: Props) {
           <h1 className="text-2xl font-bold tracking-tight">Flows</h1>
           <p className="text-muted-foreground text-sm mt-1">Diagramas de flujo interactivos con nodos y contenido embebido</p>
         </div>
-        <NewFlowButton workspaceId={row.workspaces.id} workspaceSlug={params.workspaceSlug} />
+        <NewFlowButton workspaceId={workspace.id} workspaceSlug={params.workspaceSlug} />
       </div>
       {(!flows || flows.length === 0) ? (
         <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground gap-2">
@@ -59,9 +65,16 @@ export default async function FlowsPage({ params }: Props) {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {flows.map((flow) => (
-            <FlowCard key={flow.id} flowId={flow.id} title={flow.title} description={flow.description}
-              visibility={flow.visibility} updatedAt={flow.updated_at}
-              author={flow.author?.display_name ?? 'Desconocido'} workspaceSlug={params.workspaceSlug} />
+            <FlowCard
+              key={flow.id}
+              flowId={flow.id}
+              title={flow.title}
+              description={flow.description}
+              visibility={flow.visibility}
+              updatedAt={flow.updated_at}
+              author={flow.author?.display_name ?? 'Desconocido'}
+              workspaceSlug={params.workspaceSlug}
+            />
           ))}
         </div>
       )}
