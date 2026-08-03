@@ -4,9 +4,21 @@
    (toggles por curso + presets por rol) y ver la matriz de quien tiene que. */
 import { useMemo, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Check, X, Award, Trash2, Inbox, GraduationCap, Users, Layers } from 'lucide-react'
+import {
+  Check,
+  X,
+  Award,
+  Trash2,
+  Inbox,
+  GraduationCap,
+  Users,
+  Layers,
+  ClipboardCheck,
+  ChevronRight,
+} from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useT } from '@/lib/i18n/LanguageProvider'
 
@@ -57,6 +69,8 @@ function initials(name: string | null | undefined) {
 
 export function AcademyAdminPanel({
   workspaceId,
+  workspaceSlug,
+  cursosPorRevisar,
   pending,
   matrix,
   members,
@@ -64,6 +78,8 @@ export function AcademyAdminPanel({
   presets,
 }: {
   workspaceId: string
+  workspaceSlug: string
+  cursosPorRevisar: number
   pending: PendingReq[]
   matrix: MatrixRow[]
   members: Member[]
@@ -180,6 +196,33 @@ export function AcademyAdminPanel({
 
   return (
     <div className="space-y-8 py-4">
+      {/* Cursos escritos por el equipo. Va arriba y con el número a la vista:
+          alguien lleva días esperando y no tiene forma de insistir. */}
+      <Link
+        href={`/w/${workspaceSlug}/settings/academia/revision`}
+        className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition hover:border-primary/50"
+      >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <ClipboardCheck className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground">Cursos escritos por el equipo</p>
+          <p className="text-xs text-muted-foreground">
+            {cursosPorRevisar === 0
+              ? 'Nada esperando revisión ahora mismo.'
+              : cursosPorRevisar === 1
+                ? '1 curso está esperando que lo revises.'
+                : `${cursosPorRevisar} cursos están esperando que los revises.`}
+          </p>
+        </div>
+        {cursosPorRevisar > 0 && (
+          <span className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
+            {cursosPorRevisar}
+          </span>
+        )}
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+      </Link>
+
       {/* Solicitudes pendientes */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">

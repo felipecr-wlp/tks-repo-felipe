@@ -55,6 +55,34 @@ export function idDesdeTitulo(titulo: string): string | null {
   return RE_COURSE_ID.test(id) ? id : null
 }
 
+/** Forma que debe tener el id de un modulo (espejo de lo que exige validarCurso). */
+export const RE_MODULE_ID = /^[a-z0-9][a-z0-9-]{0,38}$/
+
+/**
+ * Id de modulo a partir de su titulo, con desempate contra los ya usados.
+ *
+ * OJO: se genera UNA SOLA VEZ, al crear el modulo, y despues NO se vuelve a
+ * tocar aunque le cambien el titulo. El id es la llave con la que
+ * `academy_progress` recuerda quien completo que; regenerarlo al renombrar
+ * borraria el avance de todo el que ya iba a la mitad, sin un solo error a la
+ * vista. Por eso vive aqui y no se recalcula al vuelo en el editor.
+ */
+export function idDesdeTituloModulo(titulo: string, usados: Iterable<string>): string {
+  const base =
+    titulo
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 34)
+      .replace(/-+$/, '') || 'modulo'
+  const tomados = new Set(usados)
+  let id = RE_MODULE_ID.test(base) ? base : 'modulo'
+  for (let n = 2; tomados.has(id); n++) id = `${base}-${n}`
+  return id
+}
+
 /** Valida una sola pregunta. `donde` ya trae el modulo al que pertenece. */
 function validarPregunta(q: QuizQuestion, donde: string, n: number): ProblemaCurso[] {
   const p: ProblemaCurso[] = []

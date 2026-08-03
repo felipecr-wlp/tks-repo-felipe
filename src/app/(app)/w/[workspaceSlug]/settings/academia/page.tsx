@@ -9,7 +9,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getWorkspaceAdminContext } from '@/lib/workspace-admin'
 import { listPendingRequests, listAccessMatrix } from '@/lib/academy/data'
 import { PROFILES } from '@/lib/academy/courses'
-import { listarCursosVisibles } from '@/lib/academy/catalog'
+import { listarCursosVisibles, listarCursosDeEquipoParaAdmin } from '@/lib/academy/catalog'
 import { AcademyAdminPanel } from './AcademyAdminPanel'
 
 export default async function AcademiaSettingsPage({
@@ -27,12 +27,15 @@ export default async function AcademiaSettingsPage({
     profile_id: string
     profiles: { id: string; display_name: string | null; email: string | null; avatar_url: string | null } | null
   }
-  const [pending, matrix, catalogo, { data: wsMembers }] = await Promise.all([
+  const [pending, matrix, catalogo, porRevisar, { data: wsMembers }] = await Promise.all([
     listPendingRequests(),
     listAccessMatrix(),
     // Oficiales + los del equipo ya publicados: un curso aprobado se concede
     // igual que cualquier otro, si no, nadie podria entrar a lo que se aprobo.
     listarCursosVisibles(),
+    // Solo para el contador del enlace. Un curso enviado que nadie ve esperando
+    // es la version silenciosa de rechazarlo.
+    listarCursosDeEquipoParaAdmin(['pending_review']),
     // El join profiles infiere una forma (arreglo) distinta a WsMemberRow.
     admin
       .from('workspace_members')
@@ -66,6 +69,8 @@ export default async function AcademiaSettingsPage({
   return (
     <AcademyAdminPanel
       workspaceId={ctx.workspace.id}
+      workspaceSlug={params.workspaceSlug}
+      cursosPorRevisar={porRevisar.length}
       pending={pending.map((p) => ({
         id: p.id,
         courseId: p.course_id,

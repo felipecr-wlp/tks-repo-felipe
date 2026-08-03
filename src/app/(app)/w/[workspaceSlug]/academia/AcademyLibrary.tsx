@@ -59,14 +59,26 @@ export function AcademyLibrary({
             {t('academyL.subtitle')}
           </p>
         </div>
-        {isAdmin && (
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Visible para TODOS, no solo para mandos: el permiso hace falta para
+              publicar un curso, no para empezar a escribirlo. Si este enlace lo
+              viera solo un admin, la feature no existiria para quien de verdad
+              sabe hacer el trabajo. */}
           <Link
-            href={`/w/${workspaceSlug}/settings/academia`}
-            className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            href={`/w/${workspaceSlug}/academia/mis-cursos`}
+            className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
           >
-            {t('academyL.manage')}
+            {t('academyL.myOwnCourses')}
           </Link>
-        )}
+          {isAdmin && (
+            <Link
+              href={`/w/${workspaceSlug}/settings/academia`}
+              className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              {t('academyL.manage')}
+            </Link>
+          )}
+        </div>
       </div>
 
       {accessible.length > 0 && (

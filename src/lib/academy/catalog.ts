@@ -183,33 +183,67 @@ export async function listarCursosDeAutor(userId: string): Promise<CursoEquipoRo
   return data ?? []
 }
 
+/** Autor resuelto para las vistas de admin. */
+export type AutorCurso = {
+  id: string
+  display_name: string | null
+  avatar_url: string | null
+  email: string | null
+}
+
 /**
- * Cola de revision: lo que esta esperando que un mando lo autorice.
+ * Lo que la pantalla de revision necesita, ni una columna mas.
+ *
+ * Es un Pick y no `CursoEquipoRow` entero a proposito: el tipo describe lo que
+ * el SELECT realmente trae. Declarar la fila completa cuando se piden 15
+ * columnas hace que TypeScript avale leer `published_at` y que en tiempo de
+ * ejecucion valga `undefined`, sin un solo error.
+ */
+export type CursoParaRevisar = Pick<
+  CursoEquipoRow,
+  | 'id'
+  | 'course_id'
+  | 'author_id'
+  | 'status'
+  | 'title'
+  | 'subtitle'
+  | 'track'
+  | 'icon'
+  | 'accent'
+  | 'lang'
+  | 'cert_name'
+  | 'modules'
+  | 'review_note'
+  | 'submitted_at'
+  | 'updated_at'
+> & { autor: AutorCurso | null }
+
+/**
+ * Cursos del equipo en los estados que le importan a un mando, con su autor.
  *
  * Orden ascendente por `submitted_at`, igual que las solicitudes de acceso: lo
  * que lleva mas tiempo esperando va primero. Quien escribio un curso y lleva
  * una semana sin respuesta no vuelve a escribir otro.
  *
+ * Se pide por estados y no solo "pendientes" porque la pantalla de revision
+ * tambien tiene que dejar REABRIR y ARCHIVAR lo ya publicado. Si lo publicado
+ * no se ve ahi, la unica forma de corregir un curso vivo seria adivinar su id.
+ *
  * El embed nombra la constraint (`..._author_id_fkey`) porque esta tabla tiene
  * DOS llaves foraneas a profiles y PostgREST responde HTTP 300 a un embed
  * ambiguo.
  */
-export async function listarPendientesDeRevision(): Promise<
-  Array<CursoEquipoRow & { autor: { id: string; display_name: string | null; avatar_url: string | null; email: string | null } | null }>
-> {
+export async function listarCursosDeEquipoParaAdmin(
+  estados: EstadoCursoEquipo[],
+): Promise<CursoParaRevisar[]> {
+  if (estados.length === 0) return []
   const admin = createAdminClient()
   const { data } = (await admin
     .from('academy_custom_courses')
     .select(
-      '*, autor:profiles!academy_custom_courses_author_id_fkey ( id, display_name, avatar_url, email )',
+      'id, course_id, author_id, status, title, subtitle, track, icon, accent, lang, cert_name, modules, review_note, submitted_at, updated_at, autor:profiles!academy_custom_courses_author_id_fkey ( id, display_name, avatar_url, email )',
     )
-    .eq('status', 'pending_review')
-    .order('submitted_at', { ascending: true })) as {
-    data: Array<
-      CursoEquipoRow & {
-        autor: { id: string; display_name: string | null; avatar_url: string | null; email: string | null } | null
-      }
-    > | null
-  }
+    .in('status', estados)
+    .order('submitted_at', { ascending: true })) as { data: CursoParaRevisar[] | null }
   return data ?? []
 }

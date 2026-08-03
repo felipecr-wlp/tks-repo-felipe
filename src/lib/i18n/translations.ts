@@ -224,6 +224,9 @@ export const translations: Record<Lang, Dict> = {
     'academyL.title': 'Academia WLP',
     'academyL.subtitle': 'Cursos de habilidades profesionales. Completa los módulos y obtén tu certificado.',
     'academyL.manage': 'Gestionar academia',
+    // OJO: no decir "Mis cursos". Esa etiqueta ya existe abajo (academyL.myCourses)
+    // y significa lo contrario: los cursos que ESTUDIO. Esta lleva a los que ESCRIBO.
+    'academyL.myOwnCourses': 'Escribir un curso',
     'academyL.allCourses': 'Todos los cursos',
     'academyL.myCourses': 'Mis cursos',
     'academyL.modulesSuffix': 'módulos',
@@ -1777,6 +1780,7 @@ export const translations: Record<Lang, Dict> = {
     'academyL.title': 'WLP Academy',
     'academyL.subtitle': 'Professional skill courses. Complete the modules and earn your certificate.',
     'academyL.manage': 'Manage academy',
+    'academyL.myOwnCourses': 'Write a course',
     'academyL.allCourses': 'All courses',
     'academyL.myCourses': 'My courses',
     'academyL.modulesSuffix': 'modules',

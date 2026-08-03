@@ -105,6 +105,12 @@ const schema = z.object({
   certName: z.string().trim().max(160).optional(),
   modules: z.array(moduloSchema).max(60).optional(),
 })
+  // Estricto por la misma razon que los bloques y las preguntas de abajo, y con
+  // un caso ya vivido: el panel de revision mandaba la nota del rechazo en un
+  // campo llamado `note`. Zod la descartaba sin decir nada y el API respondia
+  // "hace falta explicar el motivo" a un revisor que acababa de escribirlo. Con
+  // .strict() eso es un 422 que NOMBRA el campo sobrante, en el primer intento.
+  .strict()
 
 /** Lo unico que este handler necesita leer del curso. Nada mas. */
 const COLUMNAS = 'id, course_id, author_id, status, title, subtitle, modules'
