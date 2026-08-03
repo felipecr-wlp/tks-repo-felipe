@@ -1829,15 +1829,15 @@ export const COURSES: Course[] = [
             "ex": "Ingreso arriba, se resta COGS para llegar a GP, se resta OPEX para llegar a NOI."
           },
           {
-            "q": "¿Alrededor de qué porcentaje opera el GP de WLP (conservador)?",
+            "q": "¿Por qué se planea con un GP conservador y no con el del mejor mes?",
             "opts": [
-              "25%",
-              "40%",
-              "55%",
-              "80%"
+              "Por modestia frente al cliente",
+              "Porque el margen varía mucho por trabajo: planear con el pico deja a la empresa sin colchón cuando llega el mes normal",
+              "Porque el banco lo exige",
+              "Porque el mejor mes no se puede medir"
             ],
-            "a": 2,
-            "ex": "WLP opera alrededor de 55% de utilidad bruta como cifra conservadora."
+            "a": 1,
+            "ex": "El margen real oscila trabajo por trabajo. Se compromete gasto contra el piso, no contra el techo, porque el gasto sí es firme y el margen no."
           },
           {
             "q": "¿De dónde sale un descuento agresivo?",
@@ -1981,7 +1981,7 @@ export const COURSES: Course[] = [
               "El del mejor mes"
             ],
             "a": 1,
-            "ex": "Se planea con 55% conservador aunque el YTD 2026 vaya en 60.8%."
+            "ex": "Se planea con el piso conservador (55%) aunque el acumulado del año vaya por encima. El margen realizado sube y baja; el compromiso de gasto no."
           },
           {
             "q": "¿Por qué un reproceso es tan caro?",
@@ -2089,37 +2089,37 @@ export const COURSES: Course[] = [
             "ex": "OPEX es el costo de tener la empresa funcionando, en gran parte fijo."
           },
           {
-            "q": "¿Cuál es el rango mensual de OPEX en WLP?",
+            "q": "El OPEX es en gran parte fijo. ¿Qué consecuencia tiene eso en un mes flojo?",
             "opts": [
-              "$5-10K",
-              "$20-30K",
-              "$60-70K",
-              "$200K+"
-            ],
-            "a": 2,
-            "ex": "El OPEX ronda entre 60 y 70 mil dólares al mes."
-          },
-          {
-            "q": "Con OPEX ~$66K y GP 55%, el breakeven ronda:",
-            "opts": [
-              "$36K",
-              "$66K",
-              "$120K",
-              "$300K"
-            ],
-            "a": 2,
-            "ex": "66K dividido entre 0.55 da aproximadamente 120K de ingreso mensual."
-          },
-          {
-            "q": "¿Cuál es el rango realista de NOI?",
-            "opts": [
-              "0-2%",
-              "8% a 13.5%",
-              "25-30%",
-              "50%+"
+              "Baja solo, en proporción a la obra vendida",
+              "Se sigue pagando completo, así que un mes de bajo ingreso se come la utilidad acumulada",
+              "Se puede posponer al siguiente trimestre",
+              "Deja de contar si no hubo obra"
             ],
             "a": 1,
-            "ex": "El NOI observado vive entre 8% (2025) y 13.5% (2026 YTD)."
+            "ex": "Renta, seguros, software y sueldos de oficina corren igual con obra o sin ella. Por eso la temporada baja no es neutral: es la que consume lo ganado en la alta."
+          },
+          {
+            "q": "¿Cómo se calcula el breakeven mensual?",
+            "opts": [
+              "OPEX multiplicado por el margen GP",
+              "OPEX dividido entre el margen GP",
+              "Ingreso menos COGS",
+              "OPEX más COGS"
+            ],
+            "a": 1,
+            "ex": "Breakeven = OPEX / margen GP. Con ~$66K de OPEX y 55% de margen da ~$120K de ingreso al mes. Lo que hay que retener es la palanca: si el margen baja, el breakeven SUBE, así que descontar precio mueve el punto de equilibrio en contra."
+          },
+          {
+            "q": "Si el NOI ronda 10%, ¿qué significa perder $10,000 en un reproceso?",
+            "opts": [
+              "Que se perdieron $10,000 y ya",
+              "Que hay que facturar alrededor de $100,000 adicionales solo para reponer esa pérdida",
+              "Que sube el GP del mes",
+              "Que lo absorbe el OPEX sin efecto"
+            ],
+            "a": 1,
+            "ex": "Con margen de un dígito alto, cada dólar perdido cuesta unos diez dólares de venta nueva para volver al mismo punto. Esa es la razón real por la que se cuida el reproceso y el descuento."
           }
         ]
       },
@@ -2463,26 +2463,26 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "¿Cuál es el valor promedio por job de WLP?",
+            "q": "¿Para qué sirve conocer el valor promedio por trabajo a la hora de decidir cuánto pagar por un lead?",
             "opts": [
-              "$12,650",
-              "$23,000",
-              "$1,796",
-              "$95"
+              "Para ponerlo en el anuncio",
+              "Porque el valor del trabajo por el margen fija el TECHO de lo que se puede pagar por conseguir un cliente sin perder dinero",
+              "Para saber cuánto cobrarle al cliente",
+              "No sirve, el costo por lead se decide por presupuesto"
             ],
             "a": 1,
-            "ex": "El valor promedio por job es ~$23,000, derivado de $11.37M entre 492 jobs."
+            "ex": "Sin ese número no hay forma de saber si un costo por adquisición es caro o barato. El techo se recalcula cuando cambia el valor por trabajo o el margen, así que se consulta, no se memoriza."
           },
           {
-            "q": "¿Cuánto es el presupuesto diario laboral de la campaña?",
+            "q": "¿Por qué el presupuesto diario se calcula sobre días hábiles y no sobre los 30 del mes?",
             "opts": [
-              "$185 al día",
-              "$95 al día",
-              "~$204 por día laboral",
-              "$4,500 al día"
+              "Porque Google cobra más entre semana",
+              "Porque en fin de semana no hay quien conteste: el clic se paga igual pero el lead se enfría o se pierde",
+              "Porque el sistema no permite gastar en sábado",
+              "Para que el reporte se vea mejor"
             ],
-            "a": 2,
-            "ex": "Son $4,500 al mes sin fines de semana, o sea ~$204 por día sobre ~22 días hábiles."
+            "a": 1,
+            "ex": "El gasto solo vale si alguien puede responder. Repartir el mismo mes entre menos días concentra la inversión donde hay capacidad de atender, y ese cálculo se rehace cuando cambia el monto mensual."
           },
           {
             "q": "Antes de afirmar cuántos ad groups o keywords hay en la cuenta, ¿qué se hace?",
@@ -2891,15 +2891,15 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "¿Cuántos ad groups están ENABLED en la cuenta viva?",
+            "q": "Con un presupuesto mensual fijo, ¿qué pasa si se multiplica el número de ad groups activos?",
             "opts": [
-              "8",
-              "5",
-              "4",
-              "74"
+              "Se gana más alcance sin costo",
+              "El mismo dinero se reparte entre más grupos, cada uno junta menos datos y la fase de aprendizaje se alarga en todos",
+              "Google aumenta el presupuesto automáticamente",
+              "Nada, el reparto es independiente del número de grupos"
             ],
-            "a": 2,
-            "ex": "El dato vivo dice 4 ENABLED / 5 PAUSED; el 8 y el 5 son historia y plan del doc 34, no el estado actual."
+            "a": 1,
+            "ex": "Dividir presupuesto es dividir señal. Por eso un documento viejo puede listar más grupos de los que conviene tener prendidos hoy, y por eso el conteo REAL se consulta en la cuenta viva antes de afirmarlo, nunca se recuerda."
           },
           {
             "q": "¿Por qué el CPC de $0.17 de 2023 no es replicable hoy?",
@@ -3316,10 +3316,10 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "Hay 200 títulos con más de 60 caracteres que se truncan en el SERP y hay que acortar.",
-                  "El sitemap contiene 14 URLs que devuelven 404 y hay que limpiarlas.",
-                  "La metodología base usa SOLO datos LIVE verificados, nunca los falsos positivos del XML.",
-                  "La deduplicación real se hizo con MinHash k=8, removiendo 749 shingles de boilerplate de Divi."
+                  "El título se trunca en el SERP pasados unos 60 caracteres: lo que sobra no lo lee nadie, así que la promesa tiene que caber al principio. En el crawl de julio de 2026 había 200 títulos por encima de ese límite.",
+                  "El sitemap es una DECLARACIÓN de lo que el sitio considera valioso. Si declara URLs que devuelven 404, quema presupuesto de rastreo en páginas muertas y le manda a Google la señal de que el sitio no se mantiene. En ese crawl eran 14.",
+                  "La metodología base usa SOLO datos LIVE verificados, nunca los falsos positivos del XML: el sitemap dice lo que el CMS cree que existe, no lo que el servidor responde de verdad.",
+                  "Dos páginas hechas con la misma plantilla se parecen aunque no digan lo mismo. Antes de comparar hay que QUITAR el boilerplate del tema y medir solo el contenido propio, o todo el sitio parece duplicado. Aquí se hizo con MinHash sobre el texto ya limpio de Divi."
                 ]
               },
               {
@@ -3352,48 +3352,48 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "¿Cuántas páginas se solapan sobre la misma geografía NorCal?",
+            "q": "Cuatro plantillas distintas del sitio generan páginas para la misma ciudad. ¿Cuál es el daño real?",
             "opts": [
-              "362",
-              "462",
-              "894",
-              "54"
+              "Ninguno: más páginas siempre es más tráfico",
+              "Las páginas compiten entre sí por la misma consulta y se diluye la autoridad del dominio",
+              "El sitio pesa más y carga lento",
+              "Google cobra por página indexada"
             ],
             "a": 1,
-            "ex": "Las 4 superficies programáticas suman 462 páginas solapadas."
+            "ex": "Es canibalización: el dominio compite consigo mismo. Google tiene que elegir cuál de tus propias páginas rankea, y ninguna acumula la señal completa. Por eso la regla rectora es que toda página nueva justifique que NO compite con una existente."
           },
           {
-            "q": "¿Cuántos títulos superan los 60 caracteres?",
+            "q": "¿Por qué importa que un título rebase los ~60 caracteres?",
             "opts": [
-              "14",
-              "200",
-              "749",
-              "894"
+              "Porque Google lo penaliza con una multa de ranking",
+              "Porque se trunca en el SERP y la parte que convence al usuario puede quedar fuera",
+              "Porque rompe el sitemap",
+              "Porque no cabe en la base de datos"
             ],
             "a": 1,
-            "ex": "Hay 200 títulos largos que se truncan en el SERP."
+            "ex": "No hay penalización: hay truncamiento. El título es el anuncio orgánico, así que la promesa tiene que caber al principio o el usuario nunca la lee."
           },
           {
-            "q": "¿Cuántas URLs del sitemap devuelven 404?",
+            "q": "El sitemap declara URLs que devuelven 404. ¿Por qué hay que limpiarlas?",
             "opts": [
-              "14",
-              "16",
-              "26",
-              "40"
+              "Porque el sitemap es una declaración de lo valioso: mandar al rastreador a páginas muertas quema presupuesto de rastreo y señala abandono",
+              "Porque las 404 borran el resto del sitemap",
+              "Porque el hosting cobra por cada 404",
+              "No hay que limpiarlas, Google las ignora sin costo"
             ],
             "a": 0,
-            "ex": "El sitemap tiene 14 URLs con 404 que hay que limpiar."
+            "ex": "El sitemap no es un inventario automático, es una recomendación firmada por el sitio. Si recomienda páginas que no existen, gasta el rastreo que debería ir a las que sí convierten."
           },
           {
-            "q": "¿Qué método se usó para deduplicar de verdad?",
+            "q": "¿Por qué hay que quitar el boilerplate de la plantilla antes de comparar dos páginas?",
             "opts": [
-              "El XML sitemap",
-              "MinHash k=8 quitando 749 shingles",
-              "GA4",
-              "Search Console"
+              "Para que el archivo pese menos",
+              "Porque el menú, el pie y los bloques del tema se repiten en todas y, sin quitarlos, cualquier par de páginas parece duplicado",
+              "Porque el boilerplate no se indexa",
+              "Para poder usar el XML sitemap como fuente"
             ],
             "a": 1,
-            "ex": "Se usó MinHash k=8 removiendo boilerplate de Divi."
+            "ex": "Si se comparan las páginas en crudo, el tema domina la medición y todo sale igual. La duplicación que importa es la del contenido PROPIO, así que primero se limpia y luego se mide."
           }
         ]
       },
@@ -3416,8 +3416,8 @@ export const COURSES: Course[] = [
               {
                 "type": "list",
                 "v": [
-                  "La accesibilidad ADA es fuerte: 0 imágenes sin texto alt de un total de 32,186 imágenes.",
-                  "El CRO es débil: el CTA Free Estimate aparece solo en 12 de 880 páginas.",
+                  "El texto alt describe la imagen para quien no puede verla: es lo que lee un lector de pantalla y lo único que el rastreador entiende de una foto. Faltarlo es a la vez una barrera de accesibilidad (exposición ADA) y señal desperdiciada. En el crawl de julio de 2026 el sitio salió limpio: 0 imágenes sin alt de 32,186.",
+                  "Una página que recibe tráfico y no ofrece un siguiente paso visible gasta la visita: el usuario llegó, leyó y se fue sin forma de pedir precio. Ahí el CTA Free Estimate aparecía solo en 12 de 880 páginas.",
                   "La oportunidad es llevar ese CTA a cobertura sitewide, ligándolo al trabajo de landing y form del SSOT SEM.",
                   "Subir la cobertura del CTA es la quinta prioridad SEO, cruzando CRO con message-match de SEM."
                 ]
@@ -3461,37 +3461,37 @@ export const COURSES: Course[] = [
         ],
         "quiz": [
           {
-            "q": "¿Cuántas imágenes sin alt encontró el crawl?",
+            "q": "¿Para qué sirve el texto alt de una imagen?",
             "opts": [
-              "12",
-              "0",
-              "880",
-              "32,186"
+              "Para que la imagen cargue más rápido",
+              "Para describirla a quien no puede verla (lector de pantalla) y para que el rastreador entienda qué muestra",
+              "Para poner palabras clave repetidas y subir de posición",
+              "Es decorativo, no lo usa nadie"
             ],
             "a": 1,
-            "ex": "Cero imágenes sin alt de 32,186 en total; la accesibilidad ADA es fuerte."
+            "ex": "Es accesibilidad primero: sin alt, un usuario con lector de pantalla no sabe qué hay ahí, y eso es exposición ADA. De paso es la única lectura que el buscador tiene de la foto. No es un campo para rellenar de keywords."
           },
           {
-            "q": "¿En cuántas de 880 páginas aparece el CTA Free Estimate?",
+            "q": "Una página recibe tráfico orgánico pero no muestra ningún CTA. ¿Qué está pasando?",
             "opts": [
-              "12",
-              "200",
-              "462",
-              "880"
-            ],
-            "a": 0,
-            "ex": "Solo 12 de 880 páginas; el CRO es débil."
-          },
-          {
-            "q": "¿Dónde vive la página de Carreras?",
-            "opts": [
-              "En un subdominio",
-              "En la subcarpeta /careers",
-              "En un ATS externo",
-              "En iCIMS"
+              "Nada, el tráfico ya cuenta como resultado",
+              "Se está gastando la visita: el usuario llegó, leyó y se fue sin forma de pedir precio",
+              "Google la va a desindexar",
+              "Mejora el SEO porque la página es más limpia"
             ],
             "a": 1,
-            "ex": "Decisión cerrada: subcarpeta welovepaving.com/careers."
+            "ex": "Posicionar y convertir son dos trabajos distintos. Tráfico sin siguiente paso visible es tráfico que se paga (en tiempo o en dinero) y no deja lead."
+          },
+          {
+            "q": "¿Por qué conviene poner Carreras en la subcarpeta /careers y no en un subdominio?",
+            "opts": [
+              "Porque el subdominio cuesta más dinero",
+              "Porque la subcarpeta consolida autoridad en el dominio raíz, mientras un subdominio la divide",
+              "Porque Google prohíbe los subdominios",
+              "Porque el subdominio no se puede indexar"
+            ],
+            "a": 1,
+            "ex": "Con un dominio de autoridad baja y perfil de links frágil, partir la señal en dos hosts es regalar terreno. Que MasTec use subdominio es consecuencia de hospedar su ATS aparte, no una decisión de SEO."
           },
           {
             "q": "¿Cuál es una fuente gratuita de backlinks de empleos?",
@@ -3807,15 +3807,15 @@ export const COURSES: Course[] = [
             "ex": "El standby es $575 por hora por Resource."
           },
           {
-            "q": "¿Cuántos artículos tiene el WLP MSA 2026 Branded?",
+            "q": "El Subcontractor Agreement existe y está redactado, pero marcado como BLOQUEADO. ¿Qué se hace con él?",
             "opts": [
-              "14",
-              "29",
-              "45",
-              "11"
+              "Usarlo, si ya está escrito sirve",
+              "No usarlo con nadie: está bloqueado porque el abogado externo nunca lo revisó, y un contrato sin revisar expone más de lo que protege",
+              "Usarlo solo con subcontratistas pequeños",
+              "Usarlo y avisarle al abogado después"
             ],
-            "a": 2,
-            "ex": "El MSA tiene 45 artículos y 29 páginas."
+            "a": 1,
+            "ex": "Un documento redactado no es un documento aprobado. Firmar sobre texto sin revisión legal traslada el riesgo a WLP justo donde se creía cubierto. Bloqueado significa bloqueado hasta que outside counsel lo libere."
           },
           {
             "q": "¿Cuál es el interés moratorio según Civ 3289b?",
@@ -4308,15 +4308,15 @@ export const COURSES: Course[] = [
             "ex": "El código canónico vive en el repositorio; el vault solo describe."
           },
           {
-            "q": "¿Cuántos clientes aporta Pipedrive como fuente del CRM?",
+            "q": "¿Por qué el naming inconsistente de lead_source rompe el trabajo de marketing?",
             "opts": [
-              "538",
-              "687",
-              "2,359",
-              "91"
+              "Porque se ve desordenado en la tabla",
+              "Porque la misma fuente escrita de varias formas se fragmenta: ninguna acumula sus conversiones y la atribución termina mintiendo",
+              "Porque Supabase cobra por valor distinto",
+              "No lo rompe, se corrige al final del año"
             ],
-            "a": 2,
-            "ex": "Pipedrive aporta 2,359 clientes; Jobber aporta 538 jobs."
+            "a": 1,
+            "ex": "Si un canal aparece como google, Google y google-ads, se ve como tres canales flojos en lugar de uno bueno, y el presupuesto se decide sobre esa mentira. Por eso el catálogo de lead_source va normalizado desde la captura."
           },
           {
             "q": "¿Cuál es el endpoint de leads del quote form?",
@@ -4330,15 +4330,15 @@ export const COURSES: Course[] = [
             "ex": "El endpoint de leads es /api/submit; /api/health es solo uptime."
           },
           {
-            "q": "¿Cuántas etapas tiene el pipeline del ERP en Supabase?",
+            "q": "¿Qué hace que una etapa del pipeline sirva de algo?",
             "opts": [
-              "3",
-              "5",
-              "7",
-              "10"
+              "Que suene profesional",
+              "Que represente un cambio de estado verificable desde fuera, no una sensación del vendedor",
+              "Que haya muchas etapas para tener detalle",
+              "Que la mueva el gerente al cierre de mes"
             ],
-            "a": 2,
-            "ex": "El ERP en Supabase tiene un pipeline de 7 etapas."
+            "a": 1,
+            "ex": "Una etapa como se cotizó o se firmó se puede comprobar. Una como está caliente no, y ahí el pronóstico se vuelve opinión. Entre más etapas irreales, menos confiable el forecast."
           }
         ]
       },
