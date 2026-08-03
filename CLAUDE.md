@@ -29,11 +29,16 @@ ventana de "todavía no importa".
 
 ### 2. Los tripwires no se "arreglan" borrándolos
 
-En `tests/` hay 77 archivos que no prueban funcionalidad, prueban **invariantes**:
-leen el código fuente con regex y fallan si una garantía desaparece. Si uno se
-pone rojo, la respuesta correcta es casi siempre reponer lo que se quitó, no
-aflojar el test. Aflojar el test es exactamente el fallo que estos archivos
-existen para evitar: un rojo que dejó de significar que algo está mal.
+Los archivos de `tests/` en su mayoría no prueban funcionalidad, prueban
+**invariantes**: leen el código fuente con regex y fallan si una garantía
+desaparece. Si uno se pone rojo, la respuesta correcta es casi siempre reponer lo
+que se quitó, no aflojar el test. Aflojar el test es exactamente el fallo que
+estos archivos existen para evitar: un rojo que dejó de significar que algo está
+mal.
+
+Corren solos en cada push y en cada PR (`.github/workflows/ci.yml`), y `master`
+está protegida exigiendo que pasen. No es opcional ni depende de que alguien se
+acuerde.
 
 Si de verdad la invariante cambió a propósito, se cambia el test **y se explica
 en el commit por qué la garantía vieja ya no aplica**.
@@ -68,7 +73,7 @@ en el commit por qué la garantía vieja ya no aplica**.
 
 ```bash
 npm run type-check     # tsc --noEmit
-npm test               # vitest run  (77 archivos, deben pasar TODOS)
+npm test               # vitest run  (deben pasar TODOS, sin excepcion)
 npm run build          # el build de Vercel no debe enterarse de nada nuevo
 ```
 
@@ -256,7 +261,7 @@ Lo que hay hoy:
 |---|---|
 | Producción | `wlo.vercel.app` (autodespliega con push a `master`) |
 | Migraciones | 68 en `supabase/migrations/` |
-| Tripwires | 77 archivos en `tests/` |
+| Tripwires | 78 archivos en `tests/`, 346 tests (al 2026-08-02) |
 | Fases | F0 a F9 completas + Nivel 1 (SOPs) desplegado |
 
 Construido y en uso: autenticación Google + restricción por dominio, RLS en todas

@@ -1,0 +1,82 @@
+# Integracion continua de WLO.
+#
+# Por que existe: hasta hoy los cientos de tripwires del repo solo corrian si alguien se
+# acordaba de correrlos en su maquina. Una rama podia llegar a `master` sin que
+# se ejecutara un solo test. Eso ya casi pasa: una rama reescribio la API de
+# flujos quitando el control de acceso, el candado optimista y el filtro de la
+# lista de compartidos, y nada automatico lo habria detenido.
+#
+# Un tripwire que nadie ejecuta no es una red de seguridad, es documentacion.
+#
+# Corre en cada push y en cada PR. Falla el PR si algo se rompe, y `master` esta
+# protegida exigiendo que este check pase.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [master]
+
+# Si se empujan dos commits seguidos a la misma rama, cancela el anterior: no
+# tiene sentido gastar minutos validando un commit que ya quedo atras.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Tipos, tripwires y build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Valores de relleno. El build de Next necesita que las variables EXISTAN y
+    # tengan forma valida (la URL tiene que parsear), pero no sale a la red: el
+    # build ya se probo con estos mismos valores antes de escribir este archivo.
+    #
+    # NO son secretos, y no deben serlo: si algun dia un test o el build
+    # necesitan credenciales de verdad, es senal de que dejaron de ser
+    # deterministas y ese es el problema a arreglar, no el que falten llaves.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
+      GOOGLE_CLIENT_ID: placeholder
+      GOOGLE_CLIENT_SECRET: placeholder
+      GEMINI_API_KEY: placeholder
+      UPSTASH_REDIS_REST_URL: https://placeholder.upstash.io
+      UPSTASH_REDIS_REST_TOKEN: placeholder
+      ALLOWED_EMAIL_DOMAIN: example.com
+      NEXT_PUBLIC_APP_URL: https://example.com
+
+    steps:
+      - name: Traer el codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # `npm ci` y no `npm install`: instala EXACTAMENTE lo que dice el
+      # package-lock. Si el lock y el package.json no concuerdan, falla en vez de
+      # resolver por su cuenta una version distinta a la que se probo en local.
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Tipos
+        run: npm run type-check
+
+      # El paso que de verdad importa. Aqui viven las invariantes de
+      # autorizacion, el saneo de HTML, los limites de tasa y el registro de
+      # gates por ruta.
+      #
+      # Si esto se pone rojo, la respuesta correcta casi siempre es reponer lo
+      # que se quito, NO aflojar el test. Aflojar el test para ver verde es
+      # exactamente el fallo que los tripwires existen para evitar.
+      - name: Tripwires
+        run: npm test
+
+      - name: Build
+        run: npm run build
