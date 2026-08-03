@@ -24,6 +24,7 @@ import {
   Users,
   FolderKanban,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type {
   ThroughputWeek,
   CycleTime,
@@ -409,34 +410,43 @@ function TimeBreakdown({
 }
 
 // ── Seccion de time tracking (rollup de time_entries) ────────────────────────
+// `soloPropio` = quien mira NO es mando, asi que el server ya recorto la consulta
+// a su propio tiempo. Aqui solo se ajusta el TEXTO: si dijera "Tiempo por persona"
+// mostrando una sola fila, o "Personas activas: 1", estaria mintiendo sobre lo que
+// hay. Una etiqueta que no corresponde al dato es la version barata de un dato
+// falso.
 function TimeTrackingSection({
   rollup,
   days,
+  soloPropio,
 }: {
   rollup: TimeRollup
   days: number
+  soloPropio: boolean
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className={cn('grid grid-cols-2 gap-4', soloPropio ? 'lg:grid-cols-3' : 'lg:grid-cols-4')}>
         <StatCard
           icon={<Clock className="w-4 h-4" />}
-          label="Horas registradas"
+          label={soloPropio ? 'Tus horas registradas' : 'Horas registradas'}
           value={`${round1(rollup.totalHours)} h`}
           hint={`últimos ${days} días`}
         />
         <StatCard
           icon={<Activity className="w-4 h-4" />}
-          label="Entradas de tiempo"
+          label={soloPropio ? 'Tus entradas de tiempo' : 'Entradas de tiempo'}
           value={rollup.entryCount.toLocaleString('es-MX')}
           hint={`en ${days} días`}
         />
-        <StatCard
-          icon={<Users className="w-4 h-4" />}
-          label="Personas activas"
-          value={rollup.byPerson.length.toLocaleString('es-MX')}
-          hint="con tiempo registrado"
-        />
+        {!soloPropio && (
+          <StatCard
+            icon={<Users className="w-4 h-4" />}
+            label="Personas activas"
+            value={rollup.byPerson.length.toLocaleString('es-MX')}
+            hint="con tiempo registrado"
+          />
+        )}
         <StatCard
           icon={<FolderKanban className="w-4 h-4" />}
           label="Proyectos con tiempo"
@@ -447,13 +457,17 @@ function TimeTrackingSection({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <TimeBreakdown
-          title="Tiempo por persona"
+          title={soloPropio ? 'Tu tiempo registrado' : 'Tiempo por persona'}
           icon={<Users className="w-4 h-4" />}
           rows={rollup.byPerson}
-          emptyMessage="Nadie ha registrado tiempo en el periodo."
+          emptyMessage={
+            soloPropio
+              ? 'No has registrado tiempo en el periodo.'
+              : 'Nadie ha registrado tiempo en el periodo.'
+          }
         />
         <TimeBreakdown
-          title="Tiempo por proyecto"
+          title={soloPropio ? 'Tu tiempo por proyecto' : 'Tiempo por proyecto'}
           icon={<FolderKanban className="w-4 h-4" />}
           rows={rollup.byProject}
           emptyMessage="Aún no hay tiempo registrado por proyecto."
@@ -475,6 +489,7 @@ export function AnalyticsView({
   activeSprintName,
   timeRollup,
   timeDays,
+  soloPropio = false,
 }: {
   workspaceName: string
   weeks: number
@@ -486,6 +501,8 @@ export function AnalyticsView({
   activeSprintName: string | null
   timeRollup: TimeRollup
   timeDays: number
+  /** Quien mira no es mando: el server ya recorto el tiempo al suyo. */
+  soloPropio?: boolean
 }) {
   const totalTasks = throughput.reduce((sum, w) => sum + w.tasks_done, 0)
 
@@ -545,7 +562,7 @@ export function AnalyticsView({
             últimos {timeDays} días
           </span>
         </div>
-        <TimeTrackingSection rollup={timeRollup} days={timeDays} />
+        <TimeTrackingSection rollup={timeRollup} days={timeDays} soloPropio={soloPropio} />
       </div>
     </div>
   )

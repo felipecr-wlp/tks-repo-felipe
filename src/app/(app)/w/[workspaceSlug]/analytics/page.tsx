@@ -145,7 +145,17 @@ export default async function AnalyticsPage({
     subject: { display_name: string | null } | { display_name: string | null }[] | null
     project: { name: string | null } | { name: string | null }[] | null
   }
-  const { data: timeRows } = (await admin
+  // QUIEN VE EL TIEMPO DE QUIEN. `getWorkspaceAdminContext` calcula `isAdmin` y
+  // hasta hoy esta pantalla lo IGNORABA: cualquier miembro veia el desglose de
+  // horas de todo el mundo, o sea un ranking publico de quien trabajo cuanto.
+  // Contradice la regla del reporte diario (no es tablero abierto: cada quien ve
+  // lo suyo salvo mando) y no se notaba solo porque no hay tiempo registrado
+  // todavia. El dia que alguien empiece a registrar, se enciende solo.
+  //
+  // El recorte va en la CONSULTA y no al pintar, a proposito: estas paginas leen
+  // con el admin client, que se salta RLS. Un filtro puesto en el render deja los
+  // datos viajando al navegador igual, y ahi ya se leen.
+  let timeQuery = admin
     .from('time_entries')
     .select(`
       duration_sec,
@@ -158,6 +168,10 @@ export default async function AnalyticsPage({
     .eq('workspace_id', wsId)
     .gte('started_at', timeSince)
     .not('duration_sec', 'is', null)
+
+  if (!ctx.isAdmin) timeQuery = timeQuery.eq('profile_id', ctx.userId)
+
+  const { data: timeRows } = (await timeQuery
     .limit(5000)) as { data: TimeEntryRow[] | null; error: unknown }
 
   const firstOf = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v)
@@ -209,6 +223,7 @@ export default async function AnalyticsPage({
         activeSprintName={activeSprint?.name ?? null}
         timeRollup={timeRollup}
         timeDays={TIME_DAYS}
+        soloPropio={!ctx.isAdmin}
       />
     </div>
   )
