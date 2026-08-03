@@ -8,8 +8,13 @@
 #
 # Un tripwire que nadie ejecuta no es una red de seguridad, es documentacion.
 #
-# Corre en cada push y en cada PR. Falla el PR si algo se rompe, y `master` esta
-# protegida exigiendo que este check pase.
+# Corre en cada push y en cada PR, y falla el PR si algo se rompe.
+#
+# OJO CON EL ALCANCE: hoy este check INFORMA, no IMPIDE. `master` NO esta
+# protegida exigiendo que pase, porque la proteccion de ramas en repos privados
+# es de pago y la organizacion esta en plan Free. El freno parcial mientras tanto
+# es `.githooks/pre-push`. Si se contrata el plan, se protege la rama y se
+# corrige este comentario en el mismo commit.
 name: CI
 
 on:

@@ -33,6 +33,8 @@ const RAIZ = process.cwd()
 const WORKFLOW = join(RAIZ, '.github', 'workflows', 'ci.yml')
 const VITEST = join(RAIZ, 'vitest.config.ts')
 const TESTS = join(RAIZ, 'tests')
+const HOOK = join(RAIZ, '.githooks', 'pre-push')
+const PAQUETE = join(RAIZ, 'package.json')
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. El workflow sigue armado
@@ -209,4 +211,57 @@ describe('CI: el corredor de pruebas recoge todo', () => {
     }
     expect(ofensores, 'hay un .only olvidado que silencia al resto:').toEqual([])
   })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. El freno de mano de master sigue puesto
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * `master` autodespliega a produccion y la proteccion de ramas de GitHub es de
+ * pago en repos privados, asi que el hook de pre-push es hoy lo unico que
+ * detiene un push distraido. Como todo lo demas que protege algo, necesita a su
+ * vez quien lo vigile: borrarlo o desconectarlo no rompe nada visible, solo
+ * devuelve el repo al estado en que la regla era de honor.
+ */
+describe('CI: el freno de mano de master sigue puesto', () => {
+  it('el hook de pre-push existe', () => {
+    expect(
+      existsSync(HOOK),
+      'desaparecio .githooks/pre-push. `master` autodespliega a produccion y vuelve a no haber nada que frene un push directo.',
+    ).toBe(true)
+  })
+
+  it('el hook sigue bloqueando master y no solo avisando', () => {
+    const src = readFileSync(HOOK, 'utf8')
+    // Ancla en el `exit 1`, no en el mensaje. Un hook que imprime la advertencia
+    // y despues sale con 0 se ve identico en el diff, deja pasar el push, y
+    // ademas tranquiliza a quien lo lee. Es la misma calma sin control de
+    // siempre.
+    const faltantes = Object.entries({
+      'reconoce la rama master': /refs\/heads\/master/,
+      'aborta el push (exit 1), no solo advierte': /^\s*exit 1\s*$/m,
+      'el escape es explicito y con nombre': /PERMITIR_PUSH_MASTER/,
+    })
+      .filter(([, patron]) => !patron.test(src))
+      .map(([porque]) => porque)
+
+    expect(faltantes, 'el hook de pre-push perdio garantias:').toEqual([])
+  })
+
+  it('el hook se instala solo al clonar', () => {
+    // Los hooks viven en `.git/hooks/`, que no se versiona. Sin el postinstall
+    // que apunta `core.hooksPath` a `.githooks/`, este hook solo protege a quien
+    // lo instalo a mano, que es justo la persona que ya conocia la regla.
+    const pkg = JSON.parse(readFileSync(PAQUETE, 'utf8'))
+    // Se compara contra booleano y no con `.toMatch`: si el script desaparece,
+    // `.toMatch` recibe undefined y vitest reporta "expects to receive a string",
+    // que se come el mensaje que explica QUE se rompio. Un rojo que no dice por
+    // que es un rojo a medias.
+    expect(
+      /instalar-hooks/.test(pkg.scripts?.postinstall ?? ''),
+      'se perdio el postinstall que conecta .githooks/: el hook deja de llegar a los clones nuevos y vuelve a proteger solo a quien ya conocia la regla',
+    ).toBe(true)
+  })
+
 })

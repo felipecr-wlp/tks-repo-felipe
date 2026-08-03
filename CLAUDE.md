@@ -36,9 +36,15 @@ que se quitó, no aflojar el test. Aflojar el test es exactamente el fallo que
 estos archivos existen para evitar: un rojo que dejó de significar que algo está
 mal.
 
-Corren solos en cada push y en cada PR (`.github/workflows/ci.yml`), y `master`
-está protegida exigiendo que pasen. No es opcional ni depende de que alguien se
-acuerde.
+Corren solos en cada push y en cada PR (`.github/workflows/ci.yml`). No depende
+de que alguien se acuerde de ejecutarlos.
+
+Lo que **todavía no** hay: `master` no está protegida en GitHub exigiendo que el
+check pase. La protección de ramas en repos privados es de pago y la
+organización está en plan Free (la API responde 403). Así que hoy el CI
+**informa** pero no **impide**: un rojo se ve, y nadie lo bloquea. Mientras eso
+siga así, un check rojo que se ignora es peor que no tenerlo. El freno parcial es
+el hook de la regla 6.
 
 Si de verdad la invariante cambió a propósito, se cambia el test **y se explica
 en el commit por qué la garantía vieja ya no aplica**.
@@ -82,8 +88,14 @@ está listo. No se sube "para que CI lo diga".
 
 ### 6. Git
 
-- **Nunca hacer push a `master`.** `master` autodespliega a producción.
-- Se trabaja en la rama asignada y se abre PR.
+- **Nunca hacer push a `master`.** `master` autodespliega a producción, así que
+  lo que se empuje ahí queda publicado sin que nadie lo haya revisado.
+- Ya no es una regla de honor: hay un hook de pre-push (`.githooks/pre-push`)
+  que aborta el push y explica el camino correcto. Se instala solo con
+  `npm install`. Si de verdad el cambio va directo a master (infraestructura,
+  arreglo urgente), se declara: `PERMITIR_PUSH_MASTER=1 git push origin master`.
+- Se trabaja en la rama asignada y se abre PR. El CI corre solo en cada rama y
+  en cada PR, no hay que acordarse de nada.
 - Commits en español, explicando el **porqué**, no el qué.
 
 ### 7. Idioma y estilo
@@ -261,7 +273,7 @@ Lo que hay hoy:
 |---|---|
 | Producción | `wlo.vercel.app` (autodespliega con push a `master`) |
 | Migraciones | 68 en `supabase/migrations/` |
-| Tripwires | 79 archivos en `tests/`, 359 tests (al 2026-08-03). Corren solos en cada push |
+| Tripwires | 79 archivos en `tests/`, 362 tests (al 2026-08-03). Corren solos en cada push |
 | Fases | F0 a F9 completas + Nivel 1 (SOPs) desplegado |
 
 Construido y en uso: autenticación Google + restricción por dominio, RLS en todas
