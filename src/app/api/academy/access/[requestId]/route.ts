@@ -58,15 +58,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   const newStatus = parsed.data.action === 'approve' ? 'approved' : 'rejected'
 
-  const { error: updErr } = await admin
-    .from('academy_access_requests')
-    .update({ status: newStatus, decided_by: user.id, decided_at: new Date().toISOString() })
-    .eq('id', req.id)
-  if (updErr) {
-    console.error('[academy access PATCH] update error:', updErr)
-    return NextResponse.json({ error: 'No se pudo actualizar' }, { status: 500 })
-  }
-
+  // ORDEN: primero se CONCEDE y despues se marca resuelta. No son dos escrituras
+  // intercambiables. Al reves (marcar y luego conceder), si la concesion falla la
+  // solicitud queda 'approved' sin acceso, desaparece de la lista de pendientes y
+  // ya no se puede reintentar: este mismo handler responde 409 a todo lo que no
+  // este 'pending'. La persona se queda esperando para siempre y nadie se entera.
+  //
+  // En este orden el peor caso es benigno: tiene el acceso y la solicitud sigue
+  // pendiente, o sea VISIBLE y reintentable. El upsert es idempotente, asi que
+  // volver a aprobarla no rompe nada.
   if (parsed.data.action === 'approve') {
     const { error: accErr } = await admin
       .from('academy_access')
@@ -78,6 +78,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       console.error('[academy access PATCH] grant error:', accErr)
       return NextResponse.json({ error: 'No se pudo conceder el acceso' }, { status: 500 })
     }
+  }
+
+  const { error: updErr } = await admin
+    .from('academy_access_requests')
+    .update({ status: newStatus, decided_by: user.id, decided_at: new Date().toISOString() })
+    .eq('id', req.id)
+  if (updErr) {
+    console.error('[academy access PATCH] update error:', updErr)
+    return NextResponse.json({ error: 'No se pudo actualizar' }, { status: 500 })
   }
 
   // Notificar al solicitante (best-effort).
