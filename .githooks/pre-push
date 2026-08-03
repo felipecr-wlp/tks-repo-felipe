@@ -1,0 +1,53 @@
+#!/bin/sh
+#
+# Freno de mano para `master`.
+#
+# `master` autodespliega a produccion. Un push directo se publica sin que nadie
+# lo haya visto, y la regla "nunca hacer push a master" era hasta hoy una regla
+# de honor: escrita en CLAUDE.md y sin nada que la hiciera cumplir.
+#
+# Lo correcto seria protegerla en GitHub, pero la proteccion de ramas en repos
+# privados es de pago (Pro/Team) y la organizacion esta en plan Free. Mientras
+# eso no se resuelva, esto es lo que hay: no es infalible (un `--no-verify` lo
+# salta), pero convierte un descuido silencioso en una decision consciente, y lo
+# hace en el momento exacto del error.
+#
+# Se instala solo al correr `npm install` (ver scripts/instalar-hooks.mjs).
+#
+# Para empujar a master a proposito:
+#   PERMITIR_PUSH_MASTER=1 git push origin master
+
+RAMA_PROTEGIDA="refs/heads/master"
+
+while read -r _ref_local _sha_local ref_remoto _sha_remoto; do
+  [ "$ref_remoto" = "$RAMA_PROTEGIDA" ] || continue
+
+  if [ "$PERMITIR_PUSH_MASTER" = "1" ]; then
+    echo "pre-push: push a master permitido de forma explicita." >&2
+    exit 0
+  fi
+
+  cat >&2 <<'FIN'
+
+  PUSH A MASTER BLOQUEADO
+
+  master autodespliega a produccion (wlo.vercel.app). Lo que se empuje aqui
+  queda publicado sin revision de nadie.
+
+  El camino normal es una rama y un Pull Request:
+
+      git checkout -b mi-rama
+      git push -u origin mi-rama
+
+  El CI corre solo en cada rama y en cada PR: tipos, tripwires y build.
+
+  Si de verdad este cambio va directo a master (infraestructura, arreglo
+  urgente), es una decision consciente y se declara:
+
+      PERMITIR_PUSH_MASTER=1 git push origin master
+
+FIN
+  exit 1
+done
+
+exit 0
