@@ -27,6 +27,7 @@ import { cargarSolicitud, puedeVer } from '@/lib/tickets/acceso'
 import { evaluarAccion, TRANSICIONES, type AccionSolicitud } from '@/lib/tickets/flujo-solicitud'
 import { esTipoValido, esPrioridadValida } from '@/lib/tickets/catalogo'
 import { esUrlSegura } from '@/lib/tickets/archivos'
+import type { TablesUpdate } from '@/lib/supabase/types'
 
 const ACCIONES = [
   'editar', 'canalizar', 'rechazar', 'arrancar', 'resolver', 'cancelar', 'reabrir',
@@ -194,7 +195,12 @@ export async function PATCH(
   // Solo se escriben las columnas que la accion tiene derecho a tocar. Pasar el
   // body entero al update seria el bug: mandar `title` junto a `rechazar`
   // reescribiria la peticion en el mismo momento de rechazarla.
-  const cambios: Record<string, unknown> = {}
+  // Tipado con `TablesUpdate<'tickets'>` y no con `Record<string, unknown>`: el
+  // record aceptaba cualquier nombre de columna, asi que un `cambios.dueDate`
+  // en camelCase (o una columna renombrada en una migracion futura) compilaba
+  // igual y se perdia en silencio, porque PostgREST ignora lo que no reconoce y
+  // devuelve 200. Con el tipo generado, equivocarse de columna no compila.
+  const cambios: TablesUpdate<'tickets'> = {}
   if (regla.hacia) cambios.status = regla.hacia
   cambios.closed_at = regla.cierra ? ahora : regla.hacia ? null : undefined
   if (cambios.closed_at === undefined) delete cambios.closed_at

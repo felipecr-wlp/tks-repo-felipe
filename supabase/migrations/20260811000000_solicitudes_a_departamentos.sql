@@ -30,10 +30,13 @@
 --   ticket_watchers  a quien mas se involucro. Sin esto, meter a un tercero
 --                    obliga a reenviarle todo por chat y el hilo se parte.
 --
--- ── Lo que NO se creo, y por que ─────────────────────────────────────────────
--- No hay bucket nuevo. Los adjuntos comprimidos (ZIP, RAR, 7z) ya caben en
--- `chat-files`, que ese permiso ya lo tiene desde 20260720520000. Crear un
--- bucket paralelo seria un segundo lugar donde buscar el mismo archivo.
+-- ── Por que SI hay bucket nuevo ──────────────────────────────────────────────
+-- La idea inicial fue reusar `chat-files`, que ya acepta comprimidos. Se
+-- descarto al mirar su ruta de subida: valida que el objeto viva bajo
+-- `team/<id>/` y resuelve el permiso con canAccessTeamById. Meter aqui
+-- solicitudes obligaba a debilitar esa validacion, o sea a tocar el permiso del
+-- chat para publicar otra cosa. Un bucket por dominio de permiso. Detalle en la
+-- seccion 5.
 --
 -- ── Landmines de este repo, respetadas ───────────────────────────────────────
 --   - FK de hijo a padre directo y a tablas hoja (workspaces, profiles, spaces,
@@ -41,7 +44,11 @@
 --     Excepcion consciente: `tickets` tiene TRES FK a profiles (requested_by,
 --     assignee_id, decided_by), igual que content_items. Por eso todo embed a
 --     profiles desde aqui DEBE nombrar la constraint.
---   - Ninguna policy RLS consulta su PROPIA tabla -> sin recursion 42P17.
+--   - Ninguna policy RLS abre un CICLO de lectura -> sin recursion 42P17.
+--     La regla NO es "que no consulte su propia tabla", esa version se queda
+--     corta y por poco deja pasar el bug: basta con que A lea B y B lea A. Aqui
+--     el cruce tickets <-> ticket_watchers existe de verdad, y se corta con dos
+--     SECURITY DEFINER (ver el bloque largo en la seccion de policies).
 --   - Sin guion largo en comentarios.
 -- ─────────────────────────────────────────────────────────────────────────────
 
@@ -94,7 +101,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   -- objetos {url, label}. jsonb y no tabla: no se consultan ni se filtran, solo
   -- se pintan junto a la solicitud.
   links        jsonb       NOT NULL DEFAULT '[]'::jsonb,
-  -- Adjuntos ya subidos a `chat-files`: {path, name, size, mime}.
+  -- Adjuntos ya subidos a `ticket-files` (seccion 5): {path, name, size, mime}.
   attachments  jsonb       NOT NULL DEFAULT '[]'::jsonb,
 
   -- La decision. Sin estas tres columnas esto seria un buzon, no un proceso.
@@ -214,14 +221,49 @@ CREATE INDEX IF NOT EXISTS idx_ticket_watchers_profile ON ticket_watchers(profil
 --
 -- Igual que en el resto del repo, las rutas /api usan el service role y se
 -- saltan RLS: el candado REAL es src/lib/tickets/acceso.ts y esto es la red de
--- abajo. Todas las subqueries van a OTRAS tablas -> sin 42P17.
+-- abajo.
+--
+-- ── Por que estos dos helpers y no subqueries en crudo ──────────────────────
+-- Existen para ROMPER UN CICLO, no por comodidad. "Todas las subqueries van a
+-- otras tablas" NO basta para librarse del 42P17 cuando esas otras tablas
+-- apuntan de regreso: si `tickets_select` leyera `ticket_watchers` en crudo,
+-- esa lectura activaria `tw_select`, que consulta `tickets`, que vuelve a
+-- `tickets_select`. Postgres corta el ciclo con 42P17 y entonces la pantalla
+-- deja de cargar PARA TODOS, con el sintoma engañoso de "Pagina no encontrada".
+-- Un SECURITY DEFINER no evalua RLS en su cuerpo, asi que el ciclo se rompe en
+-- el primer salto. Mismo patron y misma forma que is_space_member.
+CREATE OR REPLACE FUNCTION es_involucrado_en_solicitud(t_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$ SELECT EXISTS (SELECT 1 FROM ticket_watchers WHERE ticket_id = t_id AND profile_id = auth.uid()) $$;
+
+-- Los cinco motivos nombrables, resueltos de una vez para los hijos del hilo.
+-- Que sea SECURITY DEFINER es lo que permite que `ticket_comments` pregunte por
+-- su solicitud sin volver a disparar la policy de `tickets`.
+CREATE OR REPLACE FUNCTION puede_ver_solicitud(t_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM tickets t
+     WHERE t.id = t_id
+       AND (
+         t.requested_by = auth.uid()
+         OR t.assignee_id = auth.uid()
+         OR es_involucrado_en_solicitud(t.id)
+         OR (t.space_id IS NOT NULL AND is_space_member(t.space_id))
+         OR (SELECT p.org_role FROM profiles p WHERE p.id = auth.uid()) IN ('owner','admin')
+         OR EXISTS (SELECT 1 FROM workspace_members wm
+                     WHERE wm.workspace_id = t.workspace_id
+                       AND wm.profile_id = auth.uid()
+                       AND wm.role IN ('owner','admin'))
+       )
+  )
+$$;
 
 CREATE POLICY "tickets_select" ON tickets FOR SELECT
   USING (
     requested_by = auth.uid()
     OR assignee_id = auth.uid()
-    OR EXISTS (SELECT 1 FROM ticket_watchers w
-                WHERE w.ticket_id = tickets.id AND w.profile_id = auth.uid())
+    OR es_involucrado_en_solicitud(tickets.id)
     OR (space_id IS NOT NULL AND is_space_member(space_id))
     OR (SELECT p.org_role FROM profiles p WHERE p.id = auth.uid()) IN ('owner','admin')
     OR EXISTS (SELECT 1 FROM workspace_members wm
@@ -261,20 +303,20 @@ CREATE POLICY "tickets_delete" ON tickets FOR DELETE
 
 -- Los hijos heredan de la solicitud: si la ves, ves su hilo y sus involucrados.
 CREATE POLICY "tc_select" ON ticket_comments FOR SELECT
-  USING (ticket_id IN (SELECT id FROM tickets));
+  USING (puede_ver_solicitud(ticket_id));
 CREATE POLICY "tc_insert" ON ticket_comments FOR INSERT
-  WITH CHECK (ticket_id IN (SELECT id FROM tickets) AND author_id = auth.uid());
+  WITH CHECK (puede_ver_solicitud(ticket_id) AND author_id = auth.uid());
 CREATE POLICY "tc_update" ON ticket_comments FOR UPDATE
   USING (author_id = auth.uid());
 CREATE POLICY "tc_delete" ON ticket_comments FOR DELETE
   USING (author_id = auth.uid());
 
 CREATE POLICY "tw_select" ON ticket_watchers FOR SELECT
-  USING (ticket_id IN (SELECT id FROM tickets));
+  USING (puede_ver_solicitud(ticket_id));
 CREATE POLICY "tw_insert" ON ticket_watchers FOR INSERT
-  WITH CHECK (ticket_id IN (SELECT id FROM tickets));
+  WITH CHECK (puede_ver_solicitud(ticket_id));
 CREATE POLICY "tw_delete" ON ticket_watchers FOR DELETE
-  USING (ticket_id IN (SELECT id FROM tickets));
+  USING (puede_ver_solicitud(ticket_id));
 
 -- ── 5. Bucket privado para los adjuntos ──────────────────────────────────────
 -- Privado y servido solo por signed URL, igual que chat-files y task-files.

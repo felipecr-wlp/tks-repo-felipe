@@ -79,8 +79,18 @@ export function prefijoDeSolicitud(ticketId: string): string {
   return `ticket/${ticketId}/`
 }
 
-/** Un adjunto ya guardado, tal como viaja en la columna jsonb. */
-export interface Adjunto {
+/**
+ * Un adjunto ya guardado, tal como viaja en la columna jsonb.
+ *
+ * `type` y no `interface`, y no es cosmetico. TypeScript le da indice implicito
+ * a un alias de tipo pero NO a una interfaz, asi que una `interface` no encaja
+ * en el `Json` que exigen los tipos generados de Supabase y escribir la columna
+ * fallaba con "Index signature for type 'string' is missing". La salida facil
+ * era castear a `as unknown as Json` al guardar; eso apaga la comprobacion justo
+ * en el punto donde escribir basura seria mas caro. Con `type` compila sin
+ * ningun cast y la forma se sigue verificando.
+ */
+export type Adjunto = {
   path: string
   name: string
   size: number
@@ -106,7 +116,9 @@ export function leerAdjuntos(raw: unknown): Adjunto[] {
 }
 
 /** Un enlace de referencia, tal como viaja en la columna jsonb. */
-export interface Enlace {
+// `type` por lo mismo que `Adjunto`: tiene que poder escribirse en una columna
+// jsonb sin castear.
+export type Enlace = {
   url: string
   label: string
 }
