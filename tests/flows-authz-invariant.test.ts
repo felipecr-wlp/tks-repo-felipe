@@ -250,3 +250,55 @@ describe('Flows: el HTML del usuario nunca se pinta crudo', () => {
     }
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. "Privado" tiene que ser ALCANZABLE
+//
+// La tabla de verdad de arriba ya demostraba que un flujo privado sin share es
+// invisible. Estaba en verde, y aun asi el reporte real fue "el flujo es privado
+// y tester lo ve". Las dos cosas eran ciertas: la regla funcionaba y NINGUN
+// flujo podia llegar a 'private', porque el boton de crear mandaba 'workspace'
+// a fuego y ninguna pantalla enviaba jamas un cambio de visibilidad.
+//
+// Moraleja, y motivo de este bloque: una regla de acceso correcta sobre un
+// estado inalcanzable no protege nada. Se fija el CAMINO, no solo la regla.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Flows: se puede llegar a privado y volver', () => {
+  const RAIZ = join(process.cwd(), 'src', 'app', '(app)', 'w', '[workspaceSlug]', 'flows')
+  const nuevo = readFileSync(join(RAIZ, 'NewFlowButton.tsx'), 'utf8')
+  const editor = readFileSync(EDITOR, 'utf8')
+  const detalle = readFileSync(join(RAIZ, '[flowId]', 'page.tsx'), 'utf8')
+
+  it('un flujo nuevo NO nace abierto al workspace', () => {
+    expect(nuevo).not.toMatch(/visibility:\s*'workspace'/)
+    expect(nuevo).toMatch(/visibility:\s*'private'/)
+  })
+
+  it('la migracion deja el default de la columna en privado', () => {
+    const sql = readFileSync(
+      join(process.cwd(), 'supabase', 'migrations', '20260803120000_flows_private_by_default.sql'),
+      'utf8',
+    )
+    expect(sql).toMatch(/ALTER COLUMN visibility SET DEFAULT 'private'/)
+  })
+
+  it('el editor sabe mandar un cambio de visibilidad, no solo pintarlo', () => {
+    expect(editor).toContain('cambiarVisibilidad')
+    // El PATCH con visibility es el unico camino real: sin esto el boton seria
+    // un adorno que cambia el color y no cambia quien entra.
+    expect(editor).toMatch(/body:JSON\.stringify\(\{visibility:nueva\}\)/)
+  })
+
+  it('el boton de alcance solo se le ofrece al duenno', () => {
+    // La API contesta 403 a cualquier otro. Si la UI lo ofreciera igual, el
+    // usuario veria un boton que "no hace nada" y no sabria por que.
+    expect(editor).toContain('esDuenno')
+    expect(editor).toMatch(/disabled=\{!esDuenno/)
+    expect(detalle).toMatch(/esDuenno=\{flow\.created_by === user\.id\}/)
+  })
+
+  it('la pantalla recibe el alcance real, no un supuesto', () => {
+    expect(detalle).toMatch(/initialVisibility=\{flow\.visibility\}/)
+  })
+})

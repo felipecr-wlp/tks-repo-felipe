@@ -85,6 +85,11 @@ export default async function FlowDetailPage({ params }: FlowDetailProps) {
         initialDescription={flow.description}
         initialUpdatedAt={flow.updated_at}
         readOnly={access !== 'edit'}
+        // El dialogo de compartir necesita saber el alcance actual y si quien
+        // mira es el duenno. La API ya rechaza el cambio a cualquier otro; esto
+        // solo evita ofrecer un boton que iba a contestar 403.
+        initialVisibility={flow.visibility}
+        esDuenno={flow.created_by === user.id}
       />
     </div>
   )

@@ -92,7 +92,15 @@
   box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / 0.6);
 }
 
-/* Scrollbar personalizado */
+/* Scrollbar personalizado.
+   `::-webkit-scrollbar` solo lo entienden Chrome, Edge y Safari: en Firefox
+   estas cuatro reglas se ignoran por completo y salia la barra gruesa del
+   sistema. `scrollbar-width` y `scrollbar-color` son el estandar y cubren ese
+   hueco, asi que la barra se ve igual de discreta en los cuatro. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

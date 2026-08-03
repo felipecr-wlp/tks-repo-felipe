@@ -23,6 +23,9 @@ export function NewFlowButton({ workspaceId, workspaceSlug }: Props) {
         body: JSON.stringify({
           workspace_id: workspaceId,
           title: 'Nuevo Flujo',
+          // Nace privado. Antes decia 'workspace' y por eso CADA flujo quedaba
+          // a la vista del workspace entero sin que su autor lo eligiera. Se
+          // abre desde el boton Compartir, que es donde se ve a quien alcanza.
           visibility: 'private',
         }),
       })
