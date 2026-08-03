@@ -13,7 +13,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Lock, Unlock, Settings, Share2, CheckCircle, Download, Upload, AlertTriangle, RefreshCw, Cloud, CloudOff, Hand, HelpCircle } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Lock, Unlock, Settings, Share2, CheckCircle, Download, Upload, AlertTriangle, RefreshCw, Cloud, CloudOff, Hand, HelpCircle, Undo2, Redo2 } from 'lucide-react'
 import LinkNext from 'next/link'
 // El nodo HTML guarda markup que escribe una persona y lo lee OTRA: los flujos se
 // comparten (flow_shares) y son visibles para el workspace. Sin pasar por aqui, el
@@ -357,6 +357,15 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
             es justo el que menos sabe como moverse en el. La barra de
             herramientas de abajo si va tras `!readOnly`, porque esa si crea. */}
         <div className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-card border rounded-lg shadow-lg p-1">
+          {/* Deshacer y rehacer existian desde siempre, pero SOLO por teclado
+              (Ctrl+Z / Ctrl+Y). Un atajo que no se ve no existe para quien no
+              lo sabe: el reporte fue "falta la barra de tareas", y en realidad
+              faltaba la forma de VER que estas dos cosas ya se podian hacer.
+              Van tras `!readOnly` porque si escriben, a diferencia de mover el
+              area o abrir la ayuda, que son de mirar. */}
+          {!readOnly&&<button onClick={undo} className="p-1.5 rounded hover:bg-accent transition-colors" title="Deshacer (Ctrl+Z)"><Undo2 className="w-3.5 h-3.5"/></button>}
+          {!readOnly&&<button onClick={redo} className="p-1.5 rounded hover:bg-accent transition-colors" title="Rehacer (Ctrl+Y)"><Redo2 className="w-3.5 h-3.5"/></button>}
+          {!readOnly&&<span className="mx-0.5 h-4 w-px bg-border" aria-hidden />}
           <button onClick={togglePanMode} className={`p-1.5 rounded transition-colors ${panMode?'bg-amber-500 text-white':'hover:bg-accent'}`} title="Mover area (Alt+M)"><Hand className="w-3.5 h-3.5"/></button>
           <button onClick={()=>setShowHelp(true)} className="p-1.5 rounded hover:bg-accent transition-colors" title="Atajos de teclado"><HelpCircle className="w-3.5 h-3.5"/></button>
         </div>
