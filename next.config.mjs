@@ -1,4 +1,14 @@
 /** @type {import('next').NextConfig} */
+import { readFileSync } from 'node:fs'
+
+// Origenes de herramientas del marketplace que WLO acepta pintar en un iframe.
+// La lista NO se escribe aqui: se lee del mismo JSON que consulta el codigo
+// (src/lib/connectors/embed.ts). Dos copias de una allowlist siempre terminan
+// distintas, y el dia que lo esten la herramienta se ve en blanco sin decir por
+// que, porque quien bloquea es el navegador y no deja rastro dentro de la app.
+const embedOrigins = JSON.parse(
+  readFileSync(new URL('./src/lib/connectors/embed-origins.json', import.meta.url), 'utf8'),
+).origins
 
 const securityHeaders = [
   { key: 'X-DNS-Prefetch-Control', value: 'on' },
@@ -21,7 +31,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' blob: data: https://lh3.googleusercontent.com https://drive.google.com",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com",
-      "frame-src https://docs.google.com https://sheets.google.com https://drive.google.com",
+      ['frame-src https://docs.google.com https://sheets.google.com https://drive.google.com', ...embedOrigins].join(' '),
       "font-src 'self'",
       // Endurecimiento adicional: nadie externo puede enmarcar la app (refuerza
       // X-Frame-Options en navegadores modernos), sin <base> inyectable, y se

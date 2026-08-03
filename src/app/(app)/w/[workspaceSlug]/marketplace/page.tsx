@@ -18,6 +18,7 @@
  * Configuracion, esta no tiene un layout que se los ponga.
  */
 import { MarketplacePanel } from '@/components/marketplace/MarketplacePanel'
+import { AppsExternasPanel } from '@/components/marketplace/AppsExternasPanel'
 
 export const metadata = { title: 'Marketplace · WLO' }
 
@@ -33,6 +34,7 @@ export default function MarketplacePage({ params }: { params: { workspaceSlug: s
         </div>
 
         <MarketplacePanel workspaceSlug={params.workspaceSlug} />
+        <AppsExternasPanel workspaceSlug={params.workspaceSlug} />
       </div>
     </div>
   )

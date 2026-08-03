@@ -32,6 +32,16 @@ export const SCOPE_CATALOG: ScopeDef[] = [
   { scope: 'tasks:create',           app: 'wlo', label: 'Crear tarea',                     risk: 'bajo'  },
   { scope: 'notes:create',           app: 'wlo', label: 'Crear nota',                      risk: 'bajo'  },
   { scope: 'automation:trigger',     app: 'wlo', label: 'Disparar una automatizacion',     risk: 'medio' },
+  // Flujos. `flows:read` NUNCA alcanza un flujo privado ni uno compartido a una
+  // persona: una herramienta del marketplace no es nadie del equipo, asi que no
+  // hereda lo que a esa persona le compartieron. Solo ve lo que el workspace
+  // entero ya podia ver. Sin esa linea, instalar una herramienta seria la puerta
+  // trasera del candado de privacidad de flujos.
+  { scope: 'flows:read',             app: 'wlo', label: 'Leer los flujos abiertos al workspace', risk: 'medio' },
+  // Escribir es riesgo alto y a proposito: un flujo creado por una herramienta
+  // nace privado y solo puede tocar lo que ella misma creo, nunca el trabajo de
+  // una persona.
+  { scope: 'flows:write',            app: 'wlo', label: 'Crear y editar sus propios flujos',     risk: 'alto'  },
   // WLM (measure / estimacion)
   { scope: 'projects:create',        app: 'wlm', label: 'Crear proyecto de estimacion',    risk: 'bajo'  },
   { scope: 'bid:review',             app: 'wlm', label: 'Correr calculo de bid',           risk: 'bajo'  },

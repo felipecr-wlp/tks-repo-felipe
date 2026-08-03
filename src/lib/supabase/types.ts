@@ -463,23 +463,44 @@ export type Database = {
         Row: {
           base_url: string
           created_at: string
+          description: string | null
+          embed_path: string | null
           icon: string | null
           id: string
+          kind: string
           name: string
+          owner_profile_id: string | null
+          requested_scopes: string[]
+          status: string
+          updated_at: string
         }
         Insert: {
           base_url: string
           created_at?: string
+          description?: string | null
+          embed_path?: string | null
           icon?: string | null
           id: string
+          kind?: string
           name: string
+          owner_profile_id?: string | null
+          requested_scopes?: string[]
+          status?: string
+          updated_at?: string
         }
         Update: {
           base_url?: string
           created_at?: string
+          description?: string | null
+          embed_path?: string | null
           icon?: string | null
           id?: string
+          kind?: string
           name?: string
+          owner_profile_id?: string | null
+          requested_scopes?: string[]
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -538,30 +559,42 @@ export type Database = {
         Row: {
           app_id: string
           enabled: boolean
+          granted_scopes: string[]
           id: string
           installed_at: string
           installed_by: string | null
           manifest: Json
+          token_expires_at: string | null
+          token_hash: string | null
+          token_prefix: string | null
           updated_at: string
           workspace_id: string
         }
         Insert: {
           app_id: string
           enabled?: boolean
+          granted_scopes?: string[]
           id?: string
           installed_at?: string
           installed_by?: string | null
           manifest?: Json
+          token_expires_at?: string | null
+          token_hash?: string | null
+          token_prefix?: string | null
           updated_at?: string
           workspace_id: string
         }
         Update: {
           app_id?: string
           enabled?: boolean
+          granted_scopes?: string[]
           id?: string
           installed_at?: string
           installed_by?: string | null
           manifest?: Json
+          token_expires_at?: string | null
+          token_hash?: string | null
+          token_prefix?: string | null
           updated_at?: string
           workspace_id?: string
         }

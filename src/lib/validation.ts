@@ -14,6 +14,21 @@ export function isUuid(value: string): boolean {
 }
 
 /**
+ * Identificador de una herramienta del marketplace.
+ *
+ * No es uuid a proposito: se escribe en URLs que ve la gente (`/w/<ws>/apps/wli`)
+ * y lo elige quien propone la herramienta, asi que tiene que ser legible. Eso no
+ * lo exime de tener forma: sin guarda, `params.appId` seria texto libre que va
+ * derecho a un `.eq('id', ...)`. Minusculas, numeros y guion, entre 2 y 39.
+ */
+export const RE_APP_ID = /^[a-z0-9][a-z0-9-]{1,38}$/
+
+/** Devuelve true si el valor tiene forma de id de herramienta del marketplace. */
+export function isAppId(value: string): boolean {
+  return RE_APP_ID.test(value)
+}
+
+/**
  * Guarda de parametro UUID. Si el valor no es un UUID valido, devuelve una
  * respuesta 422 lista para retornar desde el handler. Si es valido, devuelve null.
  */
