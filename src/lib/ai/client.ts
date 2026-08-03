@@ -20,6 +20,32 @@ const google = createGoogleGenerativeAI({
 export const geminiFlash = google(process.env.GEMINI_MODEL ?? 'gemini-2.5-flash')
 
 /**
+ * ¿El fallo es "se acabó la cuota del modelo" y no "el modelo se cayó"?
+ *
+ * El free tier de Gemini tiene tope DIARIO (hoy 20 requests/día en
+ * gemini-2.5-flash) y al agotarse la API contesta 429 RESOURCE_EXHAUSTED. Sin
+ * distinguirlo, ese caso caía en el catch genérico y la persona veía "No se pudo
+ * armar el reporte": un 500 que se lee como "la app está rota" y que invita a
+ * reintentar, cuando lo único que pasa es que hoy ya no hay cupo. Mismo criterio
+ * que `isQuotaExhausted` del rate limit: separar el estado ADMINISTRATIVO
+ * (permanente hasta que corte el ciclo o se suba el plan) del incidente.
+ *
+ * Se inspecciona el texto porque el SDK envuelve el error del proveedor y no
+ * expone un código estable que consultar.
+ */
+export function esCuotaDeModeloAgotada(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err)
+  const status = (err as { statusCode?: number; status?: number } | null)?.statusCode
+    ?? (err as { statusCode?: number; status?: number } | null)?.status
+  if (status === 429) return true
+  return /RESOURCE_EXHAUSTED|quota|rate limit|too many requests/i.test(msg)
+}
+
+/** Lo que se le dice a la persona cuando se acabó el cupo del día. */
+export const MENSAJE_CUOTA_AGOTADA =
+  'Se agotó la cuota diaria del modelo de IA. Vuelve a intentarlo mañana o pide que se suba el plan.'
+
+/**
  * Prompts estándar para las acciones de IA
  * Idioma: español por defecto
  */

@@ -28,7 +28,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { streamText, type CoreMessage } from 'ai'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { geminiFlash } from '@/lib/ai/client'
+import { geminiFlash, esCuotaDeModeloAgotada, MENSAJE_CUOTA_AGOTADA } from '@/lib/ai/client'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { isReportSupervisor } from '@/lib/daily-report-access'
 import {
@@ -195,6 +195,10 @@ export async function POST(request: NextRequest) {
 
     return result.toDataStreamResponse()
   } catch (err) {
+    if (esCuotaDeModeloAgotada(err)) {
+      console.warn('[daily-reports agent] cuota del modelo agotada:', err)
+      return NextResponse.json({ error: MENSAJE_CUOTA_AGOTADA }, { status: 429 })
+    }
     console.error('[daily-reports agent] stream error:', err)
     return NextResponse.json({ error: 'Error al generar la respuesta.' }, { status: 500 })
   }

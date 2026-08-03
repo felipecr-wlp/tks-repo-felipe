@@ -21,6 +21,7 @@ import { isUuid } from '@/lib/validation'
 import { isReportSupervisor } from '@/lib/daily-report-access'
 import { isValidReportDate } from '@/lib/daily-reports'
 import { collectDigestMaterial, buildDigest, type DigestPeriod } from '@/lib/daily-report-digest'
+import { esCuotaDeModeloAgotada, MENSAJE_CUOTA_AGOTADA } from '@/lib/ai/client'
 
 export const maxDuration = 60
 
@@ -219,11 +220,14 @@ export async function POST(request: NextRequest) {
           generated_by: user.id,
           updated_at: new Date().toISOString(),
         },
-        {
-          onConflict: scope.profileId
-            ? 'workspace_id,profile_id,period,period_start'
-            : 'workspace_id,period,period_start',
-        }
+        // Una sola lista para los dos casos (digest de persona y de equipo). El
+        // indice que la respalda es unico y total, con NULLS NOT DISTINCT, asi
+        // que `profile_id` nulo tambien colisiona consigo mismo. Antes habia un
+        // ternario apuntando a dos indices PARCIALES: PostgREST no puede pasar el
+        // predicado WHERE de un indice parcial, asi que Postgres no podia
+        // inferirlo y devolvia 42P10 siempre. Ver la migracion
+        // 20260813000000_digest_unico_nulls_not_distinct.sql.
+        { onConflict: 'workspace_id,profile_id,period,period_start' }
       )
       .select('updated_at')
       .maybeSingle()
@@ -242,6 +246,13 @@ export async function POST(request: NextRequest) {
       cached: false,
     })
   } catch (err) {
+    // Quedarse sin cupo del dia NO es un fallo de la aplicacion, y decirlo como
+    // 500 "No se pudo armar el reporte" hace que la persona reintente y que
+    // quien mire los logs busque un bug que no existe. 429 con el motivo real.
+    if (esCuotaDeModeloAgotada(err)) {
+      console.warn('[daily-reports digest POST] cuota del modelo agotada:', err)
+      return NextResponse.json({ error: MENSAJE_CUOTA_AGOTADA }, { status: 429 })
+    }
     console.error('[daily-reports digest POST] error:', err)
     return NextResponse.json({ error: 'No se pudo armar el reporte' }, { status: 500 })
   }

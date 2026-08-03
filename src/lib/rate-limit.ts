@@ -46,6 +46,26 @@ export function isQuotaExhausted(err: unknown): boolean {
 }
 
 /**
+ * ¿Estamos en produccion DE VERDAD?
+ *
+ * `NODE_ENV` vale 'production' en CUALQUIER build de Next, incluidos los deploys
+ * de preview. Confiar en el solo costo tiempo real: las credenciales de Upstash
+ * estan definidas unicamente en el entorno Production de Vercel, asi que cada
+ * deploy de preview escribia "no configurado en producción" y el log acusaba a
+ * produccion de un problema que solo existia en preview. Un aviso que miente
+ * sobre donde pasa la cosa es peor que no tenerlo: manda a revisar el sitio sano.
+ *
+ * En Vercel manda `VERCEL_ENV` ('production' | 'preview' | 'development'), que
+ * es el unico que distingue las tres. Fuera de Vercel esa variable no existe y
+ * se cae a `NODE_ENV`, para no aflojar el fail-closed en un self-host.
+ */
+function esProduccion(): boolean {
+  const vercelEnv = process.env.VERCEL_ENV
+  if (vercelEnv) return vercelEnv === 'production'
+  return process.env.NODE_ENV === 'production'
+}
+
+/**
  * Respuesta 429 "bloqueado" que los callers esperan (mismo shape que cuando se
  * excede el límite real). Se usa para fail-closed en producción.
  */
@@ -168,7 +188,7 @@ export async function applyRateLimit(
   // limita a miembros ya autenticados de la org. El fallo en TIEMPO DE EJECUCION
   // (Redis configurado pero caido) SI se sigue tratando como fail-closed abajo.
   if (!readRedisConfig()) {
-    if (process.env.NODE_ENV === 'production' && !warnedUnconfigured) {
+    if (esProduccion() && !warnedUnconfigured) {
       warnedUnconfigured = true
       console.error(
         '[rate-limit] KV_REST_API_URL/TOKEN (o UPSTASH_REDIS_REST_*) no configurado en producción. ' +
@@ -177,8 +197,10 @@ export async function applyRateLimit(
       )
     } else if (!warnedUnconfigured) {
       warnedUnconfigured = true
+      // Preview y desarrollo. Se nombra el entorno para que el log no vuelva a
+      // acusar a produccion de algo que pasa en una rama.
       console.warn(
-        '[rate-limit] Redis no configurado; rate limiting DESHABILITADO (solo en desarrollo).'
+        `[rate-limit] Redis no configurado; rate limiting DESHABILITADO (entorno: ${process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? 'desconocido'}).`
       )
     }
     return null
@@ -235,7 +257,7 @@ export async function applyRateLimit(
     // mejor rechazar que dejar la puerta abierta. Esto es un incidente acotado
     // en el tiempo, no un estado permanente como la cuota. En desarrollo se deja
     // pasar para no bloquear.
-    if (process.env.NODE_ENV === 'production') {
+    if (esProduccion()) {
       console.error('[rate-limit] Redis error en producción, fallando CERRADO (429):', err)
       return blockedResponse()
     }
