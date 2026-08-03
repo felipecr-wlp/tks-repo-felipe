@@ -29,6 +29,8 @@
  *   - content/items/[itemId]/assets    -> loadItemAccess + contentAssetPrefix(itemId)
  *   - content/items/[itemId]           -> loadItemAccess + rutas de filas con item_id = itemId
  *   - content/assets/[assetId]         -> loadItemAccess(asset.item_id) + path de la fila
+ *   - tickets/[ticketId]/files         -> puedeVer + startsWith(prefijoDeSolicitud)
+ *   - tickets/[ticketId]/files/upload-url -> puedeVer + prefijoDeSolicitud(s.id)
  *
  * ── Por que la deteccion admite salto de linea ──────────────────────────────
  * La version anterior buscaba `.storage.from(` en una sola linea. Tres handlers
@@ -39,7 +41,7 @@
  *
  * Determinista: solo lee fuentes, no monta rutas ni DB.
  *
- * Hoy 12 handlers tocan storage; los 12 gatean y acotan el path; 0 IDOR de
+ * Hoy 14 handlers tocan storage; los 14 gatean y acotan el path; 0 IDOR de
  * storage. Un handler de storage nuevo debe gatear, acotar y registrarse aqui.
  * Nunca un silencio.
  */
@@ -78,6 +80,11 @@ const REGISTRY: Record<string, RegExp[]> = {
   'content/items/[itemId]/assets/route.ts':  [/loadItemAccess\(/, /contentAssetPrefix\(params\.itemId\)/],
   'content/items/[itemId]/route.ts':         [/loadItemAccess\(/, /\.eq\('item_id', params\.itemId\)/],
   'content/assets/[assetId]/route.ts':       [/loadItemAccess\(admin, asset\.item_id/, /asset\.path/],
+  // El prefijo sale de `s.id`, o sea de la FILA que se cargo por el id de la
+  // URL, no de nada que mande el cliente. Por eso vale como acotamiento: para
+  // colar un path ajeno habria que pasar antes por `puedeVer` de esa solicitud.
+  'tickets/[ticketId]/files/route.ts':            [/puedeVer\(s\)/, /\.startsWith\(prefijo/],
+  'tickets/[ticketId]/files/upload-url/route.ts': [/puedeVer\(s\)/, /prefijoDeSolicitud\(s\.id\)/],
 }
 
 describe('Invariante: toda operacion de storage con admin client acota el path al tenant', () => {

@@ -32,6 +32,7 @@ import {
   IdCard,
   Images,
   Store,
+  ConciergeBell,
   type LucideIcon,
 } from 'lucide-react'
 import type { FeatureKey } from '@/lib/features'
@@ -54,5 +55,9 @@ export const FEATURE_ICONS: Record<FeatureKey, LucideIcon> = {
   projects: Compass,
   cv: IdCard,
   contenidos: Images,
+  // Campanita de mostrador y no `Ticket`: ese ya es el icono de Invitaciones en
+  // ajustes, y repetirlo haria que dos cosas distintas se vean igual. La
+  // campanita dice lo que hace el modulo, pedir algo y esperar respuesta.
+  solicitudes: ConciergeBell,
   marketplace: Store,
 }

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { safeInternalPath } from '@/lib/validation'
 import { getServerT } from '@/lib/i18n/server'
 import { LoginButton } from './LoginButton'
+import { TesterLogin } from './TesterLogin'
 
 export const metadata = { title: 'Iniciar sesión' }
 
@@ -51,6 +52,16 @@ export default async function LoginPage({
         )}
 
         <LoginButton redirectTo={safeRedirect} />
+
+        {/* Entrada por contraseña, para quien prueba desde fuera y no tiene
+            cuenta de Google del dominio. Se lee aquí (Server Component) y no en
+            el cliente a proposito: asi la variable NO necesita el prefijo
+            NEXT_PUBLIC_ ni viaja al navegador. Apagada mientras no exista. */}
+        {process.env.TESTER_LOGIN === '1' && (
+          <div className="pt-2 border-t border-border space-y-3">
+            <TesterLogin redirectTo={safeRedirect} />
+          </div>
+        )}
 
         <p className="text-xs text-muted-foreground">
           {t('auth.onlyAccountsPrefix')}{' '}

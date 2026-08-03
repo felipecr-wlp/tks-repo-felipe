@@ -39,6 +39,7 @@
  *   connectors    -> connectors-authz-invariant (admin del ws por sesion, o token hasheado app a app)
  *   workspace     -> workspace-chat-authz-invariant (SINGULAR: adjuntos y reacciones del chat)
  *   workspace-messages -> workspace-chat-authz-invariant
+ *   tickets       -> tickets-authz-invariant (solicitudes a departamentos)
  *
  * El interruptor del marketplace NO es familia propia: vive en
  * workspaces/[workspaceId]/tools, asi que ya lo vigila el tripwire de subrecursos
@@ -47,7 +48,7 @@
  *
  * Determinista: solo lee fuentes, no monta rutas ni DB.
  *
- * Hoy 26 familias, 150 handlers mutantes, todas con guardian. Una familia mutante
+ * Hoy 27 familias, 157 handlers mutantes, todas con guardian. Una familia mutante
  * nueva debe registrarse aqui apuntando a su tripwire. Nunca un silencio.
  */
 import { describe, it, expect } from 'vitest'
@@ -75,6 +76,7 @@ const COVERED = new Set<string>([
   'profile', 'onboarding', 'notifications', 'invites', 'daily-reports',
   'academy', 'applications', 'messages', 'marketplace', 'kern', 'ai',
   'flows', 'content', 'connectors', 'workspace', 'workspace-messages',
+  'tickets',
 ])
 
 describe('Capstone de authz: ninguna familia mutante de src/app/api escapa a su tripwire', () => {

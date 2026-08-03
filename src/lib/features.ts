@@ -51,6 +51,7 @@ export type FeatureKey =
   | 'projects'
   | 'cv'
   | 'contenidos'
+  | 'solicitudes'
   | 'marketplace'
 
 export type FeatureGroup = 'principal' | 'workspace'
@@ -116,6 +117,19 @@ export const FEATURES: FeatureDef[] = [
     labelKey: 'nav.dailyReports',
     description: 'Reporte diario de actividades de cada persona.',
     group: 'workspace',
+    primary: true,
+  },
+  {
+    key: 'solicitudes',
+    segment: 'solicitudes',
+    labelKey: 'nav.requests',
+    description:
+      'Solicitudes a un departamento o a la dirección: se piden, se canalizan o se rechazan con motivo escrito.',
+    group: 'workspace',
+    // Ni instalable ni escondida por defecto, y la razon es el punto entero del
+    // modulo: pedir algo a la direccion no es una herramienta opcional de cierto
+    // tipo de equipo, es la puerta por la que entra todo lo que hoy se pide por
+    // chat y se pierde. Una puerta que hay que instalar es una puerta cerrada.
     primary: true,
   },
   {

@@ -266,6 +266,12 @@ export function InboxList({ initial, workspaceSlug, currentUserId, loadError = f
       router.push(`/w/${workspaceSlug}/task/${notif.object_id}`)
       return
     }
+    if (notif.object_type === 'ticket' && notif.object_id) {
+      // Sin esta rama el aviso de una solicitud es un clic muerto: se marca como
+      // leido y no lleva a ningun lado, que es peor que no avisar.
+      router.push(`/w/${workspaceSlug}/solicitudes?s=${notif.object_id}`)
+      return
+    }
     if (notif.object_type === 'daily_report') {
       // El dia viaja en el titulo (object_id es uuid y aqui no hay fila propia
       // que apuntar: el reporte todavia no existe, ese es justo el aviso).
