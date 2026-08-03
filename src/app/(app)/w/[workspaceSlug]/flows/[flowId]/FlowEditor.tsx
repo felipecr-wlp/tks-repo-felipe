@@ -1,43 +1,21 @@
 'use client'
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// React Flow trabaja con nodos y edges de forma dinamica: el contenido de cada
-// nodo lo define el usuario en tiempo de ejecucion. Tipar cada acceso aqui no
-// aporta seguridad real, asi que la regla se apaga en este archivo a proposito.
-
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ReactFlow, Controls, Background, MiniMap, useNodesState, useEdgesState,
-  addEdge, Connection, type Node, type Edge, BackgroundVariant,
-  type NodeProps, Handle, Position, MarkerType, useReactFlow, SelectionMode,
+  addEdge, Connection, type Node, type Edge, BackgroundVariant, Panel,
+  type NodeProps, Handle, Position, MarkerType, useReactFlow,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, Maximize, Lock, Unlock, Settings, Share2, CheckCircle, Download, Upload, AlertTriangle, RefreshCw, Cloud, CloudOff, Hand, HelpCircle, Undo2, Redo2 } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, FileText, Code, Link as LinkIcon, Type, Pencil, X, Eye, Edit3, Square, Circle, Minus, Grid3X3, ArrowUp, ArrowDown, Copy, ChevronUp, ChevronDown, Maximize, Lock, Unlock, Settings, Share2, CheckCircle, Download, Upload, HelpCircle, Undo2, Redo2, Hand } from 'lucide-react'
 import LinkNext from 'next/link'
-// El nodo HTML guarda markup que escribe una persona y lo lee OTRA: los flujos se
-// comparten (flow_shares) y son visibles para el workspace. Sin pasar por aqui, el
-// preview es XSS almacenado, y la CSP no salva nada porque trae 'unsafe-inline'.
-import { sanitizeRichText } from '@/lib/sanitize'
 
 type ShapeType = 'rect' | 'circle' | 'line' | 'grid' | 'text'
-type ShapeData = { shape: ShapeType; width: number; height: number; fill: string; stroke: string; label?: string; rows?: number; cols?: number }
+type ShapeData = { shape: ShapeType; width: number; height: number; fill: string; stroke: string; label?: string; rows?: number; cols?: number; onResizeEnd?: () => void }
 type NodeContent = { contentType: 'text' | 'html' | 'url' | 'document'; content: string }
 type FlowNodeData = { label: string; content: NodeContent } | ShapeData
-
-/**
- * Aviso de "algo cambio, hay que guardar" para los nodos.
- *
- * Antes esto viajaba DENTRO de data como `onResizeEnd`, y ahi estaba el fallo
- * que impedia que un flujo se guardara nunca. Dos razones:
- *   1. Una funcion no sobrevive a JSON.stringify. Al mandar el nodo al servidor
- *      la propiedad desaparecia, asi que el nodo guardado nunca era igual al
- *      que estaba en pantalla.
- *   2. La funcion quedaba congelada con el estado del momento en que se creo la
- *      figura. Al dispararla despues, guardaba una foto VIEJA encima de lo nuevo.
- * Con un contexto la referencia es estable y siempre lee el estado actual.
- */
-const FlowDirtyContext = createContext<() => void>(() => {})
+type EdgeStyle = { stroke?: string; strokeWidth?: number; animated?: boolean; label?: string; type?: string }
 
 const icons: Record<string, React.ReactNode> = {
   text: <Type className="w-3 h-3" />, html: <Code className="w-3 h-3" />,
@@ -45,19 +23,13 @@ const icons: Record<string, React.ReactNode> = {
 }
 
 function CustomNode({ data, selected, id }: NodeProps) {
-  // Los hooks van antes de cualquier return. React exige el mismo orden de
-  // hooks en todos los renders y este nodo puede salir temprano si resulta
-  // ser una figura, no un nodo de contenido.
-  const rf = useReactFlow()
-  const markDirty = useContext(FlowDirtyContext)
-  const containerRef = useRef<HTMLDivElement>(null)
-  // El primer disparo del observer es el del montaje, no un cambio del usuario:
-  // se ignora para no marcar como sucio un flujo que nadie toco.
-  useEffect(()=>{const el=containerRef.current;if(!el)return;let first=true;const ro=new ResizeObserver(()=>{const w=el.offsetWidth;if(w<=0)return;if(first){first=false;return}rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,nodeWidth:w}}:n));markDirty()});ro.observe(el);return()=>ro.disconnect()},[id,rf,markDirty])
   const fd = data as unknown as FlowNodeData
   if ('shape' in fd) return null
   const ct = fd.content?.contentType ?? 'text'; const locked = (data as any).locked
   const nodeW = (data as any).nodeWidth ?? 260
+  const rf = useReactFlow()
+  const containerRef = useRef<HTMLDivElement>(null)
+  useEffect(()=>{const el=containerRef.current;if(!el)return;const ro=new ResizeObserver(()=>{const w=el.offsetWidth;rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,nodeWidth:w}}:n))});ro.observe(el);return()=>ro.disconnect()},[id,rf])
   return (
     <div ref={containerRef} className={`bg-card border-2 rounded-lg px-4 py-3 shadow-sm transition-all group relative ${selected?'border-primary ring-2 ring-primary/30 shadow-md':locked?'opacity-70 border-border':'border-border'}`} style={{width:nodeW,maxWidth:'none',resize:'horizontal',overflow:'auto'}}>
       {selected && <CheckCircle className="absolute -top-1.5 -right-1.5 w-4 h-4 text-primary bg-background rounded-full z-10" />}
@@ -86,12 +58,8 @@ function ShapeNode({ data, selected, id }: NodeProps) {
   const opacity = locked ? {opacity:0.6} : {}
   const selRing = selected ? {outline:'2px solid #3b82f6',outlineOffset:'2px',borderRadius:s==='circle'?'50%':s==='grid'?'4px':'8px'} : {}
   const rf = useReactFlow()
-  const markDirty = useContext(FlowDirtyContext)
   const containerRef = useRef<HTMLDivElement>(null)
-  // Ojo con las dependencias: antes estaba `d` (el data del nodo) y eso volvia a
-  // crear el observer en cada cambio, lo que a su vez disparaba otro cambio. El
-  // id y la referencia estable del contexto bastan.
-  useEffect(()=>{const el=containerRef.current;if(!el)return;let first=true;const ro=new ResizeObserver(()=>{const nw=el.offsetWidth;const nh=el.offsetHeight;if(nw<=0||nh<=0)return;if(first){first=false;return}rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,width:nw,height:nh}}:n));markDirty()});ro.observe(el);return()=>ro.disconnect()},[id,rf,markDirty])
+  useEffect(()=>{const el=containerRef.current;if(!el)return;const ro=new ResizeObserver(()=>{const nw=el.offsetWidth;const nh=el.offsetHeight;if(nw>0&&nh>0)rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,width:nw,height:nh}}:n));if(d.onResizeEnd)d.onResizeEnd()});ro.observe(el);return()=>ro.disconnect()},[id,rf,d])
   const Label = label ? <text x={w/2} y={h/2} textAnchor="middle" dominantBaseline="central" fill="#334155" fontSize={13} fontWeight={500} fontFamily="system-ui, sans-serif" style={{pointerEvents:'none'}}>{label}</text> : null
 
   const D = <div ref={containerRef} style={{width:w,height:h,...opacity,...selRing,position:'relative',resize:'both',overflow:'auto'}}>
@@ -105,16 +73,13 @@ function ShapeNode({ data, selected, id }: NodeProps) {
   return D
 }
 
-interface Props { flowId:string;workspaceSlug:string;initialNodes:Node[];initialEdges:Edge[];initialTitle:string;initialDescription:string|null;initialUpdatedAt:string|null;workspaceId:string;readOnly?:boolean }
+interface Props { flowId:string;workspaceSlug:string;initialNodes:Node[];initialEdges:Edge[];initialTitle:string;initialDescription:string|null;workspaceId:string }
 
-type SaveState = 'guardado' | 'guardando' | 'pendiente' | 'error' | 'conflicto'
-
-export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdges,initialTitle,initialDescription,initialUpdatedAt,workspaceId,readOnly=false}:Props){
+export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdges,initialTitle,initialDescription,workspaceId}:Props){
   const [nodes,setNodes,onNodesChange]=useNodesState(initialNodes as any)
   const [edges,setEdges,onEdgesChange]=useEdgesState(initialEdges as any)
   const [title,setTitle]=useState(initialTitle);const [description,setDescription]=useState(initialDescription??'')
-  const [saveState,setSaveState]=useState<SaveState>('guardado')
-  const [lastSavedAt,setLastSavedAt]=useState<Date|null>(null)
+  const [saving,setSaving]=useState(false)
   const [editingNodeId,setEditingNodeId]=useState<string|null>(null);const [nodeLabel,setNodeLabel]=useState('')
   const [nodeContent,setNodeContent]=useState('');const [nodeType,setNodeType]=useState<NodeContent['contentType']>('text')
   const [previewHtml,setPreviewHtml]=useState(false)
@@ -126,197 +91,57 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
   const [ctxEdgeMenu,setCtxEdgeMenu]=useState<{x:number;y:number;edgeId:string}|null>(null)
   const [editingEdgeId,setEditingEdgeId]=useState<string|null>(null)
   const [edgeLabel,setEdgeLabel]=useState('');const [edgeColor,setEdgeColor]=useState('#64748b');const [edgeWidth,setEdgeWidth]=useState(2);const [edgeAnim,setEdgeAnim]=useState(false);const [edgeType,setEdgeType]=useState('default')
-  const [showShare,setShowShare]=useState(false);const [shares,setShares]=useState<any[]>([]);const [members,setMembers]=useState<any[]>([]);const [sharePerm,setSharePerm]=useState<'view'|'edit'>('view')
-  // Respaldo: si la ruta por flujo no devuelve miembros, se pide la del workspace.
+  const [showShare,setShowShare]=useState(false);const [shares,setShares]=useState<any[]>([]);const [members,setMembers]=useState<any[]>([]);const [sharePerm,setSharePerm]=useState<'view'|'edit'>('view');  const [showHelp,setShowHelp]=useState(false);  const [topBarCollapsed,setTopBarCollapsed]=useState(false);const [selectMode,setSelectMode]=useState(false)
   const loadMembers=useCallback(async()=>{try{const r=await fetch(`/api/profile?workspace_id=${workspaceId}`);if(r.ok)setMembers((await r.json()).profiles||[])}catch{}},[workspaceId])
   const [toolCollapsed,setToolCollapsed]=useState(false);const [toolPos,setToolPos]=useState({x:0,y:0})
   const reactFlowInstance = useRef<any>(null)
   const saveTimer=useRef<NodeJS.Timeout|null>(null)
-  const retryTimer=useRef<NodeJS.Timeout|null>(null)
-  // Espejo del estado actual. Lo lee el guardado en el momento de disparar, no
-  // en el momento de programarse: sin esto, un guardado con 800ms de retraso
-  // manda la foto de hace 800ms y se come lo que se hizo mientras tanto.
-  const latest=useRef({nodes:initialNodes as any[],edges:initialEdges as any[],title:initialTitle,description:initialDescription??''})
-  const dirty=useRef(false)
-  const inFlight=useRef(false)
-  const pendingWhileInFlight=useRef(false)
-  const retries=useRef(0)
-  const conflict=useRef(false)
-  const baseVersion=useRef<string|null>(initialUpdatedAt)
-  // Puente hacia la ultima version de save(), para que los reintentos y los
-  // avisos de salida no dependan de la version que existia cuando se montaron.
-  const saveRef=useRef<(opts?:{force?:boolean;keepalive?:boolean})=>Promise<boolean>>(async()=>false)
   const history=useRef<{nodes:any[],edges:any[]}[]>([])
   const historyIdx=useRef<number>(-1)
   const clipboard=useRef<any[]>([])
-  // Dos formas de mover el lienzo, y son distintas a proposito:
-  //   `altHeld`  = Alt SOSTENIDO. Sirve para un empujon rapido y se apaga solo al
-  //                soltar. No sirve para acomodar un flujo grande: la mano se
-  //                cansa y ademas Alt sostenido abre el menu del navegador.
-  //   `panMode`  = Alt+M, un interruptor que QUEDA prendido hasta apagarlo.
-  // Se suman (`panOnDrag={altHeld||panMode}`) en vez de reemplazarse porque el
-  // sostenido ya estaba y hay gente que lo usa; quitarlo seria arreglar una cosa
-  // rompiendo otra.
   const [altHeld, setAltHeld] = useState(false)
-  const [panMode, setPanMode] = useState(false)
-  const [showHelp, setShowHelp] = useState(false)
 
   const toggleFullscreen = useCallback(async ()=>{if(document.fullscreenElement){await document.exitFullscreen()}else{await document.documentElement.requestFullscreen()}},[])
-
-  // El espejo se refresca en cada render comprometido. A partir de aqui nadie
-  // vuelve a pasar nodos ni edges por parametro: el guardado los toma de aqui.
-  useEffect(()=>{latest.current={nodes:nodes as any[],edges:edges as any[],title,description}},[nodes,edges,title,description])
-
-  /**
-   * Guardado real contra el servidor.
-   *
-   * Solo lectura se corta aqui, en el cliente, ademas de que el servidor ya
-   * responde 403. Asi nadie ve un "Guardando..." que en realidad fallo.
-   *
-   * `force` salta el control de versiones y pisa lo que haya en la base. Solo
-   * lo usa el boton que aparece cuando hay conflicto, nunca el auto-guardado.
-   * `keepalive` es para la salida de la pagina: deja que la peticion termine
-   * aunque el componente ya no exista (limite del navegador, 64KB de cuerpo).
-   */
-  const save=useCallback(async(opts?:{force?:boolean;keepalive?:boolean}):Promise<boolean>=>{
-    if(readOnly)return false
-    if(inFlight.current){pendingWhileInFlight.current=true;return false}
-    if(retryTimer.current){clearTimeout(retryTimer.current);retryTimer.current=null}
-    inFlight.current=true
-    setSaveState('guardando')
-    const snap=latest.current
-    const body:Record<string,unknown>={title:snap.title,description:snap.description,nodes:snap.nodes,edges:snap.edges}
-    if(!opts?.force&&baseVersion.current)body.expected_updated_at=baseVersion.current
-    try{
-      const r=await fetch(`/api/flows/${flowId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),keepalive:opts?.keepalive})
-      if(r.status===409){
-        // Alguien mas guardo despues de que abrimos. No se pisa en silencio.
-        // El aviso sale una sola vez: seguir editando no debe llenar la pantalla
-        // de toasts identicos.
-        inFlight.current=false
-        const primeraVez=!conflict.current
-        conflict.current=true
-        setSaveState('conflicto')
-        if(primeraVez)toast.error('Otra persona edito este flujo. Elige que hacer en la barra de arriba.')
-        return false
-      }
-      if(r.status===403){
-        inFlight.current=false;setSaveState('error')
-        toast.error('Solo tienes acceso de lectura')
-        return false
-      }
-      if(!r.ok)throw new Error(String(r.status))
-      const data=await r.json().catch(()=>null)
-      if(data?.updated_at)baseVersion.current=data.updated_at
-      inFlight.current=false
-      retries.current=0
-      conflict.current=false
-      dirty.current=false
-      setSaveState('guardado');setLastSavedAt(new Date())
-      // Si algo cambio mientras la peticion viajaba, se vuelve a guardar.
-      if(pendingWhileInFlight.current){pendingWhileInFlight.current=false;dirty.current=true;setSaveState('pendiente');saveTimer.current=setTimeout(()=>{saveRef.current()},400)}
-      return true
-    }catch{
-      inFlight.current=false
-      setSaveState('error')
-      // Reintento con espera creciente. El cubo de rate limit de la API es
-      // compartido (60 peticiones por minuto por IP), asi que una oficina entera
-      // editando puede sacar un 429 pasajero: rendirse ahi seria perder trabajo.
-      if(retries.current<5){
-        const espera=[1000,2000,4000,8000,15000][retries.current]
-        retries.current++
-        retryTimer.current=setTimeout(()=>{saveRef.current()},espera)
-      }else{
-        toast.error('No se pudo guardar. Revisa tu conexion y usa el boton Guardar.')
-      }
-      return false
-    }
-  },[flowId,readOnly])
-  useEffect(()=>{saveRef.current=save},[save])
-
-  // Varios sitios llaman a autoSave DENTRO de un actualizador de estado, que en
-  // React corre en fase de render. Pintar ahi otro estado provoca el aviso de
-  // "no puedes actualizar un componente mientras renderizas otro", asi que el
-  // cambio visual se saca del render con queueMicrotask. El temporizador si se
-  // programa de inmediato: el guardado no debe esperar a nada.
-  // Con un conflicto abierto no se reintenta solo: seria estrellarse contra el
-  // mismo 409 en cada tecla. Se marca sucio y se espera a que la persona decida.
-  const autoSave=useCallback(()=>{if(readOnly)return;dirty.current=true;if(conflict.current)return;queueMicrotask(()=>setSaveState('pendiente'));if(saveTimer.current)clearTimeout(saveTimer.current);saveTimer.current=setTimeout(()=>{saveRef.current()},800)},[readOnly])
-
-  // Salida de la pagina. Tres puertas, porque ninguna cubre todos los casos:
-  // cambiar de pestaña (visibilitychange), cerrar el navegador (beforeunload) y
-  // navegar dentro de la app, que no dispara ninguna de las dos (desmontaje).
-  useEffect(()=>{
-    if(readOnly)return
-    const alSalir=(e:BeforeUnloadEvent)=>{if(!dirty.current)return;saveRef.current({keepalive:true});e.preventDefault();e.returnValue=''}
-    const alOcultar=()=>{if(document.visibilityState==='hidden'&&dirty.current)saveRef.current({keepalive:true})}
-    window.addEventListener('beforeunload',alSalir)
-    document.addEventListener('visibilitychange',alOcultar)
-    return()=>{window.removeEventListener('beforeunload',alSalir);document.removeEventListener('visibilitychange',alOcultar)}
-  },[readOnly])
-  useEffect(()=>()=>{
-    if(saveTimer.current)clearTimeout(saveTimer.current)
-    if(retryTimer.current)clearTimeout(retryTimer.current)
-    if(dirty.current)saveRef.current({keepalive:true})
-  },[])
+  const save=useCallback(async(n?:Node[],e?:Edge[])=>{setSaving(true);try{await fetch(`/api/flows/${flowId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,description,nodes:n??nodes,edges:e??edges})})}catch{toast.error('Error al guardar')}finally{setSaving(false)}},[flowId,title,description,nodes,edges])
+  const autoSave=useCallback((n?:Node[],e?:Edge[])=>{if(saveTimer.current)clearTimeout(saveTimer.current);saveTimer.current=setTimeout(()=>save(n,e),800)},[save])
   const pushHistory=useCallback((n:any[],e:any[])=>{const h=history.current;h.length=historyIdx.current+1;h.push({nodes:JSON.parse(JSON.stringify(n)),edges:JSON.parse(JSON.stringify(e))});if(h.length>50)h.shift();else historyIdx.current++},[])
-  const undo=useCallback(()=>{if(historyIdx.current<=0)return;historyIdx.current--;const s=history.current[historyIdx.current];setNodes(s.nodes);setEdges(s.edges);autoSave()},[setNodes,setEdges,autoSave])
-  const redo=useCallback(()=>{if(historyIdx.current>=history.current.length-1)return;historyIdx.current++;const s=history.current[historyIdx.current];setNodes(s.nodes);setEdges(s.edges);autoSave()},[setNodes,setEdges,autoSave])
+  const undo=useCallback(()=>{if(historyIdx.current<=0)return;historyIdx.current--;const s=history.current[historyIdx.current];setNodes(s.nodes);setEdges(s.edges);autoSave(s.nodes,s.edges)},[setNodes,setEdges,autoSave])
+  const redo=useCallback(()=>{if(historyIdx.current>=history.current.length-1)return;historyIdx.current++;const s=history.current[historyIdx.current];setNodes(s.nodes);setEdges(s.edges);autoSave(s.nodes,s.edges)},[setNodes,setEdges,autoSave])
   const copySelected=useCallback(()=>{const sel=nodes.filter((n:any)=>n.selected);clipboard.current=sel.map((n:any)=>({...n,id:`node-${Date.now()}`}));if(sel.length)toast.success(`${sel.length} copiado${sel.length!==1?'s':''}`)},[nodes])
-  const pasteSelected=useCallback(()=>{if(readOnly||!clipboard.current.length)return;const pasted=clipboard.current.map((n:any)=>({...n,id:`node-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,position:{x:n.position.x+40,y:n.position.y+40}}));setNodes((nds:any[])=>{const u=[...nds,...pasted];autoSave();return u})},[setNodes,autoSave,readOnly])
-  const onConnect=useCallback((conn:Connection)=>{if(readOnly)return;pushHistory(nodes,edges);setEdges(eds=>{const u=addEdge({...conn,style:{stroke:'#64748b',strokeWidth:2},markerEnd:{type:MarkerType.ArrowClosed,color:'#64748b'}},eds);autoSave();return u})},[setEdges,nodes,autoSave,pushHistory,edges,readOnly])
-  const addNode=useCallback((ct:NodeContent['contentType']='text')=>{if(readOnly)return;const id=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{id,type:'custom',position:{x:Math.random()*400+100,y:Math.random()*300+100},data:{label:'Nuevo nodo',content:{contentType:ct,content:''}}}];pushHistory(u,edges);autoSave();return u})},[setNodes,edges,autoSave,pushHistory,readOnly])
-  // Nada de funciones dentro de data: ver la nota de FlowDirtyContext arriba.
-  const addShape=useCallback((shape:ShapeType)=>{if(readOnly)return;const id=`shape-${Date.now()}`;const dims=shape==='line'?{width:200,height:40}:shape==='grid'?{width:240,height:200}:shape==='text'?{width:160,height:50}:{width:160,height:120};setNodes((nds:any[])=>{const u=[...nds,{id,type:'shape',position:{x:Math.random()*400+50,y:Math.random()*250+50},data:{shape,...dims,label:shape==='text'?'Nuevo texto':'',fill:'#f1f5f9',stroke:'#64748b',rows:3,cols:3}}];pushHistory(u,edges);autoSave();return u})},[setNodes,edges,autoSave,pushHistory,readOnly])
-  const deleteSelected=useCallback(()=>{if(readOnly)return;pushHistory(nodes,edges);setTimeout(()=>setNodes((nds:any[])=>{const sel=nds.filter((n:any)=>n.selected);const rest=nds.filter((n:any)=>!n.selected);const ids=new Set(sel.map((n:any)=>n.id));setEdges(eds=>eds.filter(e=>!ids.has(e.source)&&!ids.has(e.target)));autoSave();return rest}),0)},[pushHistory,nodes,edges,setNodes,setEdges,autoSave,readOnly])
-  const togglePanMode=useCallback(()=>{setPanMode(v=>{const n=!v;toast.success(n?'Modo mover area encendido (Alt+M para apagarlo)':'Modo mover area apagado');return n})},[])
-  // Alt+M va ANTES del corte por solo lectura y DESPUES del corte por campo de
-  // texto: mover el lienzo es leer, no editar, asi que tambien lo necesita quien
-  // solo puede mirar; pero escribir "Alt+M" dentro de un input no debe moverle
-  // el lienzo a nadie.
-  const onKeyDown=useCallback((e:React.KeyboardEvent)=>{if(e.key==='Alt'){setAltHeld(true);e.preventDefault();return};if(e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement)return;if(e.altKey&&(e.key==='m'||e.key==='M'||e.code==='KeyM')){e.preventDefault();togglePanMode();return};if(readOnly){if(e.ctrlKey&&e.key==='c'){e.preventDefault();copySelected()}return};if(e.ctrlKey&&e.key==='s'){e.preventDefault();save();return};if(e.key==='Delete'||e.key==='Backspace'){deleteSelected()}else if(e.ctrlKey&&e.key==='z'){e.preventDefault();undo()}else if(e.ctrlKey&&e.key==='y'){e.preventDefault();redo()}else if(e.ctrlKey&&e.key==='c'){e.preventDefault();copySelected()}else if(e.ctrlKey&&e.key==='x'){e.preventDefault();copySelected();deleteSelected()}else if(e.ctrlKey&&e.key==='v'){e.preventDefault();pasteSelected()}},[deleteSelected,undo,redo,copySelected,pasteSelected,save,readOnly,togglePanMode])
-  const onKeyUp = useCallback((e:React.KeyboardEvent)=>{if(e.key==='Alt')setAltHeld(false)},[])
-  const onNodesDelete=useCallback((del:Node[])=>{if(readOnly)return;pushHistory(nodes,edges);const ids=new Set(del.map(n=>n.id));setEdges(eds=>eds.filter(e=>!ids.has(e.source)&&!ids.has(e.target)));autoSave()},[setEdges,pushHistory,nodes,edges,autoSave,readOnly])
-  const handleNodeDoubleClick=useCallback((_e:React.MouseEvent,node:Node)=>{if(readOnly)return;const d=node.data as any;if('shape'in d&&d.shape){setEditingShapeId(node.id);setShapeW(d.width??160);setShapeH(d.height??120);setShapeLabel(d.label??'');setShapeFill(d.fill??'#f1f5f9');setShapeStroke(d.stroke??'#64748b');setShapeRows(d.rows??3);setShapeCols(d.cols??3);setShapeType(d.shape)}else{setEditingNodeId(node.id);setNodeLabel(d.label||'');setNodeContent(d.content?.content||'');setNodeType(d.content?.contentType||'text');setPreviewHtml(false)}},[readOnly])
+  const pasteSelected=useCallback(()=>{if(!clipboard.current.length)return;const pasted=clipboard.current.map((n:any)=>({...n,id:`node-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,position:{x:n.position.x+40,y:n.position.y+40}}));setNodes((nds:any[])=>{const u=[...nds,...pasted];autoSave(u,edges);return u})},[setNodes,autoSave,edges])
+  const onConnect=useCallback((conn:Connection)=>{pushHistory(nodes,edges);setEdges(eds=>{const u=addEdge({...conn,style:{stroke:'#64748b',strokeWidth:2},markerEnd:{type:MarkerType.ArrowClosed,color:'#64748b'}},eds);autoSave(nodes,u);return u})},[setEdges,nodes,autoSave,pushHistory,edges])
+  const addNode=useCallback((ct:NodeContent['contentType']='text')=>{const id=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{id,type:'custom',position:{x:Math.random()*400+100,y:Math.random()*300+100},data:{label:'Nuevo nodo',content:{contentType:ct,content:''}}}];pushHistory(u,edges);autoSave(u,edges);return u})},[setNodes,edges,autoSave,pushHistory])
+  const addShape=useCallback((shape:ShapeType)=>{const id=`shape-${Date.now()}`;const dims=shape==='line'?{width:200,height:40}:shape==='grid'?{width:240,height:200}:shape==='text'?{width:160,height:50}:{width:160,height:120};setNodes((nds:any[])=>{const u=[...nds,{id,type:'shape',position:{x:Math.random()*400+50,y:Math.random()*250+50},data:{shape,...dims,label:shape==='text'?'Nuevo texto':'',fill:'#f1f5f9',stroke:'#64748b',rows:3,cols:3,onResizeEnd:autoSave}}];pushHistory(u,edges);autoSave(u,edges);return u})},[setNodes,edges,autoSave,pushHistory])
+  const deleteSelected=useCallback(()=>{pushHistory(nodes,edges);setTimeout(()=>setNodes((nds:any[])=>{const sel=nds.filter((n:any)=>n.selected);const rest=nds.filter((n:any)=>!n.selected);const ids=new Set(sel.map((n:any)=>n.id));setEdges(eds=>eds.filter(e=>!ids.has(e.source)&&!ids.has(e.target)));autoSave(rest);return rest}),0)},[pushHistory,nodes,edges,setNodes,setEdges,autoSave])
+  const onKeyDown=useCallback((e:React.KeyboardEvent)=>{  if(e.altKey&&e.key==='m'){setAltHeld(h=>!h);e.preventDefault();return};if(e.ctrlKey&&e.shiftKey&&e.key==='D'){setSelectMode(s=>!s);e.preventDefault();return};if(e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement)return;if(e.key==='Delete'||e.key==='Backspace'){deleteSelected()}else if(e.ctrlKey&&e.key==='z'){e.preventDefault();undo()}else if(e.ctrlKey&&e.key==='y'){e.preventDefault();redo()}else if(e.ctrlKey&&e.key==='c'){e.preventDefault();copySelected()}else if(e.ctrlKey&&e.key==='x'){e.preventDefault();copySelected();deleteSelected()}else if(e.ctrlKey&&e.key==='v'){e.preventDefault();pasteSelected()}},[deleteSelected,undo,redo,copySelected,pasteSelected])
+  const onKeyUp = useCallback((e:React.KeyboardEvent)=>{},[])
+  const onNodesDelete=useCallback((del:Node[])=>{pushHistory(nodes,edges);const ids=new Set(del.map(n=>n.id));setEdges(eds=>eds.filter(e=>!ids.has(e.source)&&!ids.has(e.target)));autoSave()},[setEdges,pushHistory,nodes,edges,autoSave])
+  const handleNodeDoubleClick=useCallback((_e:React.MouseEvent,node:Node)=>{const d=node.data as any;if('shape'in d&&d.shape){setEditingShapeId(node.id);setShapeW(d.width??160);setShapeH(d.height??120);setShapeLabel(d.label??'');setShapeFill(d.fill??'#f1f5f9');setShapeStroke(d.stroke??'#64748b');setShapeRows(d.rows??3);setShapeCols(d.cols??3);setShapeType(d.shape)}else{setEditingNodeId(node.id);setNodeLabel(d.label||'');setNodeContent(d.content?.content||'');setNodeType(d.content?.contentType||'text');setPreviewHtml(false)}},[])
   const onDragOver = useCallback((e:React.DragEvent)=>{e.preventDefault();e.dataTransfer.dropEffect='move'},[])
   const onDrop = useCallback((e:React.DragEvent)=>{
     e.preventDefault()
-    if(readOnly)return
     const rf=reactFlowInstance.current;if(!rf)return
     const pos=rf.screenToFlowPosition({x:e.clientX,y:e.clientY})
     const type=e.dataTransfer.getData('application/reactflow')
     if(!type)return
-    if(type.startsWith('shape:')){const shape=type.replace('shape:','') as ShapeType;const id=`shape-${Date.now()}`;const dims=shape==='line'?{width:200,height:40}:shape==='grid'?{width:240,height:200}:shape==='text'?{width:160,height:50}:{width:160,height:120};setNodes((nds:any[])=>{const u=[...nds,{id,type:'shape',position:pos,data:{shape,...dims,label:shape==='text'?'Nuevo texto':'',fill:'#f1f5f9',stroke:'#64748b',rows:3,cols:3}}];autoSave();return u})}
-    else if(type==='text'||type==='html'||type==='url'||type==='document'){const id=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{id,type:'custom',position:pos,data:{label:'Nuevo nodo',content:{contentType:type,content:''}}}];autoSave();return u})}
-  },[reactFlowInstance,setNodes,autoSave,readOnly])
-  const onNodeDragStop=useCallback(()=>{if(readOnly)return;autoSave();pushHistory(nodes,edges)},[autoSave,pushHistory,nodes,edges,readOnly])
-  const onNodeDragStarter=useCallback(()=>{if(readOnly)return;pushHistory(nodes,edges)},[pushHistory,nodes,edges,readOnly])
-  const onNodeContextMenu=useCallback((e:React.MouseEvent,node:Node)=>{e.preventDefault();if(readOnly)return;setCtxEdgeMenu(null);setCtxMenu({x:e.clientX,y:e.clientY,nodeId:node.id})},[readOnly])
-  const onEdgeContextMenu=useCallback((e:React.MouseEvent,edge:Edge)=>{e.preventDefault();if(readOnly)return;setCtxMenu(null);setCtxEdgeMenu({x:e.clientX,y:e.clientY,edgeId:edge.id})},[readOnly])
+    if(type.startsWith('shape:')){const shape=type.replace('shape:','') as ShapeType;const id=`shape-${Date.now()}`;const dims=shape==='line'?{width:200,height:40}:shape==='grid'?{width:240,height:200}:shape==='text'?{width:160,height:50}:{width:160,height:120};setNodes((nds:any[])=>{const u=[...nds,{id,type:'shape',position:pos,data:{shape,...dims,label:shape==='text'?'Nuevo texto':'',fill:'#f1f5f9',stroke:'#64748b',rows:3,cols:3}}];autoSave(u,edges);return u})}
+    else if(type==='text'||type==='html'||type==='url'||type==='document'){const id=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{id,type:'custom',position:pos,data:{label:'Nuevo nodo',content:{contentType:type,content:''}}}];autoSave(u,edges);return u})}
+  },[reactFlowInstance,setNodes,edges,autoSave])
+  const onNodeDragStop=useCallback(()=>{autoSave();pushHistory(nodes,edges)},[autoSave,pushHistory,nodes,edges])
+  const onNodeDragStarter=useCallback(()=>{pushHistory(nodes,edges)},[pushHistory,nodes,edges])
+  const onNodeContextMenu=useCallback((e:React.MouseEvent,node:Node)=>{e.preventDefault();setCtxEdgeMenu(null);setCtxMenu({x:e.clientX,y:e.clientY,nodeId:node.id})},[])
+  const onEdgeContextMenu=useCallback((e:React.MouseEvent,edge:Edge)=>{e.preventDefault();setCtxMenu(null);setCtxEdgeMenu({x:e.clientX,y:e.clientY,edgeId:edge.id})},[])
   const onPaneClick=useCallback(()=>{setCtxMenu(null);setCtxEdgeMenu(null)},[])
-  const bringToFront=useCallback((nodeId:string)=>{setNodes(nds=>{const idx=nds.findIndex((n:any)=>n.id===nodeId);if(idx<0)return nds;const u=[...nds];u.push(u.splice(idx,1)[0]);autoSave();return u});setCtxMenu(null)},[setNodes,autoSave])
-  const sendToBack=useCallback((nodeId:string)=>{setNodes(nds=>{const idx=nds.findIndex((n:any)=>n.id===nodeId);if(idx<0)return nds;const u=[...nds];u.unshift(u.splice(idx,1)[0]);autoSave();return u});setCtxMenu(null)},[setNodes,autoSave])
-  const duplicateNode=useCallback((nodeId:string)=>{const node=nodes.find((n:any)=>n.id===nodeId);if(!node)return;const newId=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{...node,id:newId,position:{x:node.position.x+40,y:node.position.y+40},selected:false,data:{...node.data}}];autoSave();return u});setCtxMenu(null)},[nodes,setNodes,autoSave])
-  const deleteEdge=useCallback((edgeId:string)=>{setEdges(eds=>{const u=eds.filter(e=>e.id!==edgeId);autoSave();return u});setCtxEdgeMenu(null)},[setEdges,autoSave])
-  const toggleLock=useCallback((nodeId:string)=>{setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===nodeId?{...n,draggable:n.draggable===false?undefined:false,data:{...n.data,locked:n.data?.locked?false:true}}:n);autoSave();return u});setCtxMenu(null)},[setNodes,autoSave])
-  const saveContentNode=useCallback(()=>{if(!editingNodeId)return;setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===editingNodeId?{...n,data:{...n.data,label:nodeLabel,content:{contentType:nodeType,content:nodeContent}}}:n);autoSave();return u});setEditingNodeId(null)},[editingNodeId,nodeLabel,nodeContent,nodeType,setNodes,autoSave])
-  const saveShapeEdit=useCallback(()=>{if(!editingShapeId)return;setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===editingShapeId?{...n,data:{...n.data,shape:shapeType,width:shapeW,height:shapeH,label:shapeLabel,fill:shapeFill,stroke:shapeStroke,rows:shapeRows,cols:shapeCols}}:n);autoSave();return u});setEditingShapeId(null)},[editingShapeId,shapeW,shapeH,shapeLabel,shapeFill,shapeStroke,shapeRows,shapeCols,shapeType,setNodes,autoSave])
-  const saveEdgeEdit=useCallback(()=>{if(!editingEdgeId)return;setEdges((eds:any[])=>{const u=eds.map((e:any)=>e.id===editingEdgeId?{...e,label:edgeLabel||undefined,style:{...e.style,stroke:edgeColor,strokeWidth:edgeWidth},animated:edgeAnim,type:edgeType==='default'?undefined:edgeType,markerEnd:{type:MarkerType.ArrowClosed,color:edgeColor}}:e);autoSave();return u});setEditingEdgeId(null)},[editingEdgeId,edgeLabel,edgeColor,edgeWidth,edgeAnim,edgeType,setEdges,autoSave])
+  const bringToFront=useCallback((nodeId:string)=>{setNodes(nds=>{const idx=nds.findIndex((n:any)=>n.id===nodeId);if(idx<0)return nds;const u=[...nds];u.push(u.splice(idx,1)[0]);autoSave(u,edges);return u});setCtxMenu(null)},[setNodes,autoSave,edges])
+  const sendToBack=useCallback((nodeId:string)=>{setNodes(nds=>{const idx=nds.findIndex((n:any)=>n.id===nodeId);if(idx<0)return nds;const u=[...nds];u.unshift(u.splice(idx,1)[0]);autoSave(u,edges);return u});setCtxMenu(null)},[setNodes,autoSave,edges])
+  const duplicateNode=useCallback((nodeId:string)=>{const node=nodes.find((n:any)=>n.id===nodeId);if(!node)return;const newId=`node-${Date.now()}`;setNodes((nds:any[])=>{const u=[...nds,{...node,id:newId,position:{x:node.position.x+40,y:node.position.y+40},selected:false,data:{...node.data}}];autoSave(u,edges);return u});setCtxMenu(null)},[nodes,setNodes,autoSave,edges])
+  const deleteEdge=useCallback((edgeId:string)=>{setEdges(eds=>{const u=eds.filter(e=>e.id!==edgeId);autoSave(nodes,u);return u});setCtxEdgeMenu(null)},[setEdges,autoSave,nodes])
+  const toggleLock=useCallback((nodeId:string)=>{setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===nodeId?{...n,draggable:n.draggable===false?undefined:false,data:{...n.data,locked:n.data?.locked?false:true}}:n);autoSave(u,edges);return u});setCtxMenu(null)},[setNodes,autoSave,edges])
+  const saveContentNode=useCallback(()=>{if(!editingNodeId)return;setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===editingNodeId?{...n,data:{...n.data,label:nodeLabel,content:{contentType:nodeType,content:nodeContent}}}:n);autoSave(u,edges);return u});setEditingNodeId(null)},[editingNodeId,nodeLabel,nodeContent,nodeType,setNodes,autoSave,edges])
+  const saveShapeEdit=useCallback(()=>{if(!editingShapeId)return;setNodes((nds:any[])=>{const u=nds.map((n:any)=>n.id===editingShapeId?{...n,data:{...n.data,shape:shapeType,width:shapeW,height:shapeH,label:shapeLabel,fill:shapeFill,stroke:shapeStroke,rows:shapeRows,cols:shapeCols}}:n);autoSave(u,edges);return u});setEditingShapeId(null)},[editingShapeId,shapeW,shapeH,shapeLabel,shapeFill,shapeStroke,shapeRows,shapeCols,shapeType,setNodes,autoSave,edges])
+  const saveEdgeEdit=useCallback(()=>{if(!editingEdgeId)return;setEdges((eds:any[])=>{const u=eds.map((e:any)=>e.id===editingEdgeId?{...e,label:edgeLabel||undefined,style:{...e.style,stroke:edgeColor,strokeWidth:edgeWidth},animated:edgeAnim,type:edgeType==='default'?undefined:edgeType,markerEnd:{type:MarkerType.ArrowClosed,color:edgeColor}}:e);autoSave(nodes,u);return u});setEditingEdgeId(null)},[editingEdgeId,edgeLabel,edgeColor,edgeWidth,edgeAnim,edgeType,setEdges,autoSave,nodes])
   const handleExport=useCallback(()=>{const data={title,description,nodes:JSON.parse(JSON.stringify(nodes)),edges:JSON.parse(JSON.stringify(edges))};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`${title||'flujo'}.wlo.json`;a.click();URL.revokeObjectURL(url);toast.success('Flujo exportado')},[title,description,nodes,edges])
-  const handleImport=useCallback(()=>{if(readOnly)return;const el=document.createElement('input');el.type='file';el.accept='.json';el.onchange=async(e:any)=>{const file=e.target.files?.[0];if(!file)return;try{const text=await file.text();const data=JSON.parse(text);if(data.nodes){setNodes(data.nodes);setEdges(data.edges||[]);if(data.title)setTitle(data.title);if(data.description!==undefined)setDescription(data.description);autoSave();toast.success('Flujo importado')}}catch{toast.error('Archivo invalido')}};el.click()},[setNodes,setEdges,setTitle,setDescription,autoSave,readOnly])
-
-  // Indicador honesto. El anterior decia "Auto-guardado" siempre, incluso cuando
-  // el guardado habia fallado, que es la peor mentira posible en un editor.
-  const horaGuardado = lastSavedAt ? lastSavedAt.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : null
-  const indicador = saveState==='guardando'
-    ? {texto:'Guardando...',icono:<RefreshCw className="w-3.5 h-3.5 animate-spin"/>,clase:'border-border bg-muted text-muted-foreground',titulo:'Enviando cambios al servidor'}
-    : saveState==='pendiente'
-    ? {texto:'Sin guardar',icono:<Cloud className="w-3.5 h-3.5"/>,clase:'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400',titulo:'Hay cambios que aun no llegan a la base de datos'}
-    : saveState==='error'
-    ? {texto:'Error, reintentando',icono:<CloudOff className="w-3.5 h-3.5"/>,clase:'border-destructive/40 bg-destructive/10 text-destructive',titulo:'No se pudo guardar. Se reintenta solo.'}
-    : saveState==='conflicto'
-    ? {texto:'Conflicto',icono:<AlertTriangle className="w-3.5 h-3.5"/>,clase:'border-destructive/40 bg-destructive/10 text-destructive',titulo:'Otra persona guardo cambios sobre este flujo'}
-    : {texto:horaGuardado?`Guardado ${horaGuardado}`:'Guardado',icono:<CheckCircle className="w-3.5 h-3.5"/>,clase:'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',titulo:'Todo esta en la base de datos'}
+  const handleImport=useCallback(()=>{const el=document.createElement('input');el.type='file';el.accept='.json';el.onchange=async(e:any)=>{const file=e.target.files?.[0];if(!file)return;try{const text=await file.text();const data=JSON.parse(text);if(data.nodes){setNodes(data.nodes);setEdges(data.edges||[]);if(data.title)setTitle(data.title);if(data.description!==undefined)setDescription(data.description);autoSave(data.nodes,data.edges||[]);toast.success('Flujo importado')}}catch{toast.error('Archivo invalido')}};el.click()},[setNodes,setEdges,setTitle,setDescription,autoSave])
 
   const shapeTypes = ['rect','circle','line','grid','text'] as ShapeType[]
   const shapeIcons: Record<ShapeType,React.ReactNode> = {rect:<Square className="w-3 h-3"/>,circle:<Circle className="w-3 h-3"/>,line:<Minus className="w-3 h-3"/>,grid:<Grid3X3 className="w-3 h-3"/>,text:<Type className="w-3 h-3"/>}
@@ -326,54 +151,42 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
     <div className="flex flex-col h-full" tabIndex={0} onKeyDown={onKeyDown} onKeyUp={onKeyUp} onClick={()=>{setCtxMenu(null);setCtxEdgeMenu(null)}}>
       <header className="flex items-center gap-3 px-4 py-2 border-b bg-card shrink-0">
         <LinkNext href={`/w/${workspaceSlug}/flows`} className="text-muted-foreground hover:text-foreground"><ArrowLeft className="w-4 h-4" /></LinkNext>
-        <input value={title} onChange={e=>{if(readOnly)return;setTitle(e.target.value);autoSave()}} readOnly={readOnly} className="h-8 max-w-xs font-semibold border-0 bg-transparent shadow-none outline-none text-lg px-0" placeholder="Titulo del flujo" />
-        <div className="flex-1" />
-        {readOnly
-          ? <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-1 text-xs font-medium" title="Te compartieron este flujo con permiso de solo ver"><Eye className="w-3.5 h-3.5"/>Solo lectura</span>
-          : <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${indicador.clase}`} title={indicador.titulo}>{indicador.icono}{indicador.texto}</span>}
-        {!readOnly&&<button onClick={()=>save()} disabled={saveState==='guardando'} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors disabled:opacity-50"><Save className="w-4 h-4" />Guardar</button>}
+        <input value={title} onChange={e=>{setTitle(e.target.value);autoSave()}} className="h-8 max-w-xs font-semibold border-0 bg-transparent shadow-none outline-none text-lg px-0" placeholder="Titulo del flujo" />
+        <div className="flex-1" /><span className="text-xs text-muted-foreground">{saving?'Guardando...':'Auto-guardado'}</span>
+        <button onClick={()=>save()} disabled={saving} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors disabled:opacity-50"><Save className="w-4 h-4" />Guardar</button>
         <button onClick={handleExport} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Exportar"><Download className="w-4 h-4"/>Exportar</button>
-        {!readOnly&&<button onClick={handleImport} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Importar"><Upload className="w-4 h-4"/>Importar</button>}
-        {!readOnly&&<button onClick={async()=>{setShowShare(true);try{const[r1,r2]=await Promise.all([fetch(`/api/flows/${flowId}`).then(r=>r.json()),fetch(`/api/flows/${flowId}/members`).then(r=>r.json())]);setShares(r1.shares||[]);const ms=r2.profiles||[];if(ms.length)setMembers(ms);else loadMembers()}catch{}}} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Compartir"><Share2 className="w-4 h-4"/>Compartir</button>}
+        <button onClick={handleImport} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Importar"><Upload className="w-4 h-4"/>Importar</button>
+        <button onClick={async()=>{setShowShare(true);try{const[r1,r2]=await Promise.all([fetch(`/api/flows/${flowId}`).then(r=>r.json()),fetch(`/api/flows/${flowId}/members`).then(r=>r.json())]);setShares(r1.shares||[]);setMembers(r2.profiles||[])}catch{}}} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Compartir"><Share2 className="w-4 h-4"/>Compartir</button>
       </header>
-      {saveState==='conflicto'&&<div className="flex items-center gap-3 px-4 py-2 border-b bg-destructive/10 text-destructive text-xs shrink-0">
-        <AlertTriangle className="w-4 h-4 shrink-0"/>
-        <span className="flex-1">Otra persona guardo cambios en este flujo mientras lo editabas. Si guardas encima, pierdes lo que hizo. Recarga para ver su version, o guarda la tuya si estas seguro.</span>
-        <button onClick={()=>window.location.reload()} className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-background hover:bg-accent h-7 px-2.5 text-xs font-medium"><RefreshCw className="w-3 h-3"/>Recargar</button>
-        <button onClick={async()=>{const ok=await save({force:true});if(ok)toast.success('Guardado, se piso la version anterior')}} className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-background hover:bg-accent h-7 px-2.5 text-xs font-medium"><Save className="w-3 h-3"/>Guardar la mia</button>
-      </div>}
+      <div className="flex items-center gap-1 px-2 py-1 border-b bg-muted/30 shrink-0">
+        <button onClick={()=>setTopBarCollapsed(!topBarCollapsed)} className="p-1 hover:bg-accent rounded text-muted-foreground" title={topBarCollapsed?'Expandir':'Minimizar'}><ChevronDown className={`w-3 h-3 transition-transform ${topBarCollapsed?'-rotate-90':''}`}/></button>
+        {!topBarCollapsed&&<><button onClick={undo} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Deshacer (Ctrl+Z)"><Undo2 className="w-3.5 h-3.5"/></button>
+        <button onClick={redo} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Rehacer (Ctrl+Y)"><Redo2 className="w-3.5 h-3.5"/></button>
+        <div className="w-px h-5 bg-border mx-0.5"/>
+        <button onClick={copySelected} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Copiar (Ctrl+C)"><Copy className="w-3.5 h-3.5"/></button>
+        <button onClick={pasteSelected} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Pegar (Ctrl+V)"><FileText className="w-3.5 h-3.5"/></button>
+        <button onClick={()=>{nodes.filter((n:any)=>n.selected).forEach((n:any)=>duplicateNode(n.id))}} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Duplicar seleccion"><Copy className="w-3 h-3"/></button>
+        <button onClick={deleteSelected} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-destructive transition-colors" title="Eliminar (Delete)"><Trash2 className="w-3.5 h-3.5"/></button>
+        <div className="w-px h-5 bg-border mx-0.5"/>
+        <button onClick={()=>{nodes.filter((n:any)=>n.selected).forEach((n:any)=>toggleLock(n.id))}} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Bloquear/Desbloquear"><Lock className="w-3.5 h-3.5"/></button>
+        <button onClick={()=>{nodes.filter((n:any)=>n.selected).forEach((n:any)=>bringToFront(n.id))}} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Traer al frente"><ArrowUp className="w-3.5 h-3.5"/></button>
+        <button onClick={()=>{nodes.filter((n:any)=>n.selected).forEach((n:any)=>sendToBack(n.id))}} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Enviar al fondo"><ArrowDown className="w-3.5 h-3.5"/></button>
+        <div className="flex-1"/>
+        <button onClick={()=>setAltHeld(!altHeld)} className={`p-1.5 rounded transition-colors ${altHeld?'bg-primary/20 text-primary':'text-muted-foreground hover:text-foreground hover:bg-accent'}`} title="Mover area (Alt+M)"><Hand className="w-3.5 h-3.5"/></button>
+        <button onClick={()=>setShowHelp(true)} className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors" title="Ayuda"><HelpCircle className="w-3.5 h-3.5"/></button></>}
+      </div>
       <div className="flex-1 relative">
-        {(altHeld||panMode) && <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 bg-amber-500 text-white text-xs px-3 py-1 rounded-full shadow-lg pointer-events-none inline-flex items-center gap-1.5"><Hand className="w-3 h-3"/>{panMode?'Modo mover area (Alt+M para desactivar)':'Alt: mover area'}</div>}
+        {altHeld && <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 bg-amber-500 text-white text-xs px-3 py-1 rounded-full shadow-lg pointer-events-none">Modo mover area (Alt+M para desactivar)</div>}
         <style>{`.rf-edges-on-top .react-flow__edges{z-index:50!important}.rf-edges-on-top .react-flow__nodes{z-index:1!important}.rf-edges-on-top .react-flow__edge{stroke-width:2.5}`}</style>
-        <FlowDirtyContext.Provider value={autoSave}>
-        <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodesDelete={onNodesDelete} onNodeDragStop={onNodeDragStop} onNodeDragStart={onNodeDragStarter} onNodeDoubleClick={handleNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onEdgeContextMenu={onEdgeContextMenu} onPaneClick={onPaneClick} onDragOver={onDragOver} onDrop={onDrop} onInit={(rf:any)=>reactFlowInstance.current=rf} nodeTypes={{custom:CustomNode,shape:ShapeNode}} fitView minZoom={0.1} maxZoom={4} nodesDraggable={!readOnly&&!panMode} nodesConnectable={!readOnly} edgesReconnectable={!readOnly} selectNodesOnDrag panOnDrag={altHeld||panMode} panActivationKeyCode="Alt" selectionKeyCode="Control" multiSelectionKeyCode="Control" deleteKeyCode={null} selectionMode={SelectionMode.Partial} className="bg-background rf-edges-on-top">
+        <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodesDelete={onNodesDelete} onNodeDragStop={onNodeDragStop} onNodeDragStart={onNodeDragStarter} onNodeDoubleClick={handleNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onEdgeContextMenu={onEdgeContextMenu} onPaneClick={onPaneClick} onDragOver={onDragOver} onDrop={onDrop} onInit={(rf:any)=>reactFlowInstance.current=rf} nodeTypes={{custom:CustomNode,shape:ShapeNode}} fitView selectNodesOnDrag={selectMode} minZoom={0.1} maxZoom={4} panOnDrag={altHeld} panActivationKeyCode="Alt" selectionKeyCode="Control" multiSelectionKeyCode="Control" deleteKeyCode={null} selectionMode="partial" className="bg-background rf-edges-on-top">
           <Controls /><Background variant={BackgroundVariant.Dots} gap={20} size={1} /><MiniMap nodeColor="#94a3b8" className="!bg-card border" />
           {nodes.filter((n:any)=>n.selected).length > 1 && <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 bg-primary text-primary-foreground text-xs px-3 py-1.5 rounded-full shadow-lg pointer-events-none">{nodes.filter((n:any)=>n.selected).length} seleccionados</div>}
         </ReactFlow>
-        </FlowDirtyContext.Provider>
 
-        {/* Se pinta SIEMPRE, tambien en solo lectura. Mover el lienzo y leer los
-            atajos no es editar, y quien recibe un flujo compartido para mirarlo
-            es justo el que menos sabe como moverse en el. La barra de
-            herramientas de abajo si va tras `!readOnly`, porque esa si crea. */}
-        <div className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-card border rounded-lg shadow-lg p-1">
-          {/* Deshacer y rehacer existian desde siempre, pero SOLO por teclado
-              (Ctrl+Z / Ctrl+Y). Un atajo que no se ve no existe para quien no
-              lo sabe: el reporte fue "falta la barra de tareas", y en realidad
-              faltaba la forma de VER que estas dos cosas ya se podian hacer.
-              Van tras `!readOnly` porque si escriben, a diferencia de mover el
-              area o abrir la ayuda, que son de mirar. */}
-          {!readOnly&&<button onClick={undo} className="p-1.5 rounded hover:bg-accent transition-colors" title="Deshacer (Ctrl+Z)"><Undo2 className="w-3.5 h-3.5"/></button>}
-          {!readOnly&&<button onClick={redo} className="p-1.5 rounded hover:bg-accent transition-colors" title="Rehacer (Ctrl+Y)"><Redo2 className="w-3.5 h-3.5"/></button>}
-          {!readOnly&&<span className="mx-0.5 h-4 w-px bg-border" aria-hidden />}
-          <button onClick={togglePanMode} className={`p-1.5 rounded transition-colors ${panMode?'bg-amber-500 text-white':'hover:bg-accent'}`} title="Mover area (Alt+M)"><Hand className="w-3.5 h-3.5"/></button>
-          <button onClick={()=>setShowHelp(true)} className="p-1.5 rounded hover:bg-accent transition-colors" title="Atajos de teclado"><HelpCircle className="w-3.5 h-3.5"/></button>
-        </div>
+        {ctxMenu&&<div className="fixed z-[100] bg-card border rounded-lg shadow-xl p-1 min-w-[170px]" style={{left:ctxMenu.x,top:ctxMenu.y}} onClick={e=>e.stopPropagation()}><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>toggleLock(ctxMenu.nodeId)}>{nodes.find((n:any)=>n.id===ctxMenu.nodeId)?.data?.locked?<><Unlock className="w-3 h-3"/>Desbloquear</>:<><Lock className="w-3 h-3"/>Bloquear</>}</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>bringToFront(ctxMenu.nodeId)}><ArrowUp className="w-3 h-3"/>Traer al frente</button><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>sendToBack(ctxMenu.nodeId)}><ArrowDown className="w-3 h-3"/>Enviar al fondo</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>duplicateNode(ctxMenu.nodeId)}><Copy className="w-3 h-3"/>Duplicar</button><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>{const nds=nodes.filter((n:any)=>n.id!==ctxMenu.nodeId);setNodes(nds as any);autoSave(nds as any);setCtxMenu(null)}}><Trash2 className="w-3 h-3 text-destructive"/>Eliminar</button></div>}
+        {ctxEdgeMenu&&<div className="fixed z-[100] bg-card border rounded-lg shadow-xl p-1 min-w-[170px]" style={{left:ctxEdgeMenu.x,top:ctxEdgeMenu.y}} onClick={e=>e.stopPropagation()}><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>{const e=edges.find((ed:any)=>ed.id===ctxEdgeMenu.edgeId);if(e){setEditingEdgeId(e.id);setEdgeLabel(e.label||'');setEdgeColor(e.style?.stroke||'#64748b');setEdgeWidth(e.style?.strokeWidth||2);setEdgeAnim(e.animated||false);setEdgeType(e.type||'default');setCtxEdgeMenu(null)}}}><Settings className="w-3 h-3"/>Propiedades</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors text-destructive" onClick={()=>deleteEdge(ctxEdgeMenu.edgeId)}><Trash2 className="w-3 h-3"/>Eliminar</button></div>}
 
-        {ctxMenu&&<div className="fixed z-[100] bg-card border rounded-lg shadow-xl p-1 min-w-[170px]" style={{left:ctxMenu.x,top:ctxMenu.y}} onClick={e=>e.stopPropagation()}><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>toggleLock(ctxMenu.nodeId)}>{nodes.find((n:any)=>n.id===ctxMenu.nodeId)?.data?.locked?<><Unlock className="w-3 h-3"/>Desbloquear</>:<><Lock className="w-3 h-3"/>Bloquear</>}</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>bringToFront(ctxMenu.nodeId)}><ArrowUp className="w-3 h-3"/>Traer al frente</button><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>sendToBack(ctxMenu.nodeId)}><ArrowDown className="w-3 h-3"/>Enviar al fondo</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>duplicateNode(ctxMenu.nodeId)}><Copy className="w-3 h-3"/>Duplicar</button><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>{const nds=nodes.filter((n:any)=>n.id!==ctxMenu.nodeId);setNodes(nds as any);autoSave();setCtxMenu(null)}}><Trash2 className="w-3 h-3 text-destructive"/>Eliminar</button></div>}
-        {ctxEdgeMenu&&<div className="fixed z-[100] bg-card border rounded-lg shadow-xl p-1 min-w-[170px]" style={{left:ctxEdgeMenu.x,top:ctxEdgeMenu.y}} onClick={e=>e.stopPropagation()}><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors" onClick={()=>{const e=edges.find((ed:any)=>ed.id===ctxEdgeMenu.edgeId);if(e){setEditingEdgeId(e.id);setEdgeLabel(typeof e.label==='string'?e.label:'');setEdgeColor(String(e.style?.stroke??'#64748b'));setEdgeWidth(Number(e.style?.strokeWidth??2));setEdgeAnim(e.animated||false);setEdgeType(e.type||'default');setCtxEdgeMenu(null)}}}><Settings className="w-3 h-3"/>Propiedades</button><hr className="my-1"/><button className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent rounded-md transition-colors text-destructive" onClick={()=>deleteEdge(ctxEdgeMenu.edgeId)}><Trash2 className="w-3 h-3"/>Eliminar</button></div>}
-
-        {!readOnly&&<div className="absolute bg-card border rounded-lg shadow-lg z-20 transition-all" style={{right:toolPos.x||12,top:toolPos.y||60,width:toolCollapsed?40:180}}>
+        <div className="absolute bg-card border rounded-lg shadow-lg z-20 transition-all" style={{right:toolPos.x||12,top:toolPos.y||60,width:toolCollapsed?40:180}}>
           <div className="flex items-center justify-between px-2 py-1.5 border-b cursor-move select-none" onMouseDown={e=>{e.preventDefault();const sx=e.clientX,sy=e.clientY,ox=toolPos.x,oy=toolPos.y;const m=(ev:MouseEvent)=>setToolPos({x:ox-(ev.clientX-sx),y:oy+(ev.clientY-sy)});const u=()=>{window.removeEventListener('mousemove',m);window.removeEventListener('mouseup',u)};window.addEventListener('mousemove',m);window.addEventListener('mouseup',u)}}>
             <span className="text-[10px] font-medium text-muted-foreground">{toolCollapsed?'':'Herramientas'}</span>
             <div className="flex items-center gap-0.5">
@@ -383,74 +196,28 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
           </div>
           {!toolCollapsed&&<div className="flex flex-col gap-1 p-2">
             <span className="text-[10px] font-medium text-muted-foreground px-1">Contenido</span>
-            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab active:cursor-grabbing" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','text');e.dataTransfer.effectAllowed='move'}} onClick={()=>addNode('text')} title="Clic para agregar, o arrastra al lienzo"><Type className="w-3.5 h-3.5"/>Texto</button>
-            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab active:cursor-grabbing" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','html');e.dataTransfer.effectAllowed='move'}} onClick={()=>addNode('html')} title="Clic para agregar, o arrastra al lienzo"><Code className="w-3.5 h-3.5"/>HTML</button>
-            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab active:cursor-grabbing" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','url');e.dataTransfer.effectAllowed='move'}} onClick={()=>addNode('url')} title="Clic para agregar, o arrastra al lienzo"><LinkIcon className="w-3.5 h-3.5"/>URL</button>
-            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab active:cursor-grabbing" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','document');e.dataTransfer.effectAllowed='move'}} onClick={()=>addNode('document')} title="Clic para agregar, o arrastra al lienzo"><FileText className="w-3.5 h-3.5"/>Documento</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab active:cursor-grabbing" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','text');e.dataTransfer.effectAllowed='move'}} ><Type className="w-3.5 h-3.5"/>Texto</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab active:cursor-grabbing" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','html');e.dataTransfer.effectAllowed='move'}} ><Code className="w-3.5 h-3.5"/>HTML</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab active:cursor-grabbing" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','url');e.dataTransfer.effectAllowed='move'}} ><LinkIcon className="w-3.5 h-3.5"/>URL</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab active:cursor-grabbing" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','document');e.dataTransfer.effectAllowed='move'}} ><FileText className="w-3.5 h-3.5"/>Documento</button>
             <hr className="my-0.5"/><span className="text-[10px] font-medium text-muted-foreground px-1">Dibujo</span>
-            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','shape:rect');e.dataTransfer.effectAllowed='move'}} onClick={()=>addShape('rect')} title="Clic para agregar, o arrastra al lienzo"><Square className="w-3.5 h-3.5"/>Rectangulo</button>
-            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','shape:circle');e.dataTransfer.effectAllowed='move'}} onClick={()=>addShape('circle')} title="Clic para agregar, o arrastra al lienzo"><Circle className="w-3.5 h-3.5"/>Circulo</button>
-            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','shape:line');e.dataTransfer.effectAllowed='move'}} onClick={()=>addShape('line')} title="Clic para agregar, o arrastra al lienzo"><Minus className="w-3.5 h-3.5"/>Linea</button>
-            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','shape:grid');e.dataTransfer.effectAllowed='move'}} onClick={()=>addShape('grid')} title="Clic para agregar, o arrastra al lienzo"><Grid3X3 className="w-3.5 h-3.5"/>Cuadricula</button>
-            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','shape:text');e.dataTransfer.effectAllowed='move'}} onClick={()=>addShape('text')} title="Clic para agregar, o arrastra al lienzo"><Type className="w-3.5 h-3.5"/>Texto</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','shape:rect');e.dataTransfer.effectAllowed='move'}} ><Square className="w-3.5 h-3.5"/>Rectangulo</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','shape:circle');e.dataTransfer.effectAllowed='move'}} ><Circle className="w-3.5 h-3.5"/>Circulo</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','shape:line');e.dataTransfer.effectAllowed='move'}} ><Minus className="w-3.5 h-3.5"/>Linea</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','shape:grid');e.dataTransfer.effectAllowed='move'}} ><Grid3X3 className="w-3.5 h-3.5"/>Cuadricula</button>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors cursor-grab" draggable onDragStart={e=>{e.dataTransfer.setData('application/reactflow','shape:text');e.dataTransfer.effectAllowed='move'}} ><Type className="w-3.5 h-3.5"/>Texto</button>
             <hr className="my-0.5"/>
+            <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent transition-colors" onClick={()=>setShowHelp(true)}><HelpCircle className="w-3.5 h-3.5"/>Ayuda</button>
             <button className="inline-flex items-center justify-start gap-1.5 rounded px-1.5 py-1 text-xs hover:bg-accent text-destructive transition-colors" onClick={deleteSelected}><Trash2 className="w-3.5 h-3.5"/>Eliminar</button>
           </div>}
-        </div>}
+        </div>
       </div>
-      {description!==undefined&&<footer className="px-4 py-2 border-t bg-card shrink-0"><input value={description} onChange={e=>{if(readOnly)return;setDescription(e.target.value);autoSave()}} readOnly={readOnly} className="h-8 w-full border-0 bg-transparent shadow-none outline-none text-xs text-muted-foreground" placeholder={readOnly?'Sin descripcion':'Descripcion (opcional)'}/></footer>}
-      {editingNodeId&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={()=>setEditingNodeId(null)}><div className="bg-card border rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col m-4" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between px-5 py-3 border-b shrink-0"><div className="flex items-center gap-2">{icons[nodeType]}<span className="font-semibold text-sm">Editar nodo</span></div><button onClick={()=>setEditingNodeId(null)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4"/></button></div><div className="flex-1 overflow-y-auto p-5 space-y-4"><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Nombre</label><input value={nodeLabel} onChange={e=>setNodeLabel(e.target.value)} className="w-full h-9 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"/></div><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Tipo</label><div className="flex gap-1">{(['text','html','url','document']as const).map(t=><button key={t} onClick={()=>{setNodeType(t);setPreviewHtml(false)}} className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${nodeType===t?'bg-primary text-primary-foreground':'bg-muted hover:bg-accent'}`}>{icons[t]}{t==='text'?'Texto':t==='html'?'HTML':t==='url'?'URL':'Doc'}</button>)}</div></div><div><div className="flex items-center justify-between mb-1"><label className="text-xs font-medium text-muted-foreground">{nodeType==='url'?'URL':'Contenido'}</label>{nodeType==='html'&&<button onClick={()=>setPreviewHtml(!previewHtml)} className={`inline-flex items-center gap-1 text-xs rounded px-2 py-0.5 transition-colors ${previewHtml?'bg-primary text-primary-foreground':'bg-muted hover:bg-accent'}`}>{previewHtml?<Edit3 className="w-3 h-3"/>:<Eye className="w-3 h-3"/>}{previewHtml?'Codigo':'Preview'}</button>}</div>{nodeType==='html'&&previewHtml?<div className="w-full min-h-[200px] rounded-md border bg-white p-4 text-sm overflow-auto" dangerouslySetInnerHTML={{__html:sanitizeRichText(nodeContent)}}/>:<textarea value={nodeContent} onChange={e=>setNodeContent(e.target.value)} className="w-full min-h-[200px] rounded-md border bg-background px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20 resize-y" placeholder={nodeType==='url'?'https://ejemplo.com':nodeType==='html'?'<div><h1>Hola</h1></div>':'Contenido...'}/>}</div></div><div className="flex items-center justify-end gap-2 px-5 py-3 border-t shrink-0"><button onClick={()=>setEditingNodeId(null)} className="inline-flex items-center rounded-md bg-muted hover:bg-accent h-9 px-4 py-2 text-sm font-medium">Cancelar</button><button onClick={saveContentNode} className="inline-flex items-center gap-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 text-sm font-medium"><Save className="w-4 h-4"/>Guardar</button></div></div></div>}
+      {description!==undefined&&<footer className="px-4 py-2 border-t bg-card shrink-0"><input value={description} onChange={e=>{setDescription(e.target.value);autoSave()}} className="h-8 w-full border-0 bg-transparent shadow-none outline-none text-xs text-muted-foreground" placeholder="Descripcion (opcional)"/></footer>}
+      {editingNodeId&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={()=>setEditingNodeId(null)}><div className="bg-card border rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col m-4" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between px-5 py-3 border-b shrink-0"><div className="flex items-center gap-2">{icons[nodeType]}<span className="font-semibold text-sm">Editar nodo</span></div><button onClick={()=>setEditingNodeId(null)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4"/></button></div><div className="flex-1 overflow-y-auto p-5 space-y-4"><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Nombre</label><input value={nodeLabel} onChange={e=>setNodeLabel(e.target.value)} className="w-full h-9 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"/></div><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Tipo</label><div className="flex gap-1">{(['text','html','url','document']as const).map(t=><button key={t} onClick={()=>{setNodeType(t);setPreviewHtml(false)}} className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${nodeType===t?'bg-primary text-primary-foreground':'bg-muted hover:bg-accent'}`}>{icons[t]}{t==='text'?'Texto':t==='html'?'HTML':t==='url'?'URL':'Doc'}</button>)}</div></div><div><div className="flex items-center justify-between mb-1"><label className="text-xs font-medium text-muted-foreground">{nodeType==='url'?'URL':'Contenido'}</label>{nodeType==='html'&&<button onClick={()=>setPreviewHtml(!previewHtml)} className={`inline-flex items-center gap-1 text-xs rounded px-2 py-0.5 transition-colors ${previewHtml?'bg-primary text-primary-foreground':'bg-muted hover:bg-accent'}`}>{previewHtml?<Edit3 className="w-3 h-3"/>:<Eye className="w-3 h-3"/>}{previewHtml?'Codigo':'Preview'}</button>}</div>{nodeType==='html'&&previewHtml?<div className="w-full min-h-[200px] rounded-md border bg-white p-4 text-sm overflow-auto" dangerouslySetInnerHTML={{__html:nodeContent}}/>:<textarea value={nodeContent} onChange={e=>setNodeContent(e.target.value)} className="w-full min-h-[200px] rounded-md border bg-background px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20 resize-y" placeholder={nodeType==='url'?'https://ejemplo.com':nodeType==='html'?'<div><h1>Hola</h1></div>':'Contenido...'}/>}</div></div><div className="flex items-center justify-end gap-2 px-5 py-3 border-t shrink-0"><button onClick={()=>setEditingNodeId(null)} className="inline-flex items-center rounded-md bg-muted hover:bg-accent h-9 px-4 py-2 text-sm font-medium">Cancelar</button><button onClick={saveContentNode} className="inline-flex items-center gap-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 text-sm font-medium"><Save className="w-4 h-4"/>Guardar</button></div></div></div>}
       {editingShapeId&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={()=>setEditingShapeId(null)}><div className="bg-card border rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col m-4" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between px-5 py-3 border-b shrink-0"><span className="font-semibold text-sm">Propiedades</span><button onClick={()=>setEditingShapeId(null)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4"/></button></div><div className="flex-1 overflow-y-auto p-5 space-y-4"><div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Ancho</label><input type="number" value={shapeW} onChange={e=>setShapeW(Number(e.target.value))} className="w-full h-9 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" min={20} max={1200}/></div><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Alto</label><input type="number" value={shapeH} onChange={e=>setShapeH(Number(e.target.value))} className="w-full h-9 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" min={20} max={1200}/></div></div><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Etiqueta</label><input value={shapeLabel} onChange={e=>setShapeLabel(e.target.value)} className="w-full h-9 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="Texto de la etiqueta"/></div><div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Relleno</label><div className="flex gap-2"><input type="color" value={shapeFill} onChange={e=>setShapeFill(e.target.value)} className="w-9 h-9 rounded border cursor-pointer"/><input value={shapeFill} onChange={e=>setShapeFill(e.target.value)} className="flex-1 h-9 rounded-md border bg-background px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20"/></div></div><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Borde</label><div className="flex gap-2"><input type="color" value={shapeStroke} onChange={e=>setShapeStroke(e.target.value)} className="w-9 h-9 rounded border cursor-pointer"/><input value={shapeStroke} onChange={e=>setShapeStroke(e.target.value)} className="flex-1 h-9 rounded-md border bg-background px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20"/></div></div></div>{shapeType==='grid'&&<div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Columnas</label><input type="number" value={shapeCols} onChange={e=>setShapeCols(Number(e.target.value))} className="w-full h-9 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" min={1} max={20}/></div><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Filas</label><input type="number" value={shapeRows} onChange={e=>setShapeRows(Number(e.target.value))} className="w-full h-9 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" min={1} max={20}/></div></div>}<div className="flex gap-1">{shapeTypes.map(t=><button key={t} onClick={()=>setShapeType(t)} className={`flex-1 inline-flex items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${shapeType===t?'bg-primary text-primary-foreground':'bg-muted hover:bg-accent'}`}>{shapeIcons[t]}{shapeNames[t]}</button>)}</div></div><div className="flex items-center justify-end gap-2 px-5 py-3 border-t shrink-0"><button onClick={()=>setEditingShapeId(null)} className="inline-flex items-center rounded-md bg-muted hover:bg-accent h-9 px-4 py-2 text-sm font-medium">Cancelar</button><button onClick={saveShapeEdit} className="inline-flex items-center gap-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 text-sm font-medium"><Save className="w-4 h-4"/>Guardar</button></div></div></div>}
       {editingEdgeId&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={()=>setEditingEdgeId(null)}><div className="bg-card border rounded-xl shadow-2xl w-full max-w-sm max-h-[80vh] flex flex-col m-4" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between px-5 py-3 border-b shrink-0"><span className="font-semibold text-sm">Propiedades de linea</span><button onClick={()=>setEditingEdgeId(null)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4"/></button></div><div className="flex-1 overflow-y-auto p-5 space-y-4"><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Etiqueta</label><input value={edgeLabel} onChange={e=>setEdgeLabel(e.target.value)} className="w-full h-9 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="Texto sobre la linea"/></div><div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Color</label><div className="flex gap-2"><input type="color" value={edgeColor} onChange={e=>setEdgeColor(e.target.value)} className="w-9 h-9 rounded border cursor-pointer"/><input value={edgeColor} onChange={e=>setEdgeColor(e.target.value)} className="flex-1 h-9 rounded-md border bg-background px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20"/></div></div><div><label className="text-xs font-medium text-muted-foreground mb-1 block">Grosor</label><input type="number" value={edgeWidth} onChange={e=>setEdgeWidth(Number(e.target.value))} className="w-full h-9 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" min={1} max={10}/></div></div><div className="flex gap-1">{['default','straight','step','smoothstep'].map(t=><button key={t} onClick={()=>setEdgeType(t)} className={`flex-1 inline-flex items-center justify-center rounded-md px-2 py-1.5 text-[10px] font-medium transition-colors ${edgeType===t?'bg-primary text-primary-foreground':'bg-muted hover:bg-accent'}`}>{t==='default'?'Curva':t==='straight'?'Recta':t==='step'?'Escalon':'Suave'}</button>)}</div><label className="flex items-center gap-2 text-xs cursor-pointer"><input type="checkbox" checked={edgeAnim} onChange={e=>setEdgeAnim(e.target.checked)} className="rounded"/>Animada</label></div><div className="flex items-center justify-end gap-2 px-5 py-3 border-t shrink-0"><button onClick={()=>setEditingEdgeId(null)} className="inline-flex items-center rounded-md bg-muted hover:bg-accent h-9 px-4 py-2 text-sm font-medium">Cancelar</button><button onClick={saveEdgeEdit} className="inline-flex items-center gap-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 text-sm font-medium"><Save className="w-4 h-4"/>Guardar</button></div></div></div>}
       {showShare&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={()=>setShowShare(false)}><div className="bg-card border rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col m-4" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between px-5 py-3 border-b shrink-0"><span className="font-semibold text-sm">Compartir flujo</span><button onClick={()=>setShowShare(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4"/></button></div><div className="flex-1 overflow-y-auto p-5 space-y-3"><div className="flex items-center gap-2"><select value={sharePerm} onChange={e=>setSharePerm(e.target.value as any)} className="h-8 rounded-md border bg-background px-2 py-1 text-xs outline-none"><option value="view">Solo ver</option><option value="edit">Puede editar</option></select><span className="text-xs text-muted-foreground">Selecciona miembros:</span></div><div className="max-h-64 overflow-y-auto space-y-0.5 border rounded-md p-1">{members.filter((m:any)=>m.id!==(nodes[0]as any)?.data?.created_by).map((m:any)=>{const isShared=shares.some((s:any)=>s.profile?.id===m.id);return <button key={m.id} onClick={async()=>{if(isShared){const s=shares.find((x:any)=>x.profile?.id===m.id);if(s){try{const r=await fetch(`/api/flows/${flowId}/shares?shareId=${s.id}`,{method:'DELETE'});if(r.ok)setShares(shares.filter((x:any)=>x.id!==s.id))}catch{}}}else{try{const r=await fetch(`/api/flows/${flowId}/shares`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile_id:m.id,permission:sharePerm})});if(r.ok){const ns=await r.json();setShares([...shares,ns])}else toast.error('Error')}catch{toast.error('Error')}}}} className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${isShared?'bg-primary/10 hover:bg-primary/20':'hover:bg-accent'}`}><div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold flex-shrink-0">{m.display_name?.[0]||m.email?.[0]||'?'}</div><span className="flex-1 text-left truncate">{m.display_name||m.email}</span>{isShared&&<span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full">{shares.find((s:any)=>s.profile?.id===m.id)?.permission==='edit'?'editar':'ver'}</span>}</button>})}</div>{members.length===0&&<p className="text-xs text-muted-foreground text-center py-4">Cargando miembros...</p>}</div></div></div>}
-      {/* Los atajos existian desde siempre, solo que en ningun lado escrito: se
-          aprendian preguntandole a quien ya sabia. Esta lista se escribe a mano
-          y por eso hay que tocarla cuando se toque `onKeyDown`; una ayuda que
-          miente es peor que no tener ayuda. Las marcadas "edicion" no aplican en
-          solo lectura, y por eso se ocultan ahi en vez de ofrecer algo que no va
-          a pasar. */}
-      {showHelp&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={()=>setShowHelp(false)}><div className="bg-card border rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col m-4" onClick={e=>e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-3 border-b shrink-0"><div className="flex items-center gap-2"><HelpCircle className="w-4 h-4"/><span className="font-semibold text-sm">Como moverse en el lienzo</span></div><button onClick={()=>setShowHelp(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4"/></button></div>
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {([
-            ['Movimiento',[
-              ['Alt + arrastrar','Mueve el area mientras sostienes Alt'],
-              ['Alt + M','Deja el modo mover encendido, sin sostener nada'],
-              ['Rueda del raton','Acercar y alejar (de 0.1x a 4x)'],
-            ]],
-            ['Seleccion',[
-              ['Arrastrar en el vacio','Selecciona todo lo que toque el recuadro'],
-              ['Ctrl + arrastrar','Suma a lo que ya estaba seleccionado'],
-              ['Clic en el vacio','Quita la seleccion'],
-            ]],
-            ...(readOnly?[]:[['Edicion',[
-              ['Ctrl + S','Guardar ahora (igual se guarda solo)'],
-              ['Ctrl + Z  /  Ctrl + Y','Deshacer y rehacer'],
-              ['Ctrl + C / X / V','Copiar, cortar y pegar nodos'],
-              ['Supr  o  Retroceso','Eliminar lo seleccionado'],
-            ]]] as [string,string[][]][]),
-            ['Con el raton',[
-              ['Doble clic en un nodo','Abre su contenido para editarlo'],
-              ['Clic derecho en un nodo','Bloquear, ordenar, duplicar, eliminar'],
-              ['Clic derecho en una linea','Color, grosor, etiqueta y forma'],
-              ['Arrastrar desde Herramientas','Suelta el elemento donde lo quieras'],
-            ]],
-          ] as [string,string[][]][]).map(([titulo,filas])=>(
-            <div key={titulo}>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{titulo}</h3>
-              <div className="space-y-1.5">
-                {filas.map(([tecla,que])=>(
-                  <div key={tecla} className="flex items-start gap-3 text-xs">
-                    <kbd className="shrink-0 min-w-[132px] rounded border bg-muted px-2 py-1 font-mono text-[11px] text-foreground">{tecla}</kbd>
-                    <span className="text-muted-foreground leading-relaxed pt-1">{que}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="flex items-center justify-end px-5 py-3 border-t shrink-0"><button onClick={()=>setShowHelp(false)} className="inline-flex items-center rounded-md bg-muted hover:bg-accent h-9 px-4 py-2 text-sm font-medium">Cerrar</button></div>
-      </div></div>}
+      {showHelp&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={()=>setShowHelp(false)}><div className="bg-card border rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col m-4" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between px-5 py-3 border-b shrink-0"><span className="font-semibold text-sm">Ayuda de Flows</span><button onClick={()=>setShowHelp(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4"/></button></div><div className="flex-1 overflow-y-auto p-5 space-y-4 text-sm"><div><h4 className="font-medium text-xs text-primary mb-2">Movimiento</h4><div className="space-y-1.5 text-xs text-muted-foreground"><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Click + Arrastrar</kbd>Mover elementos</div><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Alt+M (toggle) Arrastrar</kbd>Mover area de trabajo</div><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Rueda del mouse</kbd>Zoom in/out</div></div></div><div><h4 className="font-medium text-xs text-primary mb-2">Seleccion</h4><div className="space-y-1.5 text-xs text-muted-foreground"><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Click</kbd>Seleccionar elemento</div><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Ctrl+Shift+D (toggle) Arrastrar en vacio</kbd>Seleccion multiple</div><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Ctrl + Click</kbd>Agregar/quitar de seleccion</div></div></div><div><h4 className="font-medium text-xs text-primary mb-2">Teclado</h4><div className="space-y-1.5 text-xs text-muted-foreground"><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Delete</kbd>Eliminar seleccion</div><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Ctrl + Z</kbd>Deshacer</div><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Ctrl + Y</kbd>Rehacer</div><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Ctrl + C</kbd>Copiar</div><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Ctrl + X</kbd>Cortar</div><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Ctrl + V</kbd>Pegar</div></div></div><div><h4 className="font-medium text-xs text-primary mb-2">Interaccion</h4><div className="space-y-1.5 text-xs text-muted-foreground"><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Doble click</kbd>Editar propiedades</div><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Click derecho</kbd>Menu contextual</div><div><kbd className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono mr-2">Arrastrar toolbar</kbd>Crear elemento en posicion</div></div></div></div></div></div>}
     </div>
   )
 }
