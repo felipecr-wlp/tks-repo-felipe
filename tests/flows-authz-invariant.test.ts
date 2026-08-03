@@ -302,3 +302,42 @@ describe('Flows: se puede llegar a privado y volver', () => {
     expect(detalle).toMatch(/initialVisibility=\{flow\.visibility\}/)
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. El listado no puede ser mas angosto que el permiso
+//
+// Esta capa nace de una regresion real: en la rama de plugins el listado se
+// habia reducido a `created_by = yo`. La regla de acceso seguia impecable, los
+// 24 tests de la tabla de verdad seguian verdes, y compartir un flujo privado
+// dejo de funcionar de todas formas: el destinatario recibia el permiso, la API
+// lo dejaba entrar, y ninguna pantalla le nombraba el flujo jamas.
+//
+// De ahi la invariante: el filtro que decide QUE VES no puede ser mas angosto
+// que la regla que decide QUE PUEDES ABRIR. Cuando lo es, compartir se vuelve
+// decoracion, y el sintoma no aparece en ninguna prueba de la regla.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Flows: el listado no puede olvidar lo compartido', () => {
+  const listado = readFileSync(
+    join(process.cwd(), 'src', 'app', '(app)', 'w', '[workspaceSlug]', 'flows', 'page.tsx'),
+    'utf8',
+  )
+
+  it('el listado consulta los flujos que me compartieron', () => {
+    expect(listado).toContain('sharedFlowIds')
+    expect(listado).toMatch(/id\.in\./)
+  })
+
+  it('el listado NO se reduce a lo que yo cree', () => {
+    // `created_by.eq.${user.id}` dentro del `.or(...)` esta bien: suma lo mio.
+    // `.eq('created_by', ...)` como filtro duro es lo que rompe, porque resta
+    // todo lo demas.
+    expect(listado).not.toMatch(/\.eq\(\s*'created_by'/)
+    expect(listado).toContain('.or(filtro)')
+  })
+
+  it('los flujos abiertos al workspace siguen apareciendo', () => {
+    expect(listado).toContain('visibility.neq.private')
+    expect(listado).toContain('visibility.is.null')
+  })
+})
