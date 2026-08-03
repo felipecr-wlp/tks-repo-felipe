@@ -96,23 +96,46 @@
    `::-webkit-scrollbar` solo lo entienden Chrome, Edge y Safari: en Firefox
    estas cuatro reglas se ignoran por completo y salia la barra gruesa del
    sistema. `scrollbar-width` y `scrollbar-color` son el estandar y cubren ese
-   hueco, asi que la barra se ve igual de discreta en los cuatro. */
+   hueco, asi que la barra se ve igual de discreta en los cuatro.
+
+   Ademas la barra se ESCONDE cuando nadie la esta usando. Con `thin` seguia
+   siendo una linea gris permanente al costado de cada panel y cada dialogo, o
+   sea ruido visual constante para avisar de algo que casi nunca importa. Ahora
+   el riel se reserva igual (el contenido no salta) pero el pulgar es
+   transparente hasta que el puntero entra al area que hace scroll. Es el mismo
+   comportamiento de macOS y de Notion, y por eso se siente mas limpio.
+
+   `scrollbar-color` con el pulgar transparente hace lo propio en Firefox. */
 * {
   scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+*:hover,
+*:focus-within {
   scrollbar-color: hsl(var(--border)) transparent;
 }
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   @apply bg-transparent;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-border rounded-full;
+  background-color: transparent;
+  border-radius: 9999px;
+  /* El borde transparente adelgaza el pulgar sin adelgazar el riel: se ve de
+     4px pero el area donde se puede agarrar sigue siendo de 8px. */
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background-color 0.15s ease;
 }
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground/30;
+:hover::-webkit-scrollbar-thumb,
+:focus-within::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--border));
+}
+:hover::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.45);
 }
 
 /* Oculta la barra de scroll (p. ej. tabs con scroll horizontal en móvil),
