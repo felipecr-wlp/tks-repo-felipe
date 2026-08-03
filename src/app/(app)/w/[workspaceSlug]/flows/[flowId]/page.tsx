@@ -30,16 +30,6 @@ export default async function FlowDetailPage({ params }: FlowDetailProps) {
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
 
-  const { data: plugin } = await admin
-    .from('connector_installs')
-    .select('id')
-    .eq('workspace_id', workspace.id)
-    .eq('app_id', 'wlo-flows')
-    .eq('plugin_type', 'widget')
-    .eq('enabled', true)
-    .maybeSingle() as { data: { id: string } | null; error: unknown }
-  if (!plugin) redirect(`/w/${params.workspaceSlug}`)
-
   const { data: flow } = await admin
     .from('flows')
     .select('*')

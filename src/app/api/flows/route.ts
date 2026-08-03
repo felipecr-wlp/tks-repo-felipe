@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { isUuid } from '@/lib/validation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { sharedFlowIds } from '@/lib/flows/access'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { logActivity, ActivityVerbs } from '@/lib/activity'
 
 const createSchema = z.object({
   workspace_id: z.string().uuid(),
   title:        z.string().max(200).trim().optional(),
-  visibility:   z.enum(['private', 'project', 'team', 'workspace']).default('private'),
+  visibility:   z.enum(['private', 'project', 'team', 'workspace']).default('workspace'),
   project_id:   z.string().uuid().nullable().optional(),
 })
 
@@ -50,6 +51,16 @@ export async function GET(request: NextRequest) {
     .maybeSingle() as { data: { role: string } | null; error: unknown }
   if (!membership) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
 
+  // Un privado que me compartieron tiene que salir en mi lista, si no el modulo
+  // de compartir es invisible: la persona nunca encuentra lo que le dieron.
+  const compartidos = await sharedFlowIds(admin, user.id)
+  const filtro = [
+    'visibility.neq.private',
+    'visibility.is.null',
+    `created_by.eq.${user.id}`,
+    ...(compartidos.length > 0 ? [`id.in.(${compartidos.join(',')})`] : []),
+  ].join(',')
+
   const { data: flows, error: flowsError } = await admin
     .from('flows')
     .select(`
@@ -57,7 +68,7 @@ export async function GET(request: NextRequest) {
       author:profiles ( display_name, avatar_url )
     `)
     .eq('workspace_id', workspace_id)
-    .eq('created_by', user.id)
+    .or(filtro)
     .order('updated_at', { ascending: false })
     .limit(100) as { data: FlowListRow[] | null; error: unknown }
 

@@ -226,31 +226,6 @@ export default async function WorkspaceLayout({
     })),
   }))
 
-  // Complementos instalados en este workspace (excluyendo widgets del dashboard)
-  // Filtrados por preferencia del usuario (user_plugin_settings)
-  type PluginRow = { id: string; app_id: string; manifest: Record<string, any>; enabled: boolean }
-  const { data: rawPlugins } = await admin
-    .from('connector_installs')
-    .select('id, app_id, manifest, enabled')
-    .eq('workspace_id', workspace.id)
-    .eq('plugin_type', 'widget') as { data: PluginRow[] | null; error: unknown }
-
-  // User-specific plugin prefs
-  const { data: userPrefs } = await admin
-    .from('user_plugin_settings')
-    .select('install_id, enabled')
-    .eq('user_id', user.id) as { data: Array<{ install_id: string; enabled: boolean }> | null; error: unknown }
-  const prefsMap = new Map((userPrefs ?? []).map(p => [p.install_id, p.enabled]))
-
-  // Obtener IDs de widgets para excluirlos de complementos
-  const { data: widgetIds } = await admin
-    .from('widget_catalog')
-    .select('id') as { data: { id: string }[] | null; error: unknown }
-  const widgetIdSet = new Set((widgetIds ?? []).map(w => w.id))
-  const plugins = (rawPlugins ?? [])
-    .filter(p => !widgetIdSet.has(p.app_id))
-    .filter(p => prefsMap.has(p.id) ? prefsMap.get(p.id) : p.enabled) // user pref or default
-
   // Ya no se cargan "todos los workspaces del usuario": WLO opera con un solo
   // espacio y el encabezado dejo de ser un selector. Una consulta menos por
   // cada pantalla del app.
@@ -291,7 +266,6 @@ export default async function WorkspaceLayout({
           email: user.email ?? '',
         }}
         hiddenFeatures={hiddenFeatures}
-        plugins={plugins ?? []}
       />
 
       {/* Columna de contenido: barra superior movil + main.
