@@ -38,6 +38,11 @@ jobs:
     # necesitan credenciales de verdad, es senal de que dejaron de ser
     # deterministas y ese es el problema a arreglar, no el que falten llaves.
     env:
+      # Node arranca con un heap de ~2 GB por defecto y `tsc --noEmit` sobre este
+      # proyecto lo revienta (`Ineffective mark-compacts near heap limit`, exit
+      # 134). El runner tiene 16 GB, asi que el limite era artificial. Se le sube
+      # el techo: NO se recorta el chequeo de tipos para que quepa.
+      NODE_OPTIONS: --max-old-space-size=8192
       NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
       SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
