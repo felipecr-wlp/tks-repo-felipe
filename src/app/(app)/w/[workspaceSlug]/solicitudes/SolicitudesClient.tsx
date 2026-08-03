@@ -20,14 +20,14 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  Plus, X, Loader2, Paperclip, Link2, MessageSquare, Send, Trash2, Users,
+  Plus, X, Loader2, Paperclip, Link2, MessageSquare, Send, Users,
   CornerDownRight, Download, CalendarClock, Building2, ChevronDown, Inbox,
   Wrench, Code2, ShoppingCart, KeyRound, PenTool, FileText, LifeBuoy, CircleHelp,
 } from 'lucide-react'
 import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import {
   TIPOS_SOLICITUD, tipoDeSolicitud, PRIORIDADES, PESO_PRIORIDAD,
-  ESTADOS, estadoInfo, COLUMNAS, type Prioridad,
+  estadoInfo, COLUMNAS, type Prioridad,
 } from '@/lib/tickets/catalogo'
 import {
   evaluarAccion, TRANSICIONES, estaCerrada,

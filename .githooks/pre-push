@@ -18,16 +18,58 @@
 #   PERMITIR_PUSH_MASTER=1 git push origin master
 
 RAMA_PROTEGIDA="refs/heads/master"
+VA_A_MASTER=0
 
+# El bucle SOLO marca la bandera. Nada de correr `npm` aqui dentro: este bucle
+# lee de stdin, y un comando que herede ese stdin se come las lineas que faltan
+# por leer. El trabajo pesado va despues, con stdin cerrado.
 while read -r _ref_local _sha_local ref_remoto _sha_remoto; do
-  [ "$ref_remoto" = "$RAMA_PROTEGIDA" ] || continue
+  [ "$ref_remoto" = "$RAMA_PROTEGIDA" ] && VA_A_MASTER=1
+done
 
-  if [ "$PERMITIR_PUSH_MASTER" = "1" ]; then
-    echo "pre-push: push a master permitido de forma explicita." >&2
+[ "$VA_A_MASTER" = "1" ] || exit 0
+
+if [ "$PERMITIR_PUSH_MASTER" = "1" ]; then
+  echo "pre-push: push a master permitido de forma explicita." >&2
+
+  # ── Por que aqui se construye, y no basta con `tsc` y las pruebas ──────────
+  # `tsc --noEmit` y vitest pueden estar los dos en verde y aun asi el deploy
+  # falla: `next build` ademas corre ESLint, y ahi un import que quedo sin usar
+  # es ERROR, no aviso. Paso de verdad el 2026-08-03: dos simbolos muertos en
+  # SolicitudesClient.tsx tumbaron el build de produccion dos veces seguidas con
+  # el repo local entero en verde. Como master publica solo, el primer sitio
+  # donde se veia el fallo era produccion.
+  #
+  # Solo se hace en el camino de master, que es raro y deliberado. Empujar a una
+  # rama sigue siendo instantaneo.
+  if [ "$SALTAR_BUILD_MASTER" = "1" ]; then
+    echo "pre-push: build omitido a peticion (SALTAR_BUILD_MASTER=1)." >&2
+    exit 0
+  fi
+
+  echo "pre-push: construyendo antes de publicar, esto tarda un par de minutos..." >&2
+  if npm run build </dev/null >/dev/null 2>&1; then
+    echo "pre-push: build OK, publicando." >&2
     exit 0
   fi
 
   cat >&2 <<'FIN'
+
+  BUILD ROTO: PUSH A MASTER CANCELADO
+
+  `next build` fallo, asi que este push habria roto el deploy de produccion.
+  Ojo: tipos y pruebas pueden estar en verde igual, porque el build ademas
+  pasa ESLint (un import sin usar es error, no aviso).
+
+  Para ver el motivo:
+
+      npm run build
+
+FIN
+  exit 1
+fi
+
+cat >&2 <<'FIN'
 
   PUSH A MASTER BLOQUEADO
 
@@ -46,8 +88,7 @@ while read -r _ref_local _sha_local ref_remoto _sha_remoto; do
 
       PERMITIR_PUSH_MASTER=1 git push origin master
 
-FIN
-  exit 1
-done
+  Eso construye primero y solo publica si el build pasa.
 
-exit 0
+FIN
+exit 1
