@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     .single() as { data: { id: string } | null; error: unknown }
 
   if (error) {
-    return NextResponse.json({ error: 'Error al instalar: ' + error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Error al instalar: ' + JSON.stringify(error) }, { status: 500 })
   }
 
   // Auto-register as widget if needed
