@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
   const admin = createAdminClient()
 
-  const query = admin
+  const query = (admin as any)
     .from('connector_installs')
     .select('id, app_id, plugin_type, manifest, enabled')
     .eq('workspace_id', workspace_id || '')

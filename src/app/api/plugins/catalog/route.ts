@@ -18,11 +18,11 @@ export async function GET(request: NextRequest) {
   const installedMap = new Map<string, { id: string; enabled: boolean }>()
   if (workspaceId) {
     const admin = createAdminClient()
-    const { data: installed } = await admin
+    const { data: installed } = await (admin as any)
       .from('connector_installs')
       .select('id, app_id, enabled')
       .eq('workspace_id', workspaceId)
-      .eq('plugin_type', 'widget') as any
+      .eq('plugin_type', 'widget')
     if (installed) {
       for (const i of installed) installedMap.set(i.app_id, { id: i.id, enabled: i.enabled })
     }
