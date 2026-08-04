@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Get widget catalog entries
-  const { data: catalog } = await admin
+  const { data: catalog } = await (admin as any)
     .from('widget_catalog')
     .select('id, name, description, icon, slot, component')
     .in('id', installedAppIds) as { data: any[] | null; error: unknown }

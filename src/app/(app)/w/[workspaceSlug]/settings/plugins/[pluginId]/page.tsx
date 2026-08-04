@@ -56,7 +56,7 @@ export default async function PluginDetailPage({ params }: Props) {
   }
 
   // Check if this is a widget (in widget_catalog)
-  const { data: widget } = await admin
+  const { data: widget } = await (admin as any)
     .from('widget_catalog')
     .select('id')
     .eq('id', install.app_id)
