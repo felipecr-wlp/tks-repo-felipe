@@ -64,18 +64,6 @@ function WidgetIframe({ widget, workspaceSlug }: { widget: WidgetData; workspace
   )
 }
 
-function LocalWidgetFallback({ appId, name }: { appId: string; name: string }) {
-  // This is kept for backward compatibility but not used in normal flow
-  if (appId === 'wlo-clock') return <SampleClockWidget />
-  if (appId === 'wlo-counter') return <SampleCounterWidget />
-  return (
-    <div className="border rounded-xl p-4 h-full">
-      <h4 className="text-xs font-semibold text-muted-foreground mb-3">{name}</h4>
-      <p className="text-xs text-muted-foreground">Plugin sin soporte local</p>
-    </div>
-  )
-}
-
 interface Props {
   workspaceId: string
   workspaceSlug: string

@@ -39,7 +39,7 @@ export function SampleClockWidget() {
 }
 
 /** Mapa de component names → React components */
-export const WIDGET_COMPONENTS: Record<string, React.ComponentType<any>> = {
+export const WIDGET_COMPONENTS: Record<string, React.ComponentType> = {
   'sample-counter': SampleCounterWidget,
   'sample-clock': SampleClockWidget,
 }

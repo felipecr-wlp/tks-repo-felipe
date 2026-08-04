@@ -20,7 +20,7 @@ export interface WidgetInstall {
   id: string
   app_id: string
   plugin_type: string
-  manifest: Record<string, any>
+  manifest: Record<string, unknown>
   enabled: boolean
   widget?: WidgetManifest
 }
