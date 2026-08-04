@@ -97,8 +97,8 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
   const [altHeld, setAltHeld] = useState(false)
 
   const toggleFullscreen = useCallback(async ()=>{if(document.fullscreenElement){await document.exitFullscreen()}else{await document.documentElement.requestFullscreen()}},[])
-  const save=useCallback(async(n?:Node[],e?:Edge[])=>{setSaving(true);try{await fetch(`/api/flows/${flowId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,description,nodes:n??nodes,edges:e??edges})})}catch{toast.error('Error al guardar')}finally{setSaving(false)}},[flowId,title,description,nodes,edges])
-  const autoSave=useCallback((n?:Node[],e?:Edge[])=>{if(saveTimer.current)clearTimeout(saveTimer.current);saveTimer.current=setTimeout(()=>save(n,e),800)},[save])
+  const save=useCallback(async(n?:Node[],e?:Edge[])=>{if(editingNodeId||editingShapeId)return;setSaving(true);try{await fetch(`/api/flows/${flowId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,description,nodes:n??nodes,edges:e??edges})})}catch{toast.error('Error al guardar')}finally{setSaving(false)}},[flowId,title,description,nodes,edges,editingNodeId,editingShapeId])
+  const autoSave=useCallback((n?:Node[],e?:Edge[])=>{if(saveTimer.current)clearTimeout(saveTimer.current);saveTimer.current=setTimeout(()=>{requestAnimationFrame(()=>save(n,e))},1200)},[save])
   const pushHistory=useCallback((n:any[],e:any[])=>{const h=history.current;h.length=historyIdx.current+1;h.push({nodes:JSON.parse(JSON.stringify(n)),edges:JSON.parse(JSON.stringify(e))});if(h.length>50)h.shift();else historyIdx.current++},[])
   const undo=useCallback(()=>{if(historyIdx.current<=0)return;historyIdx.current--;const s=history.current[historyIdx.current];setNodes(s.nodes);setEdges(s.edges);autoSave(s.nodes,s.edges)},[setNodes,setEdges,autoSave])
   const redo=useCallback(()=>{if(historyIdx.current>=history.current.length-1)return;historyIdx.current++;const s=history.current[historyIdx.current];setNodes(s.nodes);setEdges(s.edges);autoSave(s.nodes,s.edges)},[setNodes,setEdges,autoSave])
