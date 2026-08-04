@@ -5,6 +5,7 @@ import * as path from 'path'
 
 interface Props { params: { workspaceSlug: string } }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default async function DocsPage(_props: Props) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
