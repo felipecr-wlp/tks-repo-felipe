@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ReactFlow, Controls, Background, MiniMap, useNodesState, useEdgesState,
-  addEdge, Connection, type Node, type Edge, BackgroundVariant, Panel,
+  addEdge, Connection, type Node, type Edge, BackgroundVariant,
   type NodeProps, Handle, Position, MarkerType, useReactFlow,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -15,7 +15,6 @@ type ShapeType = 'rect' | 'circle' | 'line' | 'grid' | 'text'
 type ShapeData = { shape: ShapeType; width: number; height: number; fill: string; stroke: string; label?: string; rows?: number; cols?: number; onResizeEnd?: () => void }
 type NodeContent = { contentType: 'text' | 'html' | 'url' | 'document'; content: string; fields?: { key: string; value: string }[] }
 type FlowNodeData = { label: string; content: NodeContent } | ShapeData
-type EdgeStyle = { stroke?: string; strokeWidth?: number; animated?: boolean; label?: string; type?: string }
 
 const icons: Record<string, React.ReactNode> = {
   text: <Type className="w-3 h-3" />, html: <Code className="w-3 h-3" />,
