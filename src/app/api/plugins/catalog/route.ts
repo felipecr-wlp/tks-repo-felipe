@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const fsMap = new Map(fsPlugins.map(p => [p.id, p]))
 
   // Get installed status from DB if workspaceId provided
-  let installedMap = new Map<string, { id: string; enabled: boolean }>()
+  const installedMap = new Map<string, { id: string; enabled: boolean }>()
   if (workspaceId) {
     const admin = createAdminClient()
     const { data: installed } = await admin

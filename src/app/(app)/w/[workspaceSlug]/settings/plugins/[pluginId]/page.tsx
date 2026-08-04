@@ -1,7 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { PluginDetail } from './PluginDetail'
-import type { PluginManifest } from '@/lib/widgets/registry'
 
 interface Props { params: { workspaceSlug: string; pluginId: string } }
 

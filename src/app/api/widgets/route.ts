@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
   // Get base_urls from connector_apps
   const installedAppIds = [...new Set((installs ?? []).map((i: any) => i.app_id))]
-  let urlMap: Record<string, string> = {}
+  const urlMap: Record<string, string> = {}
   if (installedAppIds.length > 0) {
     const { data: apps } = await admin
       .from('connector_apps')

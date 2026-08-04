@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Hash, Clock, Workflow, Power, ChevronRight, ToggleRight, ToggleLeft, Upload, Store, Package, Eye, EyeOff } from 'lucide-react'
+import { Hash, Clock, Workflow, Power, ChevronRight, Upload, Store, Package, Eye, EyeOff } from 'lucide-react'
 
 const PLUGIN_ICONS: Record<string, React.ReactNode> = {
   hash: <Hash className="w-5 h-5" />, clock: <Clock className="w-5 h-5" />, workflow: <Workflow className="w-5 h-5" />,
