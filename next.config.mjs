@@ -29,7 +29,15 @@ const securityHeaders = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' blob: data: https://lh3.googleusercontent.com https://drive.google.com",
+      // `https:` abierto para imagenes, y es a proposito. Un nodo de contenido
+      // HTML es casi siempre un correo, y un correo trae sus imagenes del CDN
+      // de quien lo armo: Mailchimp, S3, el sitio del cliente. Con una lista de
+      // hosts el preview sale roto y nadie sabe por que, porque una imagen
+      // bloqueada por CSP no avisa, solo no aparece. Ceder aqui es barato: una
+      // imagen no ejecuta codigo, y el HTML ya pasa por sanitizeRichText antes
+      // de renderizarse. Lo que NO se abre es script-src ni connect-src, que es
+      // por donde se fugarian datos de verdad.
+      "img-src 'self' blob: data: https:",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com",
       ['frame-src https://docs.google.com https://sheets.google.com https://drive.google.com', ...embedOrigins].join(' '),
       "font-src 'self'",
@@ -66,6 +74,15 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'drive.google.com',
         pathname: '/thumbnail/**',
+      },
+      // El sitio propio. Esto es aparte del CSP y mucho mas estrecho: el CSP
+      // decide que puede PINTAR el navegador, esta lista decide que puede
+      // DESCARGAR Y REPROCESAR el servidor con next/image. Abrirla entera seria
+      // un proxy de imagenes gratis para cualquiera.
+      {
+        protocol: 'https',
+        hostname: 'www.welovepaving.com',
+        pathname: '/**',
       },
     ],
   },
