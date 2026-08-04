@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Manifest invalido: falta id o name' }, { status: 400 })
   }
 
-  const baseUrl = body.url.replace(/\/manifest\.json$/, '').replace(/\/$/, '')
+  const baseUrl = manifest.base_url || body.url.replace(/\/manifest\.json$/, '').replace(/\/$/, '')
 
   // Register app
   await (admin as any).from('connector_apps').upsert({
