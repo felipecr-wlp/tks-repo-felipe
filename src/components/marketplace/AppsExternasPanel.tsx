@@ -13,6 +13,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getWorkspaceAdminContext } from '@/lib/workspace-admin'
 import { loadCatalog } from '@/lib/connectors/catalog'
 import { AppsExternasManager } from './AppsExternasManager'
+import { ProponerAppDialog } from './ProponerAppDialog'
 
 export async function AppsExternasPanel({ workspaceSlug }: { workspaceSlug: string }) {
   const ctx = await getWorkspaceAdminContext(workspaceSlug)
@@ -23,9 +24,15 @@ export async function AppsExternasPanel({ workspaceSlug }: { workspaceSlug: stri
 
   return (
     <div className="pt-8">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-        Herramientas del equipo
-      </h2>
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Herramientas del equipo
+        </h2>
+        {/* Proponer es de CUALQUIER miembro, no solo del admin: lo que nace nace en
+            borrador y no se instala solo. Pedirle rol de admin a quien construye la
+            herramienta seria pedirle permiso para pedir permiso. */}
+        <ProponerAppDialog workspaceId={ctx.workspace.id} />
+      </div>
       <p className="text-xs text-muted-foreground mb-3">
         Cada una vive en su propio deploy y su propio repositorio, en el lenguaje que sea. WLO no
         compila el codigo de nadie: guarda a donde apunta y que permisos pidio sobre este workspace.

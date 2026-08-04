@@ -19,6 +19,7 @@
  */
 import { MarketplacePanel } from '@/components/marketplace/MarketplacePanel'
 import { AppsExternasPanel } from '@/components/marketplace/AppsExternasPanel'
+import { RevisionAppsPanel } from '@/components/marketplace/RevisionAppsPanel'
 
 export const metadata = { title: 'Marketplace · WLO' }
 
@@ -35,6 +36,9 @@ export default function MarketplacePage({ params }: { params: { workspaceSlug: s
 
         <MarketplacePanel workspaceSlug={params.workspaceSlug} />
         <AppsExternasPanel workspaceSlug={params.workspaceSlug} />
+        {/* Se pinta solo para el mando de la organizacion. Para el resto no
+            existe: el componente devuelve null. */}
+        <RevisionAppsPanel />
       </div>
     </div>
   )
