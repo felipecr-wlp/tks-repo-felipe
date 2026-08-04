@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Hash, Clock, Workflow, Power, ChevronRight, Upload, Store, Package, Eye, EyeOff } from 'lucide-react'
+import { Hash, Clock, Workflow, Power, ChevronRight, Upload, Store, Package, Eye, EyeOff, Link as LinkIcon } from 'lucide-react'
 
 const PLUGIN_ICONS: Record<string, React.ReactNode> = {
   hash: <Hash className="w-5 h-5" />, clock: <Clock className="w-5 h-5" />, workflow: <Workflow className="w-5 h-5" />,
@@ -30,6 +30,7 @@ export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, 
   const [loading, setLoading] = useState<string | null>(null)
   const [tab, setTab] = useState<'installed' | 'marketplace'>('installed')
   const [localEnabled, setLocalEnabled] = useState<Record<string, boolean>>(userEnabled)
+  const [installUrl, setInstallUrl] = useState('')
 
   const installMap = new Map(installed.map(i => [i.app_id, i]))
 
@@ -43,8 +44,25 @@ export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, 
       })
       if (!r.ok) throw new Error('Error')
       toast.success('Instalado')
+    router.refresh()
+  } catch { toast.error('Error') }
+    finally { setLoading(null) }
+  }
+
+  async function installFromUrl() {
+    if (!installUrl.trim() || !isAdmin) return
+    setLoading('url')
+    try {
+      const r = await fetch('/api/plugins/install-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: installUrl.trim(), workspace_id: workspaceId }),
+      })
+      if (!r.ok) { const j = await r.json(); throw new Error(j.error || 'Error') }
+      toast.success('Plugin instalado desde URL')
+      setInstallUrl('')
       router.refresh()
-    } catch { toast.error('Error') }
+    } catch (e: any) { toast.error(e.message) }
     finally { setLoading(null) }
   }
 
@@ -92,10 +110,26 @@ export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, 
           </button>
         </div>
         {isAdmin && tab === 'marketplace' && (
-          <button onClick={doUpload} disabled={loading === 'upload'}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium hover:bg-accent transition-colors disabled:opacity-50">
-            <Upload className="w-3.5 h-3.5" />{loading === 'upload' ? 'Instalando...' : 'Subir .zip'}
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 border rounded-lg px-2 py-1 bg-background">
+              <LinkIcon className="w-3 h-3 text-muted-foreground" />
+              <input
+                value={installUrl}
+                onChange={e => setInstallUrl(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && installFromUrl()}
+                className="text-xs border-0 outline-none bg-transparent w-56"
+                placeholder="https://...manifest.json"
+              />
+              <button onClick={installFromUrl} disabled={loading === 'url'}
+                className="px-2 py-0.5 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                {loading === 'url' ? '...' : 'Instalar'}
+              </button>
+            </div>
+            <button onClick={doUpload} disabled={loading === 'upload'}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium hover:bg-accent transition-colors disabled:opacity-50">
+              <Upload className="w-3.5 h-3.5" />{loading === 'upload' ? '...' : '.zip'}
+            </button>
+          </div>
         )}
       </div>
 
