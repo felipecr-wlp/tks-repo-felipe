@@ -29,7 +29,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   // Always include a manifest
   const manifestPath = path.join(pluginDir, 'manifest.json')
   if (fs.existsSync(manifestPath)) {
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    void JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
     if (!files.some(f => f.name === 'manifest.json')) {
       files.unshift({ name: 'manifest.json', content: fs.readFileSync(manifestPath) })
     }

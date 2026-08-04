@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     .from('widget_catalog')
     .select('id, name, description, icon, slot, component')
     .in('id', installedAppIds) as { data: any[] | null; error: unknown }
-  let widgetMap: Record<string, any> = {}
+  const widgetMap: Record<string, unknown> = {}
   if (catalog) for (const w of catalog) widgetMap[w.id] = w
 
   const widgets = (installs ?? []).map((i: any) => ({
