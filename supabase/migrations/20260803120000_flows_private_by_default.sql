@@ -1,0 +1,34 @@
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 2026-08-03. Los flujos nacen PRIVADOS.
+--
+-- Reporte que lo destapo: "aunque el flujo sea privado, tester lo puede ver".
+-- La revision mostro que el control de acceso estaba bien y el problema era
+-- otro, peor: NO HABIA MANERA DE HACER UN FLUJO PRIVADO.
+--
+--   · `NewFlowButton` mandaba `visibility: 'workspace'` a fuego en el codigo.
+--   · Ninguna pantalla enviaba nunca un cambio de visibilidad, aunque la API
+--     (PATCH /api/flows/[flowId]) ya lo soportaba y ya lo restringia al duenno.
+--   · `FlowCard` pintaba una insignia "Privado" con candado para un estado al
+--     que no se podia llegar desde la interfaz.
+--
+-- O sea: todo flujo nacia visible para el workspace entero, nadie eligio eso, y
+-- la interfaz mostraba un candado que jamas se encendia. Quien compartia un
+-- flujo creyendo que asi lo volvia privado solo estaba SUMANDO gente a algo que
+-- ya veian todos.
+--
+-- Es exactamente el mismo agujero que tuvieron las notas y que arreglo
+-- `20260728010000_notes_private_by_default.sql`. Mismo origen: un default del
+-- codigo que nadie decidio, disfrazado de decision del usuario.
+--
+-- ── Por que NO hay backfill, a diferencia del de notas ──────────────────────
+-- Bajar a 'private' los flujos que ya existen los desapareceria de la vista de
+-- gente que hoy los ve, sin que su autor lo pidiera. En notas el volumen hacia
+-- inviable revisarlos uno por uno; aqui son un punado y su autor ahora SI tiene
+-- el control en pantalla, con el estado a la vista. Que lo decida quien los
+-- escribio. Cambiar en silencio lo que otros ven es como se llego hasta aqui.
+--
+-- Aditiva e idempotente: solo cambia el DEFAULT de la columna. No toca ni una
+-- fila existente.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+ALTER TABLE flows ALTER COLUMN visibility SET DEFAULT 'private';

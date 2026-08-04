@@ -34,10 +34,36 @@ function walkRoutes(dir: string, out: string[] = []): string[] {
   return out
 }
 
-// Rutas con un fetch() server-side JUSTIFICADO (host validado contra allowlist /
-// SSRF guard). Vacia por ahora: no existe ninguna salida HTTP cruda en los
-// handlers. Mantener minima y explicita.
-const ALLOWLIST = new Set<string>([])
+/**
+ * Rutas con un fetch() server-side JUSTIFICADO. Mantener minima y explicita.
+ *
+ * `/api/connectors/apps/comprobar`: comprueba la URL de una herramienta ANTES de
+ * proponerla. Es SSRF por definicion (el servidor visita una URL escrita por una
+ * persona) y por eso el permiso esta acotado a mano: solo https, se resuelve el
+ * DNS y se rechaza si CUALQUIERA de las direcciones es interna, no se siguen
+ * redirecciones, y jamas se devuelve el cuerpo, solo el codigo y dos cabeceras.
+ * Existe porque las tres formas de "no carga" (no responde, redirige al login del
+ * hosting, se niega a ser enmarcada) son invisibles desde el formulario y se
+ * descubrian dias despues mirando un recuadro en blanco.
+ */
+const ALLOWLIST = new Set<string>([
+  '/src/app/api/connectors/apps/comprobar/route.ts',
+])
+
+/**
+ * Guardas que una ruta con fetch() justificado tiene que seguir teniendo. Estar
+ * en la lista blanca exime del primer test, no de tener las protecciones: sin
+ * esto, la lista seria un sello de goma y bastaria con que alguien borrara el
+ * guard para que el tripwire siguiera en verde.
+ */
+const GUARDAS_OBLIGATORIAS: Record<string, RegExp[]> = {
+  '/src/app/api/connectors/apps/comprobar/route.ts': [
+    /validarUrlPublica/,       // solo https, sin credenciales en la URL
+    /esDireccionInterna/,      // rechaza privadas, bucle local, enlace local y metadatos
+    /redirect:\s*'manual'/,    // seguir una redireccion esquivaria lo anterior
+    /AbortSignal\.timeout/,    // no se cuelga esperando a un host que no contesta
+  ],
+}
 
 // Uso real de fetch como llamada: identificador con limite de palabra seguido de
 // parentesis (admite espacios). No matchea "prefetch(", ".fetch(" ni prosa.
@@ -65,5 +91,20 @@ describe('Invariante anti-SSRF: ningun route handler hace fetch() crudo', () => 
 
   it('ningun handler introduce un sink fetch() sin justificar', () => {
     expect(hits.map(h => `${h.file}:${h.line}`)).toEqual([])
+  })
+
+  it('toda ruta de la lista blanca existe y conserva sus guardas', () => {
+    for (const rel of ALLOWLIST) {
+      const full = join(process.cwd(), rel.replace(/^\//, ''))
+      // Si la ruta se borro o se movio, la entrada quedo huerfana y hay que
+      // limpiarla: una lista blanca que nombra archivos que no existen deja de
+      // significar algo.
+      expect(files.map(f => f.replace(process.cwd(), '').replace(/\\/g, '/')), `entrada huerfana en la lista blanca: ${rel}`).toContain(rel)
+
+      const src = readFileSync(full, 'utf8')
+      for (const guarda of GUARDAS_OBLIGATORIAS[rel] ?? []) {
+        expect(guarda.test(src), `${rel} perdio la guarda ${guarda}`).toBe(true)
+      }
+    }
   })
 })

@@ -1,0 +1,9 @@
+{
+  "nota": "Origenes que WLO acepta pintar dentro de un iframe. Lo lee next.config.js para armar el frame-src del CSP y lo lee el codigo para no siquiera intentar el embed. Agregar un origen aqui es un cambio de codigo con revision, no un boton: una fila de base de datos no puede autorizarse sola a correr dentro de la app. Solo https y solo el origen (sin ruta).",
+  "origins": [
+    "https://wli-marketing-os.vercel.app",
+    "https://wlm-nu.vercel.app",
+    "https://pavific-team.vercel.app",
+    "https://wlo-plugin-template.vercel.app"
+  ]
+}

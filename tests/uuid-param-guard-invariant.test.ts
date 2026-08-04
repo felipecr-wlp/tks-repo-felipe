@@ -53,6 +53,17 @@ const rel = (file: string) => file.replace(API, '').replace(/\\/g, '/').replace(
 // no por formato uuid). `code` = codigo de invitacion de texto libre.
 const NON_UUID_PARAMS = new Set<string>(['code'])
 
+/**
+ * Parametros que no son uuid pero SI tienen forma, y por tanto tienen guarda
+ * propia. No es una exencion: se les exige su validador, solo que no es `isUuid`.
+ *
+ * `appId` = id de herramienta del marketplace. Es legible a proposito porque se
+ * escribe en la URL (`/w/<ws>/apps/wli`), asi que jamas podria ser un uuid; lo
+ * que no puede es ser texto libre camino a un `.eq('id', ...)`. Su guarda es
+ * `isAppId` (ver src/lib/validation.ts).
+ */
+const GUARDA_PROPIA: Record<string, string> = { appId: 'isAppId' }
+
 // Extrae los nombres de parametro dinamico de la ruta relativa: [taskId] -> taskId.
 function paramsOf(relPath: string): string[] {
   const out: string[] = []
@@ -62,8 +73,9 @@ function paramsOf(relPath: string): string[] {
   return out
 }
 
-/**
- * Una guarda de formato para el parametro <name>.
+/*
+ * Como se cuenta una guarda de formato para el parametro <name> (lo resuelve
+ * `parametroPasaPor`):
  *
  * Cuenta la forma directa `isUuid(params.<name>)` y tambien la indirecta: el
  * handler entrega `params.<name>` a un helper del mismo archivo y ES ESE helper
@@ -77,9 +89,6 @@ function paramsOf(relPath: string): string[] {
  * el parametro del helper que ocupa el mismo lugar. Un helper que valide otra
  * cosa NO da el visto bueno.
  */
-function hasUuidGuard(src: string, name: string): boolean {
-  return parametroPasaPor(src, name, 'isUuid')
-}
 
 describe('Invariante: todo parametro de ruta uuid se valida con isUuid antes de tocar la DB (anti 500 22P02)', () => {
   const files = walkRoutes(API)
@@ -96,8 +105,9 @@ describe('Invariante: todo parametro de ruta uuid se valida con isUuid antes de 
     const src = readFileSync(file, 'utf8')
     for (const name of paramsOf(r)) {
       if (NON_UUID_PARAMS.has(name)) continue
-      if (hasUuidGuard(src, name)) verificados.push(`${r} (params.${name})`)
-      else offenders.push(`${r} (params.${name})`)
+      const guarda = GUARDA_PROPIA[name] ?? 'isUuid'
+      if (parametroPasaPor(src, name, guarda)) verificados.push(`${r} (params.${name})`)
+      else offenders.push(`${r} (params.${name} sin ${guarda})`)
     }
   }
 

@@ -250,3 +250,94 @@ describe('Flows: el HTML del usuario nunca se pinta crudo', () => {
     }
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. "Privado" tiene que ser ALCANZABLE
+//
+// La tabla de verdad de arriba ya demostraba que un flujo privado sin share es
+// invisible. Estaba en verde, y aun asi el reporte real fue "el flujo es privado
+// y tester lo ve". Las dos cosas eran ciertas: la regla funcionaba y NINGUN
+// flujo podia llegar a 'private', porque el boton de crear mandaba 'workspace'
+// a fuego y ninguna pantalla enviaba jamas un cambio de visibilidad.
+//
+// Moraleja, y motivo de este bloque: una regla de acceso correcta sobre un
+// estado inalcanzable no protege nada. Se fija el CAMINO, no solo la regla.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Flows: se puede llegar a privado y volver', () => {
+  const RAIZ = join(process.cwd(), 'src', 'app', '(app)', 'w', '[workspaceSlug]', 'flows')
+  const nuevo = readFileSync(join(RAIZ, 'NewFlowButton.tsx'), 'utf8')
+  const editor = readFileSync(EDITOR, 'utf8')
+  const detalle = readFileSync(join(RAIZ, '[flowId]', 'page.tsx'), 'utf8')
+
+  it('un flujo nuevo NO nace abierto al workspace', () => {
+    expect(nuevo).not.toMatch(/visibility:\s*'workspace'/)
+    expect(nuevo).toMatch(/visibility:\s*'private'/)
+  })
+
+  it('la migracion deja el default de la columna en privado', () => {
+    const sql = readFileSync(
+      join(process.cwd(), 'supabase', 'migrations', '20260803120000_flows_private_by_default.sql'),
+      'utf8',
+    )
+    expect(sql).toMatch(/ALTER COLUMN visibility SET DEFAULT 'private'/)
+  })
+
+  it('el editor sabe mandar un cambio de visibilidad, no solo pintarlo', () => {
+    expect(editor).toContain('cambiarVisibilidad')
+    // El PATCH con visibility es el unico camino real: sin esto el boton seria
+    // un adorno que cambia el color y no cambia quien entra.
+    expect(editor).toMatch(/body:JSON\.stringify\(\{visibility:nueva\}\)/)
+  })
+
+  it('el boton de alcance solo se le ofrece al duenno', () => {
+    // La API contesta 403 a cualquier otro. Si la UI lo ofreciera igual, el
+    // usuario veria un boton que "no hace nada" y no sabria por que.
+    expect(editor).toContain('esDuenno')
+    expect(editor).toMatch(/disabled=\{!esDuenno/)
+    expect(detalle).toMatch(/esDuenno=\{flow\.created_by === user\.id\}/)
+  })
+
+  it('la pantalla recibe el alcance real, no un supuesto', () => {
+    expect(detalle).toMatch(/initialVisibility=\{flow\.visibility\}/)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. El listado no puede ser mas angosto que el permiso
+//
+// Esta capa nace de una regresion real: en la rama de plugins el listado se
+// habia reducido a `created_by = yo`. La regla de acceso seguia impecable, los
+// 24 tests de la tabla de verdad seguian verdes, y compartir un flujo privado
+// dejo de funcionar de todas formas: el destinatario recibia el permiso, la API
+// lo dejaba entrar, y ninguna pantalla le nombraba el flujo jamas.
+//
+// De ahi la invariante: el filtro que decide QUE VES no puede ser mas angosto
+// que la regla que decide QUE PUEDES ABRIR. Cuando lo es, compartir se vuelve
+// decoracion, y el sintoma no aparece en ninguna prueba de la regla.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Flows: el listado no puede olvidar lo compartido', () => {
+  const listado = readFileSync(
+    join(process.cwd(), 'src', 'app', '(app)', 'w', '[workspaceSlug]', 'flows', 'page.tsx'),
+    'utf8',
+  )
+
+  it('el listado consulta los flujos que me compartieron', () => {
+    expect(listado).toContain('sharedFlowIds')
+    expect(listado).toMatch(/id\.in\./)
+  })
+
+  it('el listado NO se reduce a lo que yo cree', () => {
+    // `created_by.eq.${user.id}` dentro del `.or(...)` esta bien: suma lo mio.
+    // `.eq('created_by', ...)` como filtro duro es lo que rompe, porque resta
+    // todo lo demas.
+    expect(listado).not.toMatch(/\.eq\(\s*'created_by'/)
+    expect(listado).toContain('.or(filtro)')
+  })
+
+  it('los flujos abiertos al workspace siguen apareciendo', () => {
+    expect(listado).toContain('visibility.neq.private')
+    expect(listado).toContain('visibility.is.null')
+  })
+})

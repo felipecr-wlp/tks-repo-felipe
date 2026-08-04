@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { streamText, type CoreMessage } from 'ai'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { geminiFlash, KERN_SYSTEM_PROMPT } from '@/lib/ai/client'
+import { geminiFlash, KERN_SYSTEM_PROMPT, esCuotaDeModeloAgotada, MENSAJE_CUOTA_AGOTADA } from '@/lib/ai/client'
 import { buildKernTools, buildKernContext } from '@/lib/ai/kern-tools'
 import { applyRateLimit } from '@/lib/rate-limit'
 
@@ -119,6 +119,10 @@ export async function POST(request: NextRequest) {
 
     return result.toDataStreamResponse()
   } catch (err) {
+    if (esCuotaDeModeloAgotada(err)) {
+      console.warn('[kern] cuota del modelo agotada:', err)
+      return NextResponse.json({ error: MENSAJE_CUOTA_AGOTADA }, { status: 429 })
+    }
     console.error('[kern] stream error:', err)
     return NextResponse.json(
       { error: 'Error al generar la respuesta de KERN.' },
