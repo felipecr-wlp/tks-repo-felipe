@@ -9,11 +9,12 @@
  * Ser miembro es el piso para VER. Instalar sigue exigiendo admin del workspace,
  * y eso lo vuelve a exigir la ruta: aqui `isAdmin` solo apaga botones.
  */
+import Link from 'next/link'
+import { Plus } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getWorkspaceAdminContext } from '@/lib/workspace-admin'
 import { loadCatalog } from '@/lib/connectors/catalog'
 import { AppsExternasManager } from './AppsExternasManager'
-import { ProponerAppDialog } from './ProponerAppDialog'
 
 export async function AppsExternasPanel({ workspaceSlug }: { workspaceSlug: string }) {
   const ctx = await getWorkspaceAdminContext(workspaceSlug)
@@ -30,8 +31,17 @@ export async function AppsExternasPanel({ workspaceSlug }: { workspaceSlug: stri
         </h2>
         {/* Proponer es de CUALQUIER miembro, no solo del admin: lo que nace nace en
             borrador y no se instala solo. Pedirle rol de admin a quien construye la
-            herramienta seria pedirle permiso para pedir permiso. */}
-        <ProponerAppDialog workspaceId={ctx.workspace.id} />
+            herramienta seria pedirle permiso para pedir permiso.
+
+            Antes esto abria un dialogo. Ahora lleva a una pantalla propia: son
+            ocho campos, un catalogo de permisos y una comprobacion de la URL, y
+            nada de eso cabe en un recuadro sin scroll dentro de scroll. */}
+        <Link
+          href={`/w/${workspaceSlug}/marketplace/publicar`}
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground transition hover:bg-muted"
+        >
+          <Plus size={13} /> Publicar herramienta
+        </Link>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
         Cada una vive en su propio deploy y su propio repositorio, en el lenguaje que sea. WLO no
