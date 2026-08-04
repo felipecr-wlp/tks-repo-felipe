@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useRef, Component, type ReactNode } from 'react'
-import { SampleCounterWidget, SampleClockWidget } from './samples'
 
 class WidgetErrorBoundary extends Component<{ children: ReactNode; name: string }, { hasError: boolean }> {
   constructor(props: { children: ReactNode; name: string }) {

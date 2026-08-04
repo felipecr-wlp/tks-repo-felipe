@@ -23,12 +23,14 @@ const icons: Record<string, React.ReactNode> = {
 
 function CustomNode({ data, selected, id }: NodeProps) {
   const fd = data as unknown as FlowNodeData
-  if ('shape' in fd) return null
-  const ct = fd.content?.contentType ?? 'text'; const locked = (data as any).locked
-  const nodeW = (data as any).nodeWidth ?? 260
+  const isShape = 'shape' in fd
+  const ct = isShape ? 'text' : (fd as {content: NodeContent}).content?.contentType ?? 'text'
+  const locked = (data as Record<string, unknown>).locked as boolean | undefined
+  const nodeW = ((data as Record<string, unknown>).nodeWidth as number) ?? 260
   const rf = useReactFlow()
   const containerRef = useRef<HTMLDivElement>(null)
-  useEffect(()=>{const el=containerRef.current;if(!el)return;const ro=new ResizeObserver(()=>{const w=el.offsetWidth;rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,nodeWidth:w}}:n))});ro.observe(el);return()=>ro.disconnect()},[id,rf])
+  useEffect(()=>{if(isShape)return;const el=containerRef.current;if(!el)return;const ro=new ResizeObserver(()=>{const w=el.offsetWidth;rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,nodeWidth:w}}:n))});ro.observe(el);return()=>ro.disconnect()},[id,rf,isShape])
+  if (isShape) return null
   return (
     <div ref={containerRef} className={`bg-card border-2 rounded-lg px-4 py-3 shadow-sm transition-all group relative ${selected?'border-primary ring-2 ring-primary/30 shadow-md':locked?'opacity-70 border-border':'border-border'}`} style={{width:nodeW,maxWidth:'none',resize:'horizontal',overflow:'auto'}}>
       {selected && <CheckCircle className="absolute -top-1.5 -right-1.5 w-4 h-4 text-primary bg-background rounded-full z-10" />}
@@ -48,12 +50,12 @@ function ShapeNode({ data, selected, id }: NodeProps) {
   const d = data as unknown as ShapeData
   const s = d.shape ?? 'rect'; const w = d.width ?? 160; const h = d.height ?? 120
   const fill = d.fill ?? '#f1f5f9'; const stroke = d.stroke ?? '#64748b'
-  const rows = d.rows ?? 3; const cols = d.cols ?? 3; const label = d.label ?? ''; const locked = (data as any).locked
+  const rows = d.rows ?? 3; const cols = d.cols ?? 3; const label = d.label ?? ''; const locked = (data as Record<string, unknown>).locked as boolean | undefined
   const opacity = locked ? {opacity:0.6} : {}
   const selRing = selected ? {outline:'2px solid #3b82f6',outlineOffset:'2px',borderRadius:s==='circle'?'50%':s==='grid'?'4px':'8px'} : {}
   const rf = useReactFlow()
   const containerRef = useRef<HTMLDivElement>(null)
-  useEffect(()=>{const el=containerRef.current;if(!el)return;const ro=new ResizeObserver(()=>{const nw=el.offsetWidth;const nh=el.offsetHeight;if(nw>0&&nh>0)rf.setNodes((nds:any[])=>nds.map((n:any)=>n.id===id?{...n,data:{...n.data,width:nw,height:nh}}:n));if(d.onResizeEnd)d.onResizeEnd()});ro.observe(el);return()=>ro.disconnect()},[id,rf,d])
+  useEffect(()=>{const el=containerRef.current;if(!el)return;const ro=new ResizeObserver(()=>{const nw=el.offsetWidth;const nh=el.offsetHeight;if(nw>0&&nh>0)rf.setNodes((nds: Node[])=>nds.map((n: Node)=>n.id===id?{...n,data:{...n.data,width:nw as number,height:nh as number}}:n));if(d.onResizeEnd)d.onResizeEnd()});ro.observe(el);return()=>ro.disconnect()},[id,rf,d])
   const Label = label ? <text x={w/2} y={h/2} textAnchor="middle" dominantBaseline="central" fill="#334155" fontSize={13} fontWeight={500} fontFamily="system-ui, sans-serif" style={{pointerEvents:'none'}}>{label}</text> : null
 
   const D = <div ref={containerRef} style={{width:w,height:h,...opacity,...selRing,position:'relative',resize:'both',overflow:'auto'}}>
