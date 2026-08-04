@@ -2,6 +2,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { isUuid } from '@/lib/validation'
 import FlowEditor from './FlowEditor'
+import { FlowErrorBoundary } from '@/components/FlowErrorBoundary'
 import { resolveFlowAccess } from '@/lib/flows/access'
 import type { Node, Edge } from '@xyflow/react'
 
@@ -75,6 +76,7 @@ export default async function FlowDetailPage({ params }: FlowDetailProps) {
 
   return (
     <div className="h-full">
+      <FlowErrorBoundary>
       <FlowEditor
         flowId={flow.id}
         workspaceSlug={params.workspaceSlug}
@@ -83,9 +85,8 @@ export default async function FlowDetailPage({ params }: FlowDetailProps) {
         initialEdges={edges as unknown as Edge[]}
         initialTitle={flow.title}
         initialDescription={flow.description}
-        initialUpdatedAt={flow.updated_at}
-        readOnly={access !== 'edit'}
       />
+      </FlowErrorBoundary>
     </div>
   )
 }
