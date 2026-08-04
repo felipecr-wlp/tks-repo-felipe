@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { ArrowLeft, ToggleRight, ToggleLeft, Trash2, Save, Settings, BarChart3, Hash, Clock, Workflow, Power, Download } from 'lucide-react'
+import { ArrowLeft, ToggleRight, ToggleLeft, Trash2, Save, Settings, BarChart3, Hash, Clock, Workflow, Power, Download, Copy, Check } from 'lucide-react'
 
 const PLUGIN_ICONS: Record<string, React.ReactNode> = {
   hash: <Hash className="w-5 h-5" />,
@@ -34,8 +34,21 @@ export function PluginDetail({ pluginId, workspaceSlug, install, catalog, isAdmi
   const [slots, setSlots] = useState<string[]>(install.manifest?.slots ?? ['sidebar-complementos'])
   const [saving, setSaving] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const name = catalog?.name ?? install.app_id
+  const installUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/api/plugins/${install.app_id}/manifest`
+
+  async function copyUrl() {
+    try {
+      await navigator.clipboard.writeText(installUrl)
+      setCopied(true)
+      toast.success('URL copiada')
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error('Error al copiar')
+    }
+  }
 
   async function saveConfig() {
     setSaving(true)
@@ -117,6 +130,12 @@ export function PluginDetail({ pluginId, workspaceSlug, install, catalog, isAdmi
         <button onClick={downloadZip} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border hover:bg-accent transition-colors" title="Descargar plugin">
           <Download className="w-3.5 h-3.5" /> Descargar
         </button>
+        {isAdmin && (
+          <button onClick={copyUrl} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border hover:bg-accent transition-colors" title="Copiar URL de instalacion">
+            {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? 'Copiado' : 'Compartir'}
+          </button>
+        )}
         <button
           onClick={toggleEnabled}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${enabled ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}
