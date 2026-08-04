@@ -188,6 +188,8 @@ export function PublicarHerramientaForm({
 
   const hayAlto = scopes.some((s) => SCOPE_CATALOG.find((d) => d.scope === s)?.risk === 'alto')
   const porApp = ['wli', 'wlo', 'wlm'] as const
+  const disponibles = SCOPE_CATALOG.filter((s) => s.estado === 'disponible')
+  const reservados = SCOPE_CATALOG.filter((s) => s.estado === 'reservado')
 
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-8">
@@ -362,55 +364,91 @@ export function PublicarHerramientaForm({
             titulo="Qué permisos necesita"
             sub="Marcar aquí no concede nada. Cada workspace decide cuáles acepta al instalarla."
           >
-            <div className="space-y-4">
-              {porApp.map((app) => {
-                const delApp = SCOPE_CATALOG.filter((s) => s.app === app)
-                if (delApp.length === 0) return null
-                return (
-                  <div key={app}>
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      {APP_TITULO[app]}
-                    </span>
-                    <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
-                      {delApp.map((s) => {
-                        const activo = scopes.includes(s.scope)
-                        return (
-                          <label
+            {/* Disponibles y reservados van SEPARADOS, no mezclados con una
+                etiqueta. Hoy hay uno disponible de quince: en una lista revuelta
+                el unico que sirve se pierde entre catorce que no, que es justo
+                como alguien termina construyendo contra el vacio. */}
+            <div>
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Disponibles hoy
+              </span>
+              <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
+                {disponibles.map((s) => {
+                  const activo = scopes.includes(s.scope)
+                  return (
+                    <label
+                      key={s.scope}
+                      className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 transition ${
+                        activo ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={activo}
+                        onChange={(e) =>
+                          setScopes((prev) =>
+                            e.target.checked
+                              ? [...prev, s.scope]
+                              : prev.filter((x) => x !== s.scope),
+                          )
+                        }
+                        className="mt-0.5"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-xs text-foreground">{s.label}</span>
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] ${RIESGO[s.risk]}`}>
+                            {s.risk}
+                          </span>
+                          <span className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {APP_TITULO[s.app]}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block font-mono text-[10px] text-muted-foreground">
+                          {s.scope}
+                        </span>
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div>
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Reservados, todavía sin endpoint
+              </span>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                El nombre está apartado y el permiso se concedería de verdad, pero no hay nada
+                que llamar todavía. Se muestran para que sepas qué viene, no para pedirlos: si
+                marcaras uno, pasarías la revisión, te instalarías con el permiso concedido y la
+                llamada te devolvería un error que no es tuyo. Si necesitas alguno, pídelo y se
+                construye.
+              </p>
+              <div className="mt-2 space-y-3 opacity-60">
+                {porApp.map((app) => {
+                  const delApp = reservados.filter((s) => s.app === app)
+                  if (delApp.length === 0) return null
+                  return (
+                    <div key={app}>
+                      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {APP_TITULO[app]}
+                      </span>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {delApp.map((s) => (
+                          <span
                             key={s.scope}
-                            className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 transition ${
-                              activo ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-muted/50'
-                            }`}
+                            title={s.label}
+                            className="rounded border border-dashed border-border px-2 py-1 font-mono text-[10px] text-muted-foreground"
                           >
-                            <input
-                              type="checkbox"
-                              checked={activo}
-                              onChange={(e) =>
-                                setScopes((prev) =>
-                                  e.target.checked
-                                    ? [...prev, s.scope]
-                                    : prev.filter((x) => x !== s.scope),
-                                )
-                              }
-                              className="mt-0.5"
-                            />
-                            <span className="min-w-0 flex-1">
-                              <span className="flex flex-wrap items-center gap-1.5">
-                                <span className="text-xs text-foreground">{s.label}</span>
-                                <span className={`rounded px-1.5 py-0.5 text-[10px] ${RIESGO[s.risk]}`}>
-                                  {s.risk}
-                                </span>
-                              </span>
-                              <span className="mt-0.5 block font-mono text-[10px] text-muted-foreground">
-                                {s.scope}
-                              </span>
-                            </span>
-                          </label>
-                        )
-                      })}
+                            {s.scope}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
 
             {hayAlto && (
