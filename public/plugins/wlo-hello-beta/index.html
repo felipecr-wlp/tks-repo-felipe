@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hello Beta</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:transparent;color:#1e293b;padding:16px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;min-height:180px}
+.header{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.icon{width:32px;height:32px;background:#3b82f6;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px}
+.title{font-size:14px;font-weight:600}
+.badge{font-size:10px;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:99px;margin-left:auto}
+.info{margin-bottom:12px}
+.info-label{font-size:11px;color:#94a3b8;margin-bottom:2px}
+.info-value{font-size:13px;font-weight:500}
+.counter-section{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid #f1f5f9}
+.btn{width:32px;height:32px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.btn:hover{background:#f1f5f9}
+.count{font-size:24px;font-weight:700;min-width:40px;text-align:center}
+.footer{font-size:10px;color:#94a3b8;text-align:center;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div class="icon">♥</div>
+    <div>
+      <div class="title">Hello Beta</div>
+      <div style="font-size:11px;color:#64748b" id="ws-info">Conectando...</div>
+    </div>
+    <div class="badge">BETA</div>
+  </div>
+  <div class="info">
+    <div class="info-label">Workspace</div>
+    <div class="info-value" id="ws-slug">-</div>
+  </div>
+  <div class="info">
+    <div class="info-label">Plugin ID</div>
+    <div class="info-value" id="app-id">-</div>
+  </div>
+  <div class="counter-section">
+    <button class="btn" onclick="update(-1)">−</button>
+    <div class="count" id="counter">0</div>
+    <button class="btn" onclick="update(1)">+</button>
+  </div>
+  <div class="footer">WLO Plugin System v1.0</div>
+</div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const wsSlug = params.get('workspace_slug') || '?';
+  const appId = params.get('app_id') || '?';
+  document.getElementById('ws-slug').textContent = wsSlug;
+  document.getElementById('app-id').textContent = appId;
+  document.getElementById('ws-info').textContent = 'Workspace: ' + wsSlug;
+
+  let count = 0;
+  function update(d) {
+    count += d;
+    document.getElementById('counter').textContent = count;
+    window.parent.postMessage({ type: 'wlo-resize', height: document.body.scrollHeight + 20 }, '*');
+  }
+
+  window.addEventListener('load', function() {
+    window.parent.postMessage({ type: 'wlo-resize', height: document.body.scrollHeight + 20 }, '*');
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "Hello Beta",
+  "id": "wlo-hello-beta",
+  "version": "1.0.0",
+  "type": "widget",
+  "icon": "heart",
+  "description": "Plugin de prueba para el sistema de plugins WLO. Muestra informacion del workspace y un contador.",
+  "author": "WLO Team",
+  "wlo_version": ">=1.0.0",
+  "slots": ["dashboard"],
+  "component": "hello-beta"
+}
