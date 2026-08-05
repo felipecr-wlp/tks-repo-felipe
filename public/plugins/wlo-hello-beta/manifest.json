@@ -9,5 +9,5 @@
   "wlo_version": ">=1.0.0",
   "slots": ["dashboard"],
   "component": "hello-beta",
-  "base_url": "https://wlo-plugin-git-felipecr-felipecr-8246s-projects.vercel.app/plugins/wlo-hello-beta/index.html"
+  "base_url": "https://wlo-plugin.vercel.app/plugins/wlo-hello-beta/index.html"
 }
