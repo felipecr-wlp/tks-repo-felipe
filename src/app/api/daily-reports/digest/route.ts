@@ -22,6 +22,7 @@ import { isReportSupervisor } from '@/lib/daily-report-access'
 import { isValidReportDate } from '@/lib/daily-reports'
 import { collectDigestMaterial, buildDigest, type DigestPeriod } from '@/lib/daily-report-digest'
 import { esCuotaDeModeloAgotada, mensajeSinCupo } from '@/lib/ai/client'
+import { seudonimosDelWorkspace } from '@/lib/ai/seudonimos-workspace'
 
 export const maxDuration = 60
 
@@ -196,6 +197,7 @@ export async function POST(request: NextRequest) {
       from: scope.from,
       to: scope.to,
       persona,
+      seudonimos: await seudonimosDelWorkspace(admin, scope.workspaceId),
     })
 
     // Sin material no se guarda nada. Un reporte vacio guardado sale despues por

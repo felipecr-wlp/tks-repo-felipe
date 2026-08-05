@@ -24,6 +24,7 @@
  */
 import { generateText } from 'ai'
 import { modeloTexto } from '@/lib/ai/client'
+import { crearSeudonimos, type Seudonimos } from '@/lib/ai/seudonimos'
 import { CATEGORY_LABEL, formatReportDate } from '@/lib/daily-reports'
 import { revisarDuplicados, type EntradaComparable } from '@/lib/daily-report-dedupe'
 import type { createAdminClient } from '@/lib/supabase/server'
@@ -398,9 +399,23 @@ export interface BuildDigestResult {
  */
 export async function buildDigest(
   material: DigestMaterial,
-  meta: { period: DigestPeriod; from: string; to: string; persona: string | null }
+  meta: {
+    period: DigestPeriod
+    from: string
+    to: string
+    persona: string | null
+    /**
+     * Sustituidor de nombres. Con Gemini llega el inerte y no cambia nada; con
+     * DeepSeek convierte los nombres del padron en "Persona N" antes de salir y
+     * los devuelve al volver. Se pasa desde la ruta porque el padron depende
+     * del espacio y esta funcion no habla con la base.
+     */
+    seudonimos?: Seudonimos
+  }
 ): Promise<BuildDigestResult | null> {
   if (material.totalActividades === 0) return null
+
+  const seudo = meta.seudonimos ?? crearSeudonimos([], false)
 
   const encabezado =
     meta.period === 'dia'
@@ -427,13 +442,20 @@ export async function buildDigest(
   const { text } = await generateText({
     model: modeloTexto,
     system: DIGEST_SYSTEM,
-    prompt,
+    // Aqui es donde los nombres dejan de salir. `ocultar` es identidad cuando
+    // el proveedor si puede verlos, asi que esta linea no cambia nada con
+    // Gemini y no cuesta nada tenerla puesta.
+    prompt: seudo.ocultar(prompt),
     temperature: 0.3,
   })
 
+  // Y aqui vuelven. El modelo redacto sobre "Persona 1"; quien lee el reporte
+  // tiene que ver el nombre de su compañero, no un numero.
+  const conNombres = seudo.revelar(text)
+
   // Cinturon y tirantes contra el guion largo: la regla esta en el prompt, pero
   // un modelo la rompe de vez en cuando y el reporte se manda tal cual.
-  const limpio = text.replace(/\s?[—–]\s?/g, ', ').trim()
+  const limpio = conNombres.replace(/\s?[—–]\s?/g, ', ').trim()
 
   return { content: limpio, totalActividades: material.totalActividades }
 }

@@ -18,6 +18,8 @@ import {
 } from '@/lib/ai/client'
 import { buildKernTools, buildKernContext } from '@/lib/ai/kern-tools'
 import { applyRateLimit } from '@/lib/rate-limit'
+import { seudonimosDelUsuario } from '@/lib/ai/seudonimos-workspace'
+import { envolverHerramientas, revelarEnDataStream } from '@/lib/ai/seudonimos-stream'
 
 // Estructura del payload de chat. El rol se RESTRINGE a 'user'/'assistant': el cliente
 // NO puede mandar un mensaje 'system' (ni 'tool') para inyectar instrucciones y
@@ -109,14 +111,19 @@ export async function POST(request: NextRequest) {
     console.error('[kern] context build error:', ctxErr)
   }
 
-  // ── Stream de Gemini (con tool calling multi-paso) ──────────────────────────
+  // El contexto de KERN trae nombres de compañeros (proyectos, tareas, quien
+  // pidio que). Si el proveedor no puede verlos, salen como "Persona N".
+  const seudonimos = await seudonimosDelUsuario(admin, user.id)
+
+  // ── Stream del modelo (con tool calling multi-paso) ─────────────────────────
   try {
     const result = await streamText({
       model: modeloTexto,
-      system: KERN_SYSTEM_PROMPT + contextBlock,
-      messages,
+      system: seudonimos.ocultar(KERN_SYSTEM_PROMPT + contextBlock),
+      messages: seudonimos.ocultarProfundo(messages),
       temperature: 0.6,
-      tools: buildKernTools(admin, user.id),
+      // Envueltas: lo que KERN escriba en la base lleva nombres reales.
+      tools: envolverHerramientas(buildKernTools(admin, user.id), seudonimos),
       // Permite a KERN encadenar herramientas de forma autonoma (ej. list_projects
       // -> create_task) y luego redactar la respuesta final, en una sola vuelta.
       // 8 y no 6 porque escribir un documento gasta pasos extra antes de crear:
@@ -124,7 +131,7 @@ export async function POST(request: NextRequest) {
       maxSteps: 8,
     })
 
-    return result.toDataStreamResponse()
+    return revelarEnDataStream(result.toDataStreamResponse(), seudonimos)
   } catch (err) {
     if (esCuotaDeModeloAgotada(err)) {
       console.warn('[kern] cuota del modelo agotada:', err)

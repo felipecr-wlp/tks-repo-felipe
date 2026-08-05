@@ -13,7 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { generateText } from 'ai'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import {
   modeloTexto,
   AI_PROMPTS,
@@ -22,6 +22,7 @@ import {
   credencialIAFaltante,
 } from '@/lib/ai/client'
 import { applyRateLimit } from '@/lib/rate-limit'
+import { seudonimosDelUsuario } from '@/lib/ai/seudonimos-workspace'
 
 // Solo las acciones que operan sobre un texto existente. `generateSubtasks` y
 // `generateDescription` viven en el mundo de las tareas, no en el editor.
@@ -68,15 +69,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'JSON inválido' }, { status: 400 })
   }
 
+  // Una nota tambien habla de gente ("Karla cerro el ticket"), asi que el
+  // fragmento pasa por el mismo filtro que los demas caminos hacia el modelo.
+  // Con Gemini esto viene inerte y no cuesta ni una consulta.
+  const seudonimos = await seudonimosDelUsuario(createAdminClient(), user.id)
+
   try {
     const { text } = await generateText({
       model: modeloTexto,
-      prompt: AI_PROMPTS[parsed.action](parsed.text),
+      prompt: seudonimos.ocultar(AI_PROMPTS[parsed.action](parsed.text)),
       // Bajo a proposito: se pide reescribir lo que ya existe, no inventar.
       temperature: 0.4,
     })
 
-    const out = text.trim()
+    const out = seudonimos.revelar(text).trim()
     if (!out) {
       return NextResponse.json({ error: 'La IA no devolvió texto.' }, { status: 502 })
     }

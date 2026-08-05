@@ -36,6 +36,7 @@ import {
   mensajeSinCupo,
   credencialIAFaltante,
 } from '@/lib/ai/client'
+import { seudonimosDelWorkspace } from '@/lib/ai/seudonimos-workspace'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { isUuid } from '@/lib/validation'
 import { loadEntryOwnership } from '@/lib/daily-report-access'
@@ -133,22 +134,30 @@ export async function POST(request: NextRequest, { params }: { params: { entryId
     ? CATEGORY_LABEL[entry.category as ReportCategory]
     : 'nota'
 
+  // Una actividad menciona a compañeros ("revise el sitio con Karla"). Si el
+  // proveedor no puede ver nombres, salen como "Persona N" y vuelven enteros.
+  const seudonimos = await seudonimosDelWorkspace(admin, owner.workspace_id)
+
   try {
     const { text } = await generateText({
       model: modeloTexto,
-      prompt: construirPrompt({
-        content: entry.content,
-        categoria,
-        tarea: entry.task?.title ?? null,
-        // Solo el texto: mandarle el HTML gasta tokens en etiquetas y lo empuja
-        // a devolver HTML en vez de markdown.
-        detalleActual: entry.details ? entry.details.replace(/<[^>]*>/g, ' ').trim().slice(0, 800) : null,
-      }),
+      prompt: seudonimos.ocultar(
+        construirPrompt({
+          content: entry.content,
+          categoria,
+          tarea: entry.task?.title ?? null,
+          // Solo el texto: mandarle el HTML gasta tokens en etiquetas y lo empuja
+          // a devolver HTML en vez de markdown.
+          detalleActual: entry.details
+            ? entry.details.replace(/<[^>]*>/g, ' ').trim().slice(0, 800)
+            : null,
+        })
+      ),
       // Bajo a proposito: se pide estructurar lo que ya existe, no inventar.
       temperature: 0.3,
     })
 
-    const md = text.trim()
+    const md = seudonimos.revelar(text).trim()
     if (!md) {
       return NextResponse.json({ error: 'La IA no devolvió nada.' }, { status: 502 })
     }

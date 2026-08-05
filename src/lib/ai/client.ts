@@ -37,6 +37,21 @@ const PROVEEDOR = (process.env.IA_PROVEEDOR ?? 'gemini').toLowerCase()
 /** DeepSeek no lee imagenes. Quien adjunte una necesita saberlo, no un error raro. */
 export const MODELO_LEE_IMAGENES = PROVEEDOR !== 'deepseek'
 
+/**
+ * ¿Se le pueden mandar NOMBRES DE PERSONAS a este proveedor?
+ *
+ * Con Gemini el reporte diario ya viajaba a Google como cualquier otro dato del
+ * producto. DeepSeek cambia el pais y la empresa que lo recibe, y la regla de
+ * la casa es que ahi solo van datos agregados, sin datos personales. Un reporte
+ * de trabajo (quien hizo que, cada dia, con nombre y apellido) es exactamente
+ * lo contrario de agregado.
+ *
+ * Cuando esto es false, las rutas sustituyen los nombres del padron por
+ * "Persona 1", "Persona 2"... antes de mandar nada, y los devuelven al recibir.
+ * Ver `seudonimos.ts`, que ademas deja escrito lo que esa capa NO protege.
+ */
+export const MODELO_RECIBE_DATOS_PERSONALES = PROVEEDOR !== 'deepseek'
+
 /** Nombre legible del proveedor activo, para los logs del servidor. */
 export const PROVEEDOR_IA = PROVEEDOR
 

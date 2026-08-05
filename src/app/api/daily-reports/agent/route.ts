@@ -44,6 +44,8 @@ import {
   buildOpenBlockersBlock,
   resolveAgentDate,
 } from '@/lib/ai/report-agent'
+import { seudonimosDelWorkspace } from '@/lib/ai/seudonimos-workspace'
+import { envolverHerramientas, revelarEnDataStream } from '@/lib/ai/seudonimos-stream'
 
 export const maxDuration = 30
 
@@ -192,19 +194,31 @@ export async function POST(request: NextRequest) {
     isSupervisor ? ' La persona con la que hablas es responsable de equipo.' : ''
   }`
 
+  // Los nombres del equipo se quedan aqui si el proveedor no puede verlos. Es
+  // el punto mas sensible de todo el producto: este chat es, literalmente,
+  // quien hizo que hoy. Con Gemini `seudonimos` viene inerte y nada cambia.
+  const seudonimos = await seudonimosDelWorkspace(admin, workspace_id)
+
   try {
     const result = await streamText({
       model: modeloTexto,
-      system: REPORT_AGENT_SYSTEM + scopeBlock + previousDay + openBlockers,
-      messages,
+      system: seudonimos.ocultar(
+        REPORT_AGENT_SYSTEM + scopeBlock + previousDay + openBlockers
+      ),
+      messages: seudonimos.ocultarProfundo(messages),
       temperature: 0.4,
-      tools: buildReportAgentTools({
-        admin,
-        userId: user.id,
-        workspaceId: workspace_id,
-        date: day,
-        isSupervisor,
-      }),
+      // Las herramientas se envuelven para que la BASE siga recibiendo nombres
+      // reales aunque el modelo hable de "Persona N". Ver seudonimos-stream.ts.
+      tools: envolverHerramientas(
+        buildReportAgentTools({
+          admin,
+          userId: user.id,
+          workspaceId: workspace_id,
+          date: day,
+          isSupervisor,
+        }),
+        seudonimos
+      ),
       // El cierre de dia es la cadena mas larga que existe: leer_mi_dia,
       // revisar_duplicados, una o dos correcciones de los pares que salgan, y
       // cerrar_dia. Con 8 se quedaba sin pasos a medio camino y el reporte
@@ -213,7 +227,8 @@ export async function POST(request: NextRequest) {
       maxSteps: 14,
     })
 
-    return result.toDataStreamResponse()
+    // Y de vuelta a la pantalla, con los nombres puestos otra vez.
+    return revelarEnDataStream(result.toDataStreamResponse(), seudonimos)
   } catch (err) {
     if (esCuotaDeModeloAgotada(err)) {
       console.warn('[daily-reports agent] cuota del modelo agotada:', err)
