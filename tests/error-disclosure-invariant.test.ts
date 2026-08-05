@@ -16,6 +16,14 @@
  *   A) El UNICO `details:` que una respuesta JSON puede devolver es
  *      `parsed.error.flatten()` (el error de forma de zod). Cualquier otro
  *      `details:` (un error de DB, un mensaje de excepcion) = fuga.
+ *
+ *      Con DOS excepciones declaradas abajo, y la razon de que existan importa:
+ *      el reporte diario tiene una COLUMNA de dominio que se llama `details` (el
+ *      detalle largo de una actividad). Desde que existe, "`details` siempre es
+ *      el error de zod" dejo de ser cierto y el token por si solo ya no prueba
+ *      nada. Se prefiere una excepcion con nombre y motivo antes que aflojar la
+ *      regla para todos: si mañana alguien escribe `details: err.message`, en
+ *      ese archivo o en cualquier otro, sigue cayendo aqui.
  *   B) Ninguna respuesta `NextResponse.json(...)` puede incluir un `.message` (el
  *      mensaje de una excepcion o de un error de Supabase). Los mensajes crudos
  *      pertenecen a console.error, nunca al body.
@@ -42,6 +50,29 @@ function walkRoutes(dir: string, out: string[] = []): string[] {
   return out
 }
 
+/**
+ * Las dos formas en que `details` aparece SIN ser un error, ambas del reporte
+ * diario. Se listan por su expresion exacta y no por archivo: un allowlist por
+ * ruta dejaria pasar cualquier `details:` futuro dentro de ese mismo archivo,
+ * que es justo lo que este tripwire existe para atrapar.
+ *
+ *  1. La declaracion del campo en el esquema (`details: z.string()...`) y la
+ *     anotacion de tipo de la fila que se lee (`details: string | null`). Ambas
+ *     describen la FORMA del dato, no son una respuesta y no pueden filtrar
+ *     nada. `string\b` no cuela un `details: stringify(err)`: ahi no hay limite
+ *     de palabra despues de "string".
+ *  2. La respuesta del PATCH de una actividad, que devuelve el detalle YA
+ *     saneado para que la pantalla pinte exactamente lo que quedo guardado.
+ *     `patch.details` sale del saneador, nunca de un catch.
+ */
+function ES_CAMPO_DE_DOMINIO(line: string): boolean {
+  return (
+    /\bdetails\??:\s*z\./.test(line) ||
+    /\bdetails\??:\s*string\b/.test(line) ||
+    /\bdetails\??:\s*patch\.details\b/.test(line)
+  )
+}
+
 describe('Invariante: ningun handler filtra el mensaje crudo de un error en la respuesta', () => {
   const detailsLeaks: string[] = []
   const messageLeaks: string[] = []
@@ -54,7 +85,7 @@ describe('Invariante: ningun handler filtra el mensaje crudo de un error en la r
       // Arista A: todo `details:` debe ser el flatten de zod.
       if (/\bdetails:/.test(line)) {
         if (/parsed\.error\.flatten\(\)/.test(line)) detailsOk++
-        else detailsLeaks.push(`/src/app/api/${rel}:${i + 1}`)
+        else if (!ES_CAMPO_DE_DOMINIO(line)) detailsLeaks.push(`/src/app/api/${rel}:${i + 1}`)
       }
       // Arista B: ninguna respuesta JSON incluye un `.message`.
       if (/NextResponse\.json\(/.test(line) && /\.message\b/.test(line)) {

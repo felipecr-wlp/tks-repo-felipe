@@ -1049,6 +1049,7 @@ export type Database = {
           category: string
           content: string
           created_at: string
+          details: string | null
           id: string
           minutes: number | null
           report_id: string
@@ -1060,6 +1061,7 @@ export type Database = {
           category?: string
           content: string
           created_at?: string
+          details?: string | null
           id?: string
           minutes?: number | null
           report_id: string
@@ -1071,6 +1073,7 @@ export type Database = {
           category?: string
           content?: string
           created_at?: string
+          details?: string | null
           id?: string
           minutes?: number | null
           report_id?: string
