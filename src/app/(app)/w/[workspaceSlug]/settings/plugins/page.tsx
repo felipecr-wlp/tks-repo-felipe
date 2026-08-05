@@ -29,13 +29,11 @@ export default async function PluginsPage({ params }: Props) {
   const catalog = fsPlugins.map(p => ({ id: p.id, name: p.name, icon: p.icon }))
 
   // Include DB-only installed plugins
-  const { data: installed } = await admin
+  const { data: installed } = await (admin as any)
     .from('connector_installs')
-    .select('id, app_id, plugin_type, enabled')
+    .select('id, app_id, enabled')
     .eq('workspace_id', wsId)
-    .eq('plugin_type', 'widget') as { data: Array<{ id: string; app_id: string; plugin_type: string; enabled: boolean }> | null; error: unknown }
-
-  // Add ALL WLO plugins from global catalog to the marketplace
+    .eq('plugin_type', 'widget') as { data: Array<{ id: string; app_id: string; enabled: boolean }> | null; error: unknown }
   const catalogIds = new Set(catalog.map(c => c.id))
   const { data: allApps } = await admin
     .from('connector_apps')
