@@ -73,18 +73,6 @@ export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, 
     } catch { toast.error('Error') }
     finally { setLoading(null) }
   }
-    setLoading(appId)
-    try {
-      const r = await fetch('/api/plugins', { method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workspace_id: workspaceId, app_id: appId, plugin_type: 'widget', enabled: true }),
-      })
-      if (!r.ok) throw new Error('Error')
-      toast.success('Instalado')
-    router.refresh()
-  } catch { toast.error('Error') }
-    finally { setLoading(null) }
-  }
 
   async function installFromUrl() {
     if (!installUrl.trim() || !isAdmin) return
