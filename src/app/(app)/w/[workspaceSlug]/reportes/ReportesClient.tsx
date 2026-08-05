@@ -761,6 +761,23 @@ export function ReportesClient({
             </div>
           )}
 
+          {/* Pista de que la actividad se abre. SE RETIRA SOLA en cuanto una
+              actividad del dia tiene detalle: quien ya lo uso no necesita que
+              se lo recuerden, y un aviso que no se va nunca deja de leerse y
+              se vuelve mueble.
+              Va una sola vez debajo de la lista y NO repetida en cada linea:
+              treinta y tres "agregar detalle" serian ruido, y aqui el ruido se
+              paga caro porque es la misma pantalla donde un aviso tiene que
+              significar algo.
+              Hace falta porque el unico indicio de que la linea se abre era el
+              `title` del boton, que en tactil no existe: la afordancia estaba,
+              pero invisible para quien no pasa el raton. */}
+          {mio && mio.entries.length > 0 && !mio.entries.some(e => e.details) && (
+            <p className="px-2.5 pt-0.5 text-[11px] text-muted-foreground">
+              Toca una actividad para escribir el detalle, pegar enlaces o subir evidencia.
+            </p>
+          )}
+
           {/* Resumen del dia */}
           {mio && (mio.summary || editandoResumen) && (
             <div className="pt-1">
