@@ -94,6 +94,8 @@ export function construirUrlDeEmbed(
   u.searchParams.set('workspace_id', datos.workspaceId)
   u.searchParams.set('workspace_slug', datos.workspaceSlug)
   u.searchParams.set('path', datos.subPath || '')
+  u.searchParams.set('supabase_url', process.env.NEXT_PUBLIC_SUPABASE_URL || '')
+  u.searchParams.set('supabase_anon_key', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '')
 
   return { ok: true, url: u.toString() }
 }

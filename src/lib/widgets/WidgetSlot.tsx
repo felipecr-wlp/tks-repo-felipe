@@ -55,7 +55,7 @@ function WidgetIframe({ widget, workspaceSlug }: { widget: WidgetData; workspace
   return (
     <iframe
       ref={ref}
-      src={`${widget.base_url}?workspace_slug=${workspaceSlug}&app_id=${widget.app_id}`}
+      src={`${widget.base_url}?workspace_slug=${workspaceSlug}&app_id=${widget.app_id}&supabase_url=${encodeURIComponent(process.env.NEXT_PUBLIC_SUPABASE_URL||'')}&supabase_anon_key=${encodeURIComponent(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY||'')}`}
       className="w-full border-0 rounded-xl bg-card"
       style={{ height: `${height}px`, minHeight: '160px' }}
       title={widget.widget?.name || widget.app_id}
