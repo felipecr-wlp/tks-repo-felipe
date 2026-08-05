@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Hash, Clock, Workflow, Power, ChevronRight, Upload, Store, Package, Eye, EyeOff, Link as LinkIcon, Copy, Check, ShieldCheck, Clock3 } from 'lucide-react'
+import { Hash, Clock, Workflow, Power, ChevronRight, Upload, Store, Package, Eye, EyeOff, Link as LinkIcon, Copy, Check } from 'lucide-react'
 
 const PLUGIN_ICONS: Record<string, React.ReactNode> = {
   hash: <Hash className="w-5 h-5" />, clock: <Clock className="w-5 h-5" />, workflow: <Workflow className="w-5 h-5" />,
@@ -44,20 +44,6 @@ export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, 
   }
 
   const installMap = new Map(installed.map(i => [i.app_id, i]))
-
-  async function approvePlugin(installId: string) {
-    setLoading(installId)
-    try {
-      await fetch(`/api/plugins/${installId}/config`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: true }),
-      })
-      toast.success('Plugin aprobado')
-      router.refresh()
-  } catch { toast.error('Error') }
-    finally { setLoading(null) }
-  }
 
   async function doInstall(appId: string) {
     if (!isAdmin) return
