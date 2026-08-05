@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       app_id: manifest.id,
       plugin_type: manifest.type === 'widget' ? 'widget' : 'widget',
       manifest,
-      enabled: true,
+      enabled: false, // pendiente de aprobacion admin
       installed_by: user.id,
     })
     .select('id')
