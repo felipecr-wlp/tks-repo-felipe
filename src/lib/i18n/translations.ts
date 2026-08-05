@@ -826,6 +826,9 @@ export const translations: Record<Lang, Dict> = {
     'wb.viewingNow': 'Viendo ahora:',
     'wb.saving': 'Guardando…',
     'wb.savedPrefix': 'Guardado',
+    'wb.area': 'Área',
+    'wb.areaTitle': 'Dibujar un área cerrada (un estacionamiento, una zona, un lote)',
+    'wb.areaHint': 'Marca cada esquina con un clic y cierra sobre el primer punto para rellenar el área.',
     // Auth (login / no autorizado)
     'auth.loginError': 'Error al iniciar sesión. Intenta de nuevo.',
     'auth.connecting': 'Conectando...',
@@ -2390,6 +2393,9 @@ export const translations: Record<Lang, Dict> = {
     'wb.viewingNow': 'Viewing now:',
     'wb.saving': 'Saving…',
     'wb.savedPrefix': 'Saved',
+    'wb.area': 'Area',
+    'wb.areaTitle': 'Draw a closed area (a parking lot, a zone, a plot)',
+    'wb.areaHint': 'Click each corner, then close on the first point to fill the area.',
     // Auth (login / unauthorized)
     'auth.loginError': 'Error signing in. Please try again.',
     'auth.connecting': 'Connecting...',

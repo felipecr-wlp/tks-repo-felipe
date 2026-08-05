@@ -16,7 +16,7 @@ import '@excalidraw/excalidraw/index.css'
 import { createClient } from '@/lib/supabase/client'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 import { useT } from '@/lib/i18n/LanguageProvider'
-import { ChevronDown, Folder, Globe, Lock, Users } from 'lucide-react'
+import { ChevronDown, Folder, Globe, Hexagon, Lock, Users } from 'lucide-react'
 
 // Excalidraw es muy pesado (~1MB), siempre lazy + ssr off
 function WhiteboardLoading() {
@@ -46,6 +46,82 @@ const UI_OPTIONS = {
     export: { saveFileToDisk: true },
   },
 } as const
+
+/**
+ * Preferencias de dibujo (grosor del lapiz, color, relleno, opacidad...).
+ *
+ * Viven en el NAVEGADOR de cada quien, no en la pizarra, y la diferencia no es
+ * un detalle: el grosor del trazo es de la PERSONA que dibuja, no del documento.
+ * Si se guardaran con la pizarra, cambiar el lapiz se lo cambiaria en vivo a
+ * todos los que la tienen abierta.
+ *
+ * Antes no se guardaban en ningun lado. La escena solo persistia fondo, rejilla
+ * y tema, asi que el grosor que elegias se perdia al recargar y el lapiz volvia
+ * al fino de siempre. Se elegia otra vez, y otra. Eso es lo que se estaba
+ * pidiendo cuando se pedia "poner stroke width al lapicito": ya existe en el
+ * panel de Excalidraw, lo que faltaba era que se quedara puesto.
+ */
+const CLAVE_ESTILO = 'wlo.pizarra.estilo'
+
+const PROPS_ESTILO = [
+  'currentItemStrokeColor',
+  'currentItemBackgroundColor',
+  'currentItemFillStyle',
+  'currentItemStrokeWidth',
+  'currentItemStrokeStyle',
+  'currentItemRoughness',
+  'currentItemOpacity',
+  'currentItemFontFamily',
+  'currentItemFontSize',
+  'currentItemTextAlign',
+  'currentItemEdges',
+] as const
+
+/** Se copia solo lo que exista, para no guardar undefined de props que cambien de nombre. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extraerEstilo(appState: any): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const k of PROPS_ESTILO) {
+    if (appState?.[k] !== undefined) out[k] = appState[k]
+  }
+  return out
+}
+
+/**
+ * Guarda el estilo actual, y solo si de verdad cambio.
+ *
+ * Se compara contra la ultima cadena escrita porque `onChange` se dispara
+ * muchisimo (cada movimiento del puntero mientras se dibuja) y localStorage es
+ * sincrono: escribir en cada evento seria pagar un bloqueo por nada.
+ */
+let ultimoEstiloEscrito: string | null = null
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function guardarEstilo(appState: any): void {
+  if (typeof window === 'undefined') return
+  const serializado = JSON.stringify(extraerEstilo(appState))
+  if (serializado === ultimoEstiloEscrito) return
+  try {
+    window.localStorage.setItem(CLAVE_ESTILO, serializado)
+    ultimoEstiloEscrito = serializado
+  } catch {
+    // Modo privado o cuota llena: es una preferencia, no vale romper el dibujo.
+  }
+}
+
+function leerEstiloGuardado(): Record<string, unknown> | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const crudo = window.localStorage.getItem(CLAVE_ESTILO)
+    if (!crudo) return null
+    const parsed = JSON.parse(crudo)
+    // Si alguien dejo basura en la clave, se ignora: una preferencia rota no
+    // puede impedir abrir la pizarra.
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null
+  } catch {
+    return null
+  }
+}
 
 interface BoardData {
   id: string
@@ -118,11 +194,22 @@ export function WhiteboardEditor({
   // se resetea/re-mide con ancho equivocado (canvas encogido).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const initialData = useMemo<any>(() => {
-    if (!initial.content) return undefined
-    try {
-      return JSON.parse(initial.content)
-    } catch {
-      return undefined
+    const escena = (() => {
+      if (!initial.content) return undefined
+      try {
+        return JSON.parse(initial.content)
+      } catch {
+        return undefined
+      }
+    })()
+    // Encima de la escena se re-aplican las preferencias de dibujo de ESTE
+    // navegador. Van despues a proposito: el grosor del lapiz es de quien
+    // dibuja, no de la pizarra, asi que gana sobre lo que traiga el documento.
+    const estilo = leerEstiloGuardado()
+    if (!estilo) return escena
+    return {
+      ...(escena ?? {}),
+      appState: { ...(escena?.appState ?? {}), ...estilo },
     }
     // Solo depende del contenido inicial del server; no debe recomputarse por
     // cambios de estado locales (saving/updatedAt).
@@ -168,6 +255,11 @@ export function WhiteboardEditor({
     localDirtyRef.current = true
     if (contentSaveTimer.current) clearTimeout(contentSaveTimer.current)
     contentSaveTimer.current = setTimeout(() => {
+      // El estilo se guarda aparte y SIEMPRE, aunque el dibujo no haya cambiado:
+      // elegir un grosor de trazo no altera la escena, y es justo lo que se
+      // quiere recordar.
+      guardarEstilo(appState)
+
       const serialized = JSON.stringify({
         elements,
         appState: {
@@ -177,9 +269,21 @@ export function WhiteboardEditor({
           theme: appState.theme,
         },
       })
+
+      // Soltar el candado ANTES de cualquier salida: si se regresara con el
+      // flag puesto, esta pizarra dejaria de aceptar cambios de los demas para
+      // siempre (quedaria "sucia" sin tener nada pendiente).
+      localDirtyRef.current = false
+
+      // Excalidraw dispara onChange tambien al mover el lienzo, hacer zoom o
+      // seleccionar algo, cosas que no cambian ni un pixel del dibujo. Antes
+      // cada una de esas escribia en la base y despertaba por realtime a todos
+      // los que tuvieran la pizarra abierta. Si lo serializado es identico a lo
+      // ultimo conocido, no hay nada que guardar.
+      if (serialized === lastContentRef.current) return
+
       // Registrar lo que enviamos para reconocer nuestro propio eco por realtime.
       lastContentRef.current = serialized
-      localDirtyRef.current = false
       patch({ content: serialized })
     }, 1500)
   }, [patch])
@@ -201,6 +305,38 @@ export function WhiteboardEditor({
     setTimeout(refresh, 100)
     setTimeout(refresh, 400)
   }, [])
+
+  /**
+   * "Área": el poligono cerrado que Excalidraw YA sabe dibujar, pero con nombre.
+   *
+   * No existe una herramienta de poligono en la libreria (las formas son
+   * rectangulo, rombo y elipse). La de LINEA hace exactamente lo que se pide:
+   * un clic por esquina, se cierra sobre el primer punto y a partir de ahi
+   * acepta relleno como cualquier figura. El problema nunca fue que faltara,
+   * sino que se llama "linea" y en ningun lado dice que se pueda cerrar. Quien
+   * queria marcar el area de un estacionamiento probaba con el rectangulo y se
+   * rendia.
+   *
+   * Por eso el boton hace tres cosas y no una: activa la herramienta, le pone
+   * un relleno visible (si la persona no eligio uno propio) y dice en una linea
+   * como se usa. Sin el relleno el poligono sale hueco y no se lee como area.
+   */
+  const activarArea = useCallback(() => {
+    const api = apiRef.current
+    if (!api) return
+    const estado = api.getAppState?.() ?? {}
+    // Solo se impone relleno si no hay uno elegido: si alguien ya venia
+    // pintando de rojo, se le respeta su color.
+    const sinRelleno =
+      !estado.currentItemBackgroundColor || estado.currentItemBackgroundColor === 'transparent'
+    if (sinRelleno) {
+      api.updateScene({
+        appState: { currentItemBackgroundColor: '#a5d8ff', currentItemFillStyle: 'solid' },
+      })
+    }
+    api.setActiveTool({ type: 'line' })
+    toast.info(t('wb.areaHint'))
+  }, [t])
 
   // ResizeObserver sobre el contenedor del canvas: cada vez que su caja cambia
   // (layout asentándose, colapsar/expandir sidebar, resize de ventana),
@@ -330,6 +466,18 @@ export function WhiteboardEditor({
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Área: atajo a la herramienta de línea, que es la que cierra polígonos.
+              Vive aquí arriba y no en la barra de Excalidraw porque esa la
+              dibuja la librería y no admite botones propios. */}
+          <button
+            onClick={activarArea}
+            title={t('wb.areaTitle')}
+            className="flex items-center gap-1.5 text-xs px-2 py-1 bg-muted/50 hover:bg-muted text-foreground rounded-md transition-colors"
+          >
+            <Hexagon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{t('wb.area')}</span>
+          </button>
+
           {/* Presencia: quién más está viendo la pizarra en vivo */}
           {viewers.length > 0 && (
             <div className="flex items-center -space-x-1.5 mr-1" title={`${t('wb.viewingNow')} ${viewers.map(v => v.name).join(', ')}`}>
