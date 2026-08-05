@@ -357,8 +357,17 @@ export function EntradaDetalle({ entrada, puedeEditar, onCerrar, onCambio, onAbr
                   placeholder="Qué se hizo exactamente, el enlace de lo entregado y qué queda pendiente."
                   className="rounded-lg border border-input bg-background"
                 />
+                {/* Mientras la IA escribe, esta linea dice cuanto tarda. El
+                    modelo se toma cerca de medio minuto y el boton solo cambia
+                    a "Desglosando...", que a los quince segundos se lee como
+                    una pantalla colgada: al probarlo se dio por roto algo que
+                    estaba funcionando. Una espera anunciada se espera; una
+                    espera muda se abandona. Se reusa el hueco del consejo de
+                    enlaces para no mover el editor de sitio al aparecer. */}
                 <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  Para pegar un enlace, selecciona el texto y usa el botón de enlace de la barra.
+                  {desglosando
+                    ? 'La IA está redactando el borrador. Suele tardar hasta medio minuto.'
+                    : 'Para pegar un enlace, selecciona el texto y usa el botón de enlace de la barra.'}
                 </p>
               </>
             ) : detalle ? (
