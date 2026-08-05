@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Hash, Clock, Workflow, Power, ChevronRight, Upload, Store, Package, Eye, EyeOff, Link as LinkIcon } from 'lucide-react'
+import { Hash, Clock, Workflow, Power, ChevronRight, Upload, Store, Package, Eye, EyeOff, Link as LinkIcon, Copy, Check } from 'lucide-react'
 
 const PLUGIN_ICONS: Record<string, React.ReactNode> = {
   hash: <Hash className="w-5 h-5" />, clock: <Clock className="w-5 h-5" />, workflow: <Workflow className="w-5 h-5" />,
@@ -31,6 +31,17 @@ export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, 
   const [tab, setTab] = useState<'installed' | 'marketplace'>('installed')
   const [localEnabled, setLocalEnabled] = useState<Record<string, boolean>>(userEnabled)
   const [installUrl, setInstallUrl] = useState('')
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  async function copyManifestUrl(appId: string) {
+    const url = `${window.location.origin}/api/plugins/${appId}/manifest`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedId(appId)
+      toast.success('URL copiada')
+      setTimeout(() => setCopiedId(null), 2000)
+    } catch { toast.error('Error al copiar') }
+  }
 
   const installMap = new Map(installed.map(i => [i.app_id, i]))
 
@@ -161,6 +172,17 @@ export function PluginManager({ workspaceId, workspaceSlug, catalog, installed, 
                     <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full text-muted-foreground">{app.id}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{PLUGIN_DESCRIPTIONS[app.id] || 'Plugin para WLO.'}</p>
+                  {isAdmin && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground truncate max-w-[200px]">
+                        /api/plugins/{app.id}/manifest
+                      </code>
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); copyManifestUrl(app.id) }}
+                        className="p-0.5 hover:bg-accent rounded flex-shrink-0" title="Copiar URL">
+                        {copiedId === app.id ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3 text-muted-foreground" />}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )
