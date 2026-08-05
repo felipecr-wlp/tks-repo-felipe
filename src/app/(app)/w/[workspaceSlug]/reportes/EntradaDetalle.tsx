@@ -119,6 +119,11 @@ export function EntradaDetalle({ entrada, puedeEditar, onCerrar, onCambio, onAbr
   const Icono = ICONO[categoria]
 
   const [detalle, setDetalle] = useState(entrada.details ?? '')
+  // Numero de veces que un texto ENTRO al editor desde fuera (hoy, el borrador
+  // de la IA). Va como `key` del editor para forzar un montaje nuevo, y sube
+  // SOLO ahi: si subiera al teclear, el editor se remontaria en cada pulsacion
+  // y se perderia el cursor. Ver el comentario largo junto al editor.
+  const [revision, setRevision] = useState(0)
   const [guardando, setGuardando] = useState(false)
   const [desglosando, setDesglosando] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
@@ -182,6 +187,13 @@ export function EntradaDetalle({ entrada, puedeEditar, onCerrar, onCambio, onAbr
       // Se AGREGA debajo de lo que ya escribio. Reemplazar seria borrarle texto
       // propio con texto de un modelo, que es exactamente lo que no debe pasar.
       setDetalle(prev => (conTexto(prev) ? `${prev}${data.html}` : data.html!))
+      // Sin esto el borrador entra al estado y NO se ve. El editor solo acepta
+      // texto de fuera cuando esta vacio, asi que el segundo desglose (y
+      // cualquiera sobre un detalle ya escrito) se quedaba invisible: la
+      // pantalla mostraba una cosa y se guardaba otra, que es justo el fallo
+      // silencioso que este panel existe para evitar. Medido en produccion:
+      // cinco puntos en pantalla, nueve en la base.
+      setRevision(r => r + 1)
       toast.success('Borrador listo. Revísalo y complétalo antes de guardar.')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error desconocido')
@@ -324,7 +336,19 @@ export function EntradaDetalle({ entrada, puedeEditar, onCerrar, onCambio, onAbr
                     un enlace se llevaria el texto SIN preguntar, porque
                     `hayCambios` seguiria en falso. Perder ahi lo escrito es
                     justo el fallo silencioso que el panel existe para evitar. */}
+                {/* `key` remonta el editor cuando llega un borrador de la IA.
+                    RichTextEditor solo copia `value` de fuera si esta VACIO, y
+                    esa guarda es correcta: protege lo que se esta tecleando de
+                    ser pisado. Pero convierte el desglose sobre un detalle ya
+                    escrito en un no-op mudo. Se remonta aqui, y no se afloja la
+                    guarda del editor, porque ese editor lo comparten notas,
+                    tareas y documentos: cambiarle las reglas arreglaria esta
+                    pantalla y arriesgaria las otras tres.
+                    Remontar no pierde nada: al hacer clic en el boton el editor
+                    pierde el foco, y en el blur vuelca su HTML al estado, asi
+                    que lo tecleado ya viaja dentro de `detalle`. */}
                 <RichTextEditor
+                  key={revision}
                   value={detalle}
                   onSave={html => setDetalle(html)}
                   autosaveMs={400}
