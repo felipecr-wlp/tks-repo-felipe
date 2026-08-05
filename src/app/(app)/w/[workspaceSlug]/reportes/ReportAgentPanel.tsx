@@ -27,6 +27,7 @@ import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Markdown } from '@/components/kern/Markdown'
 import { prepareReportImage, type PreparedImage } from '@/lib/daily-report-images'
+import { mensajeDeErrorIA } from '@/lib/ai/mensaje-de-error'
 
 const SUGERENCIAS = [
   'Terminé la revisión de campañas de julio',
@@ -375,7 +376,7 @@ export function ReportAgentPanel({ workspaceId, date, onChanged }: Props) {
 
         {error && (
           <div className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            No se pudo responder. Revisa que el asistente esté configurado en el servidor.
+            {mensajeDeErrorIA(error)}
           </div>
         )}
         {avisoImagen && (

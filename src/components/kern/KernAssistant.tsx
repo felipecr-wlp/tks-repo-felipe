@@ -11,6 +11,7 @@ import { useChat } from 'ai/react'
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Markdown } from './Markdown'
+import { mensajeDeErrorIA } from '@/lib/ai/mensaje-de-error'
 
 const SUGGESTIONS = [
   '¿Qué tengo pendiente hoy?',
@@ -214,7 +215,10 @@ export function KernAssistant() {
 
           {error && (
             <div className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-              KERN no pudo responder. Verifica que la API key de Gemini esté configurada.
+              {/* El motivo lo redacta el servidor. Antes decia siempre que la
+                  API key estaba mal configurada, y con la cuota agotada eso
+                  mandaba a rotar una credencial sana. */}
+              {mensajeDeErrorIA(error)}
             </div>
           )}
         </div>
