@@ -64,7 +64,30 @@ describe('Invariante: el candado anti-clobber de la pizarra siempre se suelta', 
   it('el handler de realtime sigue dependiendo del candado', () => {
     // Si esto desaparece, el tripwire de abajo ya no protege nada y hay que
     // borrarlo en vez de dejarlo dando una seguridad que no existe.
-    expect(src).toMatch(/if\s*\(localDirtyRef\.current\)\s*return/)
+    // Se aceptan las dos formas, con llaves y sin ellas: lo que se vigila es que
+    // el handler siga cortando por el candado, no como esta escrito el corte.
+    expect(src).toMatch(/if\s*\(localDirtyRef\.current\)\s*(\{|return)/)
+  })
+
+  it('el cambio remoto que se aparta se GUARDA, no se tira', () => {
+    // Este es el fallo que costo trabajo real: el handler se abstenia y ademas
+    // olvidaba lo que habia llegado, asi que el guardado local reescribia el
+    // documento entero con solo lo suyo y borraba lo del otro.
+    //
+    // Volver a la forma corta (`if (localDirtyRef.current) return`) compila,
+    // pasa todo lo demas y reintroduce la perdida de datos en silencio. Por eso
+    // se exige explicitamente que dentro de ese `if` se guarde el contenido.
+    const enElIf = src.match(/if\s*\(localDirtyRef\.current\)\s*\{([\s\S]*?)\}/)
+    expect(`el handler aparta el remoto: ${Boolean(enElIf)}`).toBe(
+      'el handler aparta el remoto: true'
+    )
+    expect(enElIf?.[1] ?? '').toContain('remotoPendienteRef.current = content')
+  })
+
+  it('lo apartado se reconcilia en el guardado, no se queda ahi', () => {
+    // Guardarlo y nunca leerlo seria el mismo fallo con un paso extra.
+    expect(cuerpo).toContain('remotoPendienteRef.current')
+    expect(cuerpo).toContain('fusionarElementos')
   })
 
   it('el candado se suelta ANTES de cualquier salida temprana del guardado', () => {

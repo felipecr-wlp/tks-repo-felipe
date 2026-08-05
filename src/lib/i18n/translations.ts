@@ -829,6 +829,7 @@ export const translations: Record<Lang, Dict> = {
     'wb.area': 'Área',
     'wb.areaTitle': 'Dibujar un área cerrada (un estacionamiento, una zona, un lote)',
     'wb.areaHint': 'Marca cada esquina con un clic y cierra sobre el primer punto para rellenar el área.',
+    'wb.merged': 'Se combinaron los cambios de otra persona.',
     // Auth (login / no autorizado)
     'auth.loginError': 'Error al iniciar sesión. Intenta de nuevo.',
     'auth.connecting': 'Conectando...',
@@ -2396,6 +2397,7 @@ export const translations: Record<Lang, Dict> = {
     'wb.area': 'Area',
     'wb.areaTitle': 'Draw a closed area (a parking lot, a zone, a plot)',
     'wb.areaHint': 'Click each corner, then close on the first point to fill the area.',
+    'wb.merged': 'Someone else’s changes were merged in.',
     // Auth (login / unauthorized)
     'auth.loginError': 'Error signing in. Please try again.',
     'auth.connecting': 'Connecting...',

@@ -14,6 +14,7 @@ import { confirmDialog } from '@/components/ConfirmDialog'
 // (los shapes salen como radios enormes apilados). Debe importarse una vez.
 import '@excalidraw/excalidraw/index.css'
 import { createClient } from '@/lib/supabase/client'
+import { elementosDeContenido, fusionarElementos } from '@/lib/whiteboard-merge'
 import { cn, getInitials, timeAgo } from '@/lib/utils'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { ChevronDown, Folder, Globe, Hexagon, Lock, Users } from 'lucide-react'
@@ -188,6 +189,13 @@ export function WhiteboardEditor({
   const lastContentRef = useRef<string | null>(initial.content)
   // Hay una edición local en vuelo (debounce pendiente): no aplicar remoto encima.
   const localDirtyRef = useRef(false)
+  // Cambio remoto que llegó mientras había edición local en vuelo. NO se puede
+  // descartar: si se descarta, el guardado local escribe el documento entero
+  // con solo lo nuestro y borra el trabajo del otro. Se guarda aquí y se
+  // reconcilia por versión justo antes de guardar. Solo hace falta el último:
+  // cada contenido que llega es la escena COMPLETA del otro, no un delta, así
+  // que el más reciente ya contiene todo lo anterior.
+  const remotoPendienteRef = useRef<string | null>(null)
 
   // Parsear contenido inicial UNA sola vez (memoizado). Si se recalcula en cada
   // render, <Excalidraw> recibe un initialData nuevo al togglear "Guardando…" y
@@ -260,8 +268,29 @@ export function WhiteboardEditor({
       // quiere recordar.
       guardarEstilo(appState)
 
+      // Reconciliar lo que llegó de otra persona mientras se dibujaba. Se toma
+      // y se limpia el ref en la misma línea: si llegara otro remoto durante el
+      // resto de este bloque, tiene que quedar pendiente para la próxima vuelta,
+      // no perderse por haberlo limpiado al final.
+      const pendiente = remotoPendienteRef.current
+      remotoPendienteRef.current = null
+      const fusion = pendiente
+        ? fusionarElementos(elements, elementosDeContenido(pendiente))
+        : { elementos: elements as readonly unknown[], cambio: false }
+
+      if (fusion.cambio) {
+        // Repintar el lienzo, o quien dibuja no vería el trabajo del otro y el
+        // siguiente onChange volvería a serializar solo lo suyo.
+        //
+        // Esto dispara otro onChange y por tanto otro ciclo de guardado. No es
+        // un bucle: en esa segunda vuelta lo serializado ya coincide con
+        // lastContentRef y se sale por la salida temprana de abajo.
+        apiRef.current?.updateScene({ elements: fusion.elementos })
+        toast.info(t('wb.merged'))
+      }
+
       const serialized = JSON.stringify({
-        elements,
+        elements: fusion.elementos,
         appState: {
           // Solo persistir cosas relevantes; algunas appState props son volátiles
           viewBackgroundColor: appState.viewBackgroundColor,
@@ -286,7 +315,7 @@ export function WhiteboardEditor({
       lastContentRef.current = serialized
       patch({ content: serialized })
     }, 1500)
-  }, [patch])
+  }, [patch, t])
 
   useEffect(() => {
     return () => { if (contentSaveTimer.current) clearTimeout(contentSaveTimer.current) }
@@ -375,8 +404,15 @@ export function WhiteboardEditor({
           if (!content) return
           // Anti-eco: si es idéntico a lo último que enviamos/aplicamos, ignorar.
           if (content === lastContentRef.current) return
-          // Anti-clobber: si el usuario tiene una edición local en vuelo, no pisar.
-          if (localDirtyRef.current) return
+          // Anti-clobber: si el usuario tiene una edición local en vuelo, no se
+          // pisa su dibujo. Pero tampoco se tira: se aparta para reconciliarlo
+          // en el guardado. Descartarlo era pérdida de trabajo garantizada, no
+          // improbable, porque el candado sigue puesto todo el rato que alguien
+          // dibuja y hasta 1.5s después.
+          if (localDirtyRef.current) {
+            remotoPendienteRef.current = content
+            return
+          }
           const api = apiRef.current
           if (!api) return
           try {
