@@ -33,6 +33,7 @@ import {
   esCuotaDeModeloAgotada,
   mensajeSinCupo,
   MODELO_LEE_IMAGENES,
+  credencialIAFaltante,
 } from '@/lib/ai/client'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { isReportSupervisor } from '@/lib/daily-report-access'
@@ -98,10 +99,10 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-  const key = process.env.GEMINI_API_KEY
-  if (!key || key.startsWith('AIza...') || key.length < 20) {
+  const falta = credencialIAFaltante()
+  if (falta) {
     return NextResponse.json(
-      { error: 'El asistente de reportes no está configurado: falta GEMINI_API_KEY en el servidor.' },
+      { error: `El asistente de reportes no está configurado: falta ${falta} en el servidor.` },
       { status: 503 }
     )
   }

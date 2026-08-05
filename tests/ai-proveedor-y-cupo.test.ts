@@ -105,6 +105,46 @@ describe('Las rutas eligen el mensaje segun el error, no uno fijo', () => {
 })
 
 /**
+ * Ninguna ruta comprueba a mano la key de Gemini.
+ *
+ * Antes de la palanca, cada ruta de IA validaba `GEMINI_API_KEY` por su cuenta.
+ * Con dos proveedores posibles eso falla en las dos direcciones: si se activa
+ * DeepSeek y se quita la key de Gemini, las cuatro rutas responden "falta
+ * GEMINI_API_KEY" con DeepSeek perfectamente configurado; y si la key de Gemini
+ * sigue puesta, la guarda pasa sin haber mirado la credencial que de verdad se
+ * usa. Es el mismo pecado que el mensaje de cuota puesto a pelo: un aviso que
+ * nombra el sitio equivocado.
+ *
+ * La comprobacion vive en `credencialIAFaltante()`, que mira el proveedor
+ * activo. `client.ts` es el unico que puede leer la variable.
+ */
+describe('La credencial se comprueba por proveedor, no siempre Gemini', () => {
+  const API = join(process.cwd(), 'src', 'app', 'api')
+
+  function rutas(dir: string, out: string[] = []): string[] {
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry)
+      if (statSync(full).isDirectory()) rutas(full, out)
+      else if (entry === 'route.ts') out.push(full)
+    }
+    return out
+  }
+
+  it('ninguna ruta lee GEMINI_API_KEY directamente', () => {
+    const culpables = rutas(API).filter(f =>
+      /process\.env\.GEMINI_API_KEY/.test(readFileSync(f, 'utf8'))
+    )
+    expect(culpables.map(f => f.replace(API, ''))).toEqual([])
+  })
+
+  it('las rutas que sirven IA preguntan por la credencial del proveedor activo', () => {
+    const conIA = rutas(API).filter(f => /credencialIAFaltante/.test(readFileSync(f, 'utf8')))
+    // Si esto baja de cuatro, alguna ruta se quedo sin guarda.
+    expect(conIA.length).toBeGreaterThanOrEqual(4)
+  })
+})
+
+/**
  * Tripwire del adjunto: BITACORA acepta capturas y no todos los modelos las
  * leen. Si se quita esta guarda, con DeepSeek activo la persona veria un error
  * del proveedor y creeria que su captura estaba mal. Estaba bien; el modelo no

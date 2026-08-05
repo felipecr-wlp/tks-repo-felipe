@@ -9,7 +9,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { streamText, type CoreMessage } from 'ai'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { modeloTexto, KERN_SYSTEM_PROMPT, esCuotaDeModeloAgotada, mensajeSinCupo } from '@/lib/ai/client'
+import {
+  modeloTexto,
+  KERN_SYSTEM_PROMPT,
+  esCuotaDeModeloAgotada,
+  mensajeSinCupo,
+  credencialIAFaltante,
+} from '@/lib/ai/client'
 import { buildKernTools, buildKernContext } from '@/lib/ai/kern-tools'
 import { applyRateLimit } from '@/lib/rate-limit'
 
@@ -50,10 +56,11 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Validación de API key ────────────────────────────────────────────────────
-  const key = process.env.GEMINI_API_KEY
-  if (!key || key.startsWith('AIza...') || key.length < 20) {
+  // Del proveedor ACTIVO, no siempre de Gemini: ver credencialIAFaltante().
+  const falta = credencialIAFaltante()
+  if (falta) {
     return NextResponse.json(
-      { error: 'KERN no está configurado: falta una GEMINI_API_KEY válida en el servidor.' },
+      { error: `KERN no está configurado: falta una ${falta} válida en el servidor.` },
       { status: 503 }
     )
   }

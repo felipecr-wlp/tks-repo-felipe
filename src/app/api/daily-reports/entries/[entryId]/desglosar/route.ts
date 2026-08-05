@@ -30,7 +30,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateText } from 'ai'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { modeloTexto, esCuotaDeModeloAgotada, mensajeSinCupo } from '@/lib/ai/client'
+import {
+  modeloTexto,
+  esCuotaDeModeloAgotada,
+  mensajeSinCupo,
+  credencialIAFaltante,
+} from '@/lib/ai/client'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { isUuid } from '@/lib/validation'
 import { loadEntryOwnership } from '@/lib/daily-report-access'
@@ -91,10 +96,10 @@ export async function POST(request: NextRequest, { params }: { params: { entryId
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-  const key = process.env.GEMINI_API_KEY
-  if (!key || key.startsWith('AIza...') || key.length < 20) {
+  const falta = credencialIAFaltante()
+  if (falta) {
     return NextResponse.json(
-      { error: 'La IA no está configurada: falta una GEMINI_API_KEY válida en el servidor.' },
+      { error: `La IA no está configurada: falta una ${falta} válida en el servidor.` },
       { status: 503 }
     )
   }

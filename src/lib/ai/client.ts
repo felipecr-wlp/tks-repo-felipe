@@ -69,6 +69,28 @@ function construirModelo(): LanguageModelV1 {
 export const modeloTexto = construirModelo()
 
 /**
+ * ¿Falta la credencial del proveedor ACTIVO? Devuelve el nombre de la variable
+ * que falta, o null si esta bien.
+ *
+ * Cada ruta de IA comprobaba `GEMINI_API_KEY` a mano. Con la palanca puesta eso
+ * se vuelve una trampa en las dos direcciones: si alguien pone DeepSeek y quita
+ * la key de Gemini, las cuatro rutas responden "falta GEMINI_API_KEY" aunque
+ * DeepSeek este perfectamente configurado; y si la deja puesta, la guarda pasa
+ * sin haber comprobado la credencial que de verdad se va a usar. Un aviso que
+ * nombra la variable equivocada manda a arreglar lo que no esta roto, que es
+ * justo lo que se estaba quitando del producto.
+ */
+export function credencialIAFaltante(): string | null {
+  if (PROVEEDOR === 'deepseek') {
+    const key = process.env.DEEPSEEK_API_KEY
+    return !key || key.length < 20 ? 'DEEPSEEK_API_KEY' : null
+  }
+  const key = process.env.GEMINI_API_KEY
+  // 'AIza...' es el placeholder del .env.example, no una key.
+  return !key || key.startsWith('AIza...') || key.length < 20 ? 'GEMINI_API_KEY' : null
+}
+
+/**
  * ¿El fallo es "se acabó la cuota del modelo" y no "el modelo se cayó"?
  *
  * El free tier de Gemini tiene tope DIARIO (hoy 20 requests/día en
