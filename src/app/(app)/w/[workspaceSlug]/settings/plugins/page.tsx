@@ -46,7 +46,7 @@ export default async function PluginsPage({ params }: Props) {
   }
 
   // User plugin preferences
-  const { data: userPrefs } = await admin
+  const { data: userPrefs } = await (admin as any)
     .from('user_plugin_settings')
     .select('install_id, enabled')
     .eq('user_id', user.id) as { data: Array<{ install_id: string; enabled: boolean }> | null; error: unknown }
