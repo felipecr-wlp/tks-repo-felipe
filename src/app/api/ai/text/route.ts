@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { generateText } from 'ai'
 import { createClient } from '@/lib/supabase/server'
-import { geminiFlash, AI_PROMPTS, esCuotaDeModeloAgotada, MENSAJE_CUOTA_AGOTADA } from '@/lib/ai/client'
+import { modeloTexto, AI_PROMPTS, esCuotaDeModeloAgotada, mensajeSinCupo } from '@/lib/ai/client'
 import { applyRateLimit } from '@/lib/rate-limit'
 
 // Solo las acciones que operan sobre un texto existente. `generateSubtasks` y
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const { text } = await generateText({
-      model: geminiFlash,
+      model: modeloTexto,
       prompt: AI_PROMPTS[parsed.action](parsed.text),
       // Bajo a proposito: se pide reescribir lo que ya existe, no inventar.
       temperature: 0.4,
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     // Sin cupo del dia no hay bug que buscar: 429 con el motivo, no un 500 mudo.
     if (esCuotaDeModeloAgotada(err)) {
       console.warn('[ai/text] cuota del modelo agotada:', err)
-      return NextResponse.json({ error: MENSAJE_CUOTA_AGOTADA }, { status: 429 })
+      return NextResponse.json({ error: mensajeSinCupo(err) }, { status: 429 })
     }
     console.error('[ai/text] error:', err)
     return NextResponse.json({ error: 'No se pudo procesar el texto.' }, { status: 500 })

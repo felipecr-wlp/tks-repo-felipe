@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { streamText, type CoreMessage } from 'ai'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { geminiFlash, KERN_SYSTEM_PROMPT, esCuotaDeModeloAgotada, MENSAJE_CUOTA_AGOTADA } from '@/lib/ai/client'
+import { modeloTexto, KERN_SYSTEM_PROMPT, esCuotaDeModeloAgotada, mensajeSinCupo } from '@/lib/ai/client'
 import { buildKernTools, buildKernContext } from '@/lib/ai/kern-tools'
 import { applyRateLimit } from '@/lib/rate-limit'
 
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
   // ── Stream de Gemini (con tool calling multi-paso) ──────────────────────────
   try {
     const result = await streamText({
-      model: geminiFlash,
+      model: modeloTexto,
       system: KERN_SYSTEM_PROMPT + contextBlock,
       messages,
       temperature: 0.6,
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     if (esCuotaDeModeloAgotada(err)) {
       console.warn('[kern] cuota del modelo agotada:', err)
-      return NextResponse.json({ error: MENSAJE_CUOTA_AGOTADA }, { status: 429 })
+      return NextResponse.json({ error: mensajeSinCupo(err) }, { status: 429 })
     }
     console.error('[kern] stream error:', err)
     return NextResponse.json(

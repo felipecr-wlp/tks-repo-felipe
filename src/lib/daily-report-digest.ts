@@ -23,7 +23,7 @@
  *    ya decidido de quien puede leer; nunca decide eso por su cuenta.
  */
 import { generateText } from 'ai'
-import { geminiFlash } from '@/lib/ai/client'
+import { modeloTexto } from '@/lib/ai/client'
 import { CATEGORY_LABEL, formatReportDate } from '@/lib/daily-reports'
 import { revisarDuplicados, type EntradaComparable } from '@/lib/daily-report-dedupe'
 import type { createAdminClient } from '@/lib/supabase/server'
@@ -425,7 +425,7 @@ export async function buildDigest(
   ].join('\n')
 
   const { text } = await generateText({
-    model: geminiFlash,
+    model: modeloTexto,
     system: DIGEST_SYSTEM,
     prompt,
     temperature: 0.3,

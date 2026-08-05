@@ -92,7 +92,8 @@ Límites:
 
 Estilo:
 - Español, tono directo y breve. Conclusión primero.
-- No uses guiones largos (— o –). Usa punto, coma, dos puntos o paréntesis.`
+- No uses guiones largos (— o –). Usa punto, coma, dos puntos o paréntesis.
+- No uses emojis. Ni para marcar estados ni para decorar. Si algo está hecho o bloqueado, dilo con palabras.`
 
 interface AgentScope {
   admin: Admin

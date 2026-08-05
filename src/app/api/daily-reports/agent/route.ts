@@ -28,7 +28,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { streamText, type CoreMessage } from 'ai'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { geminiFlash, esCuotaDeModeloAgotada, MENSAJE_CUOTA_AGOTADA } from '@/lib/ai/client'
+import {
+  modeloTexto,
+  esCuotaDeModeloAgotada,
+  mensajeSinCupo,
+  MODELO_LEE_IMAGENES,
+} from '@/lib/ai/client'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { isReportSupervisor } from '@/lib/daily-report-access'
 import {
@@ -151,6 +156,20 @@ export async function POST(request: NextRequest) {
   // ultimo mensaje no es del usuario, el adjunto se ignora: no hay a que
   // pertenezca y colgarlo de otro turno seria inventar contexto.
   if (image) {
+    // No todos los modelos leen imagenes (DeepSeek no). Se corta aqui y se dice
+    // por que: si se dejara pasar, el proveedor devolveria un error suyo,
+    // ilegible, y pareceria que la captura estaba mal. La captura esta bien; el
+    // modelo configurado no sabe verla.
+    if (!MODELO_LEE_IMAGENES) {
+      return NextResponse.json(
+        {
+          error:
+            'El modelo de IA configurado no puede leer imágenes. Escribe la actividad y adjunta la captura después, con el botón de imagen.',
+        },
+        { status: 422 }
+      )
+    }
+
     const b64 = decodeDataUrl(image.data, image.mime)
     if (!b64) {
       return NextResponse.json({ error: 'La imagen adjunta no es válida' }, { status: 422 })
@@ -174,7 +193,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await streamText({
-      model: geminiFlash,
+      model: modeloTexto,
       system: REPORT_AGENT_SYSTEM + scopeBlock + previousDay + openBlockers,
       messages,
       temperature: 0.4,
@@ -197,7 +216,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     if (esCuotaDeModeloAgotada(err)) {
       console.warn('[daily-reports agent] cuota del modelo agotada:', err)
-      return NextResponse.json({ error: MENSAJE_CUOTA_AGOTADA }, { status: 429 })
+      return NextResponse.json({ error: mensajeSinCupo(err) }, { status: 429 })
     }
     console.error('[daily-reports agent] stream error:', err)
     return NextResponse.json({ error: 'Error al generar la respuesta.' }, { status: 500 })

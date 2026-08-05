@@ -30,7 +30,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateText } from 'ai'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { geminiFlash, esCuotaDeModeloAgotada, MENSAJE_CUOTA_AGOTADA } from '@/lib/ai/client'
+import { modeloTexto, esCuotaDeModeloAgotada, mensajeSinCupo } from '@/lib/ai/client'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { isUuid } from '@/lib/validation'
 import { loadEntryOwnership } from '@/lib/daily-report-access'
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest, { params }: { params: { entryId
 
   try {
     const { text } = await generateText({
-      model: geminiFlash,
+      model: modeloTexto,
       prompt: construirPrompt({
         content: entry.content,
         categoria,
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest, { params }: { params: { entryId
   } catch (err) {
     if (esCuotaDeModeloAgotada(err)) {
       console.warn('[daily-reports desglosar] cuota del modelo agotada:', err)
-      return NextResponse.json({ error: MENSAJE_CUOTA_AGOTADA }, { status: 429 })
+      return NextResponse.json({ error: mensajeSinCupo(err) }, { status: 429 })
     }
     console.error('[daily-reports desglosar] error:', err)
     return NextResponse.json({ error: 'No se pudo desglosar la actividad.' }, { status: 500 })
