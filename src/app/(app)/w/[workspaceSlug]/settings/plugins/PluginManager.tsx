@@ -18,7 +18,7 @@ const PLUGIN_DESCRIPTIONS: Record<string, string> = {
 }
 
 interface CatalogItem { id: string; name: string; icon: string }
-interface InstalledItem { id: string; app_id: string; plugin_type: string; enabled: boolean }
+interface InstalledItem { id: string; app_id: string; enabled: boolean }
 
 interface Props {
   workspaceId: string; workspaceSlug: string; catalog: CatalogItem[]; installed: InstalledItem[]
