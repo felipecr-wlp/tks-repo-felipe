@@ -19,6 +19,7 @@ import { redirect } from 'next/navigation'
 import { todayInReportTz, isValidReportDate } from '@/lib/daily-reports'
 import { isReportSupervisor } from '@/lib/daily-report-access'
 import { REPORT_IMAGES_BUCKET } from '@/lib/daily-report-images'
+import { sanitizeRichText } from '@/lib/sanitize'
 import { ReportesClient, type ReporteDia, type MiembroSinReporte } from './ReportesClient'
 import type { ReporteImagen } from './ReportImageStrip'
 
@@ -106,14 +107,19 @@ export default async function ReportesPage({ params, searchParams }: PageProps) 
     source: string
     created_at: string
     resolved_at: string | null
+    details: string | null
     task: { id: string; title: string } | null
   }
   let entries: EntryRow[] = []
   if (reports.length > 0) {
+    // `details` viaja completo y no un booleano "tiene detalle". Es HTML corto
+    // (techo de 20k y en la practica un par de renglones) y el caso normal es
+    // abrir la actividad para leerlo: pedirlo aparte al hacer clic seria una
+    // vuelta a la base para mostrar algo que ya cabia aqui.
     const { data } = (await admin
       .from('daily_report_entries')
       .select(
-        'id, report_id, content, category, minutes, source, created_at, resolved_at, task:tasks ( id, title )'
+        'id, report_id, content, category, minutes, source, created_at, resolved_at, details, task:tasks ( id, title )'
       )
       .in(
         'report_id',
@@ -224,6 +230,11 @@ export default async function ReportesPage({ params, searchParams }: PageProps) 
         source: e.source,
         created_at: e.created_at,
         resolved_at: e.resolved_at,
+        // Se sanea AL LEER y no solo al escribir. Lo guardado ya paso por el
+        // saneador, pero esta es la barrera que sigue en pie si mañana alguien
+        // mete detalle por otra puerta (una migracion, un script, una ruta
+        // nueva) y se olvida de sanear. Es el mismo criterio que usa el resumen.
+        details: e.details ? sanitizeRichText(e.details) : null,
         task: e.task ?? null,
         images: byEntry.get(e.id) ?? [],
       })),

@@ -64,6 +64,32 @@ describe('Invariante: las cabeceras de seguridad se aplican a toda ruta y siguen
     expect(CONFIG).toMatch(/object-src 'none'/)
   })
 
+  /**
+   * Permissions-Policy tiene DOS formas de estar mal y ninguna avisa.
+   *
+   * Estuvo en `camera=()`, lista vacia, que parecia lo mas seguro y rompio algo
+   * que nadie habia pensado: grabar un Loom de la app. El grabador pide la
+   * camara desde un content script, que corre en el marco de nuestra pagina, y
+   * se comia nuestra politica. Se apagaba solo la cara mientras la pantalla
+   * seguia grabando, sin ningun aviso, porque quien bloquea es el navegador.
+   *
+   * Y abrirlo a `*` es el error contrario: los iframes del marketplace tambien
+   * podrian pedir camara, y el navegador enseña el permiso a nombre de WLO.
+   *
+   * El punto medio es `(self)`, y por eso se fija aqui en las dos direcciones.
+   */
+  it('camera y microphone estan acotados a (self): ni cerrados a nadie ni abiertos a todos', () => {
+    expect(CONFIG).toMatch(/camera=\(self\)/)
+    expect(CONFIG).toMatch(/microphone=\(self\)/)
+    expect(/camera=\*/.test(CONFIG)).toBe(false)
+    expect(/microphone=\*/.test(CONFIG)).toBe(false)
+    expect(/camera=\(\)/.test(CONFIG)).toBe(false)
+  })
+
+  it('geolocation sigue cerrado: nada en la app la usa', () => {
+    expect(CONFIG).toMatch(/geolocation=\(\)/)
+  })
+
   it('la CSP NUNCA permite frame-ancestors con comodin (reframing arbitrario)', () => {
     // Ni un "*" ni un esquema abierto en frame-ancestors: solo 'self' (u hosts fijos).
     expect(/frame-ancestors[^;]*\*/.test(CONFIG)).toBe(false)

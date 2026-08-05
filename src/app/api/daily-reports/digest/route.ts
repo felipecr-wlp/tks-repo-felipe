@@ -21,7 +21,8 @@ import { isUuid } from '@/lib/validation'
 import { isReportSupervisor } from '@/lib/daily-report-access'
 import { isValidReportDate } from '@/lib/daily-reports'
 import { collectDigestMaterial, buildDigest, type DigestPeriod } from '@/lib/daily-report-digest'
-import { esCuotaDeModeloAgotada, MENSAJE_CUOTA_AGOTADA } from '@/lib/ai/client'
+import { esCuotaDeModeloAgotada, mensajeSinCupo } from '@/lib/ai/client'
+import { seudonimosDelWorkspace } from '@/lib/ai/seudonimos-workspace'
 
 export const maxDuration = 60
 
@@ -196,6 +197,7 @@ export async function POST(request: NextRequest) {
       from: scope.from,
       to: scope.to,
       persona,
+      seudonimos: await seudonimosDelWorkspace(admin, scope.workspaceId),
     })
 
     // Sin material no se guarda nada. Un reporte vacio guardado sale despues por
@@ -251,7 +253,7 @@ export async function POST(request: NextRequest) {
     // quien mire los logs busque un bug que no existe. 429 con el motivo real.
     if (esCuotaDeModeloAgotada(err)) {
       console.warn('[daily-reports digest POST] cuota del modelo agotada:', err)
-      return NextResponse.json({ error: MENSAJE_CUOTA_AGOTADA }, { status: 429 })
+      return NextResponse.json({ error: mensajeSinCupo(err) }, { status: 429 })
     }
     console.error('[daily-reports digest POST] error:', err)
     return NextResponse.json({ error: 'No se pudo armar el reporte' }, { status: 500 })

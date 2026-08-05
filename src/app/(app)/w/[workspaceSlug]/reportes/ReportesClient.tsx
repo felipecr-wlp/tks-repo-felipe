@@ -22,7 +22,7 @@
  * - El dia va en la URL (?d=), asi un dia concreto se comparte con un enlace y
  *   el boton de atras del navegador funciona como uno espera.
  */
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -47,6 +47,7 @@ import {
   CheckSquare,
   CalendarDays,
   CalendarRange,
+  FileText,
   X,
 } from 'lucide-react'
 import { DigestButton } from './DigestButton'
@@ -85,6 +86,15 @@ const RichTextEditor = dynamic(
   { ssr: false, loading: () => <div className="h-28 rounded-lg bg-muted/50 animate-pulse" /> }
 )
 
+/**
+ * El panel de detalle arrastra el editor y el compresor de imagenes. La visita
+ * tipica al reporte es leer la linea de tiempo y cerrar, asi que se carga
+ * cuando alguien abre una actividad y no antes.
+ */
+const EntradaDetalle = dynamic(() => import('./EntradaDetalle').then(m => m.EntradaDetalle), {
+  ssr: false,
+})
+
 export interface ReporteEntrada {
   id: string
   content: string
@@ -96,6 +106,11 @@ export interface ReporteEntrada {
   resolved_at: string | null
   /** Tarea del tablero de la que habla la actividad, si BITÁCORA la enlazó. */
   task: { id: string; title: string } | null
+  /**
+   * Detalle largo en HTML del editor, ya saneado por el servidor. Aquí viven los
+   * enlaces a lo entregado. null = la actividad es solo su línea.
+   */
+  details: string | null
   images: ReporteImagen[]
 }
 
@@ -229,6 +244,13 @@ export function ReportesClient({
   // una version vieja de la que desconfiar.
   const [tareaAbierta, setTareaAbierta] = useState<string | null>(null)
 
+  // Actividad abierta en el panel de detalle. Tambien por id y no por objeto: al
+  // adjuntar evidencia se hace router.refresh() y llega una version nueva desde
+  // el servidor. Si el panel se quedara con la copia del clic, la imagen recien
+  // subida no aparecería hasta cerrar y volver a abrir, que es justo la clase de
+  // fallo que se atribuye a "no se guardo".
+  const [entradaAbierta, setEntradaAbierta] = useState<string | null>(null)
+
   // Adjunto del alta manual: ya comprimido en el navegador, esperando a que se
   // cree la actividad para colgarse de ella.
   const fileRef = useRef<HTMLInputElement>(null)
@@ -268,6 +290,30 @@ export function ReportesClient({
   }
 
   const refrescar = () => startTransition(() => router.refresh())
+
+  /**
+   * La actividad abierta, resuelta contra los datos FRESCOS de esta renderizada.
+   *
+   * Se busca en todos los reportes visibles y no solo en el propio: el mando
+   * abre la actividad de su equipo para leer el detalle y la evidencia. Quien
+   * puede escribirla sale del dueño del reporte que la contiene, no de si es
+   * mando; el servidor aplica la misma regla y devolveria 403 igualmente.
+   */
+  const abierta = entradaAbierta
+    ? (() => {
+        for (const r of reportes) {
+          const e = r.entries.find(x => x.id === entradaAbierta)
+          if (e) return { entrada: e, puedeEditar: r.profile_id === currentUserId }
+        }
+        return null
+      })()
+    : null
+
+  // Si la actividad desaparece (se borro en otra pestaña, o cambio el dia), el
+  // panel se cierra solo en vez de quedarse colgado sobre nada.
+  useEffect(() => {
+    if (entradaAbierta && !abierta) setEntradaAbierta(null)
+  }, [entradaAbierta, abierta])
 
   async function agregar() {
     const limpio = texto.trim()
@@ -600,14 +646,25 @@ export function ReportesClient({
                       className={cn('mt-0.5 flex-shrink-0', e.resolved_at ? 'text-muted-foreground' : className)}
                     />
                     <div className="flex-1 min-w-0">
-                      <p
-                        className={cn(
-                          'text-sm break-words',
-                          e.resolved_at ? 'text-muted-foreground line-through' : 'text-foreground'
-                        )}
+                      {/* La linea entera abre el detalle. Se eligio el texto y
+                          no un icono de "abrir" al pasar el raton: un afford
+                          escondido tras el hover no existe en tactil, y la
+                          actividad es el objeto principal de esta pantalla. */}
+                      <button
+                        type="button"
+                        onClick={() => setEntradaAbierta(e.id)}
+                        title="Abrir para escribir el detalle, pegar enlaces o subir evidencia"
+                        className="block w-full text-left"
                       >
-                        {e.content}
-                      </p>
+                        <p
+                          className={cn(
+                            'text-sm break-words',
+                            e.resolved_at ? 'text-muted-foreground line-through' : 'text-foreground'
+                          )}
+                        >
+                          {e.content}
+                        </p>
+                      </button>
                       <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
                         <span>{formatReportTime(e.created_at)}</span>
                         <span>·</span>
@@ -629,6 +686,19 @@ export function ReportesClient({
                             <span>·</span>
                             <span className="inline-flex items-center gap-0.5">
                               <Sparkles size={10} /> asistente
+                            </span>
+                          </>
+                        )}
+                        {/* Que una actividad tenga detalle escrito se ve DESDE
+                            la linea de tiempo. Si el detalle solo existiera al
+                            abrir, nadie abriria: la lista se veria igual con
+                            actividades documentadas y actividades sueltas, y el
+                            trabajo de escribirlo no tendria ninguna señal. */}
+                        {e.details && (
+                          <>
+                            <span>·</span>
+                            <span className="inline-flex items-center gap-0.5 text-foreground/70">
+                              <FileText size={10} /> detalle
                             </span>
                           </>
                         )}
@@ -689,6 +759,23 @@ export function ReportesClient({
                 (&quot;ya terminé el reporte de SEO&quot;) y él lo registra por ti.
               </p>
             </div>
+          )}
+
+          {/* Pista de que la actividad se abre. SE RETIRA SOLA en cuanto una
+              actividad del dia tiene detalle: quien ya lo uso no necesita que
+              se lo recuerden, y un aviso que no se va nunca deja de leerse y
+              se vuelve mueble.
+              Va una sola vez debajo de la lista y NO repetida en cada linea:
+              treinta y tres "agregar detalle" serian ruido, y aqui el ruido se
+              paga caro porque es la misma pantalla donde un aviso tiene que
+              significar algo.
+              Hace falta porque el unico indicio de que la linea se abre era el
+              `title` del boton, que en tactil no existe: la afordancia estaba,
+              pero invisible para quien no pasa el raton. */}
+          {mio && mio.entries.length > 0 && !mio.entries.some(e => e.details) && (
+            <p className="px-2.5 pt-0.5 text-[11px] text-muted-foreground">
+              Toca una actividad para escribir el detalle, pegar enlaces o subir evidencia.
+            </p>
           )}
 
           {/* Resumen del dia */}
@@ -801,20 +888,34 @@ export function ReportesClient({
                         className={cn('mt-1 flex-shrink-0', e.resolved_at ? 'text-muted-foreground' : className)}
                       />
                       <div className="min-w-0 flex-1">
-                        <span
+                        {/* Tambien se abre desde el dia ajeno, en modo lectura.
+                            El detalle es donde vive el enlace a lo entregado:
+                            dejarlo fuera del alcance del mando convertiria esta
+                            lista en titulares sin nada detras. Quien escribe se
+                            decide por el dueño del reporte, no por el rango, y
+                            el servidor aplica la misma regla. */}
+                        <button
+                          type="button"
+                          onClick={() => setEntradaAbierta(e.id)}
+                          title="Abrir para leer el detalle y la evidencia"
                           className={cn(
-                            'break-words',
+                            'break-words text-left hover:underline',
                             e.resolved_at ? 'text-muted-foreground line-through' : 'text-foreground'
                           )}
                         >
                           {e.content}
-                        </span>
+                        </button>
                         {/* Un bloqueo abierto en el dia de otro es lo unico de
                             esta lista que pide una decision del mando, asi que
                             se etiqueta en vez de quedar como una linea mas. */}
                         {e.category === 'bloqueo' && !e.resolved_at && (
                           <span className="ml-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-500">
                             sigue abierto
+                          </span>
+                        )}
+                        {e.details && (
+                          <span className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] text-muted-foreground">
+                            <FileText size={10} /> detalle
                           </span>
                         )}
                         {/* Sin `canDelete`: un mando lee el dia ajeno, no lo corrige. */}
@@ -875,6 +976,19 @@ export function ReportesClient({
           currentUserId={currentUserId}
           onClose={() => setTareaAbierta(null)}
           onChanged={refrescar}
+        />
+      )}
+
+      {/* La actividad, encima del dia. Va DESPUES de la tarea a proposito: si
+          alguien abre la tarea desde el detalle, la tarea tiene que quedar por
+          encima, que es de donde vino el ultimo clic. */}
+      {abierta && (
+        <EntradaDetalle
+          entrada={abierta.entrada}
+          puedeEditar={abierta.puedeEditar}
+          onCerrar={() => setEntradaAbierta(null)}
+          onCambio={refrescar}
+          onAbrirTarea={setTareaAbierta}
         />
       )}
     </div>

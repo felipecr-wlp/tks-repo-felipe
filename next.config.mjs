@@ -10,8 +10,28 @@ const securityHeaders = [
   // habilita para la lista precargada de navegadores.
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
   {
+    // `()` es lista VACIA: no lo puede usar nadie, ni siquiera nuestro propio
+    // origen. Estaba asi porque la app no usa camara ni microfono, y era
+    // defensa en profundidad barata.
+    //
+    // Salio caro por un lado que no se habia pensado: grabar un Loom de la app.
+    // Los grabadores piden la camara desde un content script, que vive en el
+    // marco de NUESTRA pagina, asi que se come nuestra politica. El resultado
+    // era el peor de los mundos: la pantalla se seguia grabando (display-capture
+    // va por su cuenta y nunca se bloqueo) y solo se apagaba la cara, sin ningun
+    // aviso, porque quien bloquea es el navegador y no deja rastro en la app.
+    // Alguien intentando grabar una demo no tenia forma de saber que el culpable
+    // era una cabecera nuestra.
+    //
+    // `(self)` devuelve la camara y el microfono a nuestro origen, que es donde
+    // corre el grabador. NO se abre a `*` a proposito: con `*` tambien podrian
+    // pedirlos los iframes del marketplace (frame-src de mas abajo), y el
+    // navegador enseña el permiso a nombre de wlo.vercel.app, asi que una
+    // herramienta de terceros podria pedir camara y parecer que la pide WLO.
+    //
+    // geolocation se queda cerrado: nada en la app la usa y nadie la graba.
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=()',
+    value: 'camera=(self), microphone=(self), geolocation=()',
   },
   {
     key: 'Content-Security-Policy',

@@ -1,23 +1,109 @@
 /**
- * Cliente de Google Gemini para el asistente de escritura IA.
- * Proveedor: Google Gemini 2.5 Flash (free tier)
- * Nota: gemini-1.5-flash fue retirado por Google (404 en v1beta desde 2026).
- * El modelo puede sobreescribirse con la variable de entorno GEMINI_MODEL
- * sin necesidad de redeploy de código.
+ * Modelo de texto que usa TODA la IA del producto (KERN, BITACORA, el desglose
+ * de una actividad, el digest y las acciones de escritura).
  *
- * Usar siempre geminiFlash, no el modelo Pro (es de pago)
+ * Se elige con la variable de entorno `IA_PROVEEDOR`. Por defecto Gemini, que
+ * es lo que habia: sin tocar el entorno, esto se comporta exactamente igual
+ * que antes.
+ *
+ *   IA_PROVEEDOR=gemini    (por defecto) Google Gemini 2.5 Flash
+ *   IA_PROVEEDOR=deepseek  DeepSeek, por su API compatible con OpenAI
+ *
+ * POR QUE EXISTE ESTA PALANCA. El free tier de Gemini da 20 peticiones AL DIA.
+ * Con dos chats y un equipo de doce personas eso se agota antes del mediodia,
+ * asi que la IA del producto no estaba "fallando de vez en cuando": estaba
+ * apagada la mayor parte de la jornada. Un tope de 20/dia no es un plan
+ * gratuito, es una demo.
+ *
+ * SE ELIGE UN PROVEEDOR, NO SE ENCADENAN. Se penso en tirar de Gemini hasta
+ * agotarlo y luego saltar a DeepSeek, y se descarto a proposito: daria un
+ * producto que se comporta distinto segun la hora del dia (otra redaccion,
+ * otra latencia, y sin imagenes despues de la peticion 20) y eso es
+ * exactamente el tipo de rareza que nadie consigue reproducir ni reportar.
+ * Mejor un proveedor deliberado y predecible.
+ *
+ * OJO CON LOS DATOS. El reporte diario lleva nombres de personas y lo que
+ * cada quien hizo. Cambiar de proveedor cambia a que empresa y a que pais
+ * viajan esos datos. Es una decision de gobierno de informacion, no un
+ * detalle tecnico, y por eso vive en una variable de entorno explicita y no
+ * en un fallback automatico que nadie ve.
  */
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { createOpenAI } from '@ai-sdk/openai'
+import type { LanguageModelV1 } from 'ai'
 
-const google = createGoogleGenerativeAI({
-  apiKey: process.env.GEMINI_API_KEY!,
-})
+const PROVEEDOR = (process.env.IA_PROVEEDOR ?? 'gemini').toLowerCase()
+
+/** DeepSeek no lee imagenes. Quien adjunte una necesita saberlo, no un error raro. */
+export const MODELO_LEE_IMAGENES = PROVEEDOR !== 'deepseek'
 
 /**
- * Modelo principal, Gemini 2.5 Flash (free tier, rápido)
- * Para tasks de escritura: mejorar texto, gramática, resúmenes
+ * ¿Se le pueden mandar NOMBRES DE PERSONAS a este proveedor?
+ *
+ * Con Gemini el reporte diario ya viajaba a Google como cualquier otro dato del
+ * producto. DeepSeek cambia el pais y la empresa que lo recibe, y la regla de
+ * la casa es que ahi solo van datos agregados, sin datos personales. Un reporte
+ * de trabajo (quien hizo que, cada dia, con nombre y apellido) es exactamente
+ * lo contrario de agregado.
+ *
+ * Cuando esto es false, las rutas sustituyen los nombres del padron por
+ * "Persona 1", "Persona 2"... antes de mandar nada, y los devuelven al recibir.
+ * Ver `seudonimos.ts`, que ademas deja escrito lo que esa capa NO protege.
  */
-export const geminiFlash = google(process.env.GEMINI_MODEL ?? 'gemini-2.5-flash')
+export const MODELO_RECIBE_DATOS_PERSONALES = PROVEEDOR !== 'deepseek'
+
+/** Nombre legible del proveedor activo, para los logs del servidor. */
+export const PROVEEDOR_IA = PROVEEDOR
+
+function construirModelo(): LanguageModelV1 {
+  if (PROVEEDOR === 'deepseek') {
+    // DeepSeek habla el protocolo de OpenAI, por eso se usa ese proveedor con
+    // otra baseURL en vez de una dependencia aparte.
+    const deepseek = createOpenAI({
+      apiKey: process.env.DEEPSEEK_API_KEY!,
+      baseURL: 'https://api.deepseek.com/v1',
+      // Sin esto el SDK manda campos que la API de DeepSeek no acepta.
+      compatibility: 'compatible',
+    })
+    return deepseek(process.env.DEEPSEEK_MODEL ?? 'deepseek-chat')
+  }
+
+  const google = createGoogleGenerativeAI({
+    apiKey: process.env.GEMINI_API_KEY!,
+  })
+  return google(process.env.GEMINI_MODEL ?? 'gemini-2.5-flash')
+}
+
+/**
+ * El modelo que usan todas las rutas.
+ *
+ * Se llamaba `geminiFlash`. Se renombro al hacerlo configurable: un nombre que
+ * dice "gemini" mientras por dentro habla DeepSeek es una mentira que se cree
+ * quien lea el codigo dentro de seis meses.
+ */
+export const modeloTexto = construirModelo()
+
+/**
+ * ¿Falta la credencial del proveedor ACTIVO? Devuelve el nombre de la variable
+ * que falta, o null si esta bien.
+ *
+ * Cada ruta de IA comprobaba `GEMINI_API_KEY` a mano. Con la palanca puesta eso
+ * se vuelve una trampa en las dos direcciones: si alguien pone DeepSeek y quita
+ * la key de Gemini, las cuatro rutas responden "falta GEMINI_API_KEY" aunque
+ * DeepSeek este perfectamente configurado; y si la deja puesta, la guarda pasa
+ * sin haber comprobado la credencial que de verdad se va a usar. Un aviso que
+ * nombra la variable equivocada manda a arreglar lo que no esta roto, que es
+ * justo lo que se estaba quitando del producto.
+ */
+export function credencialIAFaltante(): string | null {
+  if (PROVEEDOR === 'deepseek') {
+    const key = process.env.DEEPSEEK_API_KEY
+    return !key || key.length < 20 ? 'DEEPSEEK_API_KEY' : null
+  }
+  const key = process.env.GEMINI_API_KEY
+  // 'AIza...' es el placeholder del .env.example, no una key.
+  return !key || key.startsWith('AIza...') || key.length < 20 ? 'GEMINI_API_KEY' : null
+}
 
 /**
  * ¿El fallo es "se acabó la cuota del modelo" y no "el modelo se cayó"?
@@ -38,12 +124,37 @@ export function esCuotaDeModeloAgotada(err: unknown): boolean {
   const status = (err as { statusCode?: number; status?: number } | null)?.statusCode
     ?? (err as { statusCode?: number; status?: number } | null)?.status
   if (status === 429) return true
+  if (esSaldoAgotado(err)) return true
   return /RESOURCE_EXHAUSTED|quota|rate limit|too many requests/i.test(msg)
+}
+
+/**
+ * Caso aparte del anterior: la cuenta se quedo SIN SALDO (DeepSeek responde
+ * 402 "Insufficient Balance").
+ *
+ * Se separa porque el consejo cambia y decirlo mal manda a esperar en balde:
+ * una cuota diaria se repone sola cuando cambia el dia, un saldo agotado NO se
+ * arregla mañana. Sigue roto hasta que alguien recarga.
+ */
+export function esSaldoAgotado(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err)
+  const status = (err as { statusCode?: number; status?: number } | null)?.statusCode
+    ?? (err as { statusCode?: number; status?: number } | null)?.status
+  return status === 402 || /insufficient balance|insufficient_quota/i.test(msg)
 }
 
 /** Lo que se le dice a la persona cuando se acabó el cupo del día. */
 export const MENSAJE_CUOTA_AGOTADA =
   'Se agotó la cuota diaria del modelo de IA. Vuelve a intentarlo mañana o pide que se suba el plan.'
+
+/** Sin saldo: esperar no sirve, hay que recargar. */
+export const MENSAJE_SALDO_AGOTADO =
+  'La cuenta del modelo de IA se quedó sin saldo. Esto no se repone solo: avisa a quien administra el espacio.'
+
+/** El mensaje correcto para cada una de las dos formas de quedarse sin cupo. */
+export function mensajeSinCupo(err: unknown): string {
+  return esSaldoAgotado(err) ? MENSAJE_SALDO_AGOTADO : MENSAJE_CUOTA_AGOTADA
+}
 
 /**
  * Prompts estándar para las acciones de IA
@@ -124,5 +235,6 @@ Estilo de respuesta:
 - Tono profesional, directo y claro. Conclusión primero, sin relleno.
 - Usa listas y pasos cuando aporten claridad.
 - No uses guiones largos (— o –). Usa punto, coma, dos puntos o paréntesis.
+- No uses emojis. Ni para marcar estados ni para decorar. Si algo está hecho o bloqueado, dilo con palabras.
 - Si no tienes un dato, dilo en vez de inventarlo.
 - Sé conciso: respuestas útiles, no ensayos.`

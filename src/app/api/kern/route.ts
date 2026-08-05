@@ -9,9 +9,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { streamText, type CoreMessage } from 'ai'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { geminiFlash, KERN_SYSTEM_PROMPT, esCuotaDeModeloAgotada, MENSAJE_CUOTA_AGOTADA } from '@/lib/ai/client'
+import {
+  modeloTexto,
+  KERN_SYSTEM_PROMPT,
+  esCuotaDeModeloAgotada,
+  mensajeSinCupo,
+  credencialIAFaltante,
+} from '@/lib/ai/client'
 import { buildKernTools, buildKernContext } from '@/lib/ai/kern-tools'
 import { applyRateLimit } from '@/lib/rate-limit'
+import { seudonimosDelUsuario } from '@/lib/ai/seudonimos-workspace'
+import { envolverHerramientas, revelarEnDataStream } from '@/lib/ai/seudonimos-stream'
 
 // Estructura del payload de chat. El rol se RESTRINGE a 'user'/'assistant': el cliente
 // NO puede mandar un mensaje 'system' (ni 'tool') para inyectar instrucciones y
@@ -50,10 +58,11 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Validación de API key ────────────────────────────────────────────────────
-  const key = process.env.GEMINI_API_KEY
-  if (!key || key.startsWith('AIza...') || key.length < 20) {
+  // Del proveedor ACTIVO, no siempre de Gemini: ver credencialIAFaltante().
+  const falta = credencialIAFaltante()
+  if (falta) {
     return NextResponse.json(
-      { error: 'KERN no está configurado: falta una GEMINI_API_KEY válida en el servidor.' },
+      { error: `KERN no está configurado: falta una ${falta} válida en el servidor.` },
       { status: 503 }
     )
   }
@@ -102,14 +111,19 @@ export async function POST(request: NextRequest) {
     console.error('[kern] context build error:', ctxErr)
   }
 
-  // ── Stream de Gemini (con tool calling multi-paso) ──────────────────────────
+  // El contexto de KERN trae nombres de compañeros (proyectos, tareas, quien
+  // pidio que). Si el proveedor no puede verlos, salen como "Persona N".
+  const seudonimos = await seudonimosDelUsuario(admin, user.id)
+
+  // ── Stream del modelo (con tool calling multi-paso) ─────────────────────────
   try {
     const result = await streamText({
-      model: geminiFlash,
-      system: KERN_SYSTEM_PROMPT + contextBlock,
-      messages,
+      model: modeloTexto,
+      system: seudonimos.ocultar(KERN_SYSTEM_PROMPT + contextBlock),
+      messages: seudonimos.ocultarProfundo(messages),
       temperature: 0.6,
-      tools: buildKernTools(admin, user.id),
+      // Envueltas: lo que KERN escriba en la base lleva nombres reales.
+      tools: envolverHerramientas(buildKernTools(admin, user.id), seudonimos),
       // Permite a KERN encadenar herramientas de forma autonoma (ej. list_projects
       // -> create_task) y luego redactar la respuesta final, en una sola vuelta.
       // 8 y no 6 porque escribir un documento gasta pasos extra antes de crear:
@@ -117,11 +131,11 @@ export async function POST(request: NextRequest) {
       maxSteps: 8,
     })
 
-    return result.toDataStreamResponse()
+    return revelarEnDataStream(result.toDataStreamResponse(), seudonimos)
   } catch (err) {
     if (esCuotaDeModeloAgotada(err)) {
       console.warn('[kern] cuota del modelo agotada:', err)
-      return NextResponse.json({ error: MENSAJE_CUOTA_AGOTADA }, { status: 429 })
+      return NextResponse.json({ error: mensajeSinCupo(err) }, { status: 429 })
     }
     console.error('[kern] stream error:', err)
     return NextResponse.json(

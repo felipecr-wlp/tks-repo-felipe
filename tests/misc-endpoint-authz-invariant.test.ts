@@ -26,30 +26,34 @@
  *       del cuerpo del request, el usuario le dictaria a la IA a nombre de quien
  *       actuar. Por eso se exige la forma exacta, no solo que se llame.
  *
- * ALLOWLIST authN-only (minima, justificada y VERIFICADA, nunca un silencio):
- *   - ai/text/route.ts (POST): reescribe un fragmento del editor de Notas
- *     (mejorar, corregir, acortar, resumir, ampliar). Entra texto, sale texto.
- *     No opera sobre un recurso con scope: su unica compuerta correcta es
- *     autenticacion (getUser -> 401) mas rate-limit y topes de payload. No hay
- *     bypass de RLS que autorizar, por eso no lleva primitiva de scoping.
+ *   - ai/text/route.ts (POST) -> seudonimosDelUsuario(createAdminClient(), user.id)
+ *       Estuvo en el allowlist authN-only, y con razon: reescribia un fragmento
+ *       del editor de Notas sin tocar la base (entra texto, sale texto), asi que
+ *       no habia recurso con scope que autorizar. Dejo de ser cierto cuando se
+ *       le conecto la capa de seudonimos: para saber que nombres tapar hay que
+ *       leer el padron, y eso es admin client. Lo que se exige ahora es la forma
+ *       EXACTA, por el mismo motivo que en KERN: el padron se arma con el userId
+ *       de la SESION. Si ese argumento saliera del cuerpo del request, el
+ *       llamante elegiria de que espacio leer los nombres.
  *
- *   Pero un allowlist que solo se declara es una promesa vencida esperando:
- *   basta que alguien anada una escritura para que la justificacion deje de ser
- *   cierta sin que nadie se entere. Por eso la exencion aqui es CONDICIONAL y se
- *   comprueba: mientras el archivo no toque la base (sin admin client y sin
- *   .from(), no hay recurso que autorizar y la exencion vale. El dia que escriba
- *   algo, el test cae y exige una primitiva de verdad.
+ * ALLOWLIST authN-only: hoy VACIO. Se conserva la maquinaria (y sus dos
+ *   comprobaciones) porque el proximo endpoint suelto sin recurso con scope
+ *   volvera a necesitarla, y porque su valor no esta en la lista sino en la
+ *   condicion: la exencion nunca se declara, se comprueba. Mientras el archivo
+ *   no toque la base (sin admin client y sin .from() vale; el dia que la toque,
+ *   el test cae y exige una primitiva de verdad.
  *
- *   Esa condicion no es teorica: KERN estaba en este allowlist por "ser un chat"
- *   y la comprobacion lo saco de ahi en su primera corrida. Un allowlist sin
- *   condicion verificable habria seguido afirmandolo.
+ *   Esa condicion no es teorica y ya disparo DOS veces. La primera saco a KERN,
+ *   que estaba exento por "ser un chat" y resulto tener herramientas que
+ *   escriben. La segunda saco a ai/text al conectarle los seudonimos. Un
+ *   allowlist declarativo habria seguido afirmando ambas exenciones, calladito.
  *
  * Determinista: solo lee fuentes, no monta rutas ni DB.
  *
- * Hoy los 5 handlers mutantes sueltos estan cubiertos (4 con primitiva, 1
- * authN-only con su condicion verificada). Un endpoint suelto nuevo debe
- * apoyarse en una primitiva de authz, o (si es authN-only sin recurso con
- * scope) justificarse aqui y pasar la misma prueba de que no toca la base.
+ * Hoy los 5 handlers mutantes sueltos estan cubiertos, los 5 con primitiva. Un
+ * endpoint suelto nuevo debe apoyarse en una primitiva de authz, o (si es
+ * authN-only sin recurso con scope) justificarse aqui y pasar la misma prueba de
+ * que no toca la base.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync, existsSync } from 'node:fs'
@@ -65,7 +69,7 @@ const HANDLERS: { file: string; authz: RegExp | null }[] = [
   { file: 'messages/route.ts',                     authz: /canAccessTeamById\(/ },
   { file: 'marketplace/propose/route.ts',          authz: /workspace_members/ },
   { file: 'kern/route.ts',                         authz: /buildKernTools\(\s*admin\s*,\s*user\.id\s*\)/ },
-  { file: 'ai/text/route.ts',                      authz: null },
+  { file: 'ai/text/route.ts',                      authz: /seudonimosDelUsuario\(\s*createAdminClient\(\)\s*,\s*user\.id\s*\)/ },
 ]
 
 /**
@@ -107,8 +111,13 @@ describe('Invariante de authz: endpoints sueltos autorizan (o se justifican) ant
     expect(gaps).toEqual([])
   })
 
-  it('el allowlist authN-only sigue existiendo (no se volvio vacio en silencio)', () => {
-    expect(authNOnly.map((a) => a.file).sort()).toEqual(['ai/text/route.ts'])
+  it('el allowlist authN-only esta vacio, y eso es deliberado', () => {
+    // Antes esta prueba vigilaba que el allowlist no se vaciara en silencio.
+    // Hoy se vacio, pero no en silencio: ai/text salio de el al ganar una
+    // primitiva propia (ver cabecera). Se fija el vacio en vez de borrar la
+    // maquinaria, para que ANADIR una exencion nueva sea un cambio visible y
+    // discutido, no algo que alguien cuela sin que nadie lo note.
+    expect(authNOnly.map((a) => a.file).sort()).toEqual([])
   })
 
   it('los exentos NO tocan la base: sin recurso con scope, no hay authz que exigir', () => {
