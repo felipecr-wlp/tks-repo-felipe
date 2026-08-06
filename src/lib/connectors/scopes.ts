@@ -57,6 +57,7 @@ export const SCOPE_CATALOG: ScopeDef[] = [
   { scope: 'tasks:create',           app: 'wlo', label: 'Crear tarea',                     risk: 'bajo', estado: 'reservado' },
   { scope: 'notes:create',           app: 'wlo', label: 'Crear nota',                      risk: 'bajo', estado: 'disponible' },
   { scope: 'workspace:read',         app: 'wlo', label: 'Leer datos basicos del workspace',   risk: 'bajo', estado: 'disponible' },
+  { scope: 'workspace:members',      app: 'wlo', label: 'Ver los miembros del workspace',       risk: 'medio', estado: 'disponible' },
   { scope: 'automation:trigger',     app: 'wlo', label: 'Disparar una automatizacion',     risk: 'medio', estado: 'reservado' },
   // Flujos. `flows:read` NUNCA alcanza un flujo privado ni uno compartido a una
   // persona: una herramienta del marketplace no es nadie del equipo, asi que no

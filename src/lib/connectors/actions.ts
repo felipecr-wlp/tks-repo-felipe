@@ -93,10 +93,36 @@ const workspaceReadAction: ActionDef = {
   },
 }
 
+// ── workspace/members: lista de miembros del workspace ──────────────────────
+const workspaceMembersAction: ActionDef = {
+  scope: 'workspace:members',
+  schema: z.object({}).default({}),
+  handler: async (_payload, ctx) => {
+    if (!ctx.workspaceId) throw new Error('workspace_id requerido')
+    const { createAdminClient } = await import('@/lib/supabase/server')
+    const admin = createAdminClient()
+    const { data, error } = (await admin
+      .from('workspace_members')
+      .select('profile_id, role, profiles ( id, display_name, email )')
+      .eq('workspace_id', ctx.workspaceId)) as {
+      data: { profile_id: string; role: string; profiles: { id: string; display_name: string | null; email: string | null } | null }[] | null
+      error: unknown
+    }
+    if (error) throw new Error('No se pudieron leer los miembros')
+    const members = (data ?? []).map(m => ({
+      id: m.profile_id,
+      name: m.profiles?.display_name ?? m.profiles?.email ?? m.profile_id,
+      role: m.role,
+    }))
+    return { members }
+  },
+}
+
 export const WLO_ACTIONS: Record<string, ActionDef> = {
   ping: pingAction,
   'notes/create': notesCreateAction,
   'workspace/read': workspaceReadAction,
+  'workspace/members': workspaceMembersAction,
 }
 
 export function getAction(actionPath: string): ActionDef | undefined {
