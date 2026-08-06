@@ -86,7 +86,6 @@ export default async function FlowDetailPage({ params }: FlowDetailProps) {
         initialTitle={flow.title}
         initialDescription={flow.description}
         esDuenno={esDuenno}
-        initialVisibility={flow.visibility}
       />
       </FlowErrorBoundary>
     </div>

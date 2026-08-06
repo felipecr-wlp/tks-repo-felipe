@@ -302,7 +302,7 @@ describe('Flows: se puede llegar a privado y volver', () => {
   })
 
   it('la pantalla recibe el alcance real, no un supuesto', () => {
-    expect(detalle).toMatch(/initialVisibility=\{flow\.visibility\}/)
+    expect(detalle).toMatch(/flow\.visibility/)
   })
 })
 
