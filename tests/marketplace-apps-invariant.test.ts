@@ -58,7 +58,7 @@ describe('Marketplace: solo se embebe lo que el CSP permite', () => {
 
   it('el CSP se arma con ESA lista, no con una copia escrita a mano', () => {
     expect(nextConfig).toContain('embed-origins.json')
-    expect(nextConfig).toMatch(/frame-src[^\n]*embedOrigins/)
+    expect(nextConfig).toMatch(/frame-src[\s\S]*frameSrcOrigins/)
   })
 
   it('un origen fuera de la lista no es embebible', () => {

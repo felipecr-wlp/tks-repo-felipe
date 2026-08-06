@@ -69,9 +69,9 @@ function ShapeNode({ data, selected, id }: NodeProps) {
   return D
 }
 
-interface Props { flowId:string;workspaceSlug:string;initialNodes:Node[];initialEdges:Edge[];initialTitle:string;initialDescription:string|null;workspaceId:string }
+interface Props { flowId:string;workspaceSlug:string;initialNodes:Node[];initialEdges:Edge[];initialTitle:string;initialDescription:string|null;workspaceId:string;esDuenno:boolean;initialVisibility:string }
 
-export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdges,initialTitle,initialDescription,workspaceId}:Props){
+export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdges,initialTitle,initialDescription,workspaceId,esDuenno,initialVisibility}:Props){
   const [nodes,setNodes,onNodesChange]=useNodesState(initialNodes as any)
   const [edges,setEdges,onEdgesChange]=useEdgesState(initialEdges as any)
   const [title,setTitle]=useState(initialTitle);const [description,setDescription]=useState(initialDescription??'')
@@ -100,6 +100,8 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
 
   const toggleFullscreen = useCallback(async ()=>{if(document.fullscreenElement){await document.exitFullscreen()}else{await document.documentElement.requestFullscreen()}},[])
   const save=useCallback(async(n?:Node[],e?:Edge[])=>{if(editingNodeId||editingShapeId)return;setSaving(true);try{await fetch(`/api/flows/${flowId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,description,nodes:n??nodes,edges:e??edges})})}catch{toast.error('Error al guardar')}finally{setSaving(false)}},[flowId,title,description,nodes,edges,editingNodeId,editingShapeId])
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const cambiarVisibilidad=useCallback(async(nueva:string)=>{await fetch(`/api/flows/${flowId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({visibility:nueva})})},[flowId])
   const autoSave=useCallback((n?:Node[],e?:Edge[])=>{if(saveTimer.current)clearTimeout(saveTimer.current);saveTimer.current=setTimeout(()=>{requestAnimationFrame(()=>save(n,e))},1200)},[save])
   const pushHistory=useCallback((n:any[],e:any[])=>{const h=history.current;h.length=historyIdx.current+1;h.push({nodes:JSON.parse(JSON.stringify(n)),edges:JSON.parse(JSON.stringify(e))});if(h.length>50)h.shift();else historyIdx.current++},[])
   const undo=useCallback(()=>{if(historyIdx.current<=0)return;historyIdx.current--;const s=history.current[historyIdx.current];setNodes(s.nodes);setEdges(s.edges);autoSave(s.nodes,s.edges)},[setNodes,setEdges,autoSave])
@@ -158,6 +160,7 @@ export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdg
         <button onClick={handleExport} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Exportar"><Download className="w-4 h-4"/>Exportar</button>
         <button onClick={handleImport} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Importar"><Upload className="w-4 h-4"/>Importar</button>
         <button onClick={async()=>{setShowShare(true);try{const[r1,r2]=await Promise.all([fetch(`/api/flows/${flowId}`).then(r=>r.json()),fetch(`/api/flows/${flowId}/members`).then(r=>r.json())]);setShares(r1.shares||[]);setMembers(r2.profiles||[])}catch{}}} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors" title="Compartir"><Share2 className="w-4 h-4"/>Compartir</button>
+        <button onClick={() => cambiarVisibilidad('private')} disabled={!esDuenno} className="inline-flex items-center gap-1 rounded-md border bg-background hover:bg-accent h-8 px-3 py-1 text-sm font-medium transition-colors disabled:opacity-50">{esDuenno ? 'Privado' : 'Solo ver'}</button>
       </header>
       <div className="flex items-center gap-1 px-2 py-1 border-b bg-muted/30 shrink-0">
         <button onClick={()=>setTopBarCollapsed(!topBarCollapsed)} className="p-1 hover:bg-accent rounded text-muted-foreground" title={topBarCollapsed?'Expandir':'Minimizar'}><ChevronDown className={`w-3 h-3 transition-transform ${topBarCollapsed?'-rotate-90':''}`}/></button>

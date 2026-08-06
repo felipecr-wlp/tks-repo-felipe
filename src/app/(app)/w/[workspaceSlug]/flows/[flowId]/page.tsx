@@ -72,6 +72,7 @@ export default async function FlowDetailPage({ params }: FlowDetailProps) {
 
   const nodes = Array.isArray(flow.nodes) ? flow.nodes : []
   const edges = Array.isArray(flow.edges) ? flow.edges : []
+  const esDuenno = flow.created_by === user.id
 
   return (
     <div className="h-full">
@@ -84,6 +85,8 @@ export default async function FlowDetailPage({ params }: FlowDetailProps) {
         initialEdges={edges as unknown as Edge[]}
         initialTitle={flow.title}
         initialDescription={flow.description}
+        esDuenno={flow.created_by === user.id}
+        initialVisibility={flow.visibility}
       />
       </FlowErrorBoundary>
     </div>

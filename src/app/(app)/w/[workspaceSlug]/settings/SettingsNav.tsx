@@ -32,7 +32,6 @@ export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
     // enciende pantallas que ya viven en WLO, Conectores habla con sistemas de
     // afuera. Separarlas evita la pregunta de por que "instalar" hace dos cosas.
     { href: `${base}/herramientas`, label: 'Herramientas', icon: Store },
-    { href: `${base}/plugins`, label: 'Plugins', icon: Puzzle },
   ]
 
   // Nueve pestañas no caben en una linea y el scroll lateral escondia las

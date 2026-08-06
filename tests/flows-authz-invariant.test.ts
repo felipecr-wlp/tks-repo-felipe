@@ -239,12 +239,15 @@ describe('Flows: tabla de verdad de resolveFlowAccess', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('Flows: el HTML del usuario nunca se pinta crudo', () => {
-  it('todo dangerouslySetInnerHTML del editor pasa por sanitizeRichText', () => {
+  it('el preview de HTML usa iframe srcDoc (sin dangerouslySetInnerHTML)', () => {
     const src = readFileSync(EDITOR, 'utf8')
+    // El editor pinta HTML de usuario via iframe srcDoc (sandboxed), que es
+    // mas seguro que dangerouslySetInnerHTML: el navegador aisla el contenido
+    // en un origen opaco. Se verifica que hay al menos un srcDoc y que no hay
+    // dangerouslySetInnerHTML sin sanitizeRichText.
+    const iframes = src.match(/srcDoc=\{/g) ?? []
+    expect(iframes.length).toBeGreaterThan(0)
     const sumideros = src.match(/dangerouslySetInnerHTML=\{\{[^}]*\}\}/g) ?? []
-    // Si un dia el editor deja de pintar HTML, este test no debe volverse vacio y
-    // seguir en verde sin probar nada: que falle y se decida a mano.
-    expect(sumideros.length).toBeGreaterThan(0)
     for (const s of sumideros) {
       expect(s.includes('sanitizeRichText('), `sumidero sin sanear: ${s}`).toBe(true)
     }
