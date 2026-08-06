@@ -80,6 +80,18 @@ export async function PATCH(
 
   const { error } = await admin.from('connector_installs').update(patch).eq('id', params.installId)
   if (error) return NextResponse.json({ error: 'No se pudo actualizar' }, { status: 500 })
+
+  // Sincronizar scopes con la key automatica
+  if (parsed.data.granted_scopes !== undefined) {
+    admin
+      .from('connector_keys')
+      .update({ scopes: patch.granted_scopes })
+      .eq('workspace_id', row.workspace_id)
+      .eq('target_app', 'wlo')
+      .is('revoked_at', null)
+      .then(() => {}, () => {})
+  }
+
   return NextResponse.json({ ok: true })
 }
 
@@ -101,5 +113,15 @@ export async function DELETE(
 
   const { error } = await admin.from('connector_installs').delete().eq('id', params.installId)
   if (error) return NextResponse.json({ error: 'No se pudo desinstalar' }, { status: 500 })
+
+  // Revocar la key automatica para que el token deje de funcionar
+  admin
+    .from('connector_keys')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('workspace_id', row.workspace_id)
+    .eq('target_app', 'wlo')
+    .is('revoked_at', null)
+    .then(() => {}, () => {})
+
   return NextResponse.json({ ok: true })
 }

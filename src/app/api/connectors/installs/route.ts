@@ -98,6 +98,8 @@ export async function POST(request: NextRequest) {
 
   const token = generateConnectorToken(process.env.NODE_ENV === 'production' ? 'live' : 'test')
   const expira = new Date(Date.now() + TOKEN_DIAS * 24 * 60 * 60 * 1000).toISOString()
+  const tokenHasheado = hashToken(token)
+  const prefijo = tokenPrefix(token)
 
   const { data, error } = (await admin
     .from('connector_installs')
@@ -107,8 +109,8 @@ export async function POST(request: NextRequest) {
       manifest,
       enabled,
       granted_scopes,
-      token_hash: hashToken(token),
-      token_prefix: tokenPrefix(token),
+      token_hash: tokenHasheado,
+      token_prefix: prefijo,
       token_expires_at: expira,
       installed_by: gate.userId,
     })
@@ -122,6 +124,22 @@ export async function POST(request: NextRequest) {
       { status: dup ? 409 : 500 },
     )
   }
+
+  // Crear key automatica para que el token sirva para llamadas API sin que el
+  // admin tenga que ir a Conectores > Keys a crear una a mano. Si falla no es
+  // fatal: la instalacion ya existe y se puede crear la key despues.
+  admin
+    .from('connector_keys')
+    .insert({
+      workspace_id,
+      name: `${app_id}`,
+      target_app: 'wlo',
+      token_hash: tokenHasheado,
+      token_prefix: prefijo,
+      scopes: granted_scopes,
+      created_by: gate.userId,
+    })
+    .then(() => {}, () => {})
 
   // Unica vez que el token viaja en claro. No se guarda en ningun lado mas que en
   // manos de quien lo esta viendo ahora.
