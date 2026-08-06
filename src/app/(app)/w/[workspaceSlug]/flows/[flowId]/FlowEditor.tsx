@@ -71,7 +71,7 @@ function ShapeNode({ data, selected, id }: NodeProps) {
 
 interface Props { flowId:string;workspaceSlug:string;initialNodes:Node[];initialEdges:Edge[];initialTitle:string;initialDescription:string|null;workspaceId:string;esDuenno:boolean;initialVisibility:string }
 
-export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdges,initialTitle,initialDescription,workspaceId,esDuenno,initialVisibility}:Props){
+export default function FlowEditor({flowId,workspaceSlug,initialNodes,initialEdges,initialTitle,initialDescription,workspaceId,esDuenno,initialVisibility: _initialVisibility}:Props){
   const [nodes,setNodes,onNodesChange]=useNodesState(initialNodes as any)
   const [edges,setEdges,onEdgesChange]=useEdgesState(initialEdges as any)
   const [title,setTitle]=useState(initialTitle);const [description,setDescription]=useState(initialDescription??'')

@@ -7,7 +7,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Settings, Users, UsersRound, FolderKanban, Ticket, Gauge, Clock, BookOpen, Eye, Blocks, Puzzle, Store } from 'lucide-react'
+import { Settings, Users, UsersRound, FolderKanban, Ticket, Gauge, Clock, BookOpen, Eye, Blocks, Store } from 'lucide-react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 
 export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {

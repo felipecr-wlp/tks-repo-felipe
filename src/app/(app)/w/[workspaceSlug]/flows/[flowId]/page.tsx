@@ -85,7 +85,7 @@ export default async function FlowDetailPage({ params }: FlowDetailProps) {
         initialEdges={edges as unknown as Edge[]}
         initialTitle={flow.title}
         initialDescription={flow.description}
-        esDuenno={flow.created_by === user.id}
+        esDuenno={esDuenno}
         initialVisibility={flow.visibility}
       />
       </FlowErrorBoundary>
