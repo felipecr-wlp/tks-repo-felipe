@@ -21,9 +21,11 @@ import Link from 'next/link'
 import { ArrowLeft, ShieldAlert } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getWorkspaceAdminContext } from '@/lib/workspace-admin'
-import { buildEmbedUrl, EMBED_SANDBOX } from '@/lib/connectors/embed'
+import { buildEmbedUrl, EMBED_SANDBOX, isEmbeddable } from '@/lib/connectors/embed'
+import { ALL_SCOPES, scopeDef } from '@/lib/connectors/scopes'
+import { ToolInfoButton } from './ToolInfoButton'
 
-export const metadata = { title: 'Herramienta · WLO' }
+export const metadata = { title: 'Herramienta - WLO' }
 
 export default async function AppEmbedPage({
   params,
@@ -37,20 +39,28 @@ export default async function AppEmbedPage({
 
   const { data: app } = (await admin
     .from('connector_apps')
-    .select('id, name, base_url, embed_path, kind, status')
+    .select('id, name, description, base_url, embed_path, kind, status, requested_scopes')
     .eq('id', params.appId)
     .maybeSingle()) as {
-    data: { id: string; name: string; base_url: string; embed_path: string | null; kind: string; status: string } | null
+    data: {
+      id: string; name: string; description: string | null; base_url: string
+      embed_path: string | null; kind: string; status: string; requested_scopes: string[] | null
+    } | null
   }
 
   if (!app || app.kind !== 'embed' || app.status === 'draft') notFound()
 
   const { data: install } = (await admin
     .from('connector_installs')
-    .select('id, enabled')
+    .select('id, enabled, granted_scopes, token_prefix, token_expires_at')
     .eq('workspace_id', ctx.workspace.id)
     .eq('app_id', app.id)
-    .maybeSingle()) as { data: { id: string; enabled: boolean } | null }
+    .maybeSingle()) as {
+    data: {
+      id: string; enabled: boolean; granted_scopes: string[] | null
+      token_prefix: string | null; token_expires_at: string | null
+    } | null
+  }
 
   if (!install || !install.enabled) notFound()
 
@@ -58,6 +68,34 @@ export default async function AppEmbedPage({
     workspaceId: ctx.workspace.id,
     installId: install.id,
   })
+
+  const embeddable = isEmbeddable(app.base_url)
+  const scopes = (app.requested_scopes ?? []).filter(s => ALL_SCOPES.includes(s))
+    .map(s => ({
+      scope: s,
+      label: scopeDef(s)?.label ?? s,
+      risk: (scopeDef(s)?.risk ?? 'medio') as 'bajo' | 'medio' | 'alto',
+      granted: (install.granted_scopes ?? []).includes(s),
+    }))
+  const pendingScopes = scopes.filter(s => !s.granted).map(s => s.scope)
+
+  const toolInfo = {
+    name: app.name,
+    description: app.description,
+    baseUrl: app.base_url,
+    kind: app.kind,
+    status: app.status,
+    embedPath: app.embed_path,
+    embeddable,
+    installId: install.id,
+    enabled: install.enabled,
+    tokenPrefix: install.token_prefix,
+    tokenExpires: install.token_expires_at,
+    scopes,
+    pendingScopes,
+    requestedCount: app.requested_scopes?.length ?? 0,
+    grantedCount: (install.granted_scopes ?? []).length,
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -69,9 +107,8 @@ export default async function AppEmbedPage({
           <ArrowLeft size={14} /> Marketplace
         </Link>
         <span className="text-sm font-medium text-foreground">{app.name}</span>
-        <span className="text-[11px] text-muted-foreground font-mono ml-auto truncate">
-          {app.base_url}
-        </span>
+        <div className="flex-1" />
+        <ToolInfoButton tool={toolInfo} />
       </div>
 
       {url ? (
