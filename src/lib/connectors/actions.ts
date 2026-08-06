@@ -75,9 +75,28 @@ const notesCreateAction: ActionDef = {
   },
 }
 
+// ── workspace/read: datos basicos del workspace sin exponer miembros ─────────
+const workspaceReadAction: ActionDef = {
+  scope: 'workspace:read',
+  schema: z.object({}).default({}),
+  handler: async (_payload, ctx) => {
+    if (!ctx.workspaceId) throw new Error('workspace_id requerido')
+    const { createAdminClient } = await import('@/lib/supabase/server')
+    const admin = createAdminClient()
+    const { data, error } = (await admin
+      .from('workspaces')
+      .select('id, name, slug')
+      .eq('id', ctx.workspaceId)
+      .single()) as { data: { id: string; name: string; slug: string } | null; error: unknown }
+    if (error || !data) throw new Error('Workspace no encontrado')
+    return { workspace: data }
+  },
+}
+
 export const WLO_ACTIONS: Record<string, ActionDef> = {
   ping: pingAction,
   'notes/create': notesCreateAction,
+  'workspace/read': workspaceReadAction,
 }
 
 export function getAction(actionPath: string): ActionDef | undefined {
