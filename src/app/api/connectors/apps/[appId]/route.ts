@@ -87,3 +87,55 @@ export async function PATCH(
   if (error) return NextResponse.json({ error: 'No se pudo actualizar' }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { appId: string } },
+) {
+  const limited = await applyRateLimit(request, 'api')
+  if (limited) return limited
+
+  if (!isAppId(params.appId)) {
+    return NextResponse.json({ error: 'Identificador invalido' }, { status: 422 })
+  }
+
+  const user = await getCachedUser()
+  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+  const admin = createAdminClient()
+  const { data: profile } = (await admin
+    .from('profiles')
+    .select('org_role')
+    .eq('id', user.id)
+    .maybeSingle()) as { data: { org_role: string | null } | null; error: unknown }
+
+  const orgRole = profile?.org_role ?? 'member'
+  if (orgRole !== 'owner' && orgRole !== 'admin') {
+    return NextResponse.json({ error: 'Solo el mando de la organizacion elimina herramientas' }, { status: 403 })
+  }
+
+  // No se pueden eliminar las apps de casa (wli, wlo, wlm)
+  if (params.appId === 'wli' || params.appId === 'wlo' || params.appId === 'wlm') {
+    return NextResponse.json({ error: 'Las apps del sistema no se pueden eliminar' }, { status: 403 })
+  }
+
+  // Verificar que no tenga instalaciones activas
+  const { count } = (await admin
+    .from('connector_installs')
+    .select('id', { count: 'exact', head: true })
+    .eq('app_id', params.appId)) as { count: number | null; error: unknown }
+
+  if (count && count > 0) {
+    return NextResponse.json({
+      error: `Tiene ${count} instalacion(es) activa(s). Retirala primero antes de eliminar.`,
+    }, { status: 409 })
+  }
+
+  const { error } = await admin
+    .from('connector_apps')
+    .delete()
+    .eq('id', params.appId)
+
+  if (error) return NextResponse.json({ error: 'No se pudo eliminar' }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}

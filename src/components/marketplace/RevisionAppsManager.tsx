@@ -24,7 +24,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { AlertTriangle, Check, Clock, Package, Pencil, ShieldAlert, Undo2 } from 'lucide-react'
+import { AlertTriangle, Check, Clock, Package, Pencil, ShieldAlert, Trash2, Undo2 } from 'lucide-react'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { SCOPE_CATALOG } from '@/lib/connectors/scopes'
 
@@ -117,6 +117,31 @@ export function RevisionAppsManager({ apps }: { apps: RevisionApp[] }) {
     })
     if (!ok) return
     await patch(app.id, { status: 'retired' }, `${app.name} retirada del catalogo`)
+  }
+
+  async function eliminar(app: RevisionApp) {
+    if (app.instalaciones > 0) {
+      toast.error(`No se puede eliminar: tiene ${app.instalaciones} instalacion(es). Retirala primero.`)
+      return
+    }
+    const ok = await confirmDialog({
+      message: `Eliminar ${app.name} del catalogo. Esta accion no se puede deshacer.`,
+      destructive: true,
+      confirmLabel: 'Eliminar',
+    })
+    if (!ok) return
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/connectors/apps/${app.id}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? 'No se pudo eliminar')
+      toast.success(`${app.name} eliminada`)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setBusy(false)
+    }
   }
 
   function abrirEdicion(app: RevisionApp) {
@@ -219,13 +244,24 @@ export function RevisionAppsManager({ apps }: { apps: RevisionApp[] }) {
               <Pencil size={12} /> Corregir
             </button>
             {app.status !== 'approved' ? (
-              <button
-                onClick={() => aprobar(app)}
-                disabled={busy}
-                className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-primary text-primary-foreground text-xs rounded-lg hover:bg-primary/90 disabled:opacity-50"
-              >
-                <Check size={12} /> Aprobar
-              </button>
+              <>
+                <button
+                  onClick={() => aprobar(app)}
+                  disabled={busy}
+                  className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-primary text-primary-foreground text-xs rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                >
+                  <Check size={12} /> Aprobar
+                </button>
+                {app.instalaciones === 0 && (
+                  <button
+                    onClick={() => eliminar(app)}
+                    disabled={busy}
+                    className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 border border-border text-muted-foreground text-xs rounded-lg hover:text-destructive hover:border-destructive/40 disabled:opacity-50"
+                  >
+                    <Trash2 size={12} /> Eliminar
+                  </button>
+                )}
+              </>
             ) : (
               <button
                 onClick={() => retirar(app)}
