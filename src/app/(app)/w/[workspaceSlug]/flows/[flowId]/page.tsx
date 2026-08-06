@@ -4,6 +4,7 @@ import { isUuid } from '@/lib/validation'
 import FlowEditor from './FlowEditor'
 import { FlowErrorBoundary } from '@/components/FlowErrorBoundary'
 import { resolveFlowAccess } from '@/lib/flows/access'
+import { normalizeInstalled } from '@/lib/features'
 import type { Node, Edge } from '@xyflow/react'
 
 interface FlowDetailProps {
@@ -19,10 +20,10 @@ export default async function FlowDetailPage({ params }: FlowDetailProps) {
 
   const admin = createAdminClient()
 
-  type WsFromMember = { workspaces: { id: string; name: string } | null }
+  type WsFromMember = { workspaces: { id: string; name: string; installed_features: string[] | null } | null }
   const { data: row } = await admin
     .from('workspace_members')
-    .select('workspaces!inner ( id, name )')
+    .select('workspaces!inner ( id, name, installed_features )')
     .eq('profile_id', user.id)
     .eq('workspaces.slug', params.workspaceSlug)
     .limit(1)
@@ -31,14 +32,8 @@ export default async function FlowDetailPage({ params }: FlowDetailProps) {
   const workspace = row?.workspaces
   if (!workspace) redirect('/')
 
-  const { data: plugin } = await admin
-    .from('connector_installs')
-    .select('id')
-    .eq('workspace_id', workspace.id)
-    .eq('app_id', 'wlo-flows')
-    .eq('enabled', true)
-    .maybeSingle() as { data: { id: string } | null; error: unknown }
-  if (!plugin) redirect(`/w/${params.workspaceSlug}`)
+  const instaladas = normalizeInstalled(workspace.installed_features)
+  if (!instaladas.includes('flows')) redirect(`/w/${params.workspaceSlug}`)
 
   const { data: flow } = await admin
     .from('flows')
