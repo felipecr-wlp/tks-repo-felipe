@@ -61,9 +61,11 @@ import {
   Building2,
   MoreHorizontal,
 } from 'lucide-react'
+import { SidebarExternalTools } from './SidebarExternalTools'
 
 interface SidebarProps {
   workspaceSlug: string
+  workspaceId: string
   workspaceName: string
   orgName: string
   teams: Array<{
@@ -93,6 +95,7 @@ const MORE_KEY = 'wlo-sidebar-more'
 
 export function Sidebar({
   workspaceSlug,
+  workspaceId,
   workspaceName,
   orgName,
   teams,
@@ -495,6 +498,8 @@ export function Sidebar({
           )}
         </NavGroup>
       </nav>
+
+      <SidebarExternalTools workspaceSlug={workspaceSlug} workspaceId={workspaceId} />
 
       {/* ── Footer: idioma + perfil de usuario ─────────────────── */}
       <div className="border-t border-border p-2 space-y-1">

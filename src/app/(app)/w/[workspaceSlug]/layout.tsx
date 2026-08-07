@@ -255,6 +255,7 @@ export default async function WorkspaceLayout({
       {/* Sidebar */}
       <Sidebar
         workspaceSlug={workspace.slug}
+        workspaceId={workspace.id}
         workspaceName={workspace.name}
         orgName={brandFromEmail(user.email) ?? workspace.organizations?.name ?? 'Mi organización'}
         teams={teams}
