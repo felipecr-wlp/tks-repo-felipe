@@ -150,7 +150,7 @@ export async function loadReviewQueue(admin: Admin): Promise<ReviewApp[]> {
           granted: false,
         })),
       scopes_desconocidos: pedidos.filter((s) => !ALL_SCOPES.includes(s)),
-      embeddable: isEmbeddable(a.base_url),
+      embeddable: a.kind === 'embed' && a.status === 'approved' && originOf(a.base_url) !== null,
       instalaciones: cuenta.get(a.id) ?? 0,
       propuesta_por: a.owner_profile_id ? (nombre.get(a.owner_profile_id) ?? null) : null,
     }
@@ -188,10 +188,10 @@ export async function loadCatalog(admin: Admin, workspaceId: string): Promise<Ca
       kind: a.kind,
       status: a.status,
       origin: originOf(a.base_url),
-      // Que la fila diga 'embed' no basta: si su origen no esta en la allowlist
-      // del CSP el navegador la deja en blanco. Se resuelve aqui para que la
-      // pantalla no ofrezca abrir algo que no va a cargar.
-      embeddable: a.kind === 'embed' && isEmbeddable(a.base_url),
+      // El CSP es dinamico (middleware) asi que si la herramienta esta aprobada
+      // y tiene origen HTTPS, el boton Abrir se muestra. El navegador es el que
+      // decide si el iframe carga (via el CSP que genera el middleware).
+      embeddable: a.kind === 'embed' && a.status === 'approved' && originOf(a.base_url) !== null,
       requested_scopes: pedidos.map((s) => ({
         scope: s,
         label: scopeDef(s)?.label ?? s,
