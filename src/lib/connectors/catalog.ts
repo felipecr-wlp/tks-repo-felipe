@@ -1,7 +1,7 @@
 import 'server-only'
 import type { createAdminClient } from '@/lib/supabase/server'
 import { ALL_SCOPES, scopeDef } from './scopes'
-import { isEmbeddable, originOf } from './embed'
+import { originOf } from './embed'
 
 /**
  * Catalogo de herramientas externas visto DESDE un workspace.
