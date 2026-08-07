@@ -64,9 +64,38 @@ export default async function AppEmbedPage({
 
   if (!install || !install.enabled) notFound()
 
+  // Info del usuario actual y miembros del workspace para pasarselo a la
+  // herramienta en la URL. Asi no necesita token ni API para saber quien la
+  // abrio ni con quien compartir.
+  const { data: profileRow } = (await admin
+    .from('profiles')
+    .select('display_name, email')
+    .eq('id', ctx.userId)
+    .maybeSingle()) as { data: { display_name: string | null; email: string | null } | null }
+
+  const { data: membersData } = (await admin
+    .from('workspace_members')
+    .select('profile_id, role, profiles ( display_name, email )')
+    .eq('workspace_id', ctx.workspace.id)
+    .limit(50)) as {
+    data: { profile_id: string; role: string; profiles: { display_name: string | null; email: string | null } | null }[] | null
+  }
+
+  const members = (membersData ?? []).map(m => ({
+    id: m.profile_id,
+    name: m.profiles?.display_name ?? m.profiles?.email ?? m.profile_id,
+    role: m.role,
+  }))
+
   const url = buildEmbedUrl(app.base_url, app.embed_path, {
     workspaceId: ctx.workspace.id,
     installId: install.id,
+    user: {
+      name: profileRow?.display_name ?? profileRow?.email ?? null,
+      email: profileRow?.email ?? null,
+      role: ctx.role,
+    },
+    members,
   })
 
   const embeddable = isEmbeddable(app.base_url)
