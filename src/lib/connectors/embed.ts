@@ -52,8 +52,8 @@ export function originOf(url: string): string | null {
 
 /** true solo si el origen de esa URL esta en la allowlist del CSP. */
 export function isEmbeddable(url: string): boolean {
-  const origin = originOf(url)
-  return origin !== null && EMBED_ORIGINS.includes(origin)
+  // El CSP es dinamico (middleware consulta la DB). Aqui solo validamos HTTPS.
+  return originOf(url) !== null
 }
 
 /**
@@ -81,7 +81,7 @@ export function buildEmbedUrl(
   },
 ): string | null {
   const origin = originOf(baseUrl)
-  if (!origin || !EMBED_ORIGINS.includes(origin)) return null
+  if (!origin) return null
 
   const path = embedPath && embedPath.startsWith('/') ? embedPath : `/${embedPath ?? ''}`
   const u = new URL(path, origin)
