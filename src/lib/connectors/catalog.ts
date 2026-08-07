@@ -40,6 +40,7 @@ export interface CatalogApp {
     token_prefix: string | null
     token_expires_at: string | null
     pending_scopes: string[]
+    manifest: Record<string, unknown> | null
   } | null
 }
 
@@ -62,6 +63,7 @@ interface InstallRow {
   granted_scopes: string[] | null
   token_prefix: string | null
   token_expires_at: string | null
+  manifest: Record<string, unknown> | null
 }
 
 /**
@@ -165,7 +167,7 @@ export async function loadCatalog(admin: Admin, workspaceId: string): Promise<Ca
       .order('name') as unknown as Promise<{ data: AppRow[] | null }>,
     admin
       .from('connector_installs')
-      .select('id, app_id, enabled, granted_scopes, token_prefix, token_expires_at')
+      .select('id, app_id, enabled, granted_scopes, token_prefix, token_expires_at, manifest')
       .eq('workspace_id', workspaceId) as unknown as Promise<{ data: InstallRow[] | null }>,
   ])
 
@@ -203,9 +205,8 @@ export async function loadCatalog(admin: Admin, workspaceId: string): Promise<Ca
             granted_scopes: concedidos,
             token_prefix: inst.token_prefix,
             token_expires_at: inst.token_expires_at,
-            // Permisos que la app empezo a pedir DESPUES de instalada. Nadie se
-            // los concedio: pedir mas no se concede solo.
             pending_scopes: pedidos.filter((s) => !concedidos.includes(s)),
+            manifest: inst.manifest ?? null,
           }
         : null,
     }

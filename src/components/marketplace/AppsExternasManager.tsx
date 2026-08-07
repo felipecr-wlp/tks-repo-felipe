@@ -48,6 +48,7 @@ export interface AppExterna {
     token_prefix: string | null
     token_expires_at: string | null
     pending_scopes: string[]
+    manifest: Record<string, unknown> | null
   } | null
 }
 
@@ -78,8 +79,7 @@ export function AppsExternasManager({
   function abrirPermisos(app: AppExterna) {
     setRevisando(app)
     setMarcados(app.requested_scopes.map((s) => s.scope))
-    // Cargar placement existente del manifest (si ya esta instalada)
-    setPlacement((app.install && (app.install as any).manifest?.placement) || 'workarea')
+    setPlacement((app.install?.manifest as any)?.placement || 'workarea')
   }
 
   async function instalar() {
@@ -260,30 +260,28 @@ export function AppsExternasManager({
               ))}
             </div>
 
-            {revisando.install && (
-              <div className="mt-4">
-                <span className="text-xs font-medium text-foreground">Donde aparece</span>
-                <div className="mt-1.5 grid gap-1.5 grid-cols-3">
-                  {[
-                    { key: 'workarea', label: 'Workarea', desc: 'Solo al abrir' },
-                    { key: 'sidebar', label: 'Menu lateral', desc: 'Acceso rapido' },
-                    { key: 'dashboard', label: 'Dashboard', desc: 'Widget en inicio' },
-                  ].map(o => (
-                    <button
-                      key={o.key}
-                      type="button"
-                      onClick={() => setPlacement(o.key)}
-                      className={`rounded-lg border px-3 py-2 text-left transition ${
-                        placement === o.key ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:bg-muted'
-                      }`}
-                    >
-                      <span className="block text-[11px] font-medium text-foreground">{o.label}</span>
-                      <span className="mt-0.5 block text-[10px] text-muted-foreground">{o.desc}</span>
-                    </button>
-                  ))}
-                </div>
+            <div className="mt-4">
+              <span className="text-xs font-medium text-foreground">Donde aparece</span>
+              <div className="mt-1.5 grid gap-1.5 grid-cols-3">
+                {[
+                  { key: 'workarea', label: 'Workarea', desc: 'Solo al abrir' },
+                  { key: 'sidebar', label: 'Menu lateral', desc: 'Acceso rapido' },
+                  { key: 'dashboard', label: 'Dashboard', desc: 'Widget en inicio' },
+                ].map(o => (
+                  <button
+                    key={o.key}
+                    type="button"
+                    onClick={() => setPlacement(o.key)}
+                    className={`rounded-lg border px-3 py-2 text-left transition ${
+                      placement === o.key ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:bg-muted'
+                    }`}
+                  >
+                    <span className="block text-[11px] font-medium text-foreground">{o.label}</span>
+                    <span className="mt-0.5 block text-[10px] text-muted-foreground">{o.desc}</span>
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
 
             {marcados.some((s) => revisando.requested_scopes.find((r) => r.scope === s)?.risk === 'alto') && (
               <p className="mt-3 flex items-start gap-2 text-xs text-red-600 dark:text-red-400">
