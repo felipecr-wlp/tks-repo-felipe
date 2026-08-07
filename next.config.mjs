@@ -1,31 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-
-/**
- * Origenes que se pueden embeber en iframes. La lista autoritativa vive en
- * `src/lib/connectors/embed-origins.json`. Agregar un origen es un cambio de
- * codigo con revision: una fila de base de datos no puede autorizarse sola a
- * correr dentro de la app.
- *
- * El archivo se lee al BUILDEAR, no en runtime. Vercel no lo re-lee entre
- * requests asi que un redeploy es obligatorio despues de cada cambio.
- */
-let frameSrcOrigins = []
-try {
-  const origenes = JSON.parse(
-    readFileSync(resolve(__dirname, 'src/lib/connectors/embed-origins.json'), 'utf-8'),
-  )
-  if (Array.isArray(origenes.origins)) frameSrcOrigins = origenes.origins
-} catch {
-  // Si el archivo no existe (primer build sin el) no es un error fatal: se
-  // sigue con los origenes de Google Drive que ya estaban, y los embeds de
-  // herramientas simplemente no se van a ver. El build no debe romperse por
-  // un archivo de configuracion.
-}
-
 /** @type {import('next').NextConfig} */
 
 const securityHeaders = [
@@ -69,13 +41,9 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' blob: data: https:",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com",
-      [
-        'frame-src',
-        'https://docs.google.com',
-        'https://sheets.google.com',
-        'https://drive.google.com',
-        ...frameSrcOrigins,
-      ].join(' '),
+      // frame-src se genera dinamicamente en el middleware desde la DB.
+      // Los origenes aprobados en connector_apps (kind=embed, status=approved)
+      // se agregan automaticamente sin necesidad de redeploy.
       "font-src 'self'",
       // Endurecimiento adicional: nadie externo puede enmarcar la app (refuerza
       // X-Frame-Options en navegadores modernos), sin <base> inyectable, y se

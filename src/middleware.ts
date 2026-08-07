@@ -18,6 +18,38 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
+import { createClient } from '@supabase/supabase-js'
+
+// Cache de origenes de embed aprobados. Se refresca cada 60s para que
+// al aprobar una herramienta el CSP se actualice sin redeploy.
+let cachedOrigins: string[] | null = null
+let cacheUntil = 0
+
+async function getEmbedOrigins(): Promise<string[]> {
+  if (cachedOrigins && Date.now() < cacheUntil) return cachedOrigins
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    const { data } = await supabase
+      .from('connector_apps')
+      .select('base_url')
+      .eq('kind', 'embed')
+      .eq('status', 'approved') as { data: { base_url: string }[] | null }
+    if (data) {
+      const origins = data
+        .map(a => { try { return new URL(a.base_url).origin } catch { return null } })
+        .filter((o): o is string => o !== null && o.startsWith('https://'))
+      // Unicos y los fijos de Google Drive
+      cachedOrigins = [...new Set(origins)]
+      cacheUntil = Date.now() + 60_000
+      return cachedOrigins
+    }
+  } catch { }
+  // Si falla, devolver lo del JSON (estatico) + Google Drive
+  return []
+}
 
 const PUBLIC_ROUTES = [
   '/auth/login',
@@ -70,6 +102,18 @@ export async function middleware(request: NextRequest) {
   for (const cookie of supabaseResponse.cookies.getAll()) {
     response.cookies.set(cookie)
   }
+
+  // ── CSP dinamico: origenes de embed aprobados desde la DB ──
+  const origins = await getEmbedOrigins()
+  if (origins.length > 0) {
+    // Solo inyectamos los origenes de embed; el resto del CSP lo pone
+    // next.config.mjs. Esto es aditivo: no reemplaza, solo agrega.
+    response.headers.set(
+      'Content-Security-Policy',
+      `frame-src 'self' https://docs.google.com https://sheets.google.com https://drive.google.com ${origins.join(' ')}`
+    )
+  }
+
   return response
 }
 
