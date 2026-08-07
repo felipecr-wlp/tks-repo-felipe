@@ -17,6 +17,7 @@ import MiDia from './MiDia'
 import { OnboardingGuide } from './OnboardingGuide'
 import { DashboardWidgets, type DashboardWidgetsData } from './DashboardWidgets'
 import { AcademyWidget } from './AcademyWidget'
+import { DashboardExternalWidgets } from './DashboardExternalWidgets'
 
 interface WorkspaceDashboardProps {
   params: { workspaceSlug: string }
@@ -405,6 +406,9 @@ export default async function WorkspaceDashboardPage({
           )}
         </section>
       </div>
+
+      {/* ── Herramientas externas en el dashboard ──────────────────────────── */}
+      <DashboardExternalWidgets workspaceId={workspace.id} workspaceSlug={params.workspaceSlug} />
 
       {/* ── Teams del workspace ──────────────────────────────────────────── */}
       {hasTeams && (
