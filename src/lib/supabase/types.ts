@@ -219,6 +219,114 @@ export type Database = {
           },
         ]
       }
+      academy_certifications: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_text: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          item_id: string
+          item_type: string
+          profile_id: string
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+          verified_note: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_text?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          item_id: string
+          item_type: string
+          profile_id: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          verified_note?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_text?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          item_id?: string
+          item_type?: string
+          profile_id?: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          verified_note?: string | null
+        }
+        Relationships: []
+      }
+      academy_paths: {
+        Row: {
+          accent: string
+          audience: string
+          audience_profiles: string[]
+          created_at: string
+          created_by: string | null
+          description: string
+          entry_video_id: string | null
+          id: string
+          position: number
+          school_id: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accent?: string
+          audience?: string
+          audience_profiles?: string[]
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          entry_video_id?: string | null
+          id?: string
+          position?: number
+          school_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accent?: string
+          audience?: string
+          audience_profiles?: string[]
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          entry_video_id?: string | null
+          id?: string
+          position?: number
+          school_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_paths_entry_video_id_fkey"
+            columns: ["entry_video_id"]
+            isOneToOne: false
+            referencedRelation: "academy_videos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_paths_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "academy_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academy_progress: {
         Row: {
           completed: boolean
@@ -253,6 +361,248 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_video_progress: {
+        Row: {
+          completed: boolean
+          id: string
+          last_position: number
+          profile_id: string
+          seconds_watched: number
+          updated_at: string
+          video_id: string
+        }
+        Insert: {
+          completed?: boolean
+          id?: string
+          last_position?: number
+          profile_id: string
+          seconds_watched?: number
+          updated_at?: string
+          video_id: string
+        }
+        Update: {
+          completed?: boolean
+          id?: string
+          last_position?: number
+          profile_id?: string
+          seconds_watched?: number
+          updated_at?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_video_progress_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_video_progress_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "academy_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_schools: {
+        Row: {
+          accent: string
+          code: string
+          created_at: string
+          description: string
+          id: string
+          mandatory: boolean
+          position: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accent?: string
+          code: string
+          created_at?: string
+          description?: string
+          id?: string
+          mandatory?: boolean
+          position?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accent?: string
+          code?: string
+          created_at?: string
+          description?: string
+          id?: string
+          mandatory?: boolean
+          position?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      academy_stacks: {
+        Row: {
+          accent: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          position: number
+          school_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accent?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          position?: number
+          school_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accent?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          position?: number
+          school_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_stacks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_video_viewers: {
+        Row: {
+          created_at: string
+          id: string
+          profile_id: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          profile_id: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          profile_id?: string
+          video_id?: string
+        }
+        Relationships: []
+      }
+      academy_videos: {
+        Row: {
+          ack_text: string | null
+          audience: string
+          audience_profiles: string[]
+          chapters: Json
+          created_at: string
+          created_by: string | null
+          description: string
+          diagram_x: number | null
+          diagram_y: number | null
+          duration_seconds: number | null
+          id: string
+          interactions: Json
+          requires_ack: boolean
+          requires_verification: boolean
+          signed_url: string | null
+          signed_url_expires_at: string | null
+          stack_id: string | null
+          status: string
+          storage_path: string
+          tags: string[]
+          thumbnail_path: string | null
+          title: string
+          updated_at: string
+          valid_months: number | null
+        }
+        Insert: {
+          ack_text?: string | null
+          audience?: string
+          audience_profiles?: string[]
+          chapters?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          diagram_x?: number | null
+          diagram_y?: number | null
+          duration_seconds?: number | null
+          id?: string
+          interactions?: Json
+          requires_ack?: boolean
+          requires_verification?: boolean
+          signed_url?: string | null
+          signed_url_expires_at?: string | null
+          stack_id?: string | null
+          status?: string
+          storage_path: string
+          tags?: string[]
+          thumbnail_path?: string | null
+          title: string
+          updated_at?: string
+          valid_months?: number | null
+        }
+        Update: {
+          ack_text?: string | null
+          audience?: string
+          audience_profiles?: string[]
+          chapters?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          diagram_x?: number | null
+          diagram_y?: number | null
+          duration_seconds?: number | null
+          id?: string
+          interactions?: Json
+          requires_ack?: boolean
+          requires_verification?: boolean
+          signed_url?: string | null
+          signed_url_expires_at?: string | null
+          stack_id?: string | null
+          status?: string
+          storage_path?: string
+          tags?: string[]
+          thumbnail_path?: string | null
+          title?: string
+          updated_at?: string
+          valid_months?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_videos_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_videos_stack_id_fkey"
+            columns: ["stack_id"]
+            isOneToOne: false
+            referencedRelation: "academy_stacks"
             referencedColumns: ["id"]
           },
         ]
@@ -2118,6 +2468,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          academy_profiles: string[]
           avatar_url: string | null
           created_at: string
           display_name: string | null
@@ -2129,6 +2480,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          academy_profiles?: string[]
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
@@ -2140,6 +2492,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          academy_profiles?: string[]
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null

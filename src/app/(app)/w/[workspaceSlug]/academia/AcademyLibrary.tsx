@@ -65,6 +65,12 @@ export function AcademyLibrary({
               viera solo un admin, la feature no existiria para quien de verdad
               sabe hacer el trabajo. */}
           <Link
+            href={`/w/${workspaceSlug}/academia/videos`}
+            className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+          >
+            {t('academyV.title')}
+          </Link>
+          <Link
             href={`/w/${workspaceSlug}/academia/mis-cursos`}
             className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
           >

@@ -6,6 +6,7 @@
 import { AcademyIcon } from '@/lib/academy/icons'
 import type { Block } from '@/lib/academy/types'
 import { Lightbulb, AlertTriangle, Info } from 'lucide-react'
+import { BloqueVideo } from './BloqueVideo'
 
 function asText(v: Block['v']): string {
   return Array.isArray(v) ? v.join(' ') : (v ?? '')
@@ -125,6 +126,10 @@ export function BlockRenderer({ blocks }: { blocks: Block[] }) {
               </div>
             )
           }
+          case 'video':
+            // v = id de un video de la galeria (academy_videos). El componente
+            // pide su URL firmada al reproducir; aqui no viaja ningun binario.
+            return <BloqueVideo key={i} videoId={asText(b.v)} />
           case 'rule':
             return (
               <div

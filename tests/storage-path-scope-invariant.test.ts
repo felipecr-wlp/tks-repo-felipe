@@ -41,7 +41,7 @@
  *
  * Determinista: solo lee fuentes, no monta rutas ni DB.
  *
- * Hoy 14 handlers tocan storage; los 14 gatean y acotan el path; 0 IDOR de
+ * Hoy 18 handlers tocan storage; los 18 gatean y acotan el path; 0 IDOR de
  * storage. Un handler de storage nuevo debe gatear, acotar y registrarse aqui.
  * Nunca un silencio.
  */
@@ -66,6 +66,14 @@ const TOUCHES_STORAGE = /\.storage\s*\.from\(/
 
 // Registro: archivo -> primitivas requeridas (todas deben aparecer).
 const REGISTRY: Record<string, RegExp[]> = {
+  // Galeria de videos de la Academia: recurso DE LA ORG (no por workspace).
+  // La escritura gatea por isOrgAdmin y el path lo construye el server
+  // (upload-url) o se exige su prefijo (registro). La lectura firma paths que
+  // salen de la FILA cargada por id, nunca del cliente.
+  'academy/videos/upload-url/route.ts': [/isOrgAdmin\(/, /\$\{carpeta\}\/\$\{randomUUID\(\)\}/],
+  'academy/videos/route.ts':            [/isOrgAdmin\(/, /startsWith\('videos\/'\)/],
+  'academy/videos/[videoId]/route.ts':  [/isOrgAdmin\(/, /fila\.storage_path/],
+  'academy/videos/[videoId]/stream/route.ts': [/video\.storage_path/, /status !== 'live'/],
   'teams/[teamId]/chat-files/sign/route.ts': [/canAccessTeamById\(/, /startsWith\(prefix\)/],
   'teams/[teamId]/chat-files/route.ts':      [/canAccessTeamById\(/, /team\/\$\{params\.teamId\}\//],
   'workspace/[workspaceId]/chat-files/route.ts':      [/canAccessWorkspaceById\(/, /workspace\/\$\{params\.workspaceId\}\//],

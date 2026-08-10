@@ -10,7 +10,8 @@ export type BlockType =
   | 'table'
   | 'callout'
   | 'rule'
-  | 'script';
+  | 'script'
+  | 'video';
 
 /** Un bloque de contenido dentro de una leccion. Union laxa: cada tipo usa
     solo algunas props. Se valida en el renderer, no en el tipo. */
