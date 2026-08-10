@@ -257,6 +257,104 @@ export type Database = {
           },
         ]
       }
+      academy_video_progress: {
+        Row: {
+          completed: boolean
+          id: string
+          last_position: number
+          profile_id: string
+          seconds_watched: number
+          updated_at: string
+          video_id: string
+        }
+        Insert: {
+          completed?: boolean
+          id?: string
+          last_position?: number
+          profile_id: string
+          seconds_watched?: number
+          updated_at?: string
+          video_id: string
+        }
+        Update: {
+          completed?: boolean
+          id?: string
+          last_position?: number
+          profile_id?: string
+          seconds_watched?: number
+          updated_at?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_video_progress_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_video_progress_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "academy_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_videos: {
+        Row: {
+          chapters: Json
+          created_at: string
+          created_by: string | null
+          description: string
+          duration_seconds: number | null
+          id: string
+          status: string
+          storage_path: string
+          tags: string[]
+          thumbnail_path: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          chapters?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          duration_seconds?: number | null
+          id?: string
+          status?: string
+          storage_path: string
+          tags?: string[]
+          thumbnail_path?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          chapters?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          duration_seconds?: number | null
+          id?: string
+          status?: string
+          storage_path?: string
+          tags?: string[]
+          thumbnail_path?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_videos_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_events: {
         Row: {
           created_at: string

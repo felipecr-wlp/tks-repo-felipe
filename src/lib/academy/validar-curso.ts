@@ -29,7 +29,7 @@ export interface ProblemaCurso {
   que: string
 }
 
-const TIPOS_DE_BLOQUE = new Set(['p', 'h', 'list', 'ol', 'table', 'callout', 'rule', 'script'])
+const TIPOS_DE_BLOQUE = new Set(['p', 'h', 'list', 'ol', 'table', 'callout', 'rule', 'script', 'video'])
 
 /** Minimo de preguntas por modulo (el piso que ya cumple el contenido oficial). */
 export const MIN_PREGUNTAS_POR_MODULO = 3

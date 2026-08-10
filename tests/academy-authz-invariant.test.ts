@@ -51,6 +51,14 @@ const HANDLERS: { file: string; authz: RegExp }[] = [
   { file: 'progress/route.ts',            authz: /canAccessCourse\(/ },
   { file: 'courses/route.ts',             authz: /author_id: user\.id/ },
   { file: 'courses/[id]/route.ts',        authz: /evaluarAccion\(/ },
+  // Galeria de videos. Gobernanza: el catalogo (subir, registrar, editar,
+  // borrar) es solo del admin de la org. Auto-alcance: el avance se escribe
+  // SIEMPRE con profile_id: user.id; sin eso, un user marcaria videos como
+  // vistos a nombre de otro.
+  { file: 'videos/upload-url/route.ts', authz: /isOrgAdmin\(/ },
+  { file: 'videos/route.ts',            authz: /isOrgAdmin\(/ },
+  { file: 'videos/[videoId]/route.ts',  authz: /isOrgAdmin\(/ },
+  { file: 'videos/[videoId]/progress/route.ts', authz: /profile_id: user\.id/ },
 ]
 
 /** Todos los route.ts bajo src/app/api/academy, los anote alguien o no. */
