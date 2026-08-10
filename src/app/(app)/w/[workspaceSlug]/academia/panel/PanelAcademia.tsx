@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   GraduationCap, Layers, Route as RouteIcon, Clapperboard,
-  Plus, Trash2, ExternalLink, AlertTriangle, Stethoscope, CheckCircle2, Info,
+  Plus, Trash2, ExternalLink, AlertTriangle, Stethoscope, CheckCircle2, Info, Workflow,
 } from 'lucide-react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import type {
@@ -76,9 +76,17 @@ export function PanelAcademia({ workspaceSlug, escuelas, stacks, rutas, videos }
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">{t('academyP.title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('academyP.subtitle')}</p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">{t('academyP.title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('academyP.subtitle')}</p>
+        </div>
+        <Link
+          href={`/w/${workspaceSlug}/academia/panel/diagrama`}
+          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+        >
+          <Workflow className="h-4 w-4" /> {t('academyD.diagram')}
+        </Link>
       </div>
 
       {/* Pestañas con scroll horizontal: en telefono cuatro no caben. */}
@@ -266,6 +274,32 @@ export function PanelAcademia({ workspaceSlug, escuelas, stacks, rutas, videos }
               >
                 <option value="draft">{t('academyV.draft')}</option>
                 <option value="live">{t('academyP.published')}</option>
+              </select>
+              <select
+                value={v.audience}
+                disabled={ocupado}
+                onChange={(ev) => {
+                  const modo = ev.target.value
+                  if (modo !== 'perfiles') {
+                    llamar(`/api/academy/videos/${v.id}`, 'PATCH', { audience: modo })
+                    return
+                  }
+                  // Elegir "por perfiles" sin decir cuales no lo ve NADIE, asi
+                  // que se preguntan en el mismo gesto en vez de dejar el
+                  // video invisible sin avisar.
+                  const txt = window.prompt(t('academyP.profilesPrompt'), v.audience_profiles.join(', '))
+                  if (txt === null) return
+                  llamar(`/api/academy/videos/${v.id}`, 'PATCH', {
+                    audience: 'perfiles',
+                    audienceProfiles: txt.split(',').map((x) => x.trim()).filter(Boolean),
+                  })
+                }}
+                className="shrink-0 rounded border border-border bg-background px-2 py-1 text-xs text-foreground"
+                title={t('academyP.audience')}
+              >
+                <option value="todos">{t('academyP.audAll')}</option>
+                <option value="perfiles">{t('academyP.audProfiles')}</option>
+                <option value="personas">{t('academyP.audPeople')}</option>
               </select>
               {/* El id se puede copiar: es lo que se pega al escribir una rama. */}
               <button

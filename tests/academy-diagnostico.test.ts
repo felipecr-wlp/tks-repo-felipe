@@ -20,6 +20,7 @@ function v(
     storage_path: `videos/${id}.mp4`, thumbnail_path: null,
     duration_seconds: 300, chapters: [], interactions: [], tags: [],
     stack_id: 'stack-1', status: 'live', created_by: null,
+    audience: 'todos', audience_profiles: [], diagram_x: null, diagram_y: null,
     created_at: '2026-08-01', updated_at: '2026-08-01',
     ...extra,
   }
@@ -29,6 +30,7 @@ function ruta(extra: Partial<RutaAcademia> = {}): RutaAcademia {
   return {
     id: 'r1', title: 'Ruta', description: '', school_id: null,
     entry_video_id: null, accent: '#000', position: 0, status: 'draft',
+    audience: 'todos', audience_profiles: [],
     created_by: null, created_at: '2026-08-01', updated_at: '2026-08-01',
     ...extra,
   }
@@ -95,6 +97,13 @@ describe('Diagnóstico: encuentra lo que deja atorada a una persona', () => {
     expect(r.length).toBeGreaterThan(1)
     expect(r[0].gravedad).toBe('error')
     expect(r[r.length - 1].gravedad).toBe('aviso')
+  })
+
+  it('caza el video "por perfiles" sin perfiles: no lo ve nadie', () => {
+    // El admin lo ve normal (ve todo), asi que sin este aviso se queda
+    // invisible para el equipo durante semanas sin que nadie lo note.
+    const r = diagnosticar([v('a', { audience: 'perfiles', audience_profiles: [] })], [])
+    expect(r.some((x) => x.gravedad === 'error' && x.titulo.includes('no lo ve nadie'))).toBe(true)
   })
 
   it('una academia sana no inventa hallazgos', () => {

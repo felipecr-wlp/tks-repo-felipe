@@ -97,6 +97,23 @@ export function diagnosticar(
     }
   }
 
+  // 4b. Audiencia mal configurada: elegido "por perfiles" y sin perfiles
+  //     marcados. No lo ve NADIE, y desde la galeria del admin se ve normal
+  //     porque el admin lo ve todo. Es el fallo perfecto para pasar semanas
+  //     sin que nadie lo note.
+  for (const v of videos) {
+    if (v.status !== 'live') continue
+    if (v.audience === 'perfiles' && v.audience_profiles.length === 0) {
+      h.push({
+        gravedad: 'error',
+        titulo: 'Video publicado "por perfiles" pero sin ningún perfil: no lo ve nadie',
+        arreglo: 'Marca los perfiles que deben verlo, o cámbialo a "Todos".',
+        donde: v.title,
+        videoId: v.id,
+      })
+    }
+  }
+
   // 5. Rutas: descabezadas, publicadas sin entrada, o con enlaces rotos.
   const alcanzablesTotal = new Set<string>()
   for (const r of rutas) {

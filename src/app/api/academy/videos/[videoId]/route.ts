@@ -28,6 +28,11 @@ const patchSchema = z.object({
   tags: z.array(z.string().min(1).max(40)).max(20).optional(),
   stackId: z.string().uuid().nullable().optional(),
   status: z.enum(['draft', 'live']).optional(),
+  audience: z.enum(['todos', 'perfiles', 'personas']).optional(),
+  audienceProfiles: z.array(z.string().min(1).max(40)).max(30).optional(),
+  // Posicion en el diagrama: presentacion pura, no cambia el comportamiento.
+  diagramX: z.number().finite().optional(),
+  diagramY: z.number().finite().optional(),
 })
 
 /** Sesion + admin de la org. El rate limit y el uuid van en CADA handler, en
@@ -96,6 +101,13 @@ export async function PATCH(
     }
     cambios.interactions = interacciones as unknown as Json
   }
+  if (parsed.data.audience !== undefined) cambios.audience = parsed.data.audience
+  if (parsed.data.audienceProfiles !== undefined) {
+    cambios.audience_profiles = parsed.data.audienceProfiles.map((x) => x.trim()).filter(Boolean)
+  }
+  if (parsed.data.diagramX !== undefined) cambios.diagram_x = parsed.data.diagramX
+  if (parsed.data.diagramY !== undefined) cambios.diagram_y = parsed.data.diagramY
+
   if (parsed.data.stackId !== undefined) {
     if (parsed.data.stackId !== null) {
       const adminCheck = createAdminClient()
@@ -114,7 +126,7 @@ export async function PATCH(
     .from('academy_videos')
     .update(cambios)
     .eq('id', params.videoId)
-    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, created_by, created_at, updated_at')
+    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, audience, audience_profiles, diagram_x, diagram_y, created_by, created_at, updated_at')
     .maybeSingle()
 
   if (error) {

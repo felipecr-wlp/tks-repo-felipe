@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 
   let q = admin
     .from('academy_videos')
-    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, created_by, created_at, updated_at')
+    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, audience, audience_profiles, diagram_x, diagram_y, created_by, created_at, updated_at')
     .order('created_at', { ascending: false })
   if (!esAdmin) q = q.eq('status', 'live')
 
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
       status: parsed.data.status,
       created_by: user.id,
     })
-    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, created_by, created_at, updated_at')
+    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, audience, audience_profiles, diagram_x, diagram_y, created_by, created_at, updated_at')
     .single()
 
   if (error || !fila) {

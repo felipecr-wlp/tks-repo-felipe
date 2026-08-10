@@ -14,6 +14,7 @@ import {
   type AvanceVideo,
   type VideoAcademia,
 } from '@/lib/academy/videos'
+import { puedeVer, type Espectador } from '@/lib/academy/visibilidad'
 import { ReproductorVideo } from './ReproductorVideo'
 
 interface PageProps {
@@ -44,13 +45,29 @@ export default async function VideoPage({ params, searchParams }: PageProps) {
 
   const { data: videoRaw } = await admin
     .from('academy_videos')
-    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, created_by, created_at, updated_at')
+    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, audience, audience_profiles, diagram_x, diagram_y, created_by, created_at, updated_at')
     .eq('id', params.videoId)
     .maybeSingle()
   if (!videoRaw) notFound()
 
   const video = videoRaw as unknown as VideoAcademia
-  if (video.status !== 'live' && !(await isOrgAdmin(user.id))) notFound()
+
+  // LA BARRERA DE VERDAD ESTA AQUI, no en el filtro de la galeria. Esconder
+  // una tarjeta no impide abrir el enlace directo, y los enlaces se comparten
+  // por WhatsApp. Sin este check, "solo para foremen" seria decorativo.
+  const [esAdmin, { data: perfil }, { data: nombrada }] = await Promise.all([
+    isOrgAdmin(user.id),
+    admin.from('profiles').select('academy_profiles').eq('id', user.id).maybeSingle(),
+    admin.from('academy_video_viewers')
+      .select('video_id').eq('profile_id', user.id).eq('video_id', video.id),
+  ])
+  const espectador: Espectador = {
+    perfiles: (perfil?.academy_profiles ?? []) as string[],
+    nombradaEn: new Set((nombrada ?? []).map((r) => r.video_id)),
+    esAdmin,
+  }
+  // 404 y no 403: un 403 confirmaria que el video existe y de que trata.
+  if (!puedeVer(video, video.id, espectador)) notFound()
 
   const [{ data: avanceRaw }, { data: firmado }] = await Promise.all([
     admin

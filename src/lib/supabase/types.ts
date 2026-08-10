@@ -222,6 +222,8 @@ export type Database = {
       academy_paths: {
         Row: {
           accent: string
+          audience: string
+          audience_profiles: string[]
           created_at: string
           created_by: string | null
           description: string
@@ -235,6 +237,8 @@ export type Database = {
         }
         Insert: {
           accent?: string
+          audience?: string
+          audience_profiles?: string[]
           created_at?: string
           created_by?: string | null
           description?: string
@@ -248,6 +252,8 @@ export type Database = {
         }
         Update: {
           accent?: string
+          audience?: string
+          audience_profiles?: string[]
           created_at?: string
           created_by?: string | null
           description?: string
@@ -439,12 +445,37 @@ export type Database = {
           },
         ]
       }
+      academy_video_viewers: {
+        Row: {
+          created_at: string
+          id: string
+          profile_id: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          profile_id: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          profile_id?: string
+          video_id?: string
+        }
+        Relationships: []
+      }
       academy_videos: {
         Row: {
+          audience: string
+          audience_profiles: string[]
           chapters: Json
           created_at: string
           created_by: string | null
           description: string
+          diagram_x: number | null
+          diagram_y: number | null
           duration_seconds: number | null
           id: string
           interactions: Json
@@ -457,10 +488,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          audience?: string
+          audience_profiles?: string[]
           chapters?: Json
           created_at?: string
           created_by?: string | null
           description?: string
+          diagram_x?: number | null
+          diagram_y?: number | null
           duration_seconds?: number | null
           id?: string
           interactions?: Json
@@ -473,10 +508,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          audience?: string
+          audience_profiles?: string[]
           chapters?: Json
           created_at?: string
           created_by?: string | null
           description?: string
+          diagram_x?: number | null
+          diagram_y?: number | null
           duration_seconds?: number | null
           id?: string
           interactions?: Json
@@ -2366,6 +2405,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          academy_profiles: string[]
           avatar_url: string | null
           created_at: string
           display_name: string | null
@@ -2377,6 +2417,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          academy_profiles?: string[]
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
@@ -2388,6 +2429,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          academy_profiles?: string[]
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null

@@ -15,6 +15,7 @@ import {
   type StackAcademia,
   type VideoAcademia,
 } from '@/lib/academy/videos'
+import { filtrarVisibles, type Espectador } from '@/lib/academy/visibilidad'
 import { GaleriaVideos } from './GaleriaVideos'
 
 interface PageProps {
@@ -43,11 +44,11 @@ export default async function VideosPage({ params }: PageProps) {
 
   let q = admin
     .from('academy_videos')
-    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, created_by, created_at, updated_at')
+    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, audience, audience_profiles, diagram_x, diagram_y, created_by, created_at, updated_at')
     .order('created_at', { ascending: false })
   if (!esAdmin) q = q.eq('status', 'live')
 
-  const [{ data: videosRaw }, { data: avancesRaw }, { data: stacksRaw }, { data: rutasRaw }, { data: escuelasRaw }] = await Promise.all([
+  const [{ data: videosRaw }, { data: avancesRaw }, { data: stacksRaw }, { data: rutasRaw }, { data: perfil }, { data: nombrada }, { data: escuelasRaw }] = await Promise.all([
     q,
     admin
       .from('academy_video_progress')
@@ -59,20 +60,35 @@ export default async function VideosPage({ params }: PageProps) {
       .order('position', { ascending: true }),
     admin
       .from('academy_paths')
-      .select('id, title, description, school_id, entry_video_id, accent, position, status, created_by, created_at, updated_at')
+      .select('id, title, description, school_id, entry_video_id, accent, position, status, audience, audience_profiles, created_by, created_at, updated_at')
       .order('position', { ascending: true }),
+    admin.from('profiles').select('academy_profiles').eq('id', user.id).maybeSingle(),
+    admin.from('academy_video_viewers').select('video_id').eq('profile_id', user.id),
     admin
       .from('academy_schools')
       .select('id, code, title, description, accent, mandatory, position, created_at, updated_at')
       .order('position', { ascending: true }),
   ])
 
-  const videos = (videosRaw ?? []) as unknown as VideoAcademia[]
+  // VISIBILIDAD. El filtro va en el SERVIDOR, no en el cliente: esconder en la
+  // UI algo que ya viajo al navegador no es un permiso, es un adorno.
+  const espectador: Espectador = {
+    perfiles: (perfil?.academy_profiles ?? []) as string[],
+    nombradaEn: new Set((nombrada ?? []).map((r) => r.video_id)),
+    esAdmin,
+  }
+  const videos = filtrarVisibles(
+    (videosRaw ?? []) as unknown as VideoAcademia[],
+    espectador,
+  )
   const avances = (avancesRaw ?? []) as unknown as AvanceVideo[]
   const stacks = (stacksRaw ?? []) as unknown as StackAcademia[]
   const escuelas = (escuelasRaw ?? []) as unknown as EscuelaAcademia[]
   // Los borradores de ruta solo los ve quien los gobierna.
-  const rutas = ((rutasRaw ?? []) as unknown as RutaAcademia[]).filter((r) => esAdmin || r.status === 'live')
+  const rutas = filtrarVisibles(
+    (rutasRaw ?? []) as unknown as RutaAcademia[],
+    { ...espectador, nombradaEn: new Set<string>() },
+  )
 
   // Miniaturas en lote: una llamada, no una por tarjeta.
   const conThumb = videos.filter((v) => v.thumbnail_path)

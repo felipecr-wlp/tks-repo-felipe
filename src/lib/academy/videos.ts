@@ -233,6 +233,8 @@ export interface RutaAcademia {
   accent: string
   position: number
   status: EstadoVideo
+  audience: 'todos' | 'perfiles' | 'personas'
+  audience_profiles: string[]
   created_by: string | null
   created_at: string
   updated_at: string
@@ -264,6 +266,12 @@ export interface VideoAcademia {
   interactions: Interaccion[]
   tags: string[]
   stack_id: string | null
+  /** Quien lo ve. Ver lib/academy/visibilidad.ts. */
+  audience: 'todos' | 'perfiles' | 'personas'
+  audience_profiles: string[]
+  /** Posicion en el diagrama de flujo. null = nunca se ha acomodado. */
+  diagram_x: number | null
+  diagram_y: number | null
   status: EstadoVideo
   created_by: string | null
   created_at: string

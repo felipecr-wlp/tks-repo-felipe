@@ -43,10 +43,10 @@ export default async function PanelPage({ params }: PageProps) {
       .select('id, title, description, accent, position, school_id, created_by, created_at, updated_at')
       .order('position'),
     admin.from('academy_paths')
-      .select('id, title, description, school_id, entry_video_id, accent, position, status, created_by, created_at, updated_at')
+      .select('id, title, description, school_id, entry_video_id, accent, position, status, audience, audience_profiles, created_by, created_at, updated_at')
       .order('position'),
     admin.from('academy_videos')
-      .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, created_by, created_at, updated_at')
+      .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, audience, audience_profiles, diagram_x, diagram_y, created_by, created_at, updated_at')
       .order('created_at', { ascending: false }),
   ])
 

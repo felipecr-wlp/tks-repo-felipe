@@ -16,7 +16,7 @@ import { isOrgAdmin } from '@/lib/team-access'
 import type { RutaAcademia } from '@/lib/academy/videos'
 
 export const COLUMNAS_RUTA =
-  'id, title, description, school_id, entry_video_id, accent, position, status, created_by, created_at, updated_at'
+  'id, title, description, school_id, entry_video_id, accent, position, status, audience, audience_profiles, created_by, created_at, updated_at'
 
 export async function GET(request: NextRequest) {
   const limited = await applyRateLimit(request)
