@@ -133,6 +133,9 @@ export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
   const [perfiles, setPerfiles] = useState('')
   const [capitulos, setCapitulos] = useState<FilaCapitulo[]>([])
   const [interacciones, setInteracciones] = useState<FilaInteraccion[]>([])
+  const [exigeAcuse, setExigeAcuse] = useState(false)
+  const [exigeFirma, setExigeFirma] = useState(false)
+  const [mesesVigencia, setMesesVigencia] = useState('')
   const [publicar, setPublicar] = useState(true)
   const [ocupado, setOcupado] = useState(false)
   // Progreso de subida: null = no hay subida en vuelo.
@@ -248,6 +251,9 @@ export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
           interactions: preguntas,
           tags: tags.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 20),
           stackId: stackId || null,
+          requiresAck: exigeAcuse,
+          requiresVerification: exigeFirma,
+          validMonths: mesesVigencia.trim() ? Number(mesesVigencia) : null,
           audience: audiencia,
           audienceProfiles: perfiles.split(',').map((x) => x.trim()).filter(Boolean),
           status: publicar ? 'live' : 'draft',
@@ -527,6 +533,44 @@ export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Certificacion: lo que separa "vio el video" de "esta certificado
+              para hacerlo". Va junto, y no en otra pantalla, porque quien sube
+              el contenido es quien sabe si eso exige firma. */}
+          <div className="space-y-2 rounded-lg border border-border p-3">
+            <span className="block text-sm font-medium text-foreground">{t('academyV.certification')}</span>
+            <label className="flex items-start gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={exigeAcuse}
+                onChange={(e) => setExigeAcuse(e.target.checked)}
+                disabled={ocupado}
+                className="mt-0.5 h-4 w-4 rounded border-border"
+              />
+              <span>{t('academyV.requiresAck')}</span>
+            </label>
+            <label className="flex items-start gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={exigeFirma}
+                onChange={(e) => setExigeFirma(e.target.checked)}
+                disabled={ocupado}
+                className="mt-0.5 h-4 w-4 rounded border-border"
+              />
+              <span>{t('academyV.requiresVerification')}</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <span>{t('academyV.validMonths')}</span>
+              <input
+                value={mesesVigencia}
+                onChange={(e) => setMesesVigencia(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="12"
+                disabled={ocupado}
+                className="w-16 rounded-lg border border-border bg-background px-2 py-1 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <span className="text-xs text-muted-foreground">{t('academyV.validMonthsHint')}</span>
+            </label>
           </div>
 
           <label className="flex items-center gap-2 text-sm text-foreground">

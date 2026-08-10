@@ -33,6 +33,10 @@ const patchSchema = z.object({
   // Posicion en el diagrama: presentacion pura, no cambia el comportamiento.
   diagramX: z.number().finite().optional(),
   diagramY: z.number().finite().optional(),
+  requiresAck: z.boolean().optional(),
+  requiresVerification: z.boolean().optional(),
+  validMonths: z.number().int().min(1).max(120).nullable().optional(),
+  ackText: z.string().max(2000).nullable().optional(),
 })
 
 /** Sesion + admin de la org. El rate limit y el uuid van en CADA handler, en
@@ -105,6 +109,10 @@ export async function PATCH(
   if (parsed.data.audienceProfiles !== undefined) {
     cambios.audience_profiles = parsed.data.audienceProfiles.map((x) => x.trim()).filter(Boolean)
   }
+  if (parsed.data.requiresAck !== undefined) cambios.requires_ack = parsed.data.requiresAck
+  if (parsed.data.requiresVerification !== undefined) cambios.requires_verification = parsed.data.requiresVerification
+  if (parsed.data.validMonths !== undefined) cambios.valid_months = parsed.data.validMonths
+  if (parsed.data.ackText !== undefined) cambios.ack_text = parsed.data.ackText?.trim() || null
   if (parsed.data.diagramX !== undefined) cambios.diagram_x = parsed.data.diagramX
   if (parsed.data.diagramY !== undefined) cambios.diagram_y = parsed.data.diagramY
 

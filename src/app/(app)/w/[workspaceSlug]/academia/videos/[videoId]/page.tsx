@@ -15,7 +15,9 @@ import {
   type VideoAcademia,
 } from '@/lib/academy/videos'
 import { puedeVer, type Espectador } from '@/lib/academy/visibilidad'
+import type { Certificacion } from '@/lib/academy/certificacion'
 import { ReproductorVideo } from './ReproductorVideo'
+import { PanelCertificacion } from './PanelCertificacion'
 
 interface PageProps {
   params: { workspaceSlug: string; videoId: string }
@@ -69,7 +71,7 @@ export default async function VideoPage({ params, searchParams }: PageProps) {
   // 404 y no 403: un 403 confirmaria que el video existe y de que trata.
   if (!puedeVer(video, video.id, espectador)) notFound()
 
-  const [{ data: avanceRaw }, { data: firmado }] = await Promise.all([
+  const [{ data: avanceRaw }, { data: firmado }, { data: certRaw }] = await Promise.all([
     admin
       .from('academy_video_progress')
       .select('video_id, last_position, seconds_watched, completed, updated_at')
@@ -77,6 +79,13 @@ export default async function VideoPage({ params, searchParams }: PageProps) {
       .eq('video_id', video.id)
       .maybeSingle(),
     admin.storage.from(VIDEO_BUCKET).createSignedUrl(video.storage_path, TTL_REPRODUCCION),
+    admin
+      .from('academy_certifications')
+      .select('profile_id, item_type, item_id, acknowledged_at, verified_at, verified_by, expires_at')
+      .eq('profile_id', user.id)
+      .eq('item_type', 'video')
+      .eq('item_id', video.id)
+      .maybeSingle(),
   ])
 
   if (!firmado?.signedUrl) {
@@ -132,6 +141,25 @@ export default async function VideoPage({ params, searchParams }: PageProps) {
       posterUrl={posterUrl}
       vieneDe={vieneDe}
       arranqueEn={arranqueEn}
-    />
+    >
+      <PanelCertificacion
+        videoId={video.id}
+        requisitos={{
+          requires_ack: video.requires_ack,
+          requires_verification: video.requires_verification,
+          valid_months: video.valid_months,
+        }}
+        cert={(certRaw as unknown as Certificacion) ?? null}
+        textoAcuse={
+          video.ack_text?.trim() ||
+          'Confirmo que vi el contenido, lo entendí y me comprometo a aplicarlo.'
+        }
+        visto={Boolean((avanceRaw as unknown as AvanceVideo)?.completed)}
+        // El "ahora" viene del SERVIDOR: con el reloj del navegador, alguien
+        // podria adelantar la fecha y ver su certificacion vencida (o al
+        // reves) sin que eso signifique nada.
+        ahoraIso={new Date().toISOString()}
+      />
+    </ReproductorVideo>
   )
 }

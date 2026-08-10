@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   GraduationCap, Layers, Route as RouteIcon, Clapperboard,
-  Plus, Trash2, ExternalLink, AlertTriangle, Stethoscope, CheckCircle2, Info, Workflow,
+  Plus, Trash2, ExternalLink, AlertTriangle, Stethoscope, CheckCircle2, Info, Workflow, ShieldCheck,
 } from 'lucide-react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import type {
@@ -87,10 +87,16 @@ export function PanelAcademia({
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-foreground">{t('academyP.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('academyP.subtitle')}</p>
         </div>
+        <Link
+          href={`/w/${workspaceSlug}/academia/panel/certificaciones`}
+          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+        >
+          <ShieldCheck className="h-4 w-4" /> {t('academyC.panelLink')}
+        </Link>
         <Link
           href={`/w/${workspaceSlug}/academia/panel/diagrama`}
           className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"

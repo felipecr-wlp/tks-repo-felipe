@@ -39,12 +39,14 @@ interface Props {
   vieneDe: { id: string; title: string } | null
   /** Segundo de arranque pedido por la rama (query `t`). */
   arranqueEn: number | null
+  /** Panel de certificacion, montado por el server debajo de la ficha. */
+  children?: React.ReactNode
 }
 
 const INTERVALO_REPORTE = 15
 
 export function ReproductorVideo({
-  workspaceSlug, video, avance, streamUrl, posterUrl, vieneDe, arranqueEn,
+  workspaceSlug, video, avance, streamUrl, posterUrl, vieneDe, arranqueEn, children,
 }: Props) {
   const t = useT()
   const router = useRouter()
@@ -349,6 +351,10 @@ export function ReproductorVideo({
               ))}
             </div>
           )}
+          {/* Panel de certificacion: va DEBAJO de la ficha, no arriba. El
+              acuse tiene sentido despues de ver, y ponerlo antes invitaria a
+              firmar sin haber visto nada. */}
+          {children}
         </div>
 
         {video.chapters.length > 0 && (

@@ -77,6 +77,10 @@ const crearSchema = z.object({
   // permisos que responde OK es el peor de todos, porque nadie lo revisa.
   audience: z.enum(['todos', 'perfiles', 'personas']).optional().default('todos'),
   audienceProfiles: z.array(z.string().min(1).max(40)).max(30).optional().default([]),
+  requiresAck: z.boolean().optional().default(false),
+  requiresVerification: z.boolean().optional().default(false),
+  validMonths: z.number().int().min(1).max(120).nullable().optional(),
+  ackText: z.string().max(2000).nullable().optional(),
 })
 
 /** El objeto existe si Storage puede firmarle una URL. */
@@ -167,6 +171,10 @@ export async function POST(request: NextRequest) {
       interactions: interacciones as unknown as Json,
       tags: parsed.data.tags,
       stack_id: stackId,
+      requires_ack: parsed.data.requiresAck,
+      requires_verification: parsed.data.requiresVerification,
+      valid_months: parsed.data.validMonths ?? null,
+      ack_text: parsed.data.ackText?.trim() || null,
       audience: parsed.data.audience,
       audience_profiles: parsed.data.audienceProfiles.map((x) => x.trim()).filter(Boolean),
       status: parsed.data.status,
