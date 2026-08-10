@@ -15,6 +15,7 @@ import {
   type VideoAcademia,
 } from '@/lib/academy/videos'
 import { puedeVer, type Espectador } from '@/lib/academy/visibilidad'
+import { urlDeReproduccion } from '@/lib/academy/url-firmada'
 import type { Certificacion } from '@/lib/academy/certificacion'
 import { ReproductorVideo } from './ReproductorVideo'
 import { PanelCertificacion } from './PanelCertificacion'
@@ -47,7 +48,7 @@ export default async function VideoPage({ params, searchParams }: PageProps) {
 
   const { data: videoRaw } = await admin
     .from('academy_videos')
-    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, audience, audience_profiles, diagram_x, diagram_y, requires_ack, requires_verification, valid_months, ack_text, created_by, created_at, updated_at')
+    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, audience, audience_profiles, diagram_x, diagram_y, requires_ack, requires_verification, valid_months, ack_text, signed_url, signed_url_expires_at, created_by, created_at, updated_at')
     .eq('id', params.videoId)
     .maybeSingle()
   if (!videoRaw) notFound()
@@ -71,14 +72,13 @@ export default async function VideoPage({ params, searchParams }: PageProps) {
   // 404 y no 403: un 403 confirmaria que el video existe y de que trata.
   if (!puedeVer(video, video.id, espectador)) notFound()
 
-  const [{ data: avanceRaw }, { data: firmado }, { data: certRaw }] = await Promise.all([
+  const [{ data: avanceRaw }, { data: certRaw }] = await Promise.all([
     admin
       .from('academy_video_progress')
       .select('video_id, last_position, seconds_watched, completed, updated_at')
       .eq('profile_id', user.id)
       .eq('video_id', video.id)
       .maybeSingle(),
-    admin.storage.from(VIDEO_BUCKET).createSignedUrl(video.storage_path, TTL_REPRODUCCION),
     admin
       .from('academy_certifications')
       .select('profile_id, item_type, item_id, acknowledged_at, verified_at, verified_by, expires_at')
@@ -88,7 +88,15 @@ export default async function VideoPage({ params, searchParams }: PageProps) {
       .maybeSingle(),
   ])
 
-  if (!firmado?.signedUrl) {
+  // URL REUSABLE: la misma cadena para todos mientras siga vigente, para que
+  // el cache del navegador sirva. Firmar en cada carga hacia que cada visita
+  // volviera a descargar el video entero (ver lib/academy/url-firmada.ts).
+  const streamUrl = await urlDeReproduccion(admin, video.id, {
+    storage_path: video.storage_path,
+    signed_url: (videoRaw as { signed_url?: string | null }).signed_url ?? null,
+    signed_url_expires_at: (videoRaw as { signed_url_expires_at?: string | null }).signed_url_expires_at ?? null,
+  })
+  if (!streamUrl) {
     // Fila sin objeto: mejor 404 claro que un reproductor que gira infinito.
     console.error('[video page] no se pudo firmar', video.storage_path)
     notFound()
@@ -137,7 +145,7 @@ export default async function VideoPage({ params, searchParams }: PageProps) {
         interactions: validarInteracciones(video.interactions) ?? [],
       }}
       avance={(avanceRaw as unknown as AvanceVideo) ?? null}
-      streamUrl={firmado.signedUrl}
+      streamUrl={streamUrl}
       posterUrl={posterUrl}
       vieneDe={vieneDe}
       arranqueEn={arranqueEn}

@@ -527,6 +527,8 @@ export type Database = {
           interactions: Json
           requires_ack: boolean
           requires_verification: boolean
+          signed_url: string | null
+          signed_url_expires_at: string | null
           stack_id: string | null
           status: string
           storage_path: string
@@ -551,6 +553,8 @@ export type Database = {
           interactions?: Json
           requires_ack?: boolean
           requires_verification?: boolean
+          signed_url?: string | null
+          signed_url_expires_at?: string | null
           stack_id?: string | null
           status?: string
           storage_path: string
@@ -575,6 +579,8 @@ export type Database = {
           interactions?: Json
           requires_ack?: boolean
           requires_verification?: boolean
+          signed_url?: string | null
+          signed_url_expires_at?: string | null
           stack_id?: string | null
           status?: string
           storage_path?: string
