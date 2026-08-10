@@ -8,7 +8,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Blocks, KeyRound, Webhook, ScrollText, Plus, Trash2, Copy, Check,
-  ShieldCheck, Power, AlertTriangle,
+  ShieldCheck, Power, AlertTriangle, Activity, RefreshCw, Wifi, WifiOff,
+  ArrowRight, CheckCircle2, XCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { scopesForApp, type ConnectorApp } from '@/lib/connectors/scopes'
@@ -20,7 +21,7 @@ const APPS: { id: ConnectorApp; name: string }[] = [
 ]
 const appName = (id: string) => APPS.find((a) => a.id === id)?.name ?? id
 
-type Tab = 'complementos' | 'keys' | 'webhooks' | 'auditoria'
+type Tab = 'complementos' | 'keys' | 'webhooks' | 'auditoria' | 'diagnostico'
 
 interface KeyRow {
   id: string; name: string; target_app: string; token_prefix: string
@@ -45,6 +46,7 @@ export function ConnectorsPanel({ workspaceId }: { workspaceId: string; workspac
     { id: 'keys', label: 'Keys', icon: KeyRound },
     { id: 'webhooks', label: 'Webhooks', icon: Webhook },
     { id: 'auditoria', label: 'Auditoria', icon: ScrollText },
+    { id: 'diagnostico', label: 'Diagnostico', icon: Activity },
   ]
 
   return (
@@ -79,6 +81,7 @@ export function ConnectorsPanel({ workspaceId }: { workspaceId: string; workspac
       {tab === 'keys' && <KeysTab workspaceId={workspaceId} />}
       {tab === 'webhooks' && <WebhooksTab workspaceId={workspaceId} />}
       {tab === 'auditoria' && <AuditoriaTab workspaceId={workspaceId} />}
+      {tab === 'diagnostico' && <DiagnosticoTab workspaceId={workspaceId} />}
     </div>
   )
 }
@@ -437,6 +440,219 @@ function WebhooksTab({ workspaceId }: { workspaceId: string }) {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Diagnostico ───────────────────────────────────────────────────────────────
+interface DiagnosticoReport {
+  checkedAt: string
+  apps: Record<string, DiagnosticoApp>
+}
+interface DiagnosticoApp {
+  meta: { id: string; name: string; description: string; urlEsperada: string | null }
+  connection: {
+    ok: boolean; configurado: boolean; url: string | null; tokenPresente: boolean
+    latenciaMs: number | null; status: number | null; error: string | null; detalle: string | null
+  }
+  install: {
+    id: string; app_id: string; enabled: boolean
+    granted_scopes: string[] | null; installed_at: string | null
+  } | null
+  scopes: {
+    scope: string; label: string; risk: string; estado: 'disponible' | 'reservado'
+    direccion: 'entrante' | 'saliente'; action: string | null; desplegado: boolean; nota: string
+  }[]
+  manual: {
+    direccion: 'entrante' | 'saliente'; action: string; scope: string | null
+    ruta: string; cuerpo: string; respuesta: string; nota: string
+  }[]
+}
+
+const ORDEN_APPS = ['wli', 'wlo', 'wlm']
+
+function DiagnosticoTab({ workspaceId }: { workspaceId: string }) {
+  const [report, setReport] = useState<DiagnosticoReport | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [running, setRunning] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setRunning(true); setError(null)
+    try {
+      const res = await fetch(`/api/connectors/diagnostico?workspace_id=${workspaceId}`)
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'No se pudo correr el diagnostico'); setReport(null) }
+      else setReport(json as DiagnosticoReport)
+    } catch {
+      setError('No se pudo contactar el servidor.')
+    } finally {
+      setLoading(false); setRunning(false)
+    }
+  }, [workspaceId])
+  useEffect(() => { load() }, [load])
+
+  const estadoChip = (estado: 'disponible' | 'reservado') =>
+    estado === 'disponible'
+      ? 'bg-emerald-500/10 text-emerald-600'
+      : 'bg-amber-500/10 text-amber-600'
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Prueba la conexion con cada app, analiza los permisos que expone y el
+          despliegue de su comunicacion. Nada se escribe: es puro diagnostico.
+        </p>
+        <button
+          onClick={load}
+          disabled={running}
+          className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-border hover:bg-accent disabled:opacity-50"
+        >
+          <RefreshCw size={14} className={cn(running && 'animate-spin')} />
+          {running ? 'Probando...' : 'Ejecutar de nuevo'}
+        </button>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Corriendo el diagnostico...</p>
+      ) : error ? (
+        <Card className="border-red-500/30">
+          <p className="text-sm text-red-600">{error}</p>
+        </Card>
+      ) : report ? (
+        ORDEN_APPS.map((id) => {
+          const app = report.apps[id]
+          if (!app) return null
+          const conn = app.connection
+          const badge = conn.ok
+            ? { texto: 'Operativa', clase: 'bg-emerald-500/10 text-emerald-600', Icon: Wifi }
+            : conn.configurado
+              ? { texto: 'Falló', clase: 'bg-red-500/10 text-red-600', Icon: WifiOff }
+              : { texto: 'Sin configurar', clase: 'bg-amber-500/10 text-amber-600', Icon: WifiOff }
+
+          return (
+            <Card key={id} className="space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h3 className="font-medium text-foreground">{app.meta.name}</h3>
+                  <p className="text-xs text-muted-foreground">{app.meta.description}</p>
+                </div>
+                <span className={cn('inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border', badge.clase)}>
+                  <badge.Icon size={12} /> {badge.texto}
+                </span>
+              </div>
+
+              {/* Conexion */}
+              <div>
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Conexión</span>
+                <div className="mt-1 space-y-1 text-xs">
+                  {conn.ok && (
+                    <p className="text-emerald-600 flex items-center gap-1.5">
+                      <CheckCircle2 size={13} />
+                      {conn.detalle}
+                      {conn.latenciaMs != null && <span className="text-muted-foreground">({conn.latenciaMs} ms)</span>}
+                    </p>
+                  )}
+                  {!conn.ok && (
+                    <p className={conn.configurado ? 'text-red-600' : 'text-amber-600'}>{conn.error}</p>
+                  )}
+                  {!conn.ok && conn.detalle && (
+                    <p className="text-muted-foreground">{conn.detalle}</p>
+                  )}
+                  {conn.url && (
+                    <code className="block bg-muted rounded px-2 py-1 font-mono text-[11px] break-all">{conn.url}</code>
+                  )}
+                  {!conn.url && app.meta.urlEsperada && !conn.configurado && (
+                    <code className="block bg-muted rounded px-2 py-1 font-mono text-[11px] break-all">{app.meta.urlEsperada}</code>
+                  )}
+                </div>
+              </div>
+
+              {/* Instalacion */}
+              <div>
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Instalación</span>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                  {app.install ? (
+                    <span className={cn('px-2 py-0.5 rounded-full border', app.install.enabled ? 'border-emerald-500/40 text-emerald-500' : 'border-border text-muted-foreground')}>
+                      {app.install.enabled ? 'Instalado y activo' : 'Instalado pero pausado'}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full border border-border text-muted-foreground">Sin instalar</span>
+                  )}
+                  {(app.install?.granted_scopes ?? []).map((s) => (
+                    <span key={s} className="text-xs px-1.5 py-0.5 rounded bg-accent text-muted-foreground font-mono">{s}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Permisos y despliegue */}
+              <div>
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Permisos y despliegue</span>
+                <div className="mt-1.5 space-y-1.5">
+                  {app.scopes.map((s) => (
+                    <div key={s.scope} className="rounded-lg border border-border p-2.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-medium text-foreground">{s.label}</span>
+                        <code className="text-[11px] font-mono text-muted-foreground">{s.scope}</code>
+                        <span className={cn('text-[10px] px-1 py-0.5 rounded', estadoChip(s.estado))}>{s.estado}</span>
+                        <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground">
+                          {s.direccion} <ArrowRight size={10} />
+                        </span>
+                        {s.desplegado ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-600">
+                            <CheckCircle2 size={10} /> Desplegado
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-1 py-0.5 rounded bg-red-500/10 text-red-600">
+                            <XCircle size={10} /> Sin acción
+                          </span>
+                        )}
+                        {s.action && <code className="text-[10px] font-mono text-muted-foreground">{s.action}</code>}
+                      </div>
+                      <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">{s.nota}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Manual de comunicacion */}
+              <div>
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Manual de comunicación</span>
+                {app.manual.length === 0 ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Sin canales documentados. Configure las variables de entorno de esta app en el servidor.
+                  </p>
+                ) : (
+                  <div className="mt-1.5 space-y-2">
+                    {app.manual.map((c) => (
+                      <div key={c.ruta + c.action} className="rounded-lg border border-border p-2.5 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground uppercase">{c.direccion}</span>
+                          <code className="text-[11px] font-mono text-foreground">{c.action}</code>
+                          {c.scope && <code className="text-[10px] font-mono text-muted-foreground">{c.scope}</code>}
+                        </div>
+                        <code className="block text-[11px] font-mono text-muted-foreground break-all">{c.ruta}</code>
+                        <div className="grid gap-1 sm:grid-cols-2">
+                          <div>
+                            <p className="text-[10px] text-muted-foreground">Cuerpo</p>
+                            <code className="block text-[10px] font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 break-all">{c.cuerpo}</code>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-muted-foreground">Respuesta</p>
+                            <code className="block text-[10px] font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 break-all">{c.respuesta}</code>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">{c.nota}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Card>
+          )
+        })
+      ) : null}
     </div>
   )
 }

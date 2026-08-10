@@ -23,6 +23,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getWorkspaceAdminContext } from '@/lib/workspace-admin'
 import { buildEmbedUrl, EMBED_SANDBOX, isEmbeddable } from '@/lib/connectors/embed'
 import { ALL_SCOPES, scopeDef } from '@/lib/connectors/scopes'
+import { analizarScope } from '@/lib/connectors/diagnostico'
 import { ToolInfoButton } from './ToolInfoButton'
 
 export const metadata = { title: 'Herramienta - WLO' }
@@ -124,6 +125,10 @@ export default async function AppEmbedPage({
     pendingScopes,
     requestedCount: app.requested_scopes?.length ?? 0,
     grantedCount: (install.granted_scopes ?? []).length,
+    // Despliegue de cada permiso que pidio la herramienta, para que "Detalles"
+    // pueda decir si detras hay un canal real y en que direccion.
+    scopeAnalysis: scopes.map((s) => analizarScope(s.scope)).filter((a): a is NonNullable<typeof a> => a !== null),
+    workspaceId: ctx.workspace.id,
   }
 
   return (

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import {
   Info, X, ExternalLink, ShieldAlert, ShieldCheck, Clock, Key, Unlock,
+  RefreshCw, Wifi, WifiOff, ArrowRight, CheckCircle2, XCircle,
 } from 'lucide-react'
 
 interface ScopeInfo {
@@ -10,6 +11,17 @@ interface ScopeInfo {
   label: string
   risk: 'bajo' | 'medio' | 'alto'
   granted: boolean
+}
+
+interface ScopeAnalysis {
+  scope: string
+  label: string
+  risk: string
+  estado: 'disponible' | 'reservado'
+  direccion: 'entrante' | 'saliente'
+  action: string | null
+  desplegado: boolean
+  nota: string
 }
 
 interface ToolInfo {
@@ -28,6 +40,8 @@ interface ToolInfo {
   pendingScopes: string[]
   requestedCount: number
   grantedCount: number
+  scopeAnalysis: ScopeAnalysis[]
+  workspaceId: string
 }
 
 const RIESGO: Record<string, { clase: string }> = {
@@ -44,6 +58,31 @@ const ESTADO: Record<string, { texto: string; clase: string }> = {
 
 export function ToolInfoButton({ tool }: { tool: ToolInfo }) {
   const [open, setOpen] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const [checkError, setCheckError] = useState<string | null>(null)
+  const [checkResult, setCheckResult] = useState<Record<string, {
+    ok: boolean; configurado: boolean; latenciaMs: number | null
+    error: string | null; detalle: string | null
+  }> | null>(null)
+
+  const runCheck = async () => {
+    setChecking(true); setCheckError(null); setCheckResult(null)
+    try {
+      const res = await fetch(`/api/connectors/diagnostico?workspace_id=${tool.workspaceId}`)
+      const json = await res.json()
+      if (!res.ok) setCheckError(json.error ?? 'No se pudo correr el diagnostico')
+      else {
+        const apps: Record<string, { connection: { ok: boolean; configurado: boolean; latenciaMs: number | null; error: string | null; detalle: string | null } }> = json.apps ?? {}
+        setCheckResult(Object.fromEntries(
+          Object.entries(apps).map(([id, a]) => [id, a.connection]),
+        ))
+      }
+    } catch {
+      setCheckError('No se pudo contactar el servidor.')
+    } finally {
+      setChecking(false)
+    }
+  }
 
   return (
     <>
@@ -176,6 +215,101 @@ export function ToolInfoButton({ tool }: { tool: ToolInfo }) {
                 {tool.pendingScopes.length > 0 && (
                   <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
                     Hay {tool.pendingScopes.length} permiso(s) pendiente(s). La herramienta los pidio pero este workspace no se los ha concedido.
+                  </p>
+                )}
+              </div>
+
+              {/* Despliegue de la comunicacion por permiso */}
+              <div>
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Despliegue de la comunicación</span>
+                {tool.scopeAnalysis.length === 0 ? (
+                  <p className="mt-1 text-xs text-muted-foreground">La herramienta no pide permisos sobre el workspace.</p>
+                ) : (
+                  <div className="mt-1.5 space-y-1.5">
+                    {tool.scopeAnalysis.map((s) => (
+                      <div key={s.scope} className="rounded-lg border border-border p-2.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-medium text-foreground">{s.label}</span>
+                          <code className="text-[10px] font-mono text-muted-foreground">{s.scope}</code>
+                          <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground">
+                            {s.direccion} <ArrowRight size={10} />
+                          </span>
+                          {s.desplegado ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-600">
+                              <CheckCircle2 size={10} /> Desplegado
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-1 py-0.5 rounded bg-red-500/10 text-red-600">
+                              <XCircle size={10} /> Sin acción
+                            </span>
+                          )}
+                        </div>
+                        {s.action && (
+                          <code className="mt-1 block text-[10px] font-mono text-muted-foreground">{s.action}</code>
+                        )}
+                        <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">{s.nota}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Diagnostico de conexion */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Diagnóstico de conexión</span>
+                  <button
+                    onClick={runCheck}
+                    disabled={checking}
+                    className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg border border-border hover:bg-muted disabled:opacity-50"
+                  >
+                    <RefreshCw size={11} className={checking ? 'animate-spin' : ''} />
+                    {checking ? 'Probando...' : 'Probar conexión'}
+                  </button>
+                </div>
+                {checkError ? (
+                  <p className="mt-2 text-xs text-red-600">{checkError}</p>
+                ) : checkResult ? (
+                  <div className="mt-2 space-y-1.5">
+                    {(['wli', 'wlo', 'wlm'] as const).map((id) => {
+                      const c = checkResult[id]
+                      if (!c) return null
+                      const NOMBRES: Record<string, string> = {
+                        wli: 'WLI Marketing OS',
+                        wlo: 'WLO Workspace',
+                        wlm: 'WLM Measure',
+                      }
+                      return (
+                        <div key={id} className="flex items-start justify-between gap-2 rounded-lg border border-border px-2.5 py-1.5 text-xs">
+                          <div className="min-w-0">
+                            <span className="font-medium text-foreground">{NOMBRES[id]}</span>
+                            <p className="text-[11px] text-muted-foreground break-words">
+                              {c.ok
+                                ? c.detalle
+                                : c.configurado
+                                  ? c.error
+                                  : c.error}
+                            </p>
+                          </div>
+                          <span className={`inline-flex items-center gap-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded ${
+                            c.ok
+                              ? 'bg-emerald-500/10 text-emerald-600'
+                              : c.configurado
+                                ? 'bg-red-500/10 text-red-600'
+                                : 'bg-amber-500/10 text-amber-600'
+                          }`}>
+                            {c.ok ? <Wifi size={10} /> : <WifiOff size={10} />}
+                            {c.ok
+                              ? c.latenciaMs != null ? `OK ${c.latenciaMs} ms` : 'OK'
+                              : c.configurado ? 'Falló' : 'Sin configurar'}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Prueba si WLO alcanza a cada app del ecosistema y si la conexión está configurada.
                   </p>
                 )}
               </div>
