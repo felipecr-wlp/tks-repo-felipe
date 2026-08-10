@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   GraduationCap, Layers, Route as RouteIcon, Clapperboard,
-  Plus, Trash2, ExternalLink, AlertTriangle, Stethoscope, CheckCircle2, Info, Workflow, ShieldCheck,
+  Plus, Trash2, ExternalLink, AlertTriangle, Stethoscope, CheckCircle2, Info, Workflow, ShieldCheck, BookOpen,
 } from 'lucide-react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import type {
@@ -22,6 +22,7 @@ import type {
 } from '@/lib/academy/videos'
 import { diagnosticar } from '@/lib/academy/diagnostico'
 import { SelectorPersonas } from './SelectorPersonas'
+import { EditarVideoModal } from './EditarVideoModal'
 
 interface Props {
   workspaceSlug: string
@@ -44,6 +45,8 @@ export function PanelAcademia({
   const [ocupado, setOcupado] = useState(false)
   // Video cuyo selector de personas esta abierto.
   const [eligiendo, setEligiendo] = useState<{ id: string; titulo: string } | null>(null)
+  // Video abierto en el editor de capitulos/preguntas/certificacion.
+  const [editando, setEditando] = useState<VideoAcademia | null>(null)
 
   async function llamar(url: string, metodo: string, cuerpo?: unknown) {
     setOcupado(true)
@@ -91,6 +94,12 @@ export function PanelAcademia({
           <h1 className="text-2xl font-bold text-foreground">{t('academyP.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('academyP.subtitle')}</p>
         </div>
+        <Link
+          href={`/w/${workspaceSlug}/academia/panel/guia`}
+          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+        >
+          <BookOpen className="h-4 w-4" /> {t('academyG.guide')}
+        </Link>
         <Link
           href={`/w/${workspaceSlug}/academia/panel/certificaciones`}
           className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
@@ -326,6 +335,13 @@ export function PanelAcademia({
                 <option value="perfiles">{t('academyP.audProfiles')}</option>
                 <option value="personas">{t('academyP.audPeople')}</option>
               </select>
+              <button
+                onClick={() => setEditando(v)}
+                disabled={ocupado}
+                className="shrink-0 rounded border border-border px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted"
+              >
+                {t('academyE.edit')}
+              </button>
               {v.audience === 'personas' && (
                 <button
                   onClick={() => setEligiendo({ id: v.id, titulo: v.title })}
@@ -410,6 +426,17 @@ export function PanelAcademia({
           )}
         </div>
       )}
+      {editando && (
+        <EditarVideoModal
+          video={editando}
+          // Se excluye a si mismo de los destinos: un video que ramifica hacia
+          // si mismo repite la pregunta sin avanzar nada.
+          otrosVideos={videos.filter((v) => v.id !== editando.id).map((v) => ({ id: v.id, title: v.title }))}
+          onClose={() => setEditando(null)}
+          onGuardado={() => router.refresh()}
+        />
+      )}
+
       {eligiendo && (
         <SelectorPersonas
           videoId={eligiendo.id}
