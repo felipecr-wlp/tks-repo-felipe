@@ -16,14 +16,18 @@ import { createClient } from '@/lib/supabase/client'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import {
   MAX_CAPITULOS,
+  MAX_INTERACCIONES,
   THUMB_MIME_ALLOWLIST,
   VIDEO_MAX_BYTES,
   VIDEO_MIME_ALLOWLIST,
   parsearTiempo,
   type Capitulo,
+  type Interaccion,
+  type StackAcademia,
 } from '@/lib/academy/videos'
 
 interface Props {
+  stacks: StackAcademia[]
   onClose: () => void
   onDone: () => void
 }
@@ -31,6 +35,15 @@ interface Props {
 interface FilaCapitulo {
   tiempo: string
   titulo: string
+}
+
+/** Interaccion en edicion: opciones separadas por | y correcta 1-based. */
+interface FilaInteraccion {
+  tiempo: string
+  pregunta: string
+  opciones: string
+  correcta: string
+  explicacion: string
 }
 
 /** Lee la duracion del archivo local sin subir nada. null si no se puede. */
@@ -62,14 +75,16 @@ async function pedirUploadUrl(file: File, kind: 'video' | 'thumb') {
   return json as { path: string; token: string; bucket: string }
 }
 
-export function SubirVideoModal({ onClose, onDone }: Props) {
+export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
   const t = useT()
   const [archivo, setArchivo] = useState<File | null>(null)
   const [miniatura, setMiniatura] = useState<File | null>(null)
   const [titulo, setTitulo] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [tags, setTags] = useState('')
+  const [stackId, setStackId] = useState('')
   const [capitulos, setCapitulos] = useState<FilaCapitulo[]>([])
+  const [interacciones, setInteracciones] = useState<FilaInteraccion[]>([])
   const [publicar, setPublicar] = useState(true)
   const [ocupado, setOcupado] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -103,7 +118,7 @@ export function SubirVideoModal({ onClose, onDone }: Props) {
   async function guardar() {
     if (!archivo || !titulo.trim() || ocupado) return
 
-    // Parsear capitulos ANTES de subir 500MB: fallar barato primero.
+    // Parsear capitulos e interacciones ANTES de subir 500MB: fallar barato.
     const parseados: Capitulo[] = []
     for (const fila of capitulos) {
       if (!fila.tiempo.trim() && !fila.titulo.trim()) continue
@@ -113,6 +128,20 @@ export function SubirVideoModal({ onClose, onDone }: Props) {
         return
       }
       parseados.push({ s, t: fila.titulo.trim() })
+    }
+
+    const preguntas: Interaccion[] = []
+    for (const fila of interacciones) {
+      if (!fila.tiempo.trim() && !fila.pregunta.trim()) continue
+      const s = parsearTiempo(fila.tiempo)
+      const opts = fila.opciones.split('|').map((x) => x.trim()).filter(Boolean)
+      const a = parseInt(fila.correcta, 10) - 1
+      if (s === null || !fila.pregunta.trim() || opts.length < 2 || !(a >= 0 && a < opts.length)) {
+        toast.error(t('academyV.badInteraction'))
+        return
+      }
+      const ex = fila.explicacion.trim()
+      preguntas.push(ex ? { s, q: fila.pregunta.trim(), opts, a, ex } : { s, q: fila.pregunta.trim(), opts, a })
     }
 
     setOcupado(true)
@@ -146,7 +175,9 @@ export function SubirVideoModal({ onClose, onDone }: Props) {
           thumbnailPath,
           durationSeconds: duracion,
           chapters: parseados,
+          interactions: preguntas,
           tags: tags.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 20),
+          stackId: stackId || null,
           status: publicar ? 'live' : 'draft',
         }),
       })
@@ -232,6 +263,21 @@ export function SubirVideoModal({ onClose, onDone }: Props) {
           </label>
 
           <label className="block">
+            <span className="mb-1 block text-sm font-medium text-foreground">{t('academyV.stack')}</span>
+            <select
+              value={stackId}
+              onChange={(e) => setStackId(e.target.value)}
+              disabled={ocupado}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              <option value="">{t('academyV.noStack')}</option>
+              {stacks.map((s) => (
+                <option key={s.id} value={s.id}>{s.title}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
             <span className="mb-1 block text-sm font-medium text-foreground">{t('academyV.thumb')}</span>
             <input
               type="file"
@@ -282,6 +328,78 @@ export function SubirVideoModal({ onClose, onDone }: Props) {
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Interacciones: preguntas que pausan el video */}
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">{t('academyV.interactions')}</span>
+              <button
+                onClick={() => setInteracciones((c) => (c.length < MAX_INTERACCIONES ? [...c, { tiempo: '', pregunta: '', opciones: '', correcta: '1', explicacion: '' }] : c))}
+                disabled={ocupado}
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10"
+              >
+                <Plus className="h-3.5 w-3.5" /> {t('academyV.addInteraction')}
+              </button>
+            </div>
+            {interacciones.length === 0 && (
+              <p className="text-xs text-muted-foreground">{t('academyV.interactionsHint')}</p>
+            )}
+            <div className="space-y-3">
+              {interacciones.map((fila, i) => (
+                <div key={i} className="space-y-2 rounded-lg border border-border p-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={fila.tiempo}
+                      onChange={(e) => setInteracciones((c) => c.map((f, j) => (j === i ? { ...f, tiempo: e.target.value } : f)))}
+                      placeholder="0:30"
+                      disabled={ocupado}
+                      className="w-20 rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                    <input
+                      value={fila.pregunta}
+                      onChange={(e) => setInteracciones((c) => c.map((f, j) => (j === i ? { ...f, pregunta: e.target.value } : f)))}
+                      placeholder={t('academyV.questionPlaceholder')}
+                      disabled={ocupado}
+                      className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                    <button
+                      onClick={() => setInteracciones((c) => c.filter((_, j) => j !== i))}
+                      disabled={ocupado}
+                      className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted"
+                      aria-label={t('academyV.removeInteraction')}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <input
+                    value={fila.opciones}
+                    onChange={(e) => setInteracciones((c) => c.map((f, j) => (j === i ? { ...f, opciones: e.target.value } : f)))}
+                    placeholder={t('academyV.optionsPlaceholder')}
+                    disabled={ocupado}
+                    className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      {t('academyV.correctLabel')}
+                      <input
+                        value={fila.correcta}
+                        onChange={(e) => setInteracciones((c) => c.map((f, j) => (j === i ? { ...f, correcta: e.target.value } : f)))}
+                        disabled={ocupado}
+                        className="w-12 rounded-lg border border-border bg-background px-2 py-1 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      />
+                    </label>
+                    <input
+                      value={fila.explicacion}
+                      onChange={(e) => setInteracciones((c) => c.map((f, j) => (j === i ? { ...f, explicacion: e.target.value } : f)))}
+                      placeholder={t('academyV.explanationPlaceholder')}
+                      disabled={ocupado}
+                      className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                  </div>
                 </div>
               ))}
             </div>

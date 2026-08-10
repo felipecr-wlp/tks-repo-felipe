@@ -302,6 +302,47 @@ export type Database = {
           },
         ]
       }
+      academy_stacks: {
+        Row: {
+          accent: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          position: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accent?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          position?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accent?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          position?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_stacks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academy_videos: {
         Row: {
           chapters: Json
@@ -310,6 +351,8 @@ export type Database = {
           description: string
           duration_seconds: number | null
           id: string
+          interactions: Json
+          stack_id: string | null
           status: string
           storage_path: string
           tags: string[]
@@ -324,6 +367,8 @@ export type Database = {
           description?: string
           duration_seconds?: number | null
           id?: string
+          interactions?: Json
+          stack_id?: string | null
           status?: string
           storage_path: string
           tags?: string[]
@@ -338,6 +383,8 @@ export type Database = {
           description?: string
           duration_seconds?: number | null
           id?: string
+          interactions?: Json
+          stack_id?: string | null
           status?: string
           storage_path?: string
           tags?: string[]
@@ -351,6 +398,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_videos_stack_id_fkey"
+            columns: ["stack_id"]
+            isOneToOne: false
+            referencedRelation: "academy_stacks"
             referencedColumns: ["id"]
           },
         ]

@@ -59,6 +59,9 @@ const HANDLERS: { file: string; authz: RegExp }[] = [
   { file: 'videos/route.ts',            authz: /isOrgAdmin\(/ },
   { file: 'videos/[videoId]/route.ts',  authz: /isOrgAdmin\(/ },
   { file: 'videos/[videoId]/progress/route.ts', authz: /profile_id: user\.id/ },
+  // Stacks de la galeria: puro catalogo, gobernanza de admin.
+  { file: 'stacks/route.ts',           authz: /isOrgAdmin\(/ },
+  { file: 'stacks/[stackId]/route.ts', authz: /isOrgAdmin\(/ },
 ]
 
 /** Todos los route.ts bajo src/app/api/academy, los anote alguien o no. */

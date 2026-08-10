@@ -10,6 +10,7 @@ import { isOrgAdmin } from '@/lib/team-access'
 import {
   VIDEO_BUCKET,
   type AvanceVideo,
+  type StackAcademia,
   type VideoAcademia,
 } from '@/lib/academy/videos'
 import { GaleriaVideos } from './GaleriaVideos'
@@ -40,20 +41,25 @@ export default async function VideosPage({ params }: PageProps) {
 
   let q = admin
     .from('academy_videos')
-    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, tags, status, created_by, created_at, updated_at')
+    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, created_by, created_at, updated_at')
     .order('created_at', { ascending: false })
   if (!esAdmin) q = q.eq('status', 'live')
 
-  const [{ data: videosRaw }, { data: avancesRaw }] = await Promise.all([
+  const [{ data: videosRaw }, { data: avancesRaw }, { data: stacksRaw }] = await Promise.all([
     q,
     admin
       .from('academy_video_progress')
       .select('video_id, last_position, seconds_watched, completed, updated_at')
       .eq('profile_id', user.id),
+    admin
+      .from('academy_stacks')
+      .select('id, title, description, accent, position, created_by, created_at, updated_at')
+      .order('position', { ascending: true }),
   ])
 
   const videos = (videosRaw ?? []) as unknown as VideoAcademia[]
   const avances = (avancesRaw ?? []) as unknown as AvanceVideo[]
+  const stacks = (stacksRaw ?? []) as unknown as StackAcademia[]
 
   // Miniaturas en lote: una llamada, no una por tarjeta.
   const conThumb = videos.filter((v) => v.thumbnail_path)
@@ -76,6 +82,7 @@ export default async function VideosPage({ params }: PageProps) {
       workspaceSlug={params.workspaceSlug}
       videos={videos}
       avances={avances}
+      stacks={stacks}
       thumbUrls={thumbUrls}
       esAdmin={esAdmin}
     />

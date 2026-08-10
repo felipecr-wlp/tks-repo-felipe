@@ -17,6 +17,7 @@ import type { Json } from '@/lib/supabase/types'
 import {
   VIDEO_BUCKET,
   validarCapitulos,
+  validarInteracciones,
   type AvanceVideo,
   type VideoAcademia,
 } from '@/lib/academy/videos'
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
 
   let q = admin
     .from('academy_videos')
-    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, tags, status, created_by, created_at, updated_at')
+    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, created_by, created_at, updated_at')
     .order('created_at', { ascending: false })
   if (!esAdmin) q = q.eq('status', 'live')
 
@@ -65,7 +66,9 @@ const crearSchema = z.object({
   thumbnailPath: z.string().min(1).max(500).nullable().optional(),
   durationSeconds: z.number().int().min(0).nullable().optional(),
   chapters: z.unknown().optional(),
+  interactions: z.unknown().optional(),
   tags: z.array(z.string().min(1).max(40)).max(20).optional().default([]),
+  stackId: z.string().uuid().nullable().optional(),
   status: z.enum(['draft', 'live']).optional().default('live'),
 })
 
@@ -112,8 +115,21 @@ export async function POST(request: NextRequest) {
   if (capitulos === null) {
     return NextResponse.json({ error: 'Capítulos inválidos' }, { status: 422 })
   }
+  const interacciones = validarInteracciones(parsed.data.interactions ?? [])
+  if (interacciones === null) {
+    return NextResponse.json({ error: 'Interacciones inválidas' }, { status: 422 })
+  }
 
   const admin = createAdminClient()
+  const stackId = parsed.data.stackId ?? null
+  if (stackId !== null) {
+    const { data: stack } = await admin
+      .from('academy_stacks')
+      .select('id')
+      .eq('id', stackId)
+      .maybeSingle()
+    if (!stack) return NextResponse.json({ error: 'Stack no encontrado' }, { status: 422 })
+  }
   if (!(await existeEnStorage(admin, parsed.data.path))) {
     return NextResponse.json({ error: 'El video no está en storage' }, { status: 422 })
   }
@@ -129,13 +145,15 @@ export async function POST(request: NextRequest) {
       storage_path: parsed.data.path,
       thumbnail_path: thumb,
       duration_seconds: parsed.data.durationSeconds ?? null,
-      // Capitulo[] es Json valido; el tipo generado no puede saberlo.
+      // Capitulo[] / Interaccion[] son Json validos; el tipo generado no puede saberlo.
       chapters: capitulos as unknown as Json,
+      interactions: interacciones as unknown as Json,
       tags: parsed.data.tags,
+      stack_id: stackId,
       status: parsed.data.status,
       created_by: user.id,
     })
-    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, tags, status, created_by, created_at, updated_at')
+    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, created_by, created_at, updated_at')
     .single()
 
   if (error || !fila) {

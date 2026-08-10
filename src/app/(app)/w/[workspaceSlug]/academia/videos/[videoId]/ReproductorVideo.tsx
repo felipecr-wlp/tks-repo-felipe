@@ -18,11 +18,12 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle2, ListVideo } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ListVideo, HelpCircle, RotateCcw } from 'lucide-react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import {
   formatearSegundos,
   type AvanceVideo,
+  type Interaccion,
   type VideoAcademia,
 } from '@/lib/academy/videos'
 
@@ -45,6 +46,40 @@ export function ReproductorVideo({ workspaceSlug, video, avance, streamUrl, post
   // Acumuladores en refs: cambian cada segundo y no deben repintar nada.
   const vistoRef = useRef(avance?.seconds_watched ?? 0)
   const sinReportarRef = useRef(0)
+
+  // Interactividad: pregunta activa (pausa el video) + las ya contestadas.
+  // Las contestadas van en ref porque se consultan desde el handler de
+  // timeupdate, que vive en el efecto de montaje.
+  const [activa, setActiva] = useState<Interaccion | null>(null)
+  const [fallo, setFallo] = useState<number | null>(null)
+  const activaRef = useRef<Interaccion | null>(null)
+  const respondidasRef = useRef<Set<number>>(new Set())
+
+  function contestar(idx: number) {
+    const el = videoRef.current
+    if (!activa || !el) return
+    if (idx === activa.a) {
+      respondidasRef.current.add(activa.s)
+      activaRef.current = null
+      setActiva(null)
+      setFallo(null)
+      void el.play()
+    } else {
+      setFallo(idx)
+    }
+  }
+
+  function volverAVer() {
+    const el = videoRef.current
+    if (!activa || !el) return
+    // No se marca como respondida: al volver a pasar por el segundo, la
+    // pregunta reaparece. Ese es el punto: repasar y volver a intentar.
+    el.currentTime = Math.max(0, activa.s - 15)
+    activaRef.current = null
+    setActiva(null)
+    setFallo(null)
+    void el.play()
+  }
 
   useEffect(() => {
     const el = videoRef.current
@@ -93,7 +128,23 @@ export function ReproductorVideo({ workspaceSlug, video, avance, streamUrl, post
 
     const onPause = () => void reportar()
     const onEnded = () => void reportar(true)
-    const onTime = () => setPosicion(el.currentTime)
+    const onTime = () => {
+      setPosicion(el.currentTime)
+      // Interactividad: al cruzar el segundo de una pregunta sin contestar,
+      // pausar y mostrarla. Buscar la MAS TEMPRANA sin contestar tambien
+      // cubre el salto con la barra: adelantarse no se salta las preguntas.
+      if (!activaRef.current) {
+        const pendiente = video.interactions.find(
+          (it) => !respondidasRef.current.has(it.s) && el.currentTime >= it.s,
+        )
+        if (pendiente) {
+          el.pause()
+          activaRef.current = pendiente
+          setActiva(pendiente)
+          setFallo(null)
+        }
+      }
+    }
 
     // Ultimo aliento al cerrar u ocultar: beacon, no fetch.
     const onHide = () => {
@@ -149,15 +200,53 @@ export function ReproductorVideo({ workspaceSlug, video, avance, streamUrl, post
       <div className="gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_300px]">
         <div>
           {/* aspect-video fija el alto ANTES de cargar metadata: sin brinco de layout */}
-          <video
-            ref={videoRef}
-            src={streamUrl}
-            poster={posterUrl ?? undefined}
-            controls
-            playsInline
-            preload="metadata"
-            className="aspect-video w-full rounded-xl bg-black"
-          />
+          <div className="relative">
+            <video
+              ref={videoRef}
+              src={streamUrl}
+              poster={posterUrl ?? undefined}
+              controls
+              playsInline
+              preload="metadata"
+              className="aspect-video w-full rounded-xl bg-black"
+            />
+            {activa && (
+              <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/80 p-4">
+                <div className="w-full max-w-md">
+                  <p className="mb-3 flex items-start gap-2 text-sm font-semibold text-white sm:text-base">
+                    <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+                    {activa.q}
+                  </p>
+                  <div className="space-y-2">
+                    {activa.opts.map((opt, i) => (
+                      <button
+                        key={i}
+                        onClick={() => contestar(i)}
+                        className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                          fallo === i
+                            ? 'border-red-500 bg-red-500/20 text-red-200'
+                            : 'border-white/25 bg-white/10 text-white hover:bg-white/20'
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                  {fallo !== null && (
+                    <div className="mt-3 rounded-lg bg-white/10 p-3">
+                      {activa.ex && <p className="text-sm text-slate-200">{activa.ex}</p>}
+                      <button
+                        onClick={volverAVer}
+                        className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-slate-900 hover:bg-amber-400"
+                      >
+                        <RotateCcw className="h-4 w-4" /> {t('academyV.rewatch')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           <h1 className="mt-4 text-xl font-bold text-foreground">{video.title}</h1>
           {video.description && (
             <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">

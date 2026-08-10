@@ -10,17 +10,20 @@
  */
 import { describe, it, expect } from 'vitest'
 import {
+  agruparPorStack,
   ordenarVideosParaUsuario,
   porcentajeVisto,
   validarCapitulos,
+  validarInteracciones,
   parsearTiempo,
   formatearSegundos,
   UMBRAL_EMPEZADO,
   type AvanceVideo,
+  type StackAcademia,
   type VideoAcademia,
 } from '@/lib/academy/videos'
 
-function video(id: string, created: string): VideoAcademia {
+function video(id: string, created: string, stack_id: string | null = null): VideoAcademia {
   return {
     id,
     title: id,
@@ -29,11 +32,21 @@ function video(id: string, created: string): VideoAcademia {
     thumbnail_path: null,
     duration_seconds: 600,
     chapters: [],
+    interactions: [],
     tags: [],
+    stack_id,
     status: 'live',
     created_by: null,
     created_at: created,
     updated_at: created,
+  }
+}
+
+function stack(id: string, title: string, position: number): StackAcademia {
+  return {
+    id, title, position,
+    description: '', accent: '#f59e0b', created_by: null,
+    created_at: '2026-08-01', updated_at: '2026-08-01',
   }
 }
 
@@ -144,6 +157,59 @@ describe('Capitulos', () => {
 
   it('vacio es valido: un video sin capitulos es normal', () => {
     expect(validarCapitulos([])).toEqual([])
+  })
+})
+
+describe('Interacciones: preguntas ancladas a un segundo', () => {
+  const buena = { s: 30, q: 'Que se revisa primero?', opts: ['Aceite', 'Nada'], a: 0 }
+
+  it('acepta y ordena preguntas validas', () => {
+    const r = validarInteracciones([{ ...buena, s: 90 }, buena])
+    expect(r?.map((x) => x.s)).toEqual([30, 90])
+  })
+
+  it('rechaza lo que dejaria al reproductor sin salida', () => {
+    // indice de correcta fuera de rango: la pregunta seria incontestable y el
+    // video quedaria pausado para siempre. Este es EL caso que importa.
+    expect(validarInteracciones([{ ...buena, a: 2 }])).toBeNull()
+    expect(validarInteracciones([{ ...buena, a: -1 }])).toBeNull()
+    expect(validarInteracciones([{ ...buena, opts: ['solo una'] }])).toBeNull()
+    expect(validarInteracciones([{ ...buena, q: '  ' }])).toBeNull()
+    expect(validarInteracciones([buena, { ...buena }])).toBeNull() // mismo segundo
+  })
+
+  it('vacio es valido y la explicacion es opcional', () => {
+    expect(validarInteracciones([])).toEqual([])
+    const con = validarInteracciones([{ ...buena, ex: ' porque si ' }])
+    expect(con?.[0].ex).toBe('porque si')
+    const sin = validarInteracciones([buena])
+    expect(sin?.[0].ex).toBeUndefined()
+  })
+})
+
+describe('Agrupado por stacks', () => {
+  const vc = (id: string, sid: string | null) => ({ ...video(id, '2026-08-01', sid), avance: null })
+
+  it('agrupa por stack en su orden y manda los sueltos al final', () => {
+    const stacks = [stack('s2', 'Concreto', 2), stack('s1', 'Advisors', 1)]
+    const secciones = agruparPorStack(
+      [vc('a', 's1'), vc('b', 's2'), vc('c', null), vc('d', 's1')],
+      stacks,
+    )
+    expect(secciones.map((x) => x.stack?.title ?? 'SUELTOS')).toEqual(['Advisors', 'Concreto', 'SUELTOS'])
+    expect(secciones[0].videos.map((v) => v.id)).toEqual(['a', 'd'])
+  })
+
+  it('un stack vacio no pinta seccion', () => {
+    const secciones = agruparPorStack([vc('a', 's1')], [stack('s1', 'A', 1), stack('s2', 'B', 2)])
+    expect(secciones).toHaveLength(1)
+  })
+
+  it('un video con stack borrado (huerfano) cae a sueltos, no se pierde', () => {
+    const secciones = agruparPorStack([vc('a', 'stack-que-ya-no-existe')], [])
+    expect(secciones).toHaveLength(1)
+    expect(secciones[0].stack).toBeNull()
+    expect(secciones[0].videos.map((v) => v.id)).toEqual(['a'])
   })
 })
 

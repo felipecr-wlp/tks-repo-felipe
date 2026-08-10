@@ -72,9 +72,72 @@ export function validarCapitulos(x: unknown): Capitulo[] | null {
   return limpios
 }
 
+/**
+ * Interaccion: pregunta anclada a un segundo del video. El reproductor pausa
+ * al llegar a `s`, muestra la pregunta y solo continua al acertar. Igual que
+ * los capitulos, se guarda como jsonb y se valida aqui, en un solo lugar.
+ */
+export interface Interaccion {
+  /** segundo donde el video se pausa y pregunta */
+  s: number
+  /** la pregunta */
+  q: string
+  /** opciones (2 a 6) */
+  opts: string[]
+  /** indice de la opcion correcta */
+  a: number
+  /** explicacion al fallar (opcional) */
+  ex?: string
+}
+
+export const MAX_INTERACCIONES = 50
+export const MAX_TEXTO_INTERACCION = 300
+
+export function validarInteracciones(x: unknown): Interaccion[] | null {
+  if (!Array.isArray(x)) return null
+  if (x.length > MAX_INTERACCIONES) return null
+  const limpias: Interaccion[] = []
+  const vistos = new Set<number>()
+  for (const it of x) {
+    if (typeof it !== 'object' || it === null) return null
+    const r = it as Record<string, unknown>
+    if (typeof r.s !== 'number' || !Number.isInteger(r.s) || r.s < 0) return null
+    if (typeof r.q !== 'string') return null
+    const q = r.q.trim()
+    if (q.length === 0 || q.length > MAX_TEXTO_INTERACCION) return null
+    if (!Array.isArray(r.opts) || r.opts.length < 2 || r.opts.length > 6) return null
+    const opts: string[] = []
+    for (const o of r.opts) {
+      if (typeof o !== 'string') return null
+      const limpio = o.trim()
+      if (limpio.length === 0 || limpio.length > MAX_TEXTO_INTERACCION) return null
+      opts.push(limpio)
+    }
+    if (typeof r.a !== 'number' || !Number.isInteger(r.a) || r.a < 0 || r.a >= opts.length) return null
+    const ex = typeof r.ex === 'string' && r.ex.trim().length > 0 ? r.ex.trim().slice(0, MAX_TEXTO_INTERACCION) : undefined
+    // Dos preguntas en el mismo segundo se taparian una a la otra.
+    if (vistos.has(r.s)) return null
+    vistos.add(r.s)
+    limpias.push(ex !== undefined ? { s: r.s, q, opts, a: r.a, ex } : { s: r.s, q, opts, a: r.a })
+  }
+  limpias.sort((a, b) => a.s - b.s)
+  return limpias
+}
+
 /* ---- Filas de BD (espejo de las tablas) ---- */
 
 export type EstadoVideo = 'draft' | 'live'
+
+export interface StackAcademia {
+  id: string
+  title: string
+  description: string
+  accent: string
+  position: number
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
 
 export interface VideoAcademia {
   id: string
@@ -84,7 +147,9 @@ export interface VideoAcademia {
   thumbnail_path: string | null
   duration_seconds: number | null
   chapters: Capitulo[]
+  interactions: Interaccion[]
   tags: string[]
+  stack_id: string | null
   status: EstadoVideo
   created_by: string | null
   created_at: string
@@ -160,6 +225,51 @@ export function ordenarVideosParaUsuario(
   vistos.sort((a, b) => (b.avance?.updated_at ?? '').localeCompare(a.avance?.updated_at ?? ''))
 
   return { continuar, nuevos, vistos }
+}
+
+export interface SeccionStack {
+  /** null = videos sueltos, sin stack asignado. Van al final. */
+  stack: StackAcademia | null
+  videos: VideoConAvance[]
+}
+
+/**
+ * Agrupa la galeria por stacks respetando `position` (y titulo como
+ * desempate estable). Los stacks vacios NO se pintan: una seccion sin
+ * tarjetas es una promesa, no contenido. Los videos sin stack quedan en una
+ * seccion final con stack null.
+ */
+export function agruparPorStack(
+  videos: readonly VideoConAvance[],
+  stacks: readonly StackAcademia[],
+): SeccionStack[] {
+  const porStack = new Map<string, VideoConAvance[]>()
+  const sueltos: VideoConAvance[] = []
+  for (const v of videos) {
+    if (v.stack_id === null) {
+      sueltos.push(v)
+      continue
+    }
+    const lista = porStack.get(v.stack_id)
+    if (lista) lista.push(v)
+    else porStack.set(v.stack_id, [v])
+  }
+
+  const orden = [...stacks].sort(
+    (a, b) => a.position - b.position || a.title.localeCompare(b.title),
+  )
+
+  const secciones: SeccionStack[] = []
+  for (const s of orden) {
+    const lista = porStack.get(s.id)
+    if (lista && lista.length > 0) secciones.push({ stack: s, videos: lista })
+    porStack.delete(s.id)
+  }
+  // Videos cuyo stack ya no existe en la lista (carrera rara): tratarlos como
+  // sueltos en vez de perderlos de la pantalla.
+  for (const lista of porStack.values()) sueltos.push(...lista)
+  if (sueltos.length > 0) secciones.push({ stack: null, videos: sueltos })
+  return secciones
 }
 
 /**

@@ -10,6 +10,7 @@ import { isUuid } from '@/lib/validation'
 import {
   VIDEO_BUCKET,
   validarCapitulos,
+  validarInteracciones,
   type AvanceVideo,
   type VideoAcademia,
 } from '@/lib/academy/videos'
@@ -41,7 +42,7 @@ export default async function VideoPage({ params }: PageProps) {
 
   const { data: videoRaw } = await admin
     .from('academy_videos')
-    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, tags, status, created_by, created_at, updated_at')
+    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, created_by, created_at, updated_at')
     .eq('id', params.videoId)
     .maybeSingle()
   if (!videoRaw) notFound()
@@ -77,7 +78,11 @@ export default async function VideoPage({ params }: PageProps) {
   return (
     <ReproductorVideo
       workspaceSlug={params.workspaceSlug}
-      video={{ ...video, chapters: validarCapitulos(video.chapters) ?? [] }}
+      video={{
+        ...video,
+        chapters: validarCapitulos(video.chapters) ?? [],
+        interactions: validarInteracciones(video.interactions) ?? [],
+      }}
       avance={(avanceRaw as unknown as AvanceVideo) ?? null}
       streamUrl={firmado.signedUrl}
       posterUrl={posterUrl}

@@ -1,23 +1,29 @@
 'use client'
 
 /**
- * Galeria de videos: tres carriles automaticos (continuar / nuevos / vistos,
- * reglas transparentes en ordenarVideosParaUsuario), busqueda y filtro por
- * etiqueta. Mobile-first: 1 columna en telefono, 2 en tablet, 3 en desktop.
+ * Galeria de videos organizada por STACKS (colecciones tipo LMS: cada stack es
+ * una seccion con su color, descripcion y avance). Arriba, un hero con las
+ * cifras de la persona y el carril "Continuar viendo", que cruza stacks.
  *
- * El admin sube videos desde aqui (modal): el binario va DIRECTO a storage con
- * URL firmada, nunca por la serverless function.
+ * Mobile-first: hero compacto, 1 columna en telefono, 2 en tablet, 3 en
+ * desktop. Miniaturas con loading="lazy": el egress se paga por lo que se VE,
+ * no por todo el catalogo.
  */
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Clapperboard, Plus, Search, CheckCircle2, Play, Clock3 } from 'lucide-react'
+import {
+  Clapperboard, Plus, Search, CheckCircle2, Play, Clock3, FolderPlus, Layers,
+} from 'lucide-react'
+import { toast } from 'sonner'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import {
+  agruparPorStack,
   formatearSegundos,
   ordenarVideosParaUsuario,
   porcentajeVisto,
   type AvanceVideo,
+  type StackAcademia,
   type VideoAcademia,
   type VideoConAvance,
 } from '@/lib/academy/videos'
@@ -27,16 +33,18 @@ interface Props {
   workspaceSlug: string
   videos: VideoAcademia[]
   avances: AvanceVideo[]
+  stacks: StackAcademia[]
   thumbUrls: Record<string, string>
   esAdmin: boolean
 }
 
-export function GaleriaVideos({ workspaceSlug, videos, avances, thumbUrls, esAdmin }: Props) {
+export function GaleriaVideos({ workspaceSlug, videos, avances, stacks, thumbUrls, esAdmin }: Props) {
   const t = useT()
   const router = useRouter()
   const [busqueda, setBusqueda] = useState('')
   const [tag, setTag] = useState<string | null>(null)
   const [subiendo, setSubiendo] = useState(false)
+  const [creandoStack, setCreandoStack] = useState(false)
 
   const tagsDisponibles = useMemo(() => {
     const s = new Set<string>()
@@ -61,65 +69,119 @@ export function GaleriaVideos({ workspaceSlug, videos, avances, thumbUrls, esAdm
     () => ordenarVideosParaUsuario(filtrados, avances),
     [filtrados, avances],
   )
+  const conAvance = useMemo(
+    () => [...continuar, ...nuevos, ...vistos],
+    [continuar, nuevos, vistos],
+  )
+  const secciones = useMemo(() => agruparPorStack(conAvance, stacks), [conAvance, stacks])
 
-  const hayFiltro = busqueda.trim().length > 0 || tag !== null
+  const totalVistos = useMemo(
+    () => videos.filter((v) => avances.some((a) => a.video_id === v.id && a.completed)).length,
+    [videos, avances],
+  )
+
+  async function crearStack() {
+    const nombre = window.prompt(t('academyV.newStackPrompt'))
+    if (!nombre?.trim() || creandoStack) return
+    setCreandoStack(true)
+    try {
+      const res = await fetch('/api/academy/stacks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: nombre.trim() }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error ?? 'Error')
+      toast.success(t('academyV.stackCreated'))
+      router.refresh()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('academyV.genericError'))
+    } finally {
+      setCreandoStack(false)
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground">
-            <Clapperboard className="h-6 w-6" /> {t('academyV.title')}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('academyV.subtitle')}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Link
-            href={`/w/${workspaceSlug}/academia`}
-            className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-          >
-            {t('academyV.backToCourses')}
-          </Link>
-          {esAdmin && (
-            <button
-              onClick={() => setSubiendo(true)}
-              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+      {/* Hero tipo LMS: identidad + cifras de la persona + busqueda */}
+      <div className="mb-8 overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white sm:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="flex items-center gap-2.5 text-2xl font-bold sm:text-3xl">
+              <Clapperboard className="h-7 w-7 text-amber-400" /> {t('academyV.title')}
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-slate-300">{t('academyV.subtitle')}</p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Link
+              href={`/w/${workspaceSlug}/academia`}
+              className="rounded-lg border border-white/20 px-3 py-2 text-sm font-medium text-white hover:bg-white/10"
             >
-              <Plus className="h-4 w-4" /> {t('academyV.upload')}
-            </button>
-          )}
+              {t('academyV.backToCourses')}
+            </Link>
+            {esAdmin && (
+              <>
+                <button
+                  onClick={crearStack}
+                  disabled={creandoStack}
+                  className="flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-2 text-sm font-medium text-white hover:bg-white/10 disabled:opacity-50"
+                >
+                  <FolderPlus className="h-4 w-4" /> {t('academyV.newStack')}
+                </button>
+                <button
+                  onClick={() => setSubiendo(true)}
+                  className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400"
+                >
+                  <Plus className="h-4 w-4" /> {t('academyV.upload')}
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Busqueda + tags */}
-      <div className="mb-6 space-y-3">
-        <div className="relative max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
+          <span className="flex items-center gap-2">
+            <Play className="h-4 w-4 text-amber-400" />
+            <strong>{videos.length}</strong> {t('academyV.statVideos')}
+          </span>
+          <span className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-amber-400" />
+            <strong>{stacks.length}</strong> {t('academyV.statStacks')}
+          </span>
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <strong>{totalVistos}/{videos.length}</strong> {t('academyV.statWatched')}
+          </span>
+        </div>
+
+        <div className="relative mt-5 max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder={t('academyV.searchPlaceholder')}
-            className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="w-full rounded-lg border border-white/15 bg-white/10 py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400/50"
           />
         </div>
-        {tagsDisponibles.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {tagsDisponibles.map((x) => (
-              <button
-                key={x}
-                onClick={() => setTag(tag === x ? null : x)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                  tag === x
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                {x}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
+
+      {tagsDisponibles.length > 0 && (
+        <div className="mb-6 flex flex-wrap gap-1.5">
+          {tagsDisponibles.map((x) => (
+            <button
+              key={x}
+              onClick={() => setTag(tag === x ? null : x)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                tag === x
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              {x}
+            </button>
+          ))}
+        </div>
+      )}
 
       {videos.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-10 text-center">
@@ -131,20 +193,29 @@ export function GaleriaVideos({ workspaceSlug, videos, avances, thumbUrls, esAdm
       ) : (
         <>
           {continuar.length > 0 && (
-            <Carril titulo={t('academyV.continueRail')} lista={continuar} slug={workspaceSlug} thumbs={thumbUrls} />
+            <section className="mb-8">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('academyV.continueRail')}
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {continuar.map((v) => (
+                  <Tarjeta key={v.id} v={v} slug={workspaceSlug} thumb={thumbUrls[v.id]} />
+                ))}
+              </div>
+            </section>
           )}
-          {nuevos.length > 0 && (
-            <Carril
-              titulo={hayFiltro ? t('academyV.resultsRail') : t('academyV.newRail')}
-              lista={nuevos}
+
+          {secciones.map((sec) => (
+            <SeccionDeStack
+              key={sec.stack?.id ?? '__sueltos__'}
+              stack={sec.stack}
+              lista={sec.videos}
               slug={workspaceSlug}
               thumbs={thumbUrls}
             />
-          )}
-          {vistos.length > 0 && (
-            <Carril titulo={t('academyV.watchedRail')} lista={vistos} slug={workspaceSlug} thumbs={thumbUrls} />
-          )}
-          {continuar.length + nuevos.length + vistos.length === 0 && (
+          ))}
+
+          {conAvance.length === 0 && (
             <p className="py-8 text-center text-sm text-muted-foreground">{t('academyV.noResults')}</p>
           )}
         </>
@@ -152,6 +223,7 @@ export function GaleriaVideos({ workspaceSlug, videos, avances, thumbUrls, esAdm
 
       {subiendo && (
         <SubirVideoModal
+          stacks={stacks}
           onClose={() => setSubiendo(false)}
           onDone={() => {
             setSubiendo(false)
@@ -163,19 +235,44 @@ export function GaleriaVideos({ workspaceSlug, videos, avances, thumbUrls, esAdm
   )
 }
 
-function Carril({
-  titulo, lista, slug, thumbs,
+function SeccionDeStack({
+  stack, lista, slug, thumbs,
 }: {
-  titulo: string
+  stack: StackAcademia | null
   lista: VideoConAvance[]
   slug: string
   thumbs: Record<string, string>
 }) {
+  const t = useT()
+  const vistos = lista.filter((v) => v.avance?.completed).length
   return (
-    <section className="mb-8">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        {titulo}
-      </h2>
+    <section className="mb-10">
+      <div
+        className="mb-4 border-l-4 pl-3"
+        style={{ borderColor: stack?.accent ?? 'var(--border, #e2e8f0)' }}
+      >
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-lg font-bold text-foreground">
+            {stack?.title ?? t('academyV.unstacked')}
+          </h2>
+          <span className="text-xs font-medium text-muted-foreground">
+            {vistos}/{lista.length} {t('academyV.statWatched')}
+          </span>
+        </div>
+        {stack?.description && (
+          <p className="mt-0.5 text-sm text-muted-foreground">{stack.description}</p>
+        )}
+        {/* Barra de avance del stack, estilo LMS */}
+        <div className="mt-2 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full transition-all"
+            style={{
+              width: `${lista.length > 0 ? Math.round((vistos / lista.length) * 100) : 0}%`,
+              backgroundColor: stack?.accent ?? '#94a3b8',
+            }}
+          />
+        </div>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {lista.map((v) => (
           <Tarjeta key={v.id} v={v} slug={slug} thumb={thumbs[v.id]} />
@@ -196,7 +293,7 @@ function Tarjeta({ v, slug, thumb }: { v: VideoConAvance; slug: string; thumb?: 
       <div className="relative aspect-video bg-muted">
         {thumb ? (
           // eslint-disable-next-line @next/next/no-img-element -- URL firmada temporal; next/image no optimiza origenes firmados
-          <img src={thumb} alt="" className="h-full w-full object-cover" />
+          <img src={thumb} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <Play className="h-10 w-10 text-muted-foreground/50" />
@@ -205,6 +302,11 @@ function Tarjeta({ v, slug, thumb }: { v: VideoConAvance; slug: string; thumb?: 
         {v.status === 'draft' && (
           <span className="absolute left-2 top-2 rounded bg-amber-500/90 px-2 py-0.5 text-[11px] font-semibold text-white">
             {t('academyV.draft')}
+          </span>
+        )}
+        {v.interactions.length > 0 && (
+          <span className="absolute right-2 top-2 rounded bg-sky-600/90 px-2 py-0.5 text-[11px] font-semibold text-white">
+            {t('academyV.interactive')}
           </span>
         )}
         {v.duration_seconds != null && v.duration_seconds > 0 && (

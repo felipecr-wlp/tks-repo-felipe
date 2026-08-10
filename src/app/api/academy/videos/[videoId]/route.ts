@@ -13,7 +13,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { applyRateLimit } from '@/lib/rate-limit'
 import { isUuid } from '@/lib/validation'
 import { isOrgAdmin } from '@/lib/team-access'
-import { VIDEO_BUCKET, validarCapitulos } from '@/lib/academy/videos'
+import { VIDEO_BUCKET, validarCapitulos, validarInteracciones } from '@/lib/academy/videos'
 import type { Database, Json } from '@/lib/supabase/types'
 
 type VideoUpdate = Database['public']['Tables']['academy_videos']['Update']
@@ -23,7 +23,9 @@ const patchSchema = z.object({
   description: z.string().max(2000).optional(),
   durationSeconds: z.number().int().min(0).nullable().optional(),
   chapters: z.unknown().optional(),
+  interactions: z.unknown().optional(),
   tags: z.array(z.string().min(1).max(40)).max(20).optional(),
+  stackId: z.string().uuid().nullable().optional(),
   status: z.enum(['draft', 'live']).optional(),
 })
 
@@ -77,13 +79,32 @@ export async function PATCH(
     // tipo generado no puede saberlo.
     cambios.chapters = capitulos as unknown as Json
   }
+  if (parsed.data.interactions !== undefined) {
+    const interacciones = validarInteracciones(parsed.data.interactions)
+    if (interacciones === null) {
+      return NextResponse.json({ error: 'Interacciones inválidas' }, { status: 422 })
+    }
+    cambios.interactions = interacciones as unknown as Json
+  }
+  if (parsed.data.stackId !== undefined) {
+    if (parsed.data.stackId !== null) {
+      const adminCheck = createAdminClient()
+      const { data: stack } = await adminCheck
+        .from('academy_stacks')
+        .select('id')
+        .eq('id', parsed.data.stackId)
+        .maybeSingle()
+      if (!stack) return NextResponse.json({ error: 'Stack no encontrado' }, { status: 422 })
+    }
+    cambios.stack_id = parsed.data.stackId
+  }
 
   const admin = createAdminClient()
   const { data: fila, error } = await admin
     .from('academy_videos')
     .update(cambios)
     .eq('id', params.videoId)
-    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, tags, status, created_by, created_at, updated_at')
+    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, created_by, created_at, updated_at')
     .maybeSingle()
 
   if (error) {
