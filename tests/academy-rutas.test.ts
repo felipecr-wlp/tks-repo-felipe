@@ -61,9 +61,27 @@ describe('Ruta: el caso que pidió Ali', () => {
     expect(r.vistos).toBe(1)
   })
 
-  it('sugiere el siguiente paso más cercano a la entrada, nunca uno ya visto', () => {
+  it('sugiere el siguiente paso, nunca uno ya visto', () => {
     const r = construirArbol('bienvenida', catalogo, [visto('bienvenida')])
     expect(siguientePaso(r)?.videoId).toBe('concreto')
+  })
+
+  it('sigue DENTRO de la rama elegida, no salta a la de al lado', () => {
+    // Este es el caso que se vio mal en produccion: tras ver la bienvenida y
+    // la introduccion de Concreto, el boton mandaba a ASFALTO, o sea a la
+    // rama que la persona no eligio. Tiene que llevar a una subrama de
+    // concreto, que es lo que dijo que queria aprender.
+    const r = construirArbol('bienvenida', catalogo, [visto('bienvenida'), visto('concreto')])
+    expect(siguientePaso(r)?.videoId).toBe('conc-vaciado')
+  })
+
+  it('al agotar la rama elegida sí ofrece la otra', () => {
+    // Profundidad no significa quedarse encerrado: cuando concreto se acaba,
+    // lo siguiente pendiente es asfalto.
+    const r = construirArbol('bienvenida', catalogo, [
+      visto('bienvenida'), visto('concreto'), visto('conc-vaciado'), visto('conc-acabado'),
+    ])
+    expect(siguientePaso(r)?.videoId).toBe('asfalto')
   })
 
   it('sin nada pendiente ya no sugiere nada', () => {

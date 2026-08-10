@@ -128,9 +128,18 @@ export function construirArbol(
 }
 
 /**
- * Siguiente paso sugerido: el primer video del arbol, en orden de recorrido,
- * que la persona todavia no completo. Es lo que se pone en el boton
- * "continuar", y es honesto: nunca sugiere algo que ya vio.
+ * Siguiente paso sugerido: el primer video sin ver, EN PROFUNDIDAD.
+ *
+ * POR QUE EN PROFUNDIDAD Y NO A LO ANCHO. Esta es la decision que hace que la
+ * ruta "te lleve por lo que quieres aprender" en vez de zarandearte. Alguien
+ * que eligio Concreto y vio su introduccion espera continuar DENTRO de
+ * concreto (el vaciado, el acabado). A lo ancho, el boton lo mandaria a la
+ * introduccion de Asfalto, o sea a la rama que NO eligio: se sentiria como si
+ * el curso no lo hubiera escuchado.
+ *
+ * Se probo a lo ancho primero y en la ruta real (bienvenida -> concreto ->
+ * vaciado/acabado, asfalto -> tendido/compactacion) mandaba a Asfalto justo
+ * despues de ver Concreto. Por eso el cambio.
  *
  * Devuelve null si ya vio todo lo alcanzable.
  */
@@ -139,9 +148,10 @@ export function siguientePaso(resumen: ResumenRuta): NodoRuta | null {
   while (pila.length > 0) {
     const n = pila.shift()!
     if (n.video && !n.visto && !n.ciclo) return n
-    // Se recorre a lo ancho: primero lo mas cercano a la entrada, que es lo
-    // que una persona esperaria como "lo siguiente".
-    pila.push(...n.hijos)
+    // Los hijos AL FRENTE: se baja por la rama actual antes de mirar la de al
+    // lado. Con push() en vez de unshift() esto se vuelve a lo ancho y
+    // reaparece el sintoma de arriba.
+    pila.unshift(...n.hijos)
   }
   return null
 }
