@@ -73,26 +73,60 @@ export function validarCapitulos(x: unknown): Capitulo[] | null {
 }
 
 /**
+ * Una opcion de interaccion. Puede solo continuar, saltar a otro punto del
+ * mismo video, o LLEVAR A OTRO VIDEO: eso ultimo es la ramificacion estilo
+ * "elige tu propia aventura".
+ */
+export interface OpcionInteraccion {
+  /** texto visible del boton */
+  t: string
+  /** id del video destino. Si esta, la opcion RAMIFICA. */
+  go?: string
+  /** segundo de arranque (del destino si hay `go`, si no de este mismo video) */
+  at?: number
+}
+
+/**
  * Interaccion: pregunta anclada a un segundo del video. El reproductor pausa
- * al llegar a `s`, muestra la pregunta y solo continua al acertar. Igual que
- * los capitulos, se guarda como jsonb y se valida aqui, en un solo lugar.
+ * al llegar a `s` y muestra las opciones. Dos modos, y los distingue la
+ * PRESENCIA de `a`, no una bandera aparte (una bandera puede contradecir a
+ * los datos; la forma de los datos no):
+ *
+ *   - `a` presente  -> QUIZ. Hay respuesta correcta; fallar no avanza.
+ *   - `a` ausente   -> RAMIFICACION. No hay respuesta mala, cada opcion es
+ *                      un camino. Es el modo tipo Bandersnatch.
+ *
+ * Los dos se combinan: una opcion incorrecta PUEDE mandar (`go`) a un video
+ * de refuerzo en vez de solo regañar.
  */
 export interface Interaccion {
   /** segundo donde el video se pausa y pregunta */
   s: number
-  /** la pregunta */
+  /** la pregunta, o el dilema en modo ramificacion */
   q: string
   /** opciones (2 a 6) */
-  opts: string[]
-  /** indice de la opcion correcta */
-  a: number
-  /** explicacion al fallar (opcional) */
+  opts: OpcionInteraccion[]
+  /** indice de la correcta. Ausente = ramificacion pura, sin respuesta mala. */
+  a?: number
+  /** explicacion al fallar (solo tiene sentido en modo quiz) */
   ex?: string
 }
 
 export const MAX_INTERACCIONES = 50
 export const MAX_TEXTO_INTERACCION = 300
 
+/** true si la interaccion es ramificacion pura (ninguna opcion es "la mala"). */
+export function esRamificacion(it: Interaccion): boolean {
+  return it.a === undefined
+}
+
+const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Normaliza y valida. Acepta la forma corta (`opts: ['A','B']`, que es como
+ * nacio) y la rica (`opts: [{t:'A', go:'<uuid>'}]`), y SIEMPRE devuelve la
+ * rica: el reproductor no tiene que saber que existieron dos formas.
+ */
 export function validarInteracciones(x: unknown): Interaccion[] | null {
   if (!Array.isArray(x)) return null
   if (x.length > MAX_INTERACCIONES) return null
@@ -106,22 +140,66 @@ export function validarInteracciones(x: unknown): Interaccion[] | null {
     const q = r.q.trim()
     if (q.length === 0 || q.length > MAX_TEXTO_INTERACCION) return null
     if (!Array.isArray(r.opts) || r.opts.length < 2 || r.opts.length > 6) return null
-    const opts: string[] = []
+
+    const opts: OpcionInteraccion[] = []
     for (const o of r.opts) {
-      if (typeof o !== 'string') return null
-      const limpio = o.trim()
-      if (limpio.length === 0 || limpio.length > MAX_TEXTO_INTERACCION) return null
-      opts.push(limpio)
+      // Forma corta: solo texto.
+      if (typeof o === 'string') {
+        const limpio = o.trim()
+        if (limpio.length === 0 || limpio.length > MAX_TEXTO_INTERACCION) return null
+        opts.push({ t: limpio })
+        continue
+      }
+      if (typeof o !== 'object' || o === null) return null
+      const ro = o as Record<string, unknown>
+      if (typeof ro.t !== 'string') return null
+      const texto = ro.t.trim()
+      if (texto.length === 0 || texto.length > MAX_TEXTO_INTERACCION) return null
+
+      const opcion: OpcionInteraccion = { t: texto }
+      if (ro.go !== undefined && ro.go !== null) {
+        // Un destino que no es uuid nunca podria resolverse: seria un boton
+        // que lleva a una pantalla de error. Se rechaza al escribir, no al
+        // reproducir.
+        if (typeof ro.go !== 'string' || !RE_UUID.test(ro.go)) return null
+        opcion.go = ro.go
+      }
+      if (ro.at !== undefined && ro.at !== null) {
+        if (typeof ro.at !== 'number' || !Number.isInteger(ro.at) || ro.at < 0) return null
+        opcion.at = ro.at
+      }
+      opts.push(opcion)
     }
-    if (typeof r.a !== 'number' || !Number.isInteger(r.a) || r.a < 0 || r.a >= opts.length) return null
-    const ex = typeof r.ex === 'string' && r.ex.trim().length > 0 ? r.ex.trim().slice(0, MAX_TEXTO_INTERACCION) : undefined
+
+    // `a` opcional: su ausencia ES el modo ramificacion.
+    let a: number | undefined
+    if (r.a !== undefined && r.a !== null) {
+      if (typeof r.a !== 'number' || !Number.isInteger(r.a) || r.a < 0 || r.a >= opts.length) return null
+      a = r.a
+    }
+
+    const ex = typeof r.ex === 'string' && r.ex.trim().length > 0
+      ? r.ex.trim().slice(0, MAX_TEXTO_INTERACCION)
+      : undefined
+
     // Dos preguntas en el mismo segundo se taparian una a la otra.
     if (vistos.has(r.s)) return null
     vistos.add(r.s)
-    limpias.push(ex !== undefined ? { s: r.s, q, opts, a: r.a, ex } : { s: r.s, q, opts, a: r.a })
+
+    const limpia: Interaccion = { s: r.s, q, opts }
+    if (a !== undefined) limpia.a = a
+    if (ex !== undefined) limpia.ex = ex
+    limpias.push(limpia)
   }
   limpias.sort((a, b) => a.s - b.s)
   return limpias
+}
+
+/** Todos los ids de video a los que ramifica este video. Para validar destinos. */
+export function destinosDeInteracciones(its: readonly Interaccion[]): string[] {
+  const s = new Set<string>()
+  for (const it of its) for (const o of it.opts) if (o.go) s.add(o.go)
+  return Array.from(s)
 }
 
 /* ---- Filas de BD (espejo de las tablas) ---- */
@@ -134,7 +212,23 @@ export interface StackAcademia {
   description: string
   accent: string
   position: number
+  school_id: string | null
   created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Escuela de WLP Academy. El nivel de arriba de todo (estructura de Fred). */
+export interface EscuelaAcademia {
+  id: string
+  /** '00', '100', ... '1300'. Texto porque '00' no sobrevive como entero. */
+  code: string
+  title: string
+  description: string
+  accent: string
+  /** La escuela 00 la completa todo el mundo. */
+  mandatory: boolean
+  position: number
   created_at: string
   updated_at: string
 }
@@ -270,6 +364,74 @@ export function agruparPorStack(
   for (const lista of porStack.values()) sueltos.push(...lista)
   if (sueltos.length > 0) secciones.push({ stack: null, videos: sueltos })
   return secciones
+}
+
+export interface SeccionEscuela {
+  /** null = stacks sin escuela asignada. Van al final. */
+  escuela: EscuelaAcademia | null
+  secciones: SeccionStack[]
+  /** Cuantos videos tiene la escuela entera, y cuantos vio la persona. */
+  total: number
+  vistos: number
+}
+
+/**
+ * Agrupa la galeria en el arbol completo: Escuela -> Stack -> Video.
+ *
+ * DIFERENCIA DELIBERADA CON LOS STACKS: un stack vacio NO se pinta (una
+ * seccion sin tarjetas es una promesa, no contenido), pero una ESCUELA vacia
+ * SI se pinta. La lista de escuelas es el mapa de la universidad: ver
+ * "Estimating & Preconstruction" todavia sin cursos informa; esconderla haria
+ * creer que no existe. Por eso las vacias se devuelven con total 0 y la UI
+ * las presenta como proximas.
+ */
+export function agruparPorEscuela(
+  videos: readonly VideoConAvance[],
+  stacks: readonly StackAcademia[],
+  escuelas: readonly EscuelaAcademia[],
+): SeccionEscuela[] {
+  const secciones = agruparPorStack(videos, stacks)
+
+  const porEscuela = new Map<string, SeccionStack[]>()
+  const sinEscuela: SeccionStack[] = []
+  for (const sec of secciones) {
+    const escuelaId = sec.stack?.school_id ?? null
+    if (escuelaId === null) {
+      sinEscuela.push(sec)
+      continue
+    }
+    const lista = porEscuela.get(escuelaId)
+    if (lista) lista.push(sec)
+    else porEscuela.set(escuelaId, [sec])
+  }
+
+  const cuenta = (ss: readonly SeccionStack[]) => {
+    let total = 0
+    let vistos = 0
+    for (const s of ss) {
+      total += s.videos.length
+      vistos += s.videos.filter((v) => v.avance?.completed).length
+    }
+    return { total, vistos }
+  }
+
+  const orden = [...escuelas].sort(
+    (a, b) => a.position - b.position || a.code.localeCompare(b.code),
+  )
+
+  const salida: SeccionEscuela[] = []
+  for (const e of orden) {
+    const ss = porEscuela.get(e.id) ?? []
+    salida.push({ escuela: e, secciones: ss, ...cuenta(ss) })
+    porEscuela.delete(e.id)
+  }
+  // Stacks cuya escuela ya no esta en la lista: al cajon de sueltos, no a la
+  // basura.
+  for (const ss of porEscuela.values()) sinEscuela.push(...ss)
+  if (sinEscuela.length > 0) {
+    salida.push({ escuela: null, secciones: sinEscuela, ...cuenta(sinEscuela) })
+  }
+  return salida
 }
 
 /**

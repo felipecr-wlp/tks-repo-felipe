@@ -21,6 +21,7 @@ import {
   type AvanceVideo,
   type VideoAcademia,
 } from '@/lib/academy/videos'
+import { destinosInexistentes } from '@/lib/academy/destinos'
 
 export async function GET(request: NextRequest) {
   const limited = await applyRateLimit(request)
@@ -121,6 +122,16 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient()
+
+  // Ramificacion: un destino inexistente seria un boton a un 404 a mitad de
+  // la historia. Se caza aqui, con el autor todavia en la pantalla.
+  const rotos = await destinosInexistentes(admin, interacciones)
+  if (rotos.length > 0) {
+    return NextResponse.json(
+      { error: `Hay ${rotos.length} destino(s) de ramificación que no existen` },
+      { status: 422 },
+    )
+  }
   const stackId = parsed.data.stackId ?? null
   if (stackId !== null) {
     const { data: stack } = await admin

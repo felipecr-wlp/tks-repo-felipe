@@ -18,11 +18,13 @@ import { ReproductorVideo } from './ReproductorVideo'
 
 interface PageProps {
   params: { workspaceSlug: string; videoId: string }
+  /** `de` = video del que se ramifico; `t` = segundo de arranque pedido. */
+  searchParams: { de?: string; t?: string }
 }
 
 const TTL_REPRODUCCION = 4 * 60 * 60
 
-export default async function VideoPage({ params }: PageProps) {
+export default async function VideoPage({ params, searchParams }: PageProps) {
   if (!isUuid(params.videoId)) notFound()
 
   const supabase = createClient()
@@ -66,6 +68,31 @@ export default async function VideoPage({ params }: PageProps) {
     notFound()
   }
 
+  // De donde se vino por ramificacion. Se resuelve el TITULO en el server:
+  // el enlace de regreso tiene que decir a que vuelves, no un uuid. Si el
+  // origen ya no existe, simplemente no hay enlace de regreso (no es un error).
+  let vieneDe: { id: string; title: string } | null = null
+  if (searchParams.de && isUuid(searchParams.de) && searchParams.de !== params.videoId) {
+    const { data: origen } = await admin
+      .from('academy_videos')
+      .select('id, title')
+      .eq('id', searchParams.de)
+      .maybeSingle()
+    if (origen) vieneDe = { id: origen.id, title: origen.title }
+  }
+
+  // Segundo de arranque pedido por la rama. Se acota a la duracion conocida:
+  // un `t` inventado a mano en la URL no debe dejar el video en un punto
+  // muerto despues del final.
+  let arranqueEn: number | null = null
+  if (searchParams.t !== undefined) {
+    const n = Number.parseInt(searchParams.t, 10)
+    if (Number.isFinite(n) && n >= 0) {
+      const dur = video.duration_seconds ?? 0
+      arranqueEn = dur > 0 ? Math.min(n, Math.max(0, dur - 1)) : n
+    }
+  }
+
   let posterUrl: string | null = null
   if (video.thumbnail_path) {
     const { data: st } = await admin
@@ -86,6 +113,8 @@ export default async function VideoPage({ params }: PageProps) {
       avance={(avanceRaw as unknown as AvanceVideo) ?? null}
       streamUrl={firmado.signedUrl}
       posterUrl={posterUrl}
+      vieneDe={vieneDe}
+      arranqueEn={arranqueEn}
     />
   )
 }

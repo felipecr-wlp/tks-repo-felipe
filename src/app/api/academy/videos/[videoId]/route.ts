@@ -14,6 +14,7 @@ import { applyRateLimit } from '@/lib/rate-limit'
 import { isUuid } from '@/lib/validation'
 import { isOrgAdmin } from '@/lib/team-access'
 import { VIDEO_BUCKET, validarCapitulos, validarInteracciones } from '@/lib/academy/videos'
+import { destinosInexistentes, videosQueApuntanA } from '@/lib/academy/destinos'
 import type { Database, Json } from '@/lib/supabase/types'
 
 type VideoUpdate = Database['public']['Tables']['academy_videos']['Update']
@@ -84,6 +85,15 @@ export async function PATCH(
     if (interacciones === null) {
       return NextResponse.json({ error: 'Interacciones inválidas' }, { status: 422 })
     }
+    // Un video PUEDE ramificar hacia si mismo (bucle deliberado), por eso se
+    // excluye del chequeo en vez de tratarlo como destino roto.
+    const rotos = await destinosInexistentes(createAdminClient(), interacciones, params.videoId)
+    if (rotos.length > 0) {
+      return NextResponse.json(
+        { error: `Hay ${rotos.length} destino(s) de ramificación que no existen` },
+        { status: 422 },
+      )
+    }
     cambios.interactions = interacciones as unknown as Json
   }
   if (parsed.data.stackId !== undefined) {
@@ -137,6 +147,19 @@ export async function DELETE(
     .maybeSingle()
 
   if (!fila) return NextResponse.json({ error: 'Video no encontrado' }, { status: 404 })
+
+  // Quien borra tiene derecho a saber que va a romper. Si otras historias
+  // ramifican hacia este video, se exige confirmacion explicita (?forzar=1)
+  // y se devuelve la lista con NOMBRES: "rompes 3 videos" no sirve de nada si
+  // no dice cuales.
+  const dependientes = await videosQueApuntanA(admin, params.videoId)
+  const forzar = new URL(request.url).searchParams.get('forzar') === '1'
+  if (dependientes.length > 0 && !forzar) {
+    return NextResponse.json({
+      error: 'Otros videos ramifican hacia este',
+      dependientes,
+    }, { status: 409 })
+  }
 
   const { error } = await admin.from('academy_videos').delete().eq('id', params.videoId)
   if (error) {

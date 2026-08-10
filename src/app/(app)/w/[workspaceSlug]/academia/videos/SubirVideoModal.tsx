@@ -41,9 +41,55 @@ interface FilaCapitulo {
 interface FilaInteraccion {
   tiempo: string
   pregunta: string
+  /**
+   * Una opcion por linea. Para ramificar se escribe: Texto -> <id del video>
+   * Se eligio una linea por opcion (y no separadas por |) justamente porque
+   * ahora una opcion lleva id de video: en una sola linea con pipes se vuelve
+   * ilegible al tercer destino.
+   */
   opciones: string
+  /** Vacio o 0 = ramificacion pura (ninguna opcion es la mala). */
   correcta: string
   explicacion: string
+  rama: boolean
+}
+
+/**
+ * Convierte el texto del editor a opciones. Una por linea; para ramificar,
+ * `Texto -> <id del video>` y opcionalmente `@<segundo>`:
+ *
+ *   Entro a revisar     -> 3f1c...  @30
+ *   Sigo sin revisar
+ *
+ * Se parte por la ULTIMA flecha, no por la primera: un texto de opcion puede
+ * contener "->" legitimamente ("A -> B es el orden correcto") y partir por la
+ * primera lo dejaria mutilado.
+ */
+export function parsearOpciones(texto: string): Array<{ t: string; go?: string; at?: number }> {
+  const salida: Array<{ t: string; go?: string; at?: number }> = []
+  for (const linea of texto.split('\n')) {
+    const l = linea.trim()
+    if (!l) continue
+    const corte = l.lastIndexOf('->')
+    if (corte === -1) {
+      salida.push({ t: l })
+      continue
+    }
+    const etiqueta = l.slice(0, corte).trim()
+    let resto = l.slice(corte + 2).trim()
+    let at: number | undefined
+    const arroba = resto.lastIndexOf('@')
+    if (arroba !== -1) {
+      const n = parseInt(resto.slice(arroba + 1).trim(), 10)
+      if (Number.isFinite(n) && n >= 0) at = n
+      resto = resto.slice(0, arroba).trim()
+    }
+    const opcion: { t: string; go?: string; at?: number } = { t: etiqueta || l }
+    if (resto) opcion.go = resto
+    if (at !== undefined) opcion.at = at
+    salida.push(opcion)
+  }
+  return salida
 }
 
 /** Lee la duracion del archivo local sin subir nada. null si no se puede. */
@@ -134,14 +180,20 @@ export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
     for (const fila of interacciones) {
       if (!fila.tiempo.trim() && !fila.pregunta.trim()) continue
       const s = parsearTiempo(fila.tiempo)
-      const opts = fila.opciones.split('|').map((x) => x.trim()).filter(Boolean)
-      const a = parseInt(fila.correcta, 10) - 1
-      if (s === null || !fila.pregunta.trim() || opts.length < 2 || !(a >= 0 && a < opts.length)) {
+      const opts = parsearOpciones(fila.opciones)
+      // En ramificacion NO hay correcta: mandar `a` la convertiria en quiz y
+      // todas las opciones menos una empezarian a rebotar.
+      const a = fila.rama ? undefined : parseInt(fila.correcta, 10) - 1
+      const aValida = fila.rama || (a !== undefined && a >= 0 && a < opts.length)
+      if (s === null || !fila.pregunta.trim() || opts.length < 2 || !aValida) {
         toast.error(t('academyV.badInteraction'))
         return
       }
       const ex = fila.explicacion.trim()
-      preguntas.push(ex ? { s, q: fila.pregunta.trim(), opts, a, ex } : { s, q: fila.pregunta.trim(), opts, a })
+      const it: Interaccion = { s, q: fila.pregunta.trim(), opts }
+      if (a !== undefined) it.a = a
+      if (ex) it.ex = ex
+      preguntas.push(it)
     }
 
     setOcupado(true)
@@ -338,7 +390,7 @@ export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
             <div className="mb-1 flex items-center justify-between">
               <span className="text-sm font-medium text-foreground">{t('academyV.interactions')}</span>
               <button
-                onClick={() => setInteracciones((c) => (c.length < MAX_INTERACCIONES ? [...c, { tiempo: '', pregunta: '', opciones: '', correcta: '1', explicacion: '' }] : c))}
+                onClick={() => setInteracciones((c) => (c.length < MAX_INTERACCIONES ? [...c, { tiempo: '', pregunta: '', opciones: '', correcta: '1', explicacion: '', rama: false }] : c))}
                 disabled={ocupado}
                 className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10"
               >
@@ -375,31 +427,47 @@ export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
-                  <input
+                  <textarea
                     value={fila.opciones}
                     onChange={(e) => setInteracciones((c) => c.map((f, j) => (j === i ? { ...f, opciones: e.target.value } : f)))}
                     placeholder={t('academyV.optionsPlaceholder')}
+                    rows={3}
                     disabled={ocupado}
-                    className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full resize-y rounded-lg border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
-                  <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      {t('academyV.correctLabel')}
-                      <input
-                        value={fila.correcta}
-                        onChange={(e) => setInteracciones((c) => c.map((f, j) => (j === i ? { ...f, correcta: e.target.value } : f)))}
-                        disabled={ocupado}
-                        className="w-12 rounded-lg border border-border bg-background px-2 py-1 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                      />
-                    </label>
+                  <label className="flex items-start gap-2 text-xs text-foreground">
                     <input
-                      value={fila.explicacion}
-                      onChange={(e) => setInteracciones((c) => c.map((f, j) => (j === i ? { ...f, explicacion: e.target.value } : f)))}
-                      placeholder={t('academyV.explanationPlaceholder')}
+                      type="checkbox"
+                      checked={fila.rama}
+                      onChange={(e) => setInteracciones((c) => c.map((f, j) => (j === i ? { ...f, rama: e.target.checked } : f)))}
                       disabled={ocupado}
-                      className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="mt-0.5 h-4 w-4 rounded border-border"
                     />
-                  </div>
+                    <span>
+                      {t('academyV.branchMode')}
+                      <span className="block text-[11px] text-muted-foreground">{t('academyV.branchModeHint')}</span>
+                    </span>
+                  </label>
+                  {!fila.rama && (
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        {t('academyV.correctLabel')}
+                        <input
+                          value={fila.correcta}
+                          onChange={(e) => setInteracciones((c) => c.map((f, j) => (j === i ? { ...f, correcta: e.target.value } : f)))}
+                          disabled={ocupado}
+                          className="w-12 rounded-lg border border-border bg-background px-2 py-1 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </label>
+                      <input
+                        value={fila.explicacion}
+                        onChange={(e) => setInteracciones((c) => c.map((f, j) => (j === i ? { ...f, explicacion: e.target.value } : f)))}
+                        placeholder={t('academyV.explanationPlaceholder')}
+                        disabled={ocupado}
+                        className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

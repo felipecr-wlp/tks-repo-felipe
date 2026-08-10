@@ -13,7 +13,7 @@ import { applyRateLimit } from '@/lib/rate-limit'
 import { isOrgAdmin } from '@/lib/team-access'
 import type { StackAcademia } from '@/lib/academy/videos'
 
-const COLUMNAS = 'id, title, description, accent, position, created_by, created_at, updated_at'
+const COLUMNAS = 'id, title, description, accent, position, school_id, created_by, created_at, updated_at'
 
 export async function GET(request: NextRequest) {
   const limited = await applyRateLimit(request)
@@ -40,6 +40,7 @@ const crearSchema = z.object({
   title: z.string().min(1).max(120),
   description: z.string().max(1000).optional().default(''),
   accent: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  schoolId: z.string().uuid().nullable().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
       description: parsed.data.description.trim(),
       ...(parsed.data.accent ? { accent: parsed.data.accent } : {}),
       position: (ultimo?.position ?? -1) + 1,
+      school_id: parsed.data.schoolId ?? null,
       created_by: user.id,
     })
     .select(COLUMNAS)

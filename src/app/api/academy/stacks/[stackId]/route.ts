@@ -16,13 +16,14 @@ import type { Database } from '@/lib/supabase/types'
 
 type StackUpdate = Database['public']['Tables']['academy_stacks']['Update']
 
-const COLUMNAS = 'id, title, description, accent, position, created_by, created_at, updated_at'
+const COLUMNAS = 'id, title, description, accent, position, school_id, created_by, created_at, updated_at'
 
 const patchSchema = z.object({
   title: z.string().min(1).max(120).optional(),
   description: z.string().max(1000).optional(),
   accent: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   position: z.number().int().min(0).max(10000).optional(),
+  schoolId: z.string().uuid().nullable().optional(),
 })
 
 async function gateAdmin() {
@@ -58,6 +59,7 @@ export async function PATCH(
   if (parsed.data.description !== undefined) cambios.description = parsed.data.description.trim()
   if (parsed.data.accent !== undefined) cambios.accent = parsed.data.accent
   if (parsed.data.position !== undefined) cambios.position = parsed.data.position
+  if (parsed.data.schoolId !== undefined) cambios.school_id = parsed.data.schoolId
 
   const admin = createAdminClient()
   const { data: fila, error } = await admin

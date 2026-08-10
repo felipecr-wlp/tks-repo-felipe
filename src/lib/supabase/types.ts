@@ -302,6 +302,42 @@ export type Database = {
           },
         ]
       }
+      academy_schools: {
+        Row: {
+          accent: string
+          code: string
+          created_at: string
+          description: string
+          id: string
+          mandatory: boolean
+          position: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accent?: string
+          code: string
+          created_at?: string
+          description?: string
+          id?: string
+          mandatory?: boolean
+          position?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accent?: string
+          code?: string
+          created_at?: string
+          description?: string
+          id?: string
+          mandatory?: boolean
+          position?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       academy_stacks: {
         Row: {
           accent: string
@@ -310,6 +346,7 @@ export type Database = {
           description: string
           id: string
           position: number
+          school_id: string | null
           title: string
           updated_at: string
         }
@@ -320,6 +357,7 @@ export type Database = {
           description?: string
           id?: string
           position?: number
+          school_id?: string | null
           title: string
           updated_at?: string
         }
@@ -330,6 +368,7 @@ export type Database = {
           description?: string
           id?: string
           position?: number
+          school_id?: string | null
           title?: string
           updated_at?: string
         }

@@ -11,6 +11,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   agruparPorStack,
+  agruparPorEscuela,
+  destinosDeInteracciones,
+  esRamificacion,
   ordenarVideosParaUsuario,
   porcentajeVisto,
   validarCapitulos,
@@ -19,9 +22,11 @@ import {
   formatearSegundos,
   UMBRAL_EMPEZADO,
   type AvanceVideo,
+  type EscuelaAcademia,
   type StackAcademia,
   type VideoAcademia,
 } from '@/lib/academy/videos'
+import { parsearOpciones } from '@/app/(app)/w/[workspaceSlug]/academia/videos/SubirVideoModal'
 
 function video(id: string, created: string, stack_id: string | null = null): VideoAcademia {
   return {
@@ -42,10 +47,21 @@ function video(id: string, created: string, stack_id: string | null = null): Vid
   }
 }
 
-function stack(id: string, title: string, position: number): StackAcademia {
+function stack(
+  id: string, title: string, position: number, school_id: string | null = null,
+): StackAcademia {
   return {
-    id, title, position,
+    id, title, position, school_id,
     description: '', accent: '#f59e0b', created_by: null,
+    created_at: '2026-08-01', updated_at: '2026-08-01',
+  }
+}
+
+function escuela(id: string, code: string, position: number): EscuelaAcademia {
+  return {
+    id, code, position,
+    title: `Escuela ${code}`, description: '', accent: '#f59e0b',
+    mandatory: code === '00',
     created_at: '2026-08-01', updated_at: '2026-08-01',
   }
 }
@@ -210,6 +226,119 @@ describe('Agrupado por stacks', () => {
     expect(secciones).toHaveLength(1)
     expect(secciones[0].stack).toBeNull()
     expect(secciones[0].videos.map((v) => v.id)).toEqual(['a'])
+  })
+})
+
+describe('Ramificación estilo elige-tu-aventura', () => {
+  const DESTINO = '3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b'
+
+  it('sin `a` es ramificación pura: ninguna opción es la mala', () => {
+    const r = validarInteracciones([
+      { s: 10, q: '¿Qué haces?', opts: [{ t: 'Entro', go: DESTINO }, { t: 'Me voy' }] },
+    ])
+    expect(r).not.toBeNull()
+    expect(esRamificacion(r![0])).toBe(true)
+    expect(r![0].opts[0].go).toBe(DESTINO)
+    expect(r![0].opts[1].go).toBeUndefined()
+  })
+
+  it('con `a` sigue siendo quiz aunque las opciones ramifiquen', () => {
+    const r = validarInteracciones([
+      { s: 10, q: '¿Correcto?', opts: [{ t: 'Sí' }, { t: 'No', go: DESTINO }], a: 0 },
+    ])
+    expect(esRamificacion(r![0])).toBe(false)
+    // Fallar puede mandar a un video de refuerzo: eso debe conservarse.
+    expect(r![0].opts[1].go).toBe(DESTINO)
+  })
+
+  it('acepta la forma corta de siempre y la normaliza a objetos', () => {
+    // Retro-compatibilidad: asi nacieron las interacciones y hay videos que
+    // podrian tenerlas guardadas asi. El reproductor solo entiende objetos.
+    const r = validarInteracciones([{ s: 5, q: '¿Color?', opts: ['Verde', 'Ámbar'], a: 1 }])
+    expect(r![0].opts).toEqual([{ t: 'Verde' }, { t: 'Ámbar' }])
+  })
+
+  it('rechaza un destino que no es uuid: sería un botón a un 404', () => {
+    // Este es EL fallo que importa: la persona queda atrapada a media
+    // historia y se descubre reproduciendo, no guardando.
+    expect(validarInteracciones([
+      { s: 1, q: 'x', opts: [{ t: 'a', go: 'el-video-de-alan' }, { t: 'b' }] },
+    ])).toBeNull()
+  })
+
+  it('rechaza un segundo de arranque negativo', () => {
+    expect(validarInteracciones([
+      { s: 1, q: 'x', opts: [{ t: 'a', go: DESTINO, at: -5 }, { t: 'b' }] },
+    ])).toBeNull()
+  })
+
+  it('lista los destinos sin repetir, para poder verificarlos', () => {
+    const r = validarInteracciones([
+      { s: 1, q: 'x', opts: [{ t: 'a', go: DESTINO }, { t: 'b', go: DESTINO }] },
+      { s: 9, q: 'y', opts: [{ t: 'c' }, { t: 'd' }] },
+    ])
+    expect(destinosDeInteracciones(r!)).toEqual([DESTINO])
+  })
+})
+
+describe('Editor de opciones: texto a estructura', () => {
+  const DESTINO = '3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b'
+
+  it('una opción por línea, con destino y segundo opcionales', () => {
+    expect(parsearOpciones(`Entro a revisar -> ${DESTINO} @30\nSigo sin revisar`)).toEqual([
+      { t: 'Entro a revisar', go: DESTINO, at: 30 },
+      { t: 'Sigo sin revisar' },
+    ])
+  })
+
+  it('parte por la ÚLTIMA flecha: un texto puede contener "->"', () => {
+    // Partir por la primera dejaria la etiqueta mutilada en "A".
+    expect(parsearOpciones(`A -> B es el orden correcto -> ${DESTINO}`)).toEqual([
+      { t: 'A -> B es el orden correcto', go: DESTINO },
+    ])
+  })
+
+  it('ignora líneas vacías en vez de crear opciones fantasma', () => {
+    expect(parsearOpciones('Uno\n\n  \nDos')).toHaveLength(2)
+  })
+})
+
+describe('Agrupado por escuelas', () => {
+  const vc = (id: string, sid: string | null) => ({ ...video(id, '2026-08-01', sid), avance: null })
+
+  it('anida escuela -> stack -> video en el orden de Fred', () => {
+    const escuelas = [escuela('e2', '100', 100), escuela('e1', '00', 0)]
+    const stacks = [stack('s1', 'Core', 1, 'e1'), stack('s2', 'RPA', 1, 'e2')]
+    const r = agruparPorEscuela([vc('a', 's1'), vc('b', 's2')], stacks, escuelas)
+    expect(r.map((x) => x.escuela?.code)).toEqual(['00', '100'])
+    expect(r[0].secciones[0].videos.map((v) => v.id)).toEqual(['a'])
+  })
+
+  it('una escuela SIN contenido sí aparece: es el mapa de la universidad', () => {
+    // A diferencia de un stack vacio, que no se pinta. Esconder una escuela
+    // haria creer que no existe.
+    const r = agruparPorEscuela([], [], [escuela('e1', '500', 500)])
+    expect(r).toHaveLength(1)
+    expect(r[0].total).toBe(0)
+  })
+
+  it('cuenta el avance de la escuela sumando todos sus stacks', () => {
+    const escuelas = [escuela('e1', '00', 0)]
+    const stacks = [stack('s1', 'A', 1, 'e1'), stack('s2', 'B', 2, 'e1')]
+    const visto = {
+      ...video('x', '2026-08-01', 's1'),
+      avance: { video_id: 'x', last_position: 10, seconds_watched: 600, completed: true, updated_at: '2026-08-02' },
+    }
+    const r = agruparPorEscuela([visto, vc('y', 's2')], stacks, escuelas)
+    expect(r[0].total).toBe(2)
+    expect(r[0].vistos).toBe(1)
+  })
+
+  it('un stack cuya escuela ya no existe cae a sueltos, no desaparece', () => {
+    const r = agruparPorEscuela([vc('a', 's1')], [stack('s1', 'A', 1, 'escuela-borrada')], [])
+    expect(r).toHaveLength(1)
+    expect(r[0].escuela).toBeNull()
+    expect(r[0].total).toBe(1)
   })
 })
 

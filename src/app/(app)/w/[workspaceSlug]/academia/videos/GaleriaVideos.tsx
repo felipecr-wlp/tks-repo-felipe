@@ -18,11 +18,13 @@ import {
 import { toast } from 'sonner'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import {
-  agruparPorStack,
+  agruparPorEscuela,
   formatearSegundos,
   ordenarVideosParaUsuario,
   porcentajeVisto,
   type AvanceVideo,
+  type EscuelaAcademia,
+  type SeccionStack,
   type StackAcademia,
   type VideoAcademia,
   type VideoConAvance,
@@ -34,11 +36,14 @@ interface Props {
   videos: VideoAcademia[]
   avances: AvanceVideo[]
   stacks: StackAcademia[]
+  escuelas: EscuelaAcademia[]
   thumbUrls: Record<string, string>
   esAdmin: boolean
 }
 
-export function GaleriaVideos({ workspaceSlug, videos, avances, stacks, thumbUrls, esAdmin }: Props) {
+export function GaleriaVideos({
+  workspaceSlug, videos, avances, stacks, escuelas, thumbUrls, esAdmin,
+}: Props) {
   const t = useT()
   const router = useRouter()
   const [busqueda, setBusqueda] = useState('')
@@ -73,7 +78,10 @@ export function GaleriaVideos({ workspaceSlug, videos, avances, stacks, thumbUrl
     () => [...continuar, ...nuevos, ...vistos],
     [continuar, nuevos, vistos],
   )
-  const secciones = useMemo(() => agruparPorStack(conAvance, stacks), [conAvance, stacks])
+  const porEscuela = useMemo(
+    () => agruparPorEscuela(conAvance, stacks, escuelas),
+    [conAvance, stacks, escuelas],
+  )
 
   const totalVistos = useMemo(
     () => videos.filter((v) => avances.some((a) => a.video_id === v.id && a.completed)).length,
@@ -207,11 +215,10 @@ export function GaleriaVideos({ workspaceSlug, videos, avances, stacks, thumbUrl
             </section>
           )}
 
-          {secciones.map((sec) => (
-            <SeccionDeStack
-              key={sec.stack?.id ?? '__sueltos__'}
-              stack={sec.stack}
-              lista={sec.videos}
+          {porEscuela.map((esc) => (
+            <BloqueEscuela
+              key={esc.escuela?.id ?? '__sin_escuela__'}
+              bloque={esc}
               slug={workspaceSlug}
               thumbs={thumbUrls}
             />
@@ -234,6 +241,79 @@ export function GaleriaVideos({ workspaceSlug, videos, avances, stacks, thumbUrl
         />
       )}
     </div>
+  )
+}
+
+/**
+ * Una escuela de WLP Academy. A diferencia de un stack vacio (que no se
+ * pinta), una escuela SIN contenido si aparece: la lista de escuelas es el
+ * mapa de la universidad, y esconder "Estimating" porque aun no tiene videos
+ * haria creer que no existe.
+ */
+function BloqueEscuela({
+  bloque, slug, thumbs,
+}: {
+  bloque: { escuela: EscuelaAcademia | null; secciones: SeccionStack[]; total: number; vistos: number }
+  slug: string
+  thumbs: Record<string, string>
+}) {
+  const t = useT()
+  const { escuela, secciones, total, vistos } = bloque
+  const pct = total > 0 ? Math.round((vistos / total) * 100) : 0
+
+  return (
+    <section className="mb-12">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            {escuela && (
+              <span
+                className="rounded px-2 py-0.5 font-mono text-xs font-bold text-white"
+                style={{ backgroundColor: escuela.accent }}
+              >
+                {escuela.code}
+              </span>
+            )}
+            <h2 className="text-xl font-bold text-foreground">
+              {escuela?.title ?? t('academyV.noSchool')}
+            </h2>
+            {escuela?.mandatory && (
+              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                {t('academyV.mandatory')}
+              </span>
+            )}
+          </div>
+          {escuela?.description && (
+            <p className="mt-1 text-sm text-muted-foreground">{escuela.description}</p>
+          )}
+        </div>
+        {total > 0 && (
+          <div className="shrink-0 text-right">
+            <span className="text-sm font-semibold text-foreground">{pct}%</span>
+            <div className="mt-1 h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${pct}%`, backgroundColor: escuela?.accent ?? '#94a3b8' }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {total === 0 ? (
+        <p className="pb-2 text-sm italic text-muted-foreground">{t('academyV.schoolEmpty')}</p>
+      ) : (
+        secciones.map((sec) => (
+          <SeccionDeStack
+            key={sec.stack?.id ?? '__sueltos__'}
+            stack={sec.stack}
+            lista={sec.videos}
+            slug={slug}
+            thumbs={thumbs}
+          />
+        ))
+      )}
+    </section>
   )
 }
 
@@ -308,7 +388,9 @@ function Tarjeta({ v, slug, thumb }: { v: VideoConAvance; slug: string; thumb?: 
         )}
         {v.interactions.length > 0 && (
           <span className="absolute right-2 top-2 rounded bg-sky-600/90 px-2 py-0.5 text-[11px] font-semibold text-white">
-            {t('academyV.interactive')}
+            {v.interactions.some((it) => it.opts.some((o) => o.go))
+              ? t('academyV.branching')
+              : t('academyV.interactive')}
           </span>
         )}
         {v.duration_seconds != null && v.duration_seconds > 0 && (
