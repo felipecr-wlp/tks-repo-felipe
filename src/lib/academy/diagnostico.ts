@@ -39,6 +39,8 @@ export interface Hallazgo {
 export function diagnosticar(
   videos: readonly VideoAcademia[],
   rutas: readonly RutaAcademia[],
+  /** Cuantas personas nombradas por video (audiencia 'personas'). */
+  nombradasPorVideo: Readonly<Record<string, number>> = {},
 ): Hallazgo[] {
   const h: Hallazgo[] = []
   const porId = new Map(videos.map((v) => [v.id, v]))
@@ -108,6 +110,17 @@ export function diagnosticar(
         gravedad: 'error',
         titulo: 'Video publicado "por perfiles" pero sin ningún perfil: no lo ve nadie',
         arreglo: 'Marca los perfiles que deben verlo, o cámbialo a "Todos".',
+        donde: v.title,
+        videoId: v.id,
+      })
+    }
+    // El caso gemelo: "por personas" sin nadie nombrado. Se paso por alto la
+    // primera vez y es exactamente igual de invisible.
+    if (v.audience === 'personas' && (nombradasPorVideo[v.id] ?? 0) === 0) {
+      h.push({
+        gravedad: 'error',
+        titulo: 'Video publicado "por personas" pero sin nadie nombrado: no lo ve nadie',
+        arreglo: 'Abre "Quién lo ve" y elige a las personas, o cámbialo a "Todos".',
         donde: v.title,
         videoId: v.id,
       })

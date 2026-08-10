@@ -106,6 +106,19 @@ describe('Diagnóstico: encuentra lo que deja atorada a una persona', () => {
     expect(r.some((x) => x.gravedad === 'error' && x.titulo.includes('no lo ve nadie'))).toBe(true)
   })
 
+  it('caza el video "por personas" sin nadie nombrado', () => {
+    // El caso gemelo del de perfiles. Se me paso la primera vez: el modo
+    // existia, se podia elegir, y dejaba el video invisible sin que nada
+    // avisara. Igual de silencioso, igual de grave.
+    const r = diagnosticar([v('a', { audience: 'personas' })], [], {})
+    expect(r.some((x) => x.gravedad === 'error' && x.titulo.includes('sin nadie nombrado'))).toBe(true)
+  })
+
+  it('con personas nombradas ya no avisa', () => {
+    const r = diagnosticar([v('a', { audience: 'personas' })], [], { a: 3 })
+    expect(r.some((x) => x.titulo.includes('sin nadie nombrado'))).toBe(false)
+  })
+
   it('una academia sana no inventa hallazgos', () => {
     expect(diagnosticar([v('a')], [])).toEqual([])
   })

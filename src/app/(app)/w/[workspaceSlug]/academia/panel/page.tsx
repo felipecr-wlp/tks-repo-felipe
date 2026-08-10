@@ -35,7 +35,7 @@ export default async function PanelPage({ params }: PageProps) {
   // no existe. Un 403 confirmaria que hay algo aqui.
   if (!(await isOrgAdmin(user.id))) notFound()
 
-  const [{ data: esc }, { data: st }, { data: ru }, { data: vi }] = await Promise.all([
+  const [{ data: esc }, { data: st }, { data: ru }, { data: vi }, { data: viewers }] = await Promise.all([
     admin.from('academy_schools')
       .select('id, code, title, description, accent, mandatory, position, created_at, updated_at')
       .order('position'),
@@ -48,7 +48,13 @@ export default async function PanelPage({ params }: PageProps) {
     admin.from('academy_videos')
       .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, audience, audience_profiles, diagram_x, diagram_y, created_by, created_at, updated_at')
       .order('created_at', { ascending: false }),
+    admin.from('academy_video_viewers').select('video_id'),
   ])
+
+  const nombradasPorVideo: Record<string, number> = {}
+  for (const r of viewers ?? []) {
+    nombradasPorVideo[r.video_id] = (nombradasPorVideo[r.video_id] ?? 0) + 1
+  }
 
   return (
     <PanelAcademia
@@ -57,6 +63,7 @@ export default async function PanelPage({ params }: PageProps) {
       stacks={(st ?? []) as unknown as StackAcademia[]}
       rutas={(ru ?? []) as unknown as RutaAcademia[]}
       videos={(vi ?? []) as unknown as VideoAcademia[]}
+      nombradasPorVideo={nombradasPorVideo}
     />
   )
 }

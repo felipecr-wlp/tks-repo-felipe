@@ -21,6 +21,7 @@ import type {
   EscuelaAcademia, RutaAcademia, StackAcademia, VideoAcademia,
 } from '@/lib/academy/videos'
 import { diagnosticar } from '@/lib/academy/diagnostico'
+import { SelectorPersonas } from './SelectorPersonas'
 
 interface Props {
   workspaceSlug: string
@@ -28,15 +29,21 @@ interface Props {
   stacks: StackAcademia[]
   rutas: RutaAcademia[]
   videos: VideoAcademia[]
+  /** Personas nombradas por video, para avisar del 'personas sin nadie'. */
+  nombradasPorVideo: Record<string, number>
 }
 
 type Pestana = 'escuelas' | 'stacks' | 'rutas' | 'videos' | 'pruebas'
 
-export function PanelAcademia({ workspaceSlug, escuelas, stacks, rutas, videos }: Props) {
+export function PanelAcademia({
+  workspaceSlug, escuelas, stacks, rutas, videos, nombradasPorVideo,
+}: Props) {
   const t = useT()
   const router = useRouter()
   const [pestana, setPestana] = useState<Pestana>('escuelas')
   const [ocupado, setOcupado] = useState(false)
+  // Video cuyo selector de personas esta abierto.
+  const [eligiendo, setEligiendo] = useState<{ id: string; titulo: string } | null>(null)
 
   async function llamar(url: string, metodo: string, cuerpo?: unknown) {
     setOcupado(true)
@@ -63,7 +70,10 @@ export function PanelAcademia({ workspaceSlug, escuelas, stacks, rutas, videos }
 
   // Diagnostico en memoria: usa los metadatos que la pagina ya cargo, asi que
   // abrirlo cien veces no descarga un solo byte de video (cero egress).
-  const hallazgos = useMemo(() => diagnosticar(videos, rutas), [videos, rutas])
+  const hallazgos = useMemo(
+    () => diagnosticar(videos, rutas, nombradasPorVideo),
+    [videos, rutas, nombradasPorVideo],
+  )
   const errores = hallazgos.filter((h) => h.gravedad === 'error').length
 
   const TABS: Array<{ id: Pestana; icono: typeof Layers; texto: string; n: number }> = [
@@ -280,6 +290,15 @@ export function PanelAcademia({ workspaceSlug, escuelas, stacks, rutas, videos }
                 disabled={ocupado}
                 onChange={(ev) => {
                   const modo = ev.target.value
+                  if (modo === 'personas') {
+                    // Se guarda el modo Y se abre el selector en el mismo
+                    // gesto: elegir "por personas" sin nombrar a nadie deja el
+                    // video invisible, y pedirlo despues es pedir que alguien
+                    // se acuerde.
+                    llamar(`/api/academy/videos/${v.id}`, 'PATCH', { audience: 'personas' })
+                      .then(() => setEligiendo({ id: v.id, titulo: v.title }))
+                    return
+                  }
                   if (modo !== 'perfiles') {
                     llamar(`/api/academy/videos/${v.id}`, 'PATCH', { audience: modo })
                     return
@@ -301,6 +320,15 @@ export function PanelAcademia({ workspaceSlug, escuelas, stacks, rutas, videos }
                 <option value="perfiles">{t('academyP.audProfiles')}</option>
                 <option value="personas">{t('academyP.audPeople')}</option>
               </select>
+              {v.audience === 'personas' && (
+                <button
+                  onClick={() => setEligiendo({ id: v.id, titulo: v.title })}
+                  disabled={ocupado}
+                  className="shrink-0 rounded border border-border px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted"
+                >
+                  {t('academyP.whoSees')}
+                </button>
+              )}
               {/* El id se puede copiar: es lo que se pega al escribir una rama. */}
               <button
                 onClick={() => {
@@ -375,6 +403,17 @@ export function PanelAcademia({ workspaceSlug, escuelas, stacks, rutas, videos }
             </>
           )}
         </div>
+      )}
+      {eligiendo && (
+        <SelectorPersonas
+          videoId={eligiendo.id}
+          titulo={eligiendo.titulo}
+          onClose={() => setEligiendo(null)}
+          onGuardado={(n) => {
+            toast.success(n === 0 ? t('academyP.zeroWarning') : `${n} ${t('academyP.chosen')}`)
+            router.refresh()
+          }}
+        />
       )}
     </div>
   )
