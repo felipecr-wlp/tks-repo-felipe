@@ -44,7 +44,7 @@ export default async function VideosPage({ params }: PageProps) {
 
   let q = admin
     .from('academy_videos')
-    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, audience, audience_profiles, diagram_x, diagram_y, created_by, created_at, updated_at')
+    .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, audience, audience_profiles, diagram_x, diagram_y, requires_ack, requires_verification, valid_months, ack_text, created_by, created_at, updated_at')
     .order('created_at', { ascending: false })
   if (!esAdmin) q = q.eq('status', 'live')
 

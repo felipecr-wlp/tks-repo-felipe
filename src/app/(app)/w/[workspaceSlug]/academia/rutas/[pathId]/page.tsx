@@ -54,7 +54,7 @@ export default async function RutaPage({ params }: PageProps) {
   const [{ data: videosRaw }, { data: avancesRaw }] = await Promise.all([
     admin
       .from('academy_videos')
-      .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, audience, audience_profiles, diagram_x, diagram_y, created_by, created_at, updated_at'),
+      .select('id, title, description, storage_path, thumbnail_path, duration_seconds, chapters, interactions, tags, stack_id, status, audience, audience_profiles, diagram_x, diagram_y, requires_ack, requires_verification, valid_months, ack_text, created_by, created_at, updated_at'),
     admin
       .from('academy_video_progress')
       .select('video_id, last_position, seconds_watched, completed, updated_at')

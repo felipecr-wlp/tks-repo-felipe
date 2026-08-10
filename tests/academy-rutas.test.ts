@@ -27,6 +27,7 @@ function v(id: string, va: Array<[string, string]> = []): VideoAcademia {
     storage_path: `videos/${id}.mp4`, thumbnail_path: null,
     duration_seconds: 300, chapters: [], interactions, tags: [],
     stack_id: null, audience: 'todos', audience_profiles: [], diagram_x: null, diagram_y: null,
+    requires_ack: false, requires_verification: false, valid_months: null, ack_text: null,
     status: 'live', created_by: null,
     created_at: '2026-08-01', updated_at: '2026-08-01',
   }

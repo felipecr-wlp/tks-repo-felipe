@@ -43,6 +43,23 @@ const API = join(process.cwd(), 'src', 'app', 'api', 'academy')
 
 const MUTATING = /export async function (POST|PATCH|PUT|DELETE)\b/g
 
+/**
+ * Quita comentarios antes de buscar la primitiva de autorizacion.
+ *
+ * POR QUE. Sin esto, la cabecera que DESCRIBE el gate satisface al tripwire
+ * igual de bien que el gate. Se encontro de verdad: una ruta nueva documentaba
+ * en su cabecera "el acuse lo da la persona sobre SU fila (profile_id:
+ * user.id)" y el escaneo daba verde por esa FRASE, sin mirar si el codigo lo
+ * hacia. Un tripwire que se conforma con la documentacion no vigila nada:
+ * certifica intenciones, y las intenciones no detienen un fallo.
+ */
+function soloCodigo(src: string): string {
+  const bloques = new RegExp('/\\*[\\s\\S]*?\\*/', 'g')
+  // El `[^:]` evita comerse el `//` de una URL (http://...).
+  const linea = new RegExp('(^|[^:])//.*$', 'gm')
+  return src.replace(bloques, '').replace(linea, '$1')
+}
+
 const HANDLERS: { file: string; authz: RegExp }[] = [
   { file: 'access/route.ts',              authz: /profile_id: user\.id/ },
   { file: 'access/[requestId]/route.ts',  authz: /isOrgAdmin\(/ },
@@ -61,6 +78,12 @@ const HANDLERS: { file: string; authz: RegExp }[] = [
   { file: 'videos/[videoId]/progress/route.ts', authz: /profile_id: user\.id/ },
   // Nombrar quien ve un video: gobernanza pura, solo admin.
   { file: 'videos/[videoId]/viewers/route.ts', authz: /isOrgAdmin\(/ },
+  // Certificacion. Archivo con LOS DOS EJES a la vez, y por eso se le exige
+  // la primitiva de ambos: el POST es el acuse que la persona da sobre SU
+  // fila (profile_id: user.id, nadie declara por otro) y el PATCH es la firma
+  // del supervisor sobre la fila de OTRO (isOrgAdmin). Exigir solo uno dejaria
+  // el otro handler sin vigilancia.
+  { file: 'certifications/route.ts', authz: /profile_id: user\.id[\s\S]*isOrgAdmin\(/ },
   // Stacks de la galeria: puro catalogo, gobernanza de admin.
   { file: 'stacks/route.ts',           authz: /isOrgAdmin\(/ },
   { file: 'stacks/[stackId]/route.ts', authz: /isOrgAdmin\(/ },
@@ -87,7 +110,7 @@ describe('Invariante de authz: los handlers de la Academia autorizan por su eje 
   for (const h of HANDLERS) {
     const full = join(API, ...h.file.split('/'))
     if (!existsSync(full)) continue
-    const src = readFileSync(full, 'utf8')
+    const src = soloCodigo(readFileSync(full, 'utf8'))
     const count = src.match(MUTATING)?.length ?? 0
     if (count === 0) continue
     totalMutating += count

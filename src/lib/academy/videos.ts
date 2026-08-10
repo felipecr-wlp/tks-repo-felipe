@@ -272,6 +272,14 @@ export interface VideoAcademia {
   /** Posicion en el diagrama de flujo. null = nunca se ha acomodado. */
   diagram_x: number | null
   diagram_y: number | null
+  /** Exige que la persona firme un acuse para contar como certificada. */
+  requires_ack: boolean
+  /** Exige que un supervisor firme que sabe HACERLO, no solo que lo vio. */
+  requires_verification: boolean
+  /** Meses de vigencia. null = no caduca. */
+  valid_months: number | null
+  /** Texto del acuse. null = se usa el generico. */
+  ack_text: string | null
   status: EstadoVideo
   created_by: string | null
   created_at: string

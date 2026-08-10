@@ -21,6 +21,7 @@ function v(
     duration_seconds: 300, chapters: [], interactions: [], tags: [],
     stack_id: 'stack-1', status: 'live', created_by: null,
     audience: 'todos', audience_profiles: [], diagram_x: null, diagram_y: null,
+    requires_ack: false, requires_verification: false, valid_months: null, ack_text: null,
     created_at: '2026-08-01', updated_at: '2026-08-01',
     ...extra,
   }

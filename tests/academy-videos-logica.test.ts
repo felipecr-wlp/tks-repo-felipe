@@ -41,6 +41,7 @@ function video(id: string, created: string, stack_id: string | null = null): Vid
     tags: [],
     stack_id,
     audience: 'todos', audience_profiles: [], diagram_x: null, diagram_y: null,
+    requires_ack: false, requires_verification: false, valid_months: null, ack_text: null,
     status: 'live',
     created_by: null,
     created_at: created,

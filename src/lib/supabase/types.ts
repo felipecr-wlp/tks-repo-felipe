@@ -219,6 +219,51 @@ export type Database = {
           },
         ]
       }
+      academy_certifications: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_text: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          item_id: string
+          item_type: string
+          profile_id: string
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+          verified_note: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_text?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          item_id: string
+          item_type: string
+          profile_id: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          verified_note?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_text?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          item_id?: string
+          item_type?: string
+          profile_id?: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          verified_note?: string | null
+        }
+        Relationships: []
+      }
       academy_paths: {
         Row: {
           accent: string
@@ -468,6 +513,7 @@ export type Database = {
       }
       academy_videos: {
         Row: {
+          ack_text: string | null
           audience: string
           audience_profiles: string[]
           chapters: Json
@@ -479,6 +525,8 @@ export type Database = {
           duration_seconds: number | null
           id: string
           interactions: Json
+          requires_ack: boolean
+          requires_verification: boolean
           stack_id: string | null
           status: string
           storage_path: string
@@ -486,8 +534,10 @@ export type Database = {
           thumbnail_path: string | null
           title: string
           updated_at: string
+          valid_months: number | null
         }
         Insert: {
+          ack_text?: string | null
           audience?: string
           audience_profiles?: string[]
           chapters?: Json
@@ -499,6 +549,8 @@ export type Database = {
           duration_seconds?: number | null
           id?: string
           interactions?: Json
+          requires_ack?: boolean
+          requires_verification?: boolean
           stack_id?: string | null
           status?: string
           storage_path: string
@@ -506,8 +558,10 @@ export type Database = {
           thumbnail_path?: string | null
           title: string
           updated_at?: string
+          valid_months?: number | null
         }
         Update: {
+          ack_text?: string | null
           audience?: string
           audience_profiles?: string[]
           chapters?: Json
@@ -519,6 +573,8 @@ export type Database = {
           duration_seconds?: number | null
           id?: string
           interactions?: Json
+          requires_ack?: boolean
+          requires_verification?: boolean
           stack_id?: string | null
           status?: string
           storage_path?: string
@@ -526,6 +582,7 @@ export type Database = {
           thumbnail_path?: string | null
           title?: string
           updated_at?: string
+          valid_months?: number | null
         }
         Relationships: [
           {
