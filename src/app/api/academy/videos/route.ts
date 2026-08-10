@@ -71,6 +71,12 @@ const crearSchema = z.object({
   tags: z.array(z.string().min(1).max(40)).max(20).optional().default([]),
   stackId: z.string().uuid().nullable().optional(),
   status: z.enum(['draft', 'live']).optional().default('live'),
+  // La audiencia se acepta AL CREAR, no solo al editar. Sin esto, zod
+  // descartaba el campo en silencio: la peticion respondia 201 y el video
+  // marcado "solo foreman" quedaba visible para todo el mundo. Un fallo de
+  // permisos que responde OK es el peor de todos, porque nadie lo revisa.
+  audience: z.enum(['todos', 'perfiles', 'personas']).optional().default('todos'),
+  audienceProfiles: z.array(z.string().min(1).max(40)).max(30).optional().default([]),
 })
 
 /** El objeto existe si Storage puede firmarle una URL. */
@@ -161,6 +167,8 @@ export async function POST(request: NextRequest) {
       interactions: interacciones as unknown as Json,
       tags: parsed.data.tags,
       stack_id: stackId,
+      audience: parsed.data.audience,
+      audience_profiles: parsed.data.audienceProfiles.map((x) => x.trim()).filter(Boolean),
       status: parsed.data.status,
       created_by: user.id,
     })

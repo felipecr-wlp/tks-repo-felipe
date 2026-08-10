@@ -129,6 +129,8 @@ export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
   const [descripcion, setDescripcion] = useState('')
   const [tags, setTags] = useState('')
   const [stackId, setStackId] = useState('')
+  const [audiencia, setAudiencia] = useState<'todos' | 'perfiles' | 'personas'>('todos')
+  const [perfiles, setPerfiles] = useState('')
   const [capitulos, setCapitulos] = useState<FilaCapitulo[]>([])
   const [interacciones, setInteracciones] = useState<FilaInteraccion[]>([])
   const [publicar, setPublicar] = useState(true)
@@ -246,6 +248,8 @@ export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
           interactions: preguntas,
           tags: tags.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 20),
           stackId: stackId || null,
+          audience: audiencia,
+          audienceProfiles: perfiles.split(',').map((x) => x.trim()).filter(Boolean),
           status: publicar ? 'live' : 'draft',
         }),
       })
@@ -349,6 +353,37 @@ export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
               ))}
             </select>
           </label>
+
+          <div>
+            <span className="mb-1 block text-sm font-medium text-foreground">{t('academyP.audience')}</span>
+            <select
+              value={audiencia}
+              onChange={(e) => setAudiencia(e.target.value as 'todos' | 'perfiles' | 'personas')}
+              disabled={ocupado}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              <option value="todos">{t('academyP.audAll')}</option>
+              <option value="perfiles">{t('academyP.audProfiles')}</option>
+              <option value="personas">{t('academyP.audPeople')}</option>
+            </select>
+            {audiencia === 'perfiles' && (
+              <input
+                value={perfiles}
+                onChange={(e) => setPerfiles(e.target.value)}
+                placeholder="foreman, concreto, asfalto"
+                disabled={ocupado}
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            )}
+            {/* Aviso en el momento, no despues: elegir por perfiles y dejarlo
+                vacio deja el video invisible para TODO el equipo. */}
+            {audiencia === 'perfiles' && perfiles.trim() === '' && (
+              <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-500">{t('academyV.nobodyWarning')}</p>
+            )}
+            {audiencia === 'personas' && (
+              <p className="mt-1 text-[11px] text-muted-foreground">{t('academyV.peopleLater')}</p>
+            )}
+          </div>
 
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-foreground">{t('academyV.thumb')}</span>
