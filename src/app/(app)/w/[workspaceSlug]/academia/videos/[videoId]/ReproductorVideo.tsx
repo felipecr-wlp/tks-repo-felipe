@@ -211,8 +211,12 @@ export function ReproductorVideo({ workspaceSlug, video, avance, streamUrl, post
               className="aspect-video w-full rounded-xl bg-black"
             />
             {activa && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/80 p-4">
-                <div className="w-full max-w-md">
+              // overflow-y-auto: en un telefono el video 16:9 mide ~220px de
+              // alto y una pregunta con 4+ opciones no cabe; sin scroll, las
+              // opciones de abajo quedarian INALCANZABLES y el video pausado
+              // para siempre. Visto en movil real con 3 opciones al limite.
+              <div className="absolute inset-0 flex items-center justify-center overflow-y-auto rounded-xl bg-black/80 p-4">
+                <div className="my-auto w-full max-w-md">
                   <p className="mb-3 flex items-start gap-2 text-sm font-semibold text-white sm:text-base">
                     <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
                     {activa.q}

@@ -112,7 +112,9 @@ export function GaleriaVideos({ workspaceSlug, videos, avances, stacks, thumbUrl
             </h1>
             <p className="mt-2 max-w-xl text-sm text-slate-300">{t('academyV.subtitle')}</p>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {/* Sin shrink-0: en 390px el boton de subir se salia de la pantalla
+              en vez de envolver a la siguiente linea. Visto en movil real. */}
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/w/${workspaceSlug}/academia`}
               className="rounded-lg border border-white/20 px-3 py-2 text-sm font-medium text-white hover:bg-white/10"
