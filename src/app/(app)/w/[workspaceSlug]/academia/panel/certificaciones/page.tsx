@@ -52,6 +52,13 @@ export default async function CertificacionesPage({ params }: PageProps) {
   ])
 
   const porVideo = new Map((videos ?? []).map((v) => [v.id, v]))
+  // Quien completo DE VERDAD cada video. Antes se asumia `visto: true` para
+  // toda fila de certificacion, y eso miente en el caso que mas importa: un
+  // supervisor puede firmar a alguien que nunca abrio el video (porque lo vio
+  // trabajar en campo). Con el supuesto, la pantalla afirmaba que esa persona
+  // habia visto el contenido, y el supervisor no tenia como saber a quien
+  // faltaba mandarle la capacitacion.
+  const completadoPor = new Set((avances ?? []).map((a) => `${a.profile_id}:${a.video_id}`))
 
   // Se cruza avance + certificacion para poder mostrar tambien a quien YA vio
   // el video y todavia no tiene fila: sin eso, la lista de "esperando firma"
@@ -77,7 +84,7 @@ export default async function CertificacionesPage({ params }: PageProps) {
       verifiedAt: c.verified_at,
       verifiedNote: c.verified_note,
       expiresAt: c.expires_at,
-      visto: true,
+      visto: completadoPor.has(`${c.profile_id}:${c.item_id}`),
     })
   }
 
