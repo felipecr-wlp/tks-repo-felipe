@@ -31,7 +31,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
 import {
-  ArrowLeft, Save, Play, Users, Lock, HelpCircle, GitBranch, Trash2, Info,
+  ArrowLeft, Save, Play, Users, Lock, HelpCircle, GitBranch, Info,
 } from 'lucide-react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import type { VideoAcademia, Interaccion, OpcionInteraccion } from '@/lib/academy/videos'
@@ -130,7 +130,10 @@ export function DiagramaFlujo({ workspaceSlug, videos, nombradasPorVideo }: Prop
     return out
   }, [videos])
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(nodosIniciales)
+  // Sin `setNodes`: React Flow mueve las cajas por onNodesChange y la
+  // posicion se lee de `nodes` al guardar. Un setter que nadie llama es una
+  // puerta abierta a que alguien lo use y se pelee con el arrastre.
+  const [nodes, , onNodesChange] = useNodesState(nodosIniciales)
   const [edges, setEdges, onEdgesChange] = useEdgesState(aristasIniciales)
 
   // Mapa vivo id -> interacciones, que es lo que se guarda al final.
@@ -299,9 +302,12 @@ export function DiagramaFlujo({ workspaceSlug, videos, nombradasPorVideo }: Prop
           <div className="absolute right-3 top-3 w-64 rounded-xl border border-border bg-card p-3 shadow-lg">
             <div className="mb-2 flex items-start justify-between gap-2">
               <p className="text-sm font-semibold text-foreground">{videoSel.title}</p>
-              <button onClick={() => setSel(null)} className="rounded p-1 text-muted-foreground hover:bg-muted">
-                <Trash2 className="hidden h-4 w-4" />
-                <span className="text-xs">✕</span>
+              <button
+                onClick={() => setSel(null)}
+                className="rounded p-1 text-xs text-muted-foreground hover:bg-muted"
+                aria-label={t('academyV.cancel')}
+              >
+                ✕
               </button>
             </div>
             <div className="space-y-1.5 text-xs text-muted-foreground">
