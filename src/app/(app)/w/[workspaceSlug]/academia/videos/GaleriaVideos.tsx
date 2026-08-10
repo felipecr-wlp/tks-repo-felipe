@@ -14,6 +14,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Clapperboard, Plus, Search, CheckCircle2, Play, Clock3, FolderPlus, Layers,
+  SlidersHorizontal, Route as RouteIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useT } from '@/lib/i18n/LanguageProvider'
@@ -24,6 +25,7 @@ import {
   porcentajeVisto,
   type AvanceVideo,
   type EscuelaAcademia,
+  type RutaAcademia,
   type SeccionStack,
   type StackAcademia,
   type VideoAcademia,
@@ -37,12 +39,13 @@ interface Props {
   avances: AvanceVideo[]
   stacks: StackAcademia[]
   escuelas: EscuelaAcademia[]
+  rutas: RutaAcademia[]
   thumbUrls: Record<string, string>
   esAdmin: boolean
 }
 
 export function GaleriaVideos({
-  workspaceSlug, videos, avances, stacks, escuelas, thumbUrls, esAdmin,
+  workspaceSlug, videos, avances, stacks, escuelas, rutas, thumbUrls, esAdmin,
 }: Props) {
   const t = useT()
   const router = useRouter()
@@ -131,6 +134,12 @@ export function GaleriaVideos({
             </Link>
             {esAdmin && (
               <>
+                <Link
+                  href={`/w/${workspaceSlug}/academia/panel`}
+                  className="flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-2 text-sm font-medium text-white hover:bg-white/10"
+                >
+                  <SlidersHorizontal className="h-4 w-4" /> {t('academyP.panel')}
+                </Link>
                 <button
                   onClick={crearStack}
                   disabled={creandoStack}
@@ -202,6 +211,36 @@ export function GaleriaVideos({
         </div>
       ) : (
         <>
+          {rutas.length > 0 && (
+            <section className="mb-8">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('academyR.routes')}
+              </h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {rutas.map((r) => (
+                  <Link
+                    key={r.id}
+                    href={`/w/${workspaceSlug}/academia/rutas/${r.id}`}
+                    className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-shadow hover:shadow-md"
+                  >
+                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: r.accent + '22' }}>
+                      <RouteIcon className="h-5 w-5" style={{ color: r.accent }} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-foreground">{r.title}</p>
+                      {r.description && <p className="line-clamp-2 text-xs text-muted-foreground">{r.description}</p>}
+                      {r.status !== 'live' && (
+                        <span className="mt-1 inline-block rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                          {t('academyV.draft')}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
           {continuar.length > 0 && (
             <section className="mb-8">
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">

@@ -218,6 +218,26 @@ export interface StackAcademia {
   updated_at: string
 }
 
+/**
+ * Ruta de aprendizaje: la puerta de entrada a un arbol de videos ramificados
+ * ("Bienvenido a tu primer día" -> concreto o asfalto -> subramas). El arbol
+ * NO vive aqui, se deriva de los enlaces (ver lib/academy/rutas.ts).
+ */
+export interface RutaAcademia {
+  id: string
+  title: string
+  description: string
+  school_id: string | null
+  /** Video por el que se entra. null = ruta descabezada, hay que repararla. */
+  entry_video_id: string | null
+  accent: string
+  position: number
+  status: EstadoVideo
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 /** Escuela de WLP Academy. El nivel de arriba de todo (estructura de Fred). */
 export interface EscuelaAcademia {
   id: string

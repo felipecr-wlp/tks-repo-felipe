@@ -219,6 +219,63 @@ export type Database = {
           },
         ]
       }
+      academy_paths: {
+        Row: {
+          accent: string
+          created_at: string
+          created_by: string | null
+          description: string
+          entry_video_id: string | null
+          id: string
+          position: number
+          school_id: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accent?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          entry_video_id?: string | null
+          id?: string
+          position?: number
+          school_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accent?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          entry_video_id?: string | null
+          id?: string
+          position?: number
+          school_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_paths_entry_video_id_fkey"
+            columns: ["entry_video_id"]
+            isOneToOne: false
+            referencedRelation: "academy_videos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_paths_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "academy_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academy_progress: {
         Row: {
           completed: boolean

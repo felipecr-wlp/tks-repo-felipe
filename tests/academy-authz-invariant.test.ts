@@ -62,6 +62,10 @@ const HANDLERS: { file: string; authz: RegExp }[] = [
   // Stacks de la galeria: puro catalogo, gobernanza de admin.
   { file: 'stacks/route.ts',           authz: /isOrgAdmin\(/ },
   { file: 'stacks/[stackId]/route.ts', authz: /isOrgAdmin\(/ },
+  // Rutas de aprendizaje y escuelas: estructura de la academia, gobierno admin.
+  { file: 'paths/route.ts',            authz: /isOrgAdmin\(/ },
+  { file: 'paths/[pathId]/route.ts',   authz: /isOrgAdmin\(/ },
+  { file: 'schools/[schoolId]/route.ts', authz: /isOrgAdmin\(/ },
 ]
 
 /** Todos los route.ts bajo src/app/api/academy, los anote alguien o no. */

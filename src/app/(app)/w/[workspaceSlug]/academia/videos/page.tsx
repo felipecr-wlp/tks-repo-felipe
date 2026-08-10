@@ -11,6 +11,7 @@ import {
   VIDEO_BUCKET,
   type AvanceVideo,
   type EscuelaAcademia,
+  type RutaAcademia,
   type StackAcademia,
   type VideoAcademia,
 } from '@/lib/academy/videos'
@@ -46,7 +47,7 @@ export default async function VideosPage({ params }: PageProps) {
     .order('created_at', { ascending: false })
   if (!esAdmin) q = q.eq('status', 'live')
 
-  const [{ data: videosRaw }, { data: avancesRaw }, { data: stacksRaw }, { data: escuelasRaw }] = await Promise.all([
+  const [{ data: videosRaw }, { data: avancesRaw }, { data: stacksRaw }, { data: rutasRaw }, { data: escuelasRaw }] = await Promise.all([
     q,
     admin
       .from('academy_video_progress')
@@ -55,6 +56,10 @@ export default async function VideosPage({ params }: PageProps) {
     admin
       .from('academy_stacks')
       .select('id, title, description, accent, position, school_id, created_by, created_at, updated_at')
+      .order('position', { ascending: true }),
+    admin
+      .from('academy_paths')
+      .select('id, title, description, school_id, entry_video_id, accent, position, status, created_by, created_at, updated_at')
       .order('position', { ascending: true }),
     admin
       .from('academy_schools')
@@ -66,6 +71,8 @@ export default async function VideosPage({ params }: PageProps) {
   const avances = (avancesRaw ?? []) as unknown as AvanceVideo[]
   const stacks = (stacksRaw ?? []) as unknown as StackAcademia[]
   const escuelas = (escuelasRaw ?? []) as unknown as EscuelaAcademia[]
+  // Los borradores de ruta solo los ve quien los gobierna.
+  const rutas = ((rutasRaw ?? []) as unknown as RutaAcademia[]).filter((r) => esAdmin || r.status === 'live')
 
   // Miniaturas en lote: una llamada, no una por tarjeta.
   const conThumb = videos.filter((v) => v.thumbnail_path)
@@ -90,6 +97,7 @@ export default async function VideosPage({ params }: PageProps) {
       avances={avances}
       stacks={stacks}
       escuelas={escuelas}
+      rutas={rutas}
       thumbUrls={thumbUrls}
       esAdmin={esAdmin}
     />
