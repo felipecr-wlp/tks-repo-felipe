@@ -27,6 +27,10 @@ const actionSchema = z.object({
   body:        z.string().max(4000).optional(),
   sequence_id: z.string().uuid().nullable().optional(), // emailer_enroll
   email:       z.string().max(320).optional(),
+  campaign_title:  z.string().max(160).trim().optional(),
+  campaign_subject: z.string().max(300).trim().optional(),
+  campaign_html:   z.string().max(200_000).optional(),
+  campaign_list_id: z.string().max(200).trim().optional(),
 })
 const triggerConfigSchema = z.object({
   to_status_id:   z.string().uuid().optional(),
@@ -88,7 +92,7 @@ export async function PATCH(
     .from('automations')
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', params.automationId)
-    .select('id, name, trigger, trigger_config, conditions, actions, is_active, created_at')
+    .select('id, name, trigger, trigger_config, conditions, actions, is_active, last_campaign_report, created_at')
     .single()
 
   if (updErr || !rule) {

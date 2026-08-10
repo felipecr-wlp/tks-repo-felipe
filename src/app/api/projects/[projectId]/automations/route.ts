@@ -33,6 +33,12 @@ const actionSchema = z.object({
   // {email_tarea}. Quien decide si la cadena sirve es resolverEmail(), en el
   // momento de disparar, que es cuando existe la tarea de la que sacarla.
   email:       z.string().max(320).optional(),
+  // emailer_send_campaign: el HTML se guarda tal cual (limite 200k para que
+  // quepa un mail completo), list_id y title/subject con recortes duros.
+  campaign_title:  z.string().max(160).trim().optional(),
+  campaign_subject: z.string().max(300).trim().optional(),
+  campaign_html:   z.string().max(200_000).optional(),
+  campaign_list_id: z.string().max(200).trim().optional(),
 })
 
 const triggerConfigSchema = z.object({
@@ -66,7 +72,7 @@ export async function GET(
 
   const { data: rules, error: rulesError } = await admin
     .from('automations')
-    .select('id, name, trigger, trigger_config, conditions, actions, is_active, created_at')
+    .select('id, name, trigger, trigger_config, conditions, actions, is_active, last_campaign_report, created_at')
     .eq('project_id', params.projectId)
     .order('created_at', { ascending: true })
 
@@ -118,7 +124,7 @@ export async function POST(
       is_active:      parsed.data.is_active,
       created_by:     user.id,
     })
-    .select('id, name, trigger, trigger_config, conditions, actions, is_active, created_at')
+    .select('id, name, trigger, trigger_config, conditions, actions, is_active, last_campaign_report, created_at')
     .single()
 
   if (error || !rule) {

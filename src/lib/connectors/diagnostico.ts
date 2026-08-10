@@ -93,6 +93,14 @@ const ACCIONES_SALIENTES: Record<
       nota: 'La usa el motor de automatizaciones de WLO. Envía correo a una persona real, por eso exige que el complemento este instalado y el destinatario sea explicito.',
     },
   ],
+  'emailer:send_campaign': [
+    {
+      action: 'emailer/create_campaign',
+      cuerpo: '{ "title": "Campaña de marzo", "subject": "Asunto", "html": "<p>Hola</p>", "list_id": "lst_...", "workspace_id": "..." }',
+      respuesta: '{ "campaign_id": "...", "status": "sent", "published_at": "2026-08-10T12:00:00Z", "list_id": "lst_...", "list_name": "Prospectos 2026", "sent_count": 120 }',
+      nota: 'La dispara el motor de automatizaciones de WLO (accion emailer_send_campaign). WLO solo entrega HTML y configuración; WLI configura y publica la campaña y devuelve cuándo se publicó, a qué base y cuántos envíos. El reporte se guarda en la regla.',
+    },
+  ],
 }
 
 /** Ejemplos de cuerpo y respuesta de las acciones ENTRANTES de WLO. */

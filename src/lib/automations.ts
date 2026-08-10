@@ -17,6 +17,7 @@ export type AutomationTrigger = 'status_changed' | 'assigned' | 'task_created' |
 
 export type AutomationActionType =
   | 'assign' | 'move_status' | 'move_sprint' | 'notify' | 'chat_post' | 'emailer_enroll'
+  | 'emailer_send_campaign'
 
 export interface AutomationAction {
   type: AutomationActionType
@@ -39,6 +40,14 @@ export interface AutomationAction {
    * nadie: adivinar el destinatario de un correo de marketing no es una opcion.
    */
   email?: string
+  /** emailer_send_campaign: nombre de la campana (default: titulo de la tarea). */
+  campaign_title?: string | null
+  /** emailer_send_campaign: asunto del correo. */
+  campaign_subject?: string | null
+  /** emailer_send_campaign: HTML de la campana que WLI va a publicar. */
+  campaign_html?: string | null
+  /** emailer_send_campaign: ID de la base (lista) a la que se envia. */
+  campaign_list_id?: string | null
 }
 
 export interface AutomationCondition {
@@ -280,6 +289,57 @@ async function runActions(
           if (!r.ok) console.error('[automations] emailer_enroll', rule.id, r.error)
           break
         }
+
+        // ── Publicar una campana en el Emailer de WLI ────────────────────────
+        // Segunda accion que sale de WLO. Manda el HTML de una campana a WLI
+        // para que la configure, la publique en la base elegida y devuelva el
+        // reporte (cuando se publico, a que base y cuantos envios). Ese reporte
+        // se guarda en la propia regla para verlo desde el panel. Riesgo alto a
+        // proposito: publicar dispara correo a una lista real, por eso exige
+        // base y HTML explicitos y no adivina nada.
+        case 'emailer_send_campaign': {
+          const html = (action.campaign_html ?? '').trim()
+          const listId = (action.campaign_list_id ?? '').trim()
+          if (!html || !listId) break
+
+          const { callConnector } = await import('@/lib/connectors/outbound')
+          const r = await callConnector({
+            app: 'wli',
+            action: 'emailer/create_campaign',
+            payload: {
+              title: (action.campaign_title ?? '').trim().slice(0, 160) || task.title.slice(0, 160),
+              subject: (action.campaign_subject ?? '').trim().slice(0, 300) || undefined,
+              html,
+              list_id: listId,
+              workspace_id: task.workspace_id,
+              task_id: task.id,
+              task_title: task.title,
+            },
+            admin,
+            workspaceId: task.workspace_id,
+          })
+
+          const data = (r.data ?? {}) as {
+            campaign_id?: unknown; status?: unknown; published_at?: unknown
+            list_id?: unknown; list_name?: unknown; sent_count?: unknown
+          }
+          const reporte = {
+            at: nowIso,
+            ok: r.ok,
+            campaign_id: data.campaign_id ?? null,
+            status: data.status ?? null,
+            published_at: data.published_at ?? null,
+            list_id: data.list_id ?? listId,
+            list_name: data.list_name ?? null,
+            sent_count: data.sent_count ?? null,
+            error: r.ok ? null : (r.error ?? 'sin detalle'),
+          }
+          await admin.from('automations')
+            .update({ last_campaign_report: reporte })
+            .eq('id', rule.id)
+          if (!r.ok) console.error('[automations] emailer_send_campaign', rule.id, r.error)
+          break
+        }
       }
     } catch (e) {
       console.error('[automations] accion fallo', rule.id, action.type, e)
@@ -326,4 +386,4 @@ export async function runAutomations(opts: {
 export const AUTOMATION_TRIGGERS: AutomationTrigger[] =
   ['status_changed', 'assigned', 'task_created', 'due']
 export const AUTOMATION_ACTION_TYPES: AutomationActionType[] =
-  ['assign', 'move_status', 'move_sprint', 'notify', 'chat_post', 'emailer_enroll']
+  ['assign', 'move_status', 'move_sprint', 'notify', 'chat_post', 'emailer_enroll', 'emailer_send_campaign']
