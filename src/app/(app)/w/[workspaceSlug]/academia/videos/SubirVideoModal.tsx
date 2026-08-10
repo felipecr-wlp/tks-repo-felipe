@@ -12,8 +12,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { X, UploadCloud, Loader2, Plus, Trash2 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { subirConProgreso } from '@/lib/academy/subida'
 import {
   MAX_CAPITULOS,
   MAX_INTERACCIONES,
@@ -118,7 +118,7 @@ async function pedirUploadUrl(file: File, kind: 'video' | 'thumb') {
   })
   const json = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(json.error ?? 'Error al preparar la subida')
-  return json as { path: string; token: string; bucket: string }
+  return json as { path: string; token: string; bucket: string; signedUrl: string }
 }
 
 export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
@@ -133,6 +133,9 @@ export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
   const [interacciones, setInteracciones] = useState<FilaInteraccion[]>([])
   const [publicar, setPublicar] = useState(true)
   const [ocupado, setOcupado] = useState(false)
+  // Progreso de subida: null = no hay subida en vuelo.
+  const [progreso, setProgreso] = useState<number | null>(null)
+  const [fase, setFase] = useState('')
   const dialogRef = useRef<HTMLDivElement>(null)
 
   // Cerrar con Escape, como el resto de los modales de la app.
@@ -198,24 +201,37 @@ export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
 
     setOcupado(true)
     try {
-      const supabase = createClient()
       const duracion = await leerDuracion(archivo)
 
+      setFase(t('academyV.phaseVideo'))
+      setProgreso(0)
       const firmaVideo = await pedirUploadUrl(archivo, 'video')
-      const up1 = await supabase.storage
-        .from(firmaVideo.bucket)
-        .uploadToSignedUrl(firmaVideo.path, firmaVideo.token, archivo)
-      if (up1.error) throw new Error(up1.error.message)
+      const r1 = await subirConProgreso({
+        url: firmaVideo.signedUrl.split('?')[0],
+        token: firmaVideo.token,
+        archivo,
+        onProgreso: setProgreso,
+      })
+      // El error ya viene traducido y con el siguiente paso: se lanza tal cual.
+      if (!r1.ok) throw new Error(r1.error)
 
       let thumbnailPath: string | null = null
       if (miniatura && THUMB_MIME_ALLOWLIST.has(miniatura.type)) {
+        setFase(t('academyV.phaseThumb'))
+        setProgreso(0)
         const firmaThumb = await pedirUploadUrl(miniatura, 'thumb')
-        const up2 = await supabase.storage
-          .from(firmaThumb.bucket)
-          .uploadToSignedUrl(firmaThumb.path, firmaThumb.token, miniatura)
-        if (up2.error) throw new Error(up2.error.message)
+        const r2 = await subirConProgreso({
+          url: firmaThumb.signedUrl.split('?')[0],
+          token: firmaThumb.token,
+          archivo: miniatura,
+          onProgreso: setProgreso,
+        })
+        if (!r2.ok) throw new Error(r2.error)
         thumbnailPath = firmaThumb.path
       }
+
+      setFase(t('academyV.phaseRegister'))
+      setProgreso(null)
 
       const res = await fetch('/api/academy/videos', {
         method: 'POST',
@@ -239,8 +255,13 @@ export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
       toast.success(t('academyV.uploaded'))
       onDone()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('academyV.uploadFailed'))
+      // Sin duracion (toast por defecto ~4s) porque el mensaje del tamaño
+      // dice DONDE cambiar el ajuste: si se va solo, hay que reintentar para
+      // volver a leerlo.
+      toast.error(e instanceof Error ? e.message : t('academyV.uploadFailed'), { duration: 15000 })
       setOcupado(false)
+      setProgreso(null)
+      setFase('')
     }
   }
 
@@ -485,7 +506,21 @@ export function SubirVideoModal({ stacks, onClose, onDone }: Props) {
           </label>
 
           {ocupado && (
-            <p className="text-xs text-amber-600 dark:text-amber-500">{t('academyV.uploading')}</p>
+            <div className="rounded-lg border border-border bg-muted/40 p-3">
+              <div className="mb-1.5 flex items-center justify-between text-xs">
+                <span className="font-medium text-foreground">{fase || t('academyV.uploading')}</span>
+                {progreso !== null && <span className="font-mono text-muted-foreground">{progreso}%</span>}
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                {/* Indeterminada mientras no hay porcentaje (leyendo duracion,
+                    registrando): una barra en 0% parece atorada. */}
+                <div
+                  className={`h-full rounded-full bg-primary transition-all ${progreso === null ? 'animate-pulse w-full opacity-40' : ''}`}
+                  style={progreso !== null ? { width: `${progreso}%` } : undefined}
+                />
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">{t('academyV.dontClose')}</p>
+            </div>
           )}
 
           <div className="flex justify-end gap-2 pt-1">

@@ -70,5 +70,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Error al preparar la subida' }, { status: 500 })
   }
 
-  return NextResponse.json({ path, token: signed.token, bucket: VIDEO_BUCKET }, { status: 201 })
+  // Se devuelve tambien la URL COMPLETA firmada: el cliente sube con XHR para
+  // tener barra de progreso, y armar esa URL a mano en el navegador seria
+  // duplicar el formato del endpoint de storage en dos lugares.
+  return NextResponse.json({
+    path,
+    token: signed.token,
+    bucket: VIDEO_BUCKET,
+    signedUrl: signed.signedUrl,
+  }, { status: 201 })
 }

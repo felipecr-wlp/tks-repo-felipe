@@ -8,18 +8,19 @@
  * "Guardar" al final: un panel con cuarenta campos y un solo boton es un
  * panel donde alguien edita diez cosas, se va, y las pierde todas.
  */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   GraduationCap, Layers, Route as RouteIcon, Clapperboard,
-  Plus, Trash2, ExternalLink, AlertTriangle,
+  Plus, Trash2, ExternalLink, AlertTriangle, Stethoscope, CheckCircle2, Info,
 } from 'lucide-react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import type {
   EscuelaAcademia, RutaAcademia, StackAcademia, VideoAcademia,
 } from '@/lib/academy/videos'
+import { diagnosticar } from '@/lib/academy/diagnostico'
 
 interface Props {
   workspaceSlug: string
@@ -29,7 +30,7 @@ interface Props {
   videos: VideoAcademia[]
 }
 
-type Pestana = 'escuelas' | 'stacks' | 'rutas' | 'videos'
+type Pestana = 'escuelas' | 'stacks' | 'rutas' | 'videos' | 'pruebas'
 
 export function PanelAcademia({ workspaceSlug, escuelas, stacks, rutas, videos }: Props) {
   const t = useT()
@@ -60,11 +61,17 @@ export function PanelAcademia({ workspaceSlug, escuelas, stacks, rutas, videos }
     }
   }
 
+  // Diagnostico en memoria: usa los metadatos que la pagina ya cargo, asi que
+  // abrirlo cien veces no descarga un solo byte de video (cero egress).
+  const hallazgos = useMemo(() => diagnosticar(videos, rutas), [videos, rutas])
+  const errores = hallazgos.filter((h) => h.gravedad === 'error').length
+
   const TABS: Array<{ id: Pestana; icono: typeof Layers; texto: string; n: number }> = [
     { id: 'escuelas', icono: GraduationCap, texto: t('academyP.schools'), n: escuelas.length },
     { id: 'stacks', icono: Layers, texto: t('academyP.stacks'), n: stacks.length },
     { id: 'rutas', icono: RouteIcon, texto: t('academyR.routes'), n: rutas.length },
     { id: 'videos', icono: Clapperboard, texto: t('academyP.videos'), n: videos.length },
+    { id: 'pruebas', icono: Stethoscope, texto: t('academyP.tests'), n: hallazgos.length },
   ]
 
   return (
@@ -279,6 +286,60 @@ export function PanelAcademia({ workspaceSlug, escuelas, stacks, rutas, videos }
               </Link>
             </div>
           ))}
+        </div>
+      )}
+      {pestana === 'pruebas' && (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-border bg-muted/40 p-3">
+            <p className="text-sm font-medium text-foreground">{t('academyP.testsTitle')}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t('academyP.testsHint')}</p>
+          </div>
+
+          {hallazgos.length === 0 ? (
+            <p className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+              <CheckCircle2 className="h-5 w-5 shrink-0" /> {t('academyP.allGood')}
+            </p>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">
+                {errores} {t('academyP.errors')} · {hallazgos.length - errores} {t('academyP.warnings')}
+              </p>
+              {hallazgos.map((h, i) => (
+                <div
+                  key={i}
+                  className={`rounded-lg border p-3 ${
+                    h.gravedad === 'error'
+                      ? 'border-red-500/40 bg-red-500/5'
+                      : 'border-amber-500/40 bg-amber-500/5'
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    {h.gravedad === 'error'
+                      ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+                      : <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground">{h.titulo}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{h.arreglo}</p>
+                      <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                        {t('academyP.in')}: <strong>{h.donde}</strong>
+                      </p>
+                    </div>
+                    {(h.videoId || h.pathId) && (
+                      <Link
+                        href={h.videoId
+                          ? `/w/${workspaceSlug}/academia/videos/${h.videoId}`
+                          : `/w/${workspaceSlug}/academia/rutas/${h.pathId}`}
+                        className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-muted"
+                        aria-label={t('academyP.open')}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>
