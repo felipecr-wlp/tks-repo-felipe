@@ -66,6 +66,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // ── Conectores entrantes: pass-through ────────────────────
+  // Las llamadas app a app NO traen sesión de navegador: se autentican con la
+  // key de conector (Authorization: Bearer pck_...) y la ruta valida la key, el
+  // scope y anota en la bitácora. Si el middleware las interceptara, toda
+  // herramienta externa (p.ej. wlo-flow) caería en un 307 hacia /login.
+  if (pathname.startsWith('/api/connectors/call')) {
+    return NextResponse.next()
+  }
+
   // ── Assets estáticos: pass-through ───────────────────────
   if (
     pathname.startsWith('/_next') ||
