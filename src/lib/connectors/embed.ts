@@ -72,8 +72,11 @@ export function buildEmbedUrl(
     installId: string
     /** Info del usuario que abrio la herramienta. No es secreta: los miembros
      *  del workspace ya pueden verse entre ellos. Va en la URL para que la
-     *  herramienta sepa quien la usa sin necesidad de token ni API. */
-    user?: { name: string | null; email: string | null; role: string | null }
+     *  herramienta sepa quien la usa sin necesidad de token ni API. El userId
+     *  es el profile_id: las herramientas que guardan contenido por usuario
+     *  (flujos, documentos) necesitan una identidad estable para marcar al
+     *  dueno, y el nombre por si solo se repite entre personas. */
+    user?: { userId: string | null; name: string | null; email: string | null; role: string | null }
     /** Miembros del workspace para compartir. Se pasan aqui para que la
      *  herramienta no tenga que llamar a la API de conectores para algo que
      *  WLO ya sabe. La lista se trunca a 50 miembros. */
@@ -93,6 +96,7 @@ export function buildEmbedUrl(
   u.searchParams.set('install_id', params.installId)
 
   if (params.user) {
+    if (params.user.userId) u.searchParams.set('user_id', params.user.userId)
     if (params.user.name) u.searchParams.set('user_name', params.user.name)
     if (params.user.role) u.searchParams.set('user_role', params.user.role)
   }

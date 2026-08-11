@@ -92,6 +92,7 @@ export default async function AppEmbedPage({
     workspaceId: ctx.workspace.id,
     installId: install.id,
     user: {
+      userId: ctx.userId,
       name: profileRow?.display_name ?? profileRow?.email ?? null,
       email: profileRow?.email ?? null,
       role: ctx.role,
