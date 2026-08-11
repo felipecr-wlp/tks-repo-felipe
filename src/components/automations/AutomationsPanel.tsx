@@ -356,16 +356,17 @@ function RuleBuilder({
         return a.sequence_id && a.email && a.email.trim()
           ? { type: 'emailer_enroll', sequence_id: a.sequence_id, email: a.email.trim() }
           : null
-      // HTML y base son obligatorios: crear sin saber a quien no existe, y la
-      // campana sin contenido no se puede armar. El titulo cae al de la tarea.
+      // El HTML es lo unico imprescindible: sin contenido no se puede armar la
+      // campana. La base es opcional, se elige al crear en WLI. El titulo cae
+      // al de la tarea.
       case 'emailer_send_campaign':
-        return a.campaign_html && a.campaign_html.trim() && a.campaign_list_id && a.campaign_list_id.trim()
+        return a.campaign_html && a.campaign_html.trim()
           ? {
               type: 'emailer_send_campaign',
               campaign_title: a.campaign_title?.trim(),
               campaign_subject: a.campaign_subject?.trim(),
               campaign_html: a.campaign_html,
-              campaign_list_id: a.campaign_list_id.trim(),
+              campaign_list_id: a.campaign_list_id?.trim() || null,
               campaign_send: !!a.campaign_send,
             }
           : null
@@ -534,7 +535,7 @@ function RuleBuilder({
                     <input
                       value={a.campaign_list_id ?? ''}
                       onChange={e => updateAction(i, { campaign_list_id: e.target.value })}
-                      placeholder="ID de la base (lista) a la que se envía"
+                      placeholder="ID de la base (lista), opcional. Se elige al crear"
                       className={cn(selectCls, 'sm:col-span-2')}
                     />
                     <label className="sm:col-span-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -593,6 +594,7 @@ function RuleBuilder({
         {actions.some(a => a.type === 'emailer_send_campaign') && (
           <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
             Por defecto la campaña se <span className="font-medium text-foreground">crea en borrador sin enviar correos</span>.
+            La base es opcional: si la dejas vacía, se elige al crear la campaña en WLI.
             Solo si marcas «Enviar de inmediato», WLI la publica y la manda a toda la base indicada.
             El resultado (estado, base y envíos) aparece debajo de la regla al volver a este panel.
           </p>

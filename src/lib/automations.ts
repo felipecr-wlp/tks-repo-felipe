@@ -295,15 +295,16 @@ async function runActions(
 
         // ── Crear una campana en el Emailer de WLI ──────────────────────────
         // Segunda accion que sale de WLO. Manda el HTML de una campana a WLI
-        // para que la arme en la base elegida y devuelva el reporte (estado,
-        // base y envios). Por defecto WLI la deja en borrador SIN enviar correo;
-        // solo si la regla marca `campaign_send` la publica y la manda a la
-        // lista real. Riesgo alto a proposito: enviar dispara correo a una
-        // lista real, por eso exige base y HTML explicitos y no adivina nada.
+        // para que la arme y devuelva el reporte (estado, base y envios). La
+        // base es opcional: si la regla no la fija, WLI crea la campana sin
+        // lista y se elige despues. Por defecto WLI la deja en borrador SIN
+        // enviar correo; solo si la regla marca `campaign_send` la publica y la
+        // manda a la lista real. Riesgo alto a proposito: enviar dispara correo
+        // a una lista real, por eso exige HTML explicito y no adivina nada.
         case 'emailer_send_campaign': {
           const html = (action.campaign_html ?? '').trim()
+          if (!html) break
           const listId = (action.campaign_list_id ?? '').trim()
-          if (!html || !listId) break
 
           const { callConnector } = await import('@/lib/connectors/outbound')
           const r = await callConnector({
@@ -313,7 +314,7 @@ async function runActions(
               title: (action.campaign_title ?? '').trim().slice(0, 160) || task.title.slice(0, 160),
               subject: (action.campaign_subject ?? '').trim().slice(0, 300) || undefined,
               html,
-              list_id: listId,
+              ...(listId ? { list_id: listId } : {}),
               send: action.campaign_send === true,
               workspace_id: task.workspace_id,
               task_id: task.id,

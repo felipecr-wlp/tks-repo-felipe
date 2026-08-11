@@ -155,14 +155,26 @@ export async function callConnector(opts: {
       body: JSON.stringify(payload ?? {}),
       signal: control.signal,
       cache: 'no-store',
+      // No seguir redirecciones: WLI responde 307 hacia /login cuando su API de
+      // conectores esta cerrada, y seguir el redirect devuelve la pagina del
+      // login con 200. Eso se leia como exito con data null. Ademas evita
+      // reenviar el Bearer a un destino que nadie decidio llamar.
+      redirect: 'manual',
     })
 
     const cuerpo = (await res.json().catch(() => null)) as
       | { ok?: boolean; data?: unknown; error?: string }
       | null
 
-    if (!res.ok || cuerpo?.ok === false) {
-      const error = cuerpo?.error ?? `La llamada a ${app.toUpperCase()} fallo (${res.status})`
+    // Solo un JSON { ok: true } cuenta como exito. Un 200 con HTML (login, SPA,
+    // captcha) o una redireccion dejan `cuerpo` en null y se reportan como
+    // fallo en vez de como un exito vacio.
+    if (!res.ok || cuerpo === null || cuerpo?.ok === false) {
+      const error =
+        cuerpo?.error ??
+        (res.status >= 300 && res.status < 400
+          ? `${app.toUpperCase()} redirigio la llamada a otra pagina (${res.status}). Su API de conectores puede estar cerrada detras de un login.`
+          : `La llamada a ${app.toUpperCase()} fallo (${res.status})`)
       registrar(res.status, error)
       return { ok: false, status: res.status, data: null, error }
     }

@@ -45,7 +45,7 @@ export const APPS_DIAGNOSTICO: DiagnosticoAppMeta[] = [
     description: 'Emailer, secuencias y campanas.',
     urlEnvVar: 'WLI_CONNECTOR_URL',
     tokenEnvVar: 'WLI_CONNECTOR_TOKEN',
-    urlEsperada: 'https://wli-marketing.vercel.app',
+    urlEsperada: 'https://wli-marketing-os.vercel.app',
   },
   {
     id: 'wlo',
@@ -98,7 +98,7 @@ const ACCIONES_SALIENTES: Record<
       action: 'emailer/create_campaign',
       cuerpo: '{ "title": "Campaña de marzo", "subject": "Asunto", "html": "<p>Hola</p>", "list_id": "lst_...", "send": false, "workspace_id": "..." }',
       respuesta: '{ "campaign_id": "...", "status": "draft", "published_at": null, "list_id": "lst_...", "list_name": "Prospectos 2026", "sent_count": 0 }',
-      nota: 'La dispara el motor de automatizaciones de WLO (accion emailer_send_campaign). WLO solo entrega HTML y configuración; WLI arma la campaña en la base elegida y por defecto la deja en borrador SIN enviar. Si el payload lleva "send": true, WLI la publica y la envía. El reporte se guarda en la regla.',
+      nota: 'La dispara el motor de automatizaciones de WLO (accion emailer_send_campaign). WLO solo entrega HTML y configuración; WLI arma la campaña y por defecto la deja en borrador SIN enviar. "list_id" es opcional: sin lista se elige al crear. Si el payload lleva "send": true, WLI la publica y la envía. El reporte se guarda en la regla.',
     },
   ],
 }
@@ -126,9 +126,9 @@ const EJEMPLOS_ENTRANTES: Record<string, { cuerpo: string; respuesta: string; no
     nota: 'Lista de personas del workspace para poblar selectores.',
   },
   'emailer/send_campaign': {
-    cuerpo: '{ "title": "Campaña de marzo", "subject": "Asunto", "html": "<p>Hola</p>", "list_id": "lst_...", "send": false }',
-    respuesta: '{ "campaign_id": "...", "status": "draft", "published_at": null, "list_id": "lst_...", "list_name": "Prospectos 2026", "sent_count": 0 }',
-    nota: 'Relevo entrante: una herramienta del marketplace le pide a WLO enviar una campana y WLO la reenvia a WLI con su token. El workspace se toma de la key, no del payload. "send": false (default) crea la campana en borrador sin enviar.',
+    cuerpo: '{ "title": "Campaña de marzo", "subject": "Asunto", "html": "<p>Hola</p>", "send": false }',
+    respuesta: '{ "campaign_id": "...", "status": "draft", "published_at": null, "list_id": null, "list_name": null, "sent_count": 0 }',
+    nota: 'Relevo entrante: una herramienta del marketplace le pide a WLO enviar una campana y WLO la reenvia a WLI con su token. El workspace se toma de la key, no del payload. "list_id" es opcional (se elige la base al crear en WLI). "send": false (default) crea la campana en borrador sin enviar.',
   },
 }
 
