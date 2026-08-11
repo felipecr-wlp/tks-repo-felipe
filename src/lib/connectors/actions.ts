@@ -11,6 +11,10 @@ import type { createAdminClient } from '@/lib/supabase/server'
  *
  * Este registro es la referencia del patron. WLI y WLM tendran su propio registro
  * equivalente en sus repos (leads:create, bid:review, etc.).
+ *
+ * Algunas acciones son RELEVOS: reciben la intencion de una herramienta y la
+ * reenvian a otra app con el token que solo vive en el servidor de WLO. El
+ * workspace siempre se toma de la key, nunca del payload.
  */
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -118,11 +122,58 @@ const workspaceMembersAction: ActionDef = {
   },
 }
 
+// ── emailer/send_campaign: relevo entrante hacia WLI ─────────────────────────
+// Direccion nueva del contrato: una herramienta del marketplace (p.ej. wlo-flow)
+// le pide a WLO "envia esta campana" y WLO la reenvia a WLI con el token que
+// solo vive en su servidor. La herramienta nunca ve el secreto de WLI.
+//
+// El workspace se toma de la KEY, no del payload: una key pertenece a un
+// workspace y no puede disparar campanas en otros. WLI valida que list_id le
+// pertenezca a ese workspace.
+const emailerSendCampaignSchema = z.object({
+  title: z.string().max(160).trim().optional(),
+  subject: z.string().max(300).trim().optional(),
+  html: z.string().min(1).max(200_000),
+  list_id: z.string().min(1).max(200).trim(),
+  send: z.boolean().optional(),
+  task_id: z.string().max(200).optional(),
+  task_title: z.string().max(300).optional(),
+})
+
+const emailerSendCampaignAction: ActionDef = {
+  scope: 'emailer:relay_campaign',
+  schema: emailerSendCampaignSchema,
+  handler: async (payload, ctx) => {
+    if (!ctx.workspaceId) throw new Error('La key no tiene workspace asignado')
+    const p = payload as z.infer<typeof emailerSendCampaignSchema>
+    const { callConnector } = await import('@/lib/connectors/outbound')
+    const r = await callConnector({
+      app: 'wli',
+      action: 'emailer/create_campaign',
+      payload: {
+        title: p.title?.slice(0, 160) || 'Campana desde una herramienta',
+        subject: p.subject?.slice(0, 300) || undefined,
+        html: p.html,
+        list_id: p.list_id,
+        send: p.send === true,
+        workspace_id: ctx.workspaceId,
+        task_id: p.task_id,
+        task_title: p.task_title,
+      },
+      admin: ctx.admin,
+      workspaceId: ctx.workspaceId,
+    })
+    if (!r.ok) throw new Error(r.error ?? 'La llamada a WLI fallo')
+    return r.data
+  },
+}
+
 export const WLO_ACTIONS: Record<string, ActionDef> = {
   ping: pingAction,
   'notes/create': notesCreateAction,
   'workspace/read': workspaceReadAction,
   'workspace/members': workspaceMembersAction,
+  'emailer/send_campaign': emailerSendCampaignAction,
 }
 
 export function getAction(actionPath: string): ActionDef | undefined {

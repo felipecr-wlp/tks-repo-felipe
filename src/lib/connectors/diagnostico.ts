@@ -96,9 +96,9 @@ const ACCIONES_SALIENTES: Record<
   'emailer:send_campaign': [
     {
       action: 'emailer/create_campaign',
-      cuerpo: '{ "title": "Campaña de marzo", "subject": "Asunto", "html": "<p>Hola</p>", "list_id": "lst_...", "workspace_id": "..." }',
-      respuesta: '{ "campaign_id": "...", "status": "sent", "published_at": "2026-08-10T12:00:00Z", "list_id": "lst_...", "list_name": "Prospectos 2026", "sent_count": 120 }',
-      nota: 'La dispara el motor de automatizaciones de WLO (accion emailer_send_campaign). WLO solo entrega HTML y configuración; WLI configura y publica la campaña y devuelve cuándo se publicó, a qué base y cuántos envíos. El reporte se guarda en la regla.',
+      cuerpo: '{ "title": "Campaña de marzo", "subject": "Asunto", "html": "<p>Hola</p>", "list_id": "lst_...", "send": false, "workspace_id": "..." }',
+      respuesta: '{ "campaign_id": "...", "status": "draft", "published_at": null, "list_id": "lst_...", "list_name": "Prospectos 2026", "sent_count": 0 }',
+      nota: 'La dispara el motor de automatizaciones de WLO (accion emailer_send_campaign). WLO solo entrega HTML y configuración; WLI arma la campaña en la base elegida y por defecto la deja en borrador SIN enviar. Si el payload lleva "send": true, WLI la publica y la envía. El reporte se guarda en la regla.',
     },
   ],
 }
@@ -124,6 +124,11 @@ const EJEMPLOS_ENTRANTES: Record<string, { cuerpo: string; respuesta: string; no
     cuerpo: '{}',
     respuesta: '{ "members": [ { "id": "...", "name": "...", "role": "member" } ] }',
     nota: 'Lista de personas del workspace para poblar selectores.',
+  },
+  'emailer/send_campaign': {
+    cuerpo: '{ "title": "Campaña de marzo", "subject": "Asunto", "html": "<p>Hola</p>", "list_id": "lst_...", "send": false }',
+    respuesta: '{ "campaign_id": "...", "status": "draft", "published_at": null, "list_id": "lst_...", "list_name": "Prospectos 2026", "sent_count": 0 }',
+    nota: 'Relevo entrante: una herramienta del marketplace le pide a WLO enviar una campana y WLO la reenvia a WLI con su token. El workspace se toma de la key, no del payload. "send": false (default) crea la campana en borrador sin enviar.',
   },
 }
 

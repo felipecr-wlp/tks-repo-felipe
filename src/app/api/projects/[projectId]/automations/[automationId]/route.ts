@@ -31,6 +31,7 @@ const actionSchema = z.object({
   campaign_subject: z.string().max(300).trim().optional(),
   campaign_html:   z.string().max(200_000).optional(),
   campaign_list_id: z.string().max(200).trim().optional(),
+  campaign_send:   z.boolean().optional(),
 })
 const triggerConfigSchema = z.object({
   to_status_id:   z.string().uuid().optional(),

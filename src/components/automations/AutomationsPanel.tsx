@@ -33,6 +33,7 @@ interface Action {
   campaign_subject?: string | null
   campaign_html?: string | null
   campaign_list_id?: string | null
+  campaign_send?: boolean | null
 }
 
 interface Secuencia { id: string; name: string }
@@ -89,7 +90,7 @@ const ACTION_LABELS: Record<ActionKind, string> = {
   notify:      'Avisar a',
   chat_post:   'Publicar en el chat',
   emailer_enroll: 'Enrolar en secuencia (WLI)',
-  emailer_send_campaign: 'Publicar campaña (WLI)',
+  emailer_send_campaign: 'Crear campaña (WLI)',
 }
 
 export function AutomationsPanel({ projectId, workspaceId, statuses, members, sprints, initialRules }: Props) {
@@ -119,7 +120,7 @@ export function AutomationsPanel({ projectId, workspaceId, statuses, members, sp
       case 'notify':      return `avisar a ${a.recipient_id === 'assignee' ? 'el asignado' : memberName(a.recipient_id)}`
       case 'chat_post':   return `publicar en el chat`
       case 'emailer_enroll': return `enrolar ${a.email === '{email_tarea}' ? 'el correo de la tarea' : a.email} en una secuencia del Emailer`
-      case 'emailer_send_campaign': return `publicar la campaña «${a.campaign_title?.trim() || a.campaign_subject?.trim() || 'sin título'}» en el Emailer (base ${a.campaign_list_id})`
+      case 'emailer_send_campaign': return `${a.campaign_send ? 'publicar y enviar' : 'crear (sin enviar)'} la campaña «${a.campaign_title?.trim() || a.campaign_subject?.trim() || 'sin título'}» en el Emailer (base ${a.campaign_list_id})`
       default:            return a.type
     }
   }
@@ -230,8 +231,10 @@ export function AutomationsPanel({ projectId, workspaceId, statuses, members, sp
                     rule.last_campaign_report.ok ? 'text-muted-foreground' : 'text-amber-600'
                   )}>
                     {rule.last_campaign_report.ok
-                      ? `Último envío publicado el ${formatoFecha(rule.last_campaign_report.published_at)} a «${rule.last_campaign_report.list_name ?? rule.last_campaign_report.list_id}» (${rule.last_campaign_report.sent_count ?? 0} envíos)`
-                      : `Último intento de envío falló: ${rule.last_campaign_report.error ?? 'error desconocido'}`}
+                      ? (rule.last_campaign_report.published_at
+                          ? `Última campaña enviada el ${formatoFecha(rule.last_campaign_report.published_at)} a «${rule.last_campaign_report.list_name ?? rule.last_campaign_report.list_id}» (${rule.last_campaign_report.sent_count ?? 0} envíos)`
+                          : `Última campaña creada en borrador en «${rule.last_campaign_report.list_name ?? rule.last_campaign_report.list_id}» (${rule.last_campaign_report.status ?? 'sin enviar'})`)
+                      : `Último intento de campaña falló: ${rule.last_campaign_report.error ?? 'error desconocido'}`}
                   </p>
                 )}
               </div>
@@ -353,7 +356,7 @@ function RuleBuilder({
         return a.sequence_id && a.email && a.email.trim()
           ? { type: 'emailer_enroll', sequence_id: a.sequence_id, email: a.email.trim() }
           : null
-      // HTML y base son obligatorios: publicar sin saber a quien no existe, y la
+      // HTML y base son obligatorios: crear sin saber a quien no existe, y la
       // campana sin contenido no se puede armar. El titulo cae al de la tarea.
       case 'emailer_send_campaign':
         return a.campaign_html && a.campaign_html.trim() && a.campaign_list_id && a.campaign_list_id.trim()
@@ -363,6 +366,7 @@ function RuleBuilder({
               campaign_subject: a.campaign_subject?.trim(),
               campaign_html: a.campaign_html,
               campaign_list_id: a.campaign_list_id.trim(),
+              campaign_send: !!a.campaign_send,
             }
           : null
       default:            return null
@@ -533,6 +537,18 @@ function RuleBuilder({
                       placeholder="ID de la base (lista) a la que se envía"
                       className={cn(selectCls, 'sm:col-span-2')}
                     />
+                    <label className="sm:col-span-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={!!a.campaign_send}
+                        onChange={e => updateAction(i, { campaign_send: e.target.checked })}
+                        className="h-3.5 w-3.5"
+                      />
+                      Enviar de inmediato
+                      <span className="text-muted-foreground/70">
+                        (si no, la campaña queda en borrador sin enviar)
+                      </span>
+                    </label>
                     <div className="sm:col-span-2">
                       <button
                         type="button"
@@ -576,9 +592,9 @@ function RuleBuilder({
         )}
         {actions.some(a => a.type === 'emailer_send_campaign') && (
           <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-            <span className="font-medium text-foreground">Publicar dispara el correo.</span> WLO le manda este HTML a
-            WLI, que arma la campaña y la envía a toda la base indicada. El resultado (cuándo se publicó, a qué base y
-            cuántos envíos) aparece debajo de la regla al volver a este panel.
+            Por defecto la campaña se <span className="font-medium text-foreground">crea en borrador sin enviar correos</span>.
+            Solo si marcas «Enviar de inmediato», WLI la publica y la manda a toda la base indicada.
+            El resultado (estado, base y envíos) aparece debajo de la regla al volver a este panel.
           </p>
         )}
         {actions.length < 5 && (

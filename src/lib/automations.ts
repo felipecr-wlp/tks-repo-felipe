@@ -48,6 +48,9 @@ export interface AutomationAction {
   campaign_html?: string | null
   /** emailer_send_campaign: ID de la base (lista) a la que se envia. */
   campaign_list_id?: string | null
+  /** emailer_send_campaign: si esta marcado, WLI publica y envia la campana de
+   * inmediato. Sin marcar (default), WLI la crea en borrador sin enviar nada. */
+  campaign_send?: boolean | null
 }
 
 export interface AutomationCondition {
@@ -290,13 +293,13 @@ async function runActions(
           break
         }
 
-        // ── Publicar una campana en el Emailer de WLI ────────────────────────
+        // ── Crear una campana en el Emailer de WLI ──────────────────────────
         // Segunda accion que sale de WLO. Manda el HTML de una campana a WLI
-        // para que la configure, la publique en la base elegida y devuelva el
-        // reporte (cuando se publico, a que base y cuantos envios). Ese reporte
-        // se guarda en la propia regla para verlo desde el panel. Riesgo alto a
-        // proposito: publicar dispara correo a una lista real, por eso exige
-        // base y HTML explicitos y no adivina nada.
+        // para que la arme en la base elegida y devuelva el reporte (estado,
+        // base y envios). Por defecto WLI la deja en borrador SIN enviar correo;
+        // solo si la regla marca `campaign_send` la publica y la manda a la
+        // lista real. Riesgo alto a proposito: enviar dispara correo a una
+        // lista real, por eso exige base y HTML explicitos y no adivina nada.
         case 'emailer_send_campaign': {
           const html = (action.campaign_html ?? '').trim()
           const listId = (action.campaign_list_id ?? '').trim()
@@ -311,6 +314,7 @@ async function runActions(
               subject: (action.campaign_subject ?? '').trim().slice(0, 300) || undefined,
               html,
               list_id: listId,
+              send: action.campaign_send === true,
               workspace_id: task.workspace_id,
               task_id: task.id,
               task_title: task.title,

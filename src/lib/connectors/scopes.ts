@@ -59,6 +59,11 @@ export const SCOPE_CATALOG: ScopeDef[] = [
   { scope: 'workspace:read',         app: 'wlo', label: 'Leer datos basicos del workspace',   risk: 'bajo', estado: 'disponible' },
   { scope: 'workspace:members',      app: 'wlo', label: 'Ver los miembros del workspace',       risk: 'medio', estado: 'disponible' },
   { scope: 'automation:trigger',     app: 'wlo', label: 'Disparar una automatizacion',     risk: 'medio', estado: 'reservado' },
+  // Relevo a WLI: una herramienta del marketplace le pide a WLO "enviame esta
+  // campana" y WLO la reenvia a WLI con el token que solo vive en su servidor.
+  // La herramienta nunca ve el secreto de WLI. El workspace se toma de la key,
+  // no del payload: una key de un workspace no puede disparar en otros.
+  { scope: 'emailer:relay_campaign', app: 'wlo', label: 'Enviar campana a WLI (relevo)',    risk: 'alto', estado: 'disponible' },
   // Flujos. `flows:read` NUNCA alcanza un flujo privado ni uno compartido a una
   // persona: una herramienta del marketplace no es nadie del equipo, asi que no
   // hereda lo que a esa persona le compartieron. Solo ve lo que el workspace
