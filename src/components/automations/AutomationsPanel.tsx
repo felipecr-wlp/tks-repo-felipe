@@ -11,7 +11,7 @@
  */
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Plus, Trash2, Zap, X } from 'lucide-react'
+import { Plus, Trash2, Zap, X, Wifi } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/EmptyState'
 
@@ -284,6 +284,22 @@ function RuleBuilder({
   const [actions, setActions] = useState<Action[]>([{ type: 'assign', assignee_id: '' }])
   const [saving, setSaving] = useState(false)
 
+  // Resultado del boton "Probar conexion con WLI", por accion. Permite saber si
+  // el canal WLO -> WLI esta operativo ANTES de crear una regla que envie correo.
+  const [testWli, setTestWli] = useState<Record<number, { state: 'probando' | 'ok' | 'error'; texto: string }>>({})
+
+  async function probarConexionWli(i: number) {
+    setTestWli(t => ({ ...t, [i]: { state: 'probando', texto: 'Probando conexión con WLI…' } }))
+    try {
+      const res = await fetch(`/api/connectors/wli/check?workspace_id=${workspaceId}`)
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) setTestWli(t => ({ ...t, [i]: { state: 'ok', texto: data.detalle ?? 'Conectado a WLI.' } }))
+      else setTestWli(t => ({ ...t, [i]: { state: 'error', texto: data.error ?? 'No se pudo contactar a WLI.' } }))
+    } catch {
+      setTestWli(t => ({ ...t, [i]: { state: 'error', texto: 'No se pudo contactar a WLI.' } }))
+    }
+  }
+
   // Secuencias del Emailer de WLI. Se piden la PRIMERA vez que alguien elige la
   // accion de correo, no al abrir el panel: la mayoria de las reglas no tocan
   // WLI y no tiene sentido cobrarle a todas una llamada a otra app.
@@ -517,6 +533,25 @@ function RuleBuilder({
                       placeholder="ID de la base (lista) a la que se envía"
                       className={cn(selectCls, 'sm:col-span-2')}
                     />
+                    <div className="sm:col-span-2">
+                      <button
+                        type="button"
+                        onClick={() => probarConexionWli(i)}
+                        disabled={testWli[i]?.state === 'probando'}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                      >
+                        <Wifi className="w-3.5 h-3.5" />
+                        {testWli[i]?.state === 'probando' ? 'Probando…' : 'Probar conexión con WLI'}
+                      </button>
+                      {testWli[i] && testWli[i].state !== 'probando' && (
+                        <p className={cn(
+                          'text-[11px] mt-1',
+                          testWli[i].state === 'ok' ? 'text-green-600' : 'text-amber-600'
+                        )}>
+                          {testWli[i].texto}
+                        </p>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
