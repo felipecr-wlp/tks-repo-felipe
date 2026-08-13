@@ -37,7 +37,7 @@ export const EMBED_ORIGINS: string[] = origenes.origins
  *   - `allow-top-navigation`: no puede sacar a nadie de WLO a otra pagina.
  *   - `allow-popups-to-escape-sandbox`: lo que abra hereda el encierro.
  */
-export const EMBED_SANDBOX = 'allow-scripts allow-forms allow-popups allow-modals'
+export const EMBED_SANDBOX = 'allow-scripts allow-forms allow-popups allow-modals allow-downloads'
 
 /** Origen de una URL, o null si no es una URL https valida. */
 export function originOf(url: string): string | null {
