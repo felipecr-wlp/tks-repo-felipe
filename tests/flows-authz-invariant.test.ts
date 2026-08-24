@@ -298,7 +298,7 @@ describe('Flows: se puede llegar a privado y volver', () => {
     // usuario veria un boton que "no hace nada" y no sabria por que.
     expect(editor).toContain('esDuenno')
     expect(editor).toMatch(/disabled=\{!esDuenno/)
-    expect(detalle).toMatch(/esDuenno=\{flow\.created_by === user\.id\}/)
+    expect(detalle).toMatch(/const esDuenno = flow\.created_by === user\.id/)
   })
 
   it('la pantalla recibe el alcance real, no un supuesto', () => {

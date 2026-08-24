@@ -22,6 +22,7 @@ import { ArrowLeft, ShieldAlert } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getWorkspaceAdminContext } from '@/lib/workspace-admin'
 import { buildEmbedUrl, EMBED_SANDBOX, isEmbeddable } from '@/lib/connectors/embed'
+import { EmbedFrame } from '@/components/connectors/EmbedFrame'
 import { ALL_SCOPES, scopeDef } from '@/lib/connectors/scopes'
 import { analizarScope } from '@/lib/connectors/diagnostico'
 import { ToolInfoButton } from './ToolInfoButton'
@@ -147,11 +148,10 @@ export default async function AppEmbedPage({
       </div>
 
       {url ? (
-        <iframe
+        <EmbedFrame
           src={url}
           title={app.name}
           sandbox={EMBED_SANDBOX}
-          referrerPolicy="no-referrer"
           className="flex-1 w-full border-0"
         />
       ) : (

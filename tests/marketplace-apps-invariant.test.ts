@@ -38,7 +38,10 @@ import { ALL_SCOPES, scopeDef } from '@/lib/connectors/scopes'
 const raiz = process.cwd()
 const leer = (...p: string[]) => readFileSync(join(raiz, ...p), 'utf8')
 
-const nextConfig = leer('next.config.mjs')
+// El CSP ya no se arma al construir la app: el middleware consulta la base
+// (connector_apps aprobadas) y refresca cada 60s, para que aprobar una
+// herramienta no exija redeploy. La invariante vive ahi ahora.
+const middleware = leer('src', 'middleware.ts')
 const rutaInstalls = leer('src', 'app', 'api', 'connectors', 'installs', 'route.ts')
 const rutaInstall1 = leer('src', 'app', 'api', 'connectors', 'installs', '[installId]', 'route.ts')
 const rutaApps = leer('src', 'app', 'api', 'connectors', 'apps', 'route.ts')
@@ -56,14 +59,23 @@ describe('Marketplace: solo se embebe lo que el CSP permite', () => {
     }
   })
 
-  it('el CSP se arma con ESA lista, no con una copia escrita a mano', () => {
-    expect(nextConfig).toContain('embed-origins.json')
-    expect(nextConfig).toMatch(/frame-src[\s\S]*frameSrcOrigins/)
+  it('el frame-src del CSP se arma en el middleware desde la base, no a mano', () => {
+    // Garantia vieja: next.config.js leia embed-origins.json al construir.
+    // Ya no aplica: la lista vive en connector_apps y el middleware la consulta
+    // con cache de 60s, asi que aprobar una herramienta actualiza el CSP sin
+    // redeploy. Lo que no puede faltar es que ESA consulta filtre por aprobadas.
+    expect(middleware).toContain("from('connector_apps')")
+    expect(middleware).toContain(".eq('kind', 'embed')")
+    expect(middleware).toMatch(/eq\('status', 'approved'\)/)
+    expect(middleware).toMatch(/frame-src/)
   })
 
-  it('un origen fuera de la lista no es embebible', () => {
-    expect(isEmbeddable('https://evil.example.com/tool')).toBe(false)
-    expect(isEmbeddable(EMBED_ORIGINS[0] + '/tool')).toBe(true)
+  it('isEmbeddable solo pre-valida HTTPS; el candado real es el CSP', () => {
+    // La pertenencia a la lista ya no se comprueba aqui (el middleware la
+    // resuelve desde la base en cada request, con cache). Esta funcion existe
+    // para no intentar renderizar un iframe que el navegador va a bloquear,
+    // y para rechazar lo que jamas podria pasar el CSP: http plano.
+    expect(isEmbeddable('https://dominio-que-nadie-aprobo.example/tool')).toBe(true)
   })
 
   it('http no cuenta como origen valido', () => {
@@ -71,18 +83,17 @@ describe('Marketplace: solo se embebe lo que el CSP permite', () => {
     expect(isEmbeddable('http://wli-marketing-os.vercel.app')).toBe(false)
   })
 
-  it('embed_path no puede sacar el iframe a otro dominio', () => {
-    const base = EMBED_ORIGINS[0]
-    // Absoluta a otro dominio: se trata como ruta relativa, nunca como destino.
+  it('una ruta no puede sacar el iframe fuera del origen de la base', () => {
+    // La pertenencia a la allowlist ya no vive aqui (la decide el CSP del
+    // middleware). Lo que SI es invariante de esta funcion: ninguna ruta, ni
+    // absoluta a otro dominio ni protocolo-relativa, cambia el origen final.
+    const base = 'https://tool.ejemplo.test'
+    // Absoluta a otro dominio: se trata como texto del path, queda en el origen.
     const u1 = buildEmbedUrl(base, 'https://evil.example.com/x', { workspaceId: 'w', installId: 'i' })
     expect(u1 && new URL(u1).origin).toBe(base)
     // Protocolo relativo: `new URL('//evil...', origin)` SI cambiaria de origen.
     const u2 = buildEmbedUrl(base, '//evil.example.com/x', { workspaceId: 'w', installId: 'i' })
     expect(u2).toBeNull()
-  })
-
-  it('una base fuera de la allowlist no produce URL', () => {
-    expect(buildEmbedUrl('https://evil.example.com', '/x', { workspaceId: 'w', installId: 'i' })).toBeNull()
   })
 
   it('el sandbox nunca concede same-origin ni navegacion del padre', () => {
@@ -153,7 +164,8 @@ describe('Marketplace: un borrador no se instala', () => {
 
 describe('Marketplace: el token es de la instalacion y se guarda hasheado', () => {
   it('a la base va el hash, nunca el token', () => {
-    expect(rutaInstalls).toContain('token_hash: hashToken(token)')
+    expect(rutaInstalls).toContain('token_hash: tokenHasheado')
+    expect(rutaInstalls).toContain('hashToken(token)')
     expect(rutaInstalls).not.toMatch(/token_plain|token:\s*token,/)
   })
 

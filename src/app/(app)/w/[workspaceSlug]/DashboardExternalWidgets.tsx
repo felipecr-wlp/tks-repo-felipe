@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { buildEmbedUrl, EMBED_SANDBOX } from '@/lib/connectors/embed'
+import { EmbedFrame } from '@/components/connectors/EmbedFrame'
 import { ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 
@@ -72,11 +73,10 @@ export async function DashboardExternalWidgets({
             </div>
             <div className="bg-white" style={{ height: 320 }}>
               {w.url ? (
-                <iframe
+                <EmbedFrame
                   src={w.url}
                   title={w.name}
                   sandbox={EMBED_SANDBOX}
-                  referrerPolicy="no-referrer"
                   className="w-full h-full border-0"
                 />
               ) : (
